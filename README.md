@@ -14,7 +14,7 @@ Python 3.12 기반 AI 서버입니다. 기능은 두 개입니다.
 
 | 기능 | 내용 |
 |---|---|
-| 영수증 OCR | 영수증 이미지에서 품목·금액·날짜를 추출하고 상호명·품목명을 정규화합니다 |
+| 영수증 OCR | 영수증 사진 1장에서 구매일과 식재료 품목명을 추출합니다. 금액·개수·상호명은 뽑지 않습니다 |
 | 추천 | 소비 데이터로 후보를 만들고 점수를 매겨 상위 N개와 설명을 반환합니다 |
 
 **스택**: Python 3.12 · uv · PostgreSQL 16.15 · PaddleOCR PP-OCRv5(`lang='korean'`) · Gemini 3.5 Flash Lite
@@ -36,6 +36,12 @@ uv run uvicorn main:create_app --factory --reload   # 개발 서버 실행
 
 ```bash
 uv run ruff check . && uv run ruff format --check . && uv run mypy src && uv run pytest tests/unit
+```
+
+통합 테스트는 실제 OCR 모델을 올려 느리므로 기본 실행에서 빠집니다. 파이프라인 배선을 바꿨다면 아래를 함께 돌립니다.
+
+```bash
+uv run pytest -m integration --no-cov
 ```
 
 ---
