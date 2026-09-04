@@ -14,6 +14,8 @@ ENV = {
     "DB_USER": "tester",
     "DB_PASSWORD": "secret",
     "LOG_LEVEL": "DEBUG",
+    "INTERNAL_API_KEY": "test-internal-key",
+    "GEMINI_API_KEY": "test-gemini-key",
 }
 
 

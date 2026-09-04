@@ -1,0 +1,10 @@
+{
+    // 디렉터리 구조 리스트에서 감출 수 있음
+    "files.exclude": {
+        "**/__pycache__": true,
+        "**/*.pyc": true,
+        "**/.mypy_cache": true,
+        "**/.pytest_cache": true,
+        "**/.ruff_cache": true
+    }
+}
