@@ -1,0 +1,51 @@
+# 요리 계열 분류 사전 → cuisine_taxonomy 테이블 (문서 2-3-1)
+#
+# 2계층: family(거친 축, 다양성 제어) ← cuisine(세분 축, 표시·필터)
+# ⚠️ 분류 규칙 구현은 보류. 크롤링 데이터 분포 확인 후 착수한다.
+#    분포가 나쁜 fine 값은 active: false 로 접는다 (스키마 변경 불필요).
+
+taxonomy:
+  - {code: korean,          family: korean,       label_ko: 한식,        label_en: Korean,          active: true,  sort_order: 10}
+
+  - {code: chinese,         family: chinese,      label_ko: 중식,        label_en: Chinese,         active: true,  sort_order: 20}
+  - {code: korean_chinese,  family: chinese,      label_ko: 한국식 중화, label_en: Korean-Chinese,  active: true,  sort_order: 21}
+
+  - {code: japanese,        family: japanese,     label_ko: 일식,        label_en: Japanese,        active: true,  sort_order: 30}
+  - {code: izakaya,         family: japanese,     label_ko: 이자카야,    label_en: Izakaya,         active: false, sort_order: 31}
+
+  - {code: italian,         family: western,      label_ko: 이탈리안,    label_en: Italian,         active: true,  sort_order: 40}
+  - {code: french,          family: western,      label_ko: 프렌치,      label_en: French,          active: false, sort_order: 41}
+  - {code: american,        family: western,      label_ko: 아메리칸,    label_en: American,        active: true,  sort_order: 42}
+  - {code: mexican,         family: western,      label_ko: 멕시칸,      label_en: Mexican,         active: true,  sort_order: 43}
+  - {code: spanish,         family: western,      label_ko: 스페인,      label_en: Spanish,         active: false, sort_order: 44}
+  - {code: mediterranean,   family: western,      label_ko: 지중해,      label_en: Mediterranean,   active: false, sort_order: 45}
+
+  - {code: thai,            family: asian_other,  label_ko: 태국,        label_en: Thai,            active: true,  sort_order: 50}
+  - {code: vietnamese,      family: asian_other,  label_ko: 베트남,      label_en: Vietnamese,      active: true,  sort_order: 51}
+  - {code: indian,          family: asian_other,  label_ko: 인도,        label_en: Indian,          active: false, sort_order: 52}
+
+  - {code: fusion,          family: fusion,       label_ko: 퓨전,        label_en: Fusion,          active: true,  sort_order: 60}
+
+# ⚠️ 비대칭 주의 (문서 2-3-1)
+#   mexican 을 western family 에 넣은 것은 요리 전통이 아니라 "한국인의 인식 범주"를 따른 결정이다.
+#   family = 인식 범주 / fine = 실제 전통. 이 비대칭을 모르면 반드시 재논쟁이 생긴다.
+#
+# active: false 인 6종은 초기 비활성이다. 크롤링 분포에서 각 200건 이상 확인되면 켠다.
+
+# ── 분류 규칙 (구현 보류. 착수 시 이 뼈대에서 시작) ─────────
+rules_draft:
+  by_source_category:            # ① 원본 종류별 축 직접 매핑 · conf 0.9
+    양식: western
+    퓨전: fusion
+  by_signature_ingredients:      # ② 시그니처 재료 집합 교집합 · conf 0.7
+    korean:          [고춧가루, 고추장, 된장, 참기름, 국간장, 다진마늘]
+    japanese:        [미소된장, 미림, 가쓰오부시, 폰즈소스, 낫토, 유자청]
+    chinese:         [두반장, 굴소스, 춘장, 화자오, 노두유]
+    western:         [올리브유, 버터, 생크림, 파마산치즈, 바질, 오레가노]
+    southeast_asian: [피시소스, 코코넛밀크, 고수, 레몬그라스, 스위트칠리소스]
+  by_title_keyword:              # ③ 제목 키워드 · conf 0.6
+    western: [파스타, 리조또, 스테이크, 그라탕, 샌드위치, 버거]
+    italian: [파스타, 리조또, 라자냐, 뇨끼]
+    japanese: [돈부리, 규동, 우동, 소바, 라멘, 오코노미야키]
+    chinese: [짜장, 짬뽕, 마파, 탕수, 깐풍]
+  fallback: null                 # ★전부 실패 → NULL. 억지로 채우지 않는다

@@ -1,0 +1,1846 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "aiServer",
+    "version": "v1"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/recommend": {
+      "post": {
+        "tags": [
+          "recommend"
+        ],
+        "summary": "Recommend",
+        "operationId": "recommend_v1_recommend_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecommendRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecommendResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/recommendations/{request_id}": {
+      "get": {
+        "tags": [
+          "recommend"
+        ],
+        "summary": "Get Log",
+        "operationId": "get_log_v1_recommendations__request_id__get",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecommendationLogOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/events": {
+      "post": {
+        "tags": [
+          "events"
+        ],
+        "summary": "Events",
+        "description": "행동 로그 수집.\n\n`impression` 은 클라이언트가 보내지 않습니다 — `/v1/recommend` 가 서버측에서\n자동 기록합니다 (설계 3-2). 클라이언트에 맡기면 새로고침·세션 만료로 누락되고,\n랭킹 학습의 negative 샘플이 사라집니다.",
+        "operationId": "events_v1_events_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventBatchIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventAck"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ingredients/search": {
+      "get": {
+        "tags": [
+          "search"
+        ],
+        "summary": "Search Ingredients",
+        "operationId": "search_ingredients_v1_ingredients_search_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Q"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 5,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngredientSearchOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/recipes/search": {
+      "get": {
+        "tags": [
+          "search"
+        ],
+        "summary": "Search Recipes",
+        "operationId": "search_recipes_v1_recipes_search_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Q"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "max_missing",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Max Missing"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeSearchOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/users/{user_id}/pantry": {
+      "get": {
+        "tags": [
+          "pantry"
+        ],
+        "summary": "Get Pantry",
+        "operationId": "get_pantry_v1_users__user_id__pantry_get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PantryOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "pantry"
+        ],
+        "summary": "Put Pantry",
+        "operationId": "put_pantry_v1_users__user_id__pantry_put",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PantryIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PantryOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/onboarding/{user_id}": {
+      "post": {
+        "tags": [
+          "onboarding"
+        ],
+        "summary": "Put Onboarding",
+        "description": "온보딩 5문항 저장. 가입 직후 1회.",
+        "operationId": "put_onboarding_v1_onboarding__user_id__post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OnboardingIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "EventAck": {
+        "properties": {
+          "accepted": {
+            "type": "integer",
+            "title": "Accepted",
+            "description": "보낸 건수 − rejected. 저장 성공 개수가 아니다"
+          },
+          "rejected": {
+            "type": "integer",
+            "title": "Rejected",
+            "default": 0
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "accepted"
+        ],
+        "title": "EventAck"
+      },
+      "EventBatchIn": {
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/EventIn"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Events"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "events"
+        ],
+        "title": "EventBatchIn"
+      },
+      "EventIn": {
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "event_type": {
+            "$ref": "#/components/schemas/EventType"
+          },
+          "recipe_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipe Id"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value",
+            "description": "rating 점수 · dwell time(sec)"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Id",
+            "description": "🔴 없으면 학습 라벨과 추천 로그를 이을 수 없다"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position",
+            "description": "🔴 없으면 position bias 보정이 영구 불가. **1-base** — final_rank 와 동일 기준"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[cgd]-"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id",
+            "description": "클라이언트가 발급. 30분 무활동 시 갱신"
+          },
+          "context": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "user_id",
+          "event_type"
+        ],
+        "title": "EventIn",
+        "description": "impression 은 서버가 자동 기록한다 (설계 3-2). 클라이언트는 보내지 않는다."
+      },
+      "EventType": {
+        "type": "string",
+        "enum": [
+          "impression",
+          "click",
+          "save",
+          "unsave",
+          "cook",
+          "rating",
+          "dismiss",
+          "search"
+        ],
+        "title": "EventType",
+        "description": "추가는 가능, **변경·삭제는 불가**. 소급이 안 된다."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "ok"
+          },
+          "contract_version": {
+            "type": "string",
+            "title": "Contract Version",
+            "default": "v1"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
+          },
+          "db": {
+            "type": "boolean",
+            "title": "Db",
+            "default": true
+          },
+          "redis": {
+            "type": "boolean",
+            "title": "Redis",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "HealthOut"
+      },
+      "IngredientHit": {
+        "properties": {
+          "ingredient_id": {
+            "type": "integer",
+            "title": "Ingredient Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "method": {
+            "type": "string",
+            "title": "Method",
+            "description": "exact | alias | jamo_trgm"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ingredient_id",
+          "name",
+          "score",
+          "method"
+        ],
+        "title": "IngredientHit"
+      },
+      "IngredientSearchOut": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "hits": {
+            "items": {
+              "$ref": "#/components/schemas/IngredientHit"
+            },
+            "type": "array",
+            "title": "Hits"
+          },
+          "not_found_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Not Found Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "query",
+          "hits"
+        ],
+        "title": "IngredientSearchOut"
+      },
+      "OnboardingIn": {
+        "properties": {
+          "picks": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Picks"
+          },
+          "scales": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 3,
+            "minItems": 3,
+            "title": "Scales"
+          },
+          "allergy_groups": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Allergy Groups"
+          },
+          "allergy_ingredient_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Allergy Ingredient Ids"
+          },
+          "avoid_ingredient_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 3,
+            "title": "Avoid Ingredient Ids"
+          },
+          "household_size": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Household Size"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "picks",
+          "scales"
+        ],
+        "title": "OnboardingIn",
+        "description": "온보딩 5문항 응답 (S0 ② 확정 문항).\n\n🔴 **선택한 레시피와 척도 원본을 그대로 받는다.** `taste_vec` 은 이것들의\n   평균이라 결과만 저장하면 **다시 계산할 수 없다** — 시드가 바뀌면\n   `flavor_vec` 이 바뀌고 `taste_vec` 도 따라 바뀌어야 하는데, 원본이 없으면\n   유저를 다시 모아야 한다 (실제로 09-02 에 시드 2건을 고쳤다).\n   저장 위치는 `user_vector.onboarding_picks` · `onboarding_scales`."
+      },
+      "OnboardingOut": {
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "taste_vec": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "minItems": 6,
+            "title": "Taste Vec"
+          },
+          "n_blocked_ingredients": {
+            "type": "integer",
+            "title": "N Blocked Ingredients"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "user_id",
+          "taste_vec",
+          "n_blocked_ingredients"
+        ],
+        "title": "OnboardingOut",
+        "description": "저장 결과. 프론트는 완료 여부만 알면 된다."
+      },
+      "PantryIn": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PantryItemIn"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "removed": {
+            "items": {
+              "$ref": "#/components/schemas/PantryRemoval"
+            },
+            "type": "array",
+            "title": "Removed"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "PantryIn"
+      },
+      "PantryItemIn": {
+        "properties": {
+          "ingredient_id": {
+            "type": "integer",
+            "title": "Ingredient Id"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "purchased_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purchased At",
+            "description": "구매일. 소비기한 추정의 기준점"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At",
+            "description": "소비기한. 안 주면 purchased_at + 재료별 일수로 추정"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ingredient_id"
+        ],
+        "title": "PantryItemIn"
+      },
+      "PantryItemOut": {
+        "properties": {
+          "ingredient_id": {
+            "type": "integer",
+            "title": "Ingredient Id"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "purchased_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purchased At",
+            "description": "구매일. 소비기한 추정의 기준점"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At",
+            "description": "소비기한. 안 주면 purchased_at + 재료별 일수로 추정"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "days_left": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Left"
+          },
+          "is_staple": {
+            "type": "boolean",
+            "title": "Is Staple",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ingredient_id",
+          "name"
+        ],
+        "title": "PantryItemOut"
+      },
+      "PantryOut": {
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PantryItemOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "staple_count": {
+            "type": "integer",
+            "title": "Staple Count",
+            "description": "자동 포함된 staple 수. 유저가 등록한 것이 아님 (결정 2)"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "user_id",
+          "items",
+          "staple_count"
+        ],
+        "title": "PantryOut"
+      },
+      "PantryRemoval": {
+        "properties": {
+          "ingredient_id": {
+            "type": "integer",
+            "title": "Ingredient Id"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "consumed",
+              "discarded",
+              "unknown"
+            ],
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ingredient_id",
+          "reason"
+        ],
+        "title": "PantryRemoval",
+        "description": "사라진 재료 하나와 그 사유 (S0 ⑤ · 2026-09-02).\n\n🔴 **UI 방식을 서버가 알 필요 없다.** 버튼 두 개로 받든 저장 후 모달로 받든\n클라이언트 사정이고, 서버는 사유만 받는다. 그래야 UI 를 바꿔도 API 가 안 바뀐다."
+      },
+      "RankedItem": {
+        "properties": {
+          "recipe_id": {
+            "type": "integer",
+            "title": "Recipe Id"
+          },
+          "missing_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Missing Count"
+          },
+          "missing_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Missing Ids"
+          },
+          "coverage": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Coverage"
+          },
+          "cluster_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cluster Id"
+          },
+          "features": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Features",
+            "description": "피처 원값 17종. w 와 무관하게 항상 전부 기록한다"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "penalty": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Penalty",
+            "description": "p_recent · p_cooked · (1-p_avoid) 의 곱",
+            "default": 1.0
+          },
+          "final_rank": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Final Rank"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "description": "템플릿 생성 문구 (설계 5-5)",
+            "default": ""
+          },
+          "reason_features": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reason Features",
+            "description": "이유를 만든 피처 (z-salience 상위). 디버거가 근거를 보여준다"
+          },
+          "mmr_penalty": {
+            "type": "number",
+            "title": "Mmr Penalty",
+            "default": 0.0
+          },
+          "is_exploration": {
+            "type": "boolean",
+            "title": "Is Exploration",
+            "description": "무작위 삽입 슬롯. position bias 보정의 기준점 (설계 5-3-3)",
+            "default": false
+          },
+          "propensity": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Propensity",
+            "description": "노출 확률. exploration 슬롯은 1/|pool|, 결정적 슬롯은 1.0"
+          },
+          "explore_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explore Source",
+            "description": "uniform | thompson | None(탐색 슬롯이 아님)"
+          },
+          "team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "recipe_id",
+          "missing_count",
+          "coverage",
+          "features",
+          "score",
+          "final_rank"
+        ],
+        "title": "RankedItem",
+        "description": "③ 산출. 유저에게 나가는 최종 형태."
+      },
+      "RecipeHit": {
+        "properties": {
+          "recipe_id": {
+            "type": "integer",
+            "title": "Recipe Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score",
+            "description": "쿼리와의 코사인 유사도"
+          },
+          "cuisine": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cuisine"
+          },
+          "cook_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cook Minutes"
+          },
+          "missing_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Count"
+          },
+          "missing_names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing Names"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "recipe_id",
+          "title",
+          "score"
+        ],
+        "title": "RecipeHit"
+      },
+      "RecipeSearchOut": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "hits": {
+            "items": {
+              "$ref": "#/components/schemas/RecipeHit"
+            },
+            "type": "array",
+            "title": "Hits"
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version",
+            "description": "임베딩 모델 버전"
+          },
+          "latency_ms": {
+            "type": "integer",
+            "title": "Latency Ms"
+          },
+          "degraded": {
+            "type": "boolean",
+            "title": "Degraded",
+            "description": "임베딩 인덱스 미구축 등으로 제목 검색으로 폴백했다",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "query",
+          "hits",
+          "model_version",
+          "latency_ms"
+        ],
+        "title": "RecipeSearchOut"
+      },
+      "RecommendRequest": {
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[cgd]-"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id",
+            "description": "클라이언트 발급 (c-{user}-{uuid12}). 30분 무활동 시 갱신"
+          },
+          "top_k": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Top K",
+            "default": 20
+          },
+          "max_missing": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Max Missing",
+            "default": 2
+          },
+          "max_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Minutes"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
+          },
+          "weight_override": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Override"
+          },
+          "interleave_with": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interleave With",
+            "description": "비교 대상 model_version. 지정 시 items[].team 이 채워진다"
+          },
+          "include_trace": {
+            "type": "boolean",
+            "title": "Include Trace",
+            "description": "False 면 응답에서 trace 를 빼고 DB 에는 그대로 남긴다",
+            "default": true
+          },
+          "context": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Context",
+            "description": "{hour, weekday, device, source_screen}"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "user_id"
+        ],
+        "title": "RecommendRequest"
+      },
+      "RecommendResponse": {
+        "properties": {
+          "contract_version": {
+            "type": "string",
+            "title": "Contract Version",
+            "default": "v1"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Request Id",
+            "description": "event 기록 시 이 값을 함께 보낸다"
+          },
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version"
+          },
+          "weights": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Weights"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RankedItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "trace": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StageTrace"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "served_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Served At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "request_id",
+          "user_id",
+          "model_version",
+          "items",
+          "served_at"
+        ],
+        "title": "RecommendResponse"
+      },
+      "RecommendationLogOut": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Request Id"
+          },
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[cgd]-"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version"
+          },
+          "mlflow_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mlflow Run Id"
+          },
+          "config_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config Hash"
+          },
+          "warm_alpha": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warm Alpha"
+          },
+          "stats_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stats Version"
+          },
+          "pantry_snapshot": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Pantry Snapshot"
+          },
+          "pantry_detail": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pantry Detail"
+          },
+          "allergy_snapshot": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Allergy Snapshot"
+          },
+          "policies": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policies"
+          },
+          "stage_trace": {
+            "$ref": "#/components/schemas/StageTrace"
+          },
+          "served": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Served"
+          },
+          "total_latency_ms": {
+            "type": "integer",
+            "title": "Total Latency Ms"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "request_id",
+          "user_id",
+          "model_version",
+          "pantry_snapshot",
+          "stage_trace",
+          "served",
+          "total_latency_ms",
+          "created_at"
+        ],
+        "title": "RecommendationLogOut",
+        "description": "`recommendation_log` 1행. **DDL 과 필드가 일치해야 한다** (v2.9 동기화).\n\nv2.8 DDL 개정으로 컬럼 7개가 늘었는데 이 계약이 따라오지 않아\n**DB 에 칸은 있는데 채울 계약이 없는** 상태였다. 여기서 맞춘다."
+      },
+      "Stage": {
+        "type": "string",
+        "enum": [
+          "retrieval",
+          "ranking",
+          "rerank",
+          "mealplan"
+        ],
+        "title": "Stage"
+      },
+      "StageInfo": {
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/Stage"
+          },
+          "in_count": {
+            "type": "integer",
+            "title": "In Count"
+          },
+          "out_count": {
+            "type": "integer",
+            "title": "Out Count"
+          },
+          "latency_ms": {
+            "type": "integer",
+            "title": "Latency Ms"
+          },
+          "strategy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategy"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "fallback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback",
+            "description": "폴백이 발동했으면 대체 모델명 (설계 5-6)"
+          },
+          "filters": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Filters",
+            "description": "탈락 사유별 건수. 예 {'no_overlap':227999,'allergy_cut':12}"
+          },
+          "dropped": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Dropped",
+            "description": "③ 전용. 다양성·캡으로 제외한 건수"
+          },
+          "params": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Params"
+          },
+          "score_stats": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Score Stats",
+            "description": "min·p25·p50·p75·max"
+          },
+          "exploration_items": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Exploration Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "in_count",
+          "out_count",
+          "latency_ms"
+        ],
+        "title": "StageInfo",
+        "description": "단계 하나의 기록. filters 가 디버깅에서 가장 유용하다."
+      },
+      "StageTrace": {
+        "properties": {
+          "trace_version": {
+            "type": "string",
+            "title": "Trace Version",
+            "default": "v1"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/StageInfo"
+            },
+            "type": "array",
+            "title": "Stages"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/TraceTotals"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "totals"
+        ],
+        "title": "StageTrace",
+        "description": "recommendation_log.stage_trace 에 그대로 직렬화된다."
+      },
+      "TraceTotals": {
+        "properties": {
+          "latency_ms": {
+            "type": "integer",
+            "title": "Latency Ms"
+          },
+          "cache_hit": {
+            "type": "boolean",
+            "title": "Cache Hit",
+            "default": false
+          },
+          "degraded": {
+            "type": "boolean",
+            "title": "Degraded",
+            "description": "폴백 경로를 탔다. 이 비율이 조용히 오르는 것이 가장 위험한 실패 양상",
+            "default": false
+          },
+          "user_mode": {
+            "$ref": "#/components/schemas/UserMode",
+            "default": "onboarding"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "latency_ms"
+        ],
+        "title": "TraceTotals"
+      },
+      "UserMode": {
+        "type": "string",
+        "enum": [
+          "onboarding",
+          "blended",
+          "behavior"
+        ],
+        "title": "UserMode",
+        "description": "user_vector.computed_from 과 동일한 값 (설계 2-5)."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

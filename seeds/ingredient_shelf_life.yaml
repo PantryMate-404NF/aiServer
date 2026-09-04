@@ -1,0 +1,161 @@
+# 재료별 기본 소비기한 — `f_expiring` 을 실제로 동작하게 만드는 데이터
+#
+# ## 왜 필요한가
+#
+# `f_expiring` 은 설계 5-2-2 에서 가중치 0.15 로 세 번째로 큰 피처이고,
+# "냉장고 재료 소진"이라는 이 서비스의 차별화 그 자체다. 그런데 계산식이
+#
+#     임박(D-3 이내) 재료 수 / expires_at 이 NOT NULL 인 재료 수
+#
+# 라서 **유저가 유통기한을 직접 입력해야만 동작한다.** 실제로는 대부분 비운다.
+# 게다가 분모가 "입력한 항목 수"라 한 개만 입력한 유저는 f_expiring 이 0 아니면 1 로
+# 튄다. 가중치 0.15 짜리 피처가 극단적으로 요동친다.
+#
+# **등록일 + 기본 소비기한으로 추정한다.** 유저 입력이 있으면 그것이 이긴다.
+#   pantry_item.expires_at_source ∈ {'user','estimated'} 로 구분해 로그에 남기고,
+#   "추정치가 유저 입력만큼 유용한가"를 나중에 측정한다.
+#
+# ## 규칙
+#
+# 1. `defaults` 는 카테고리 path 기준. **가장 구체적인(긴) 경로가 이긴다.**
+#    agri.veg 보다 agri.veg.leafy 가 우선.
+# 2. `overrides` 는 재료명 기준. 무조건 defaults 를 이긴다.
+# 3. `days` 는 **냉장 보관 · 개봉(손질) 후** 기준의 보수적 값이다.
+#    실제 유통기한 표기가 아니라 "이때까지 쓰는 게 좋다"는 소비 권장치다.
+# 4. `storage` 는 UI 표시용 힌트. 계산에는 쓰지 않는다.
+#
+# ⚠️ 이 값들은 **측정치가 아니라 통념**이다. 리포트에 "실측 소비기한"으로 쓰지 말 것.
+#    개선 경로: 식약처 식품유형별 권장 소비기한 공개자료로 대체 (02 문서 I-13)
+
+version: 1
+unit: days
+
+defaults:
+  # 🔴 물 계열 — 소비기한이라는 개념이 없다. f_expiring 이 절대 발동하면 안 된다.
+  #    3650일(10년)로 두어 "임박" 판정에서 영원히 빠지게 한다 (2026-09-02).
+  - {path: water,                days: 3650, storage: pantry}
+  # ── 농산물 ──────────────────────────────────────────────
+  - {path: agri,                 days: 14,   storage: fridge}
+  - {path: agri.veg,             days: 7,    storage: fridge}
+  - {path: agri.veg.leafy,       days: 5,    storage: fridge}   # 상추·배추 — 가장 빨리 무른다
+  - {path: agri.veg.root,        days: 21,   storage: fridge}
+  - {path: agri.veg.fruitveg,    days: 7,    storage: fridge}
+  - {path: agri.veg.stem,        days: 7,    storage: fridge}
+  - {path: agri.veg.pepper,      days: 10,   storage: fridge}
+  - {path: agri.veg.namul,       days: 3,    storage: fridge}   # 손질 나물은 매우 짧다
+  - {path: agri.veg.othveg,      days: 7,    storage: fridge}
+  - {path: agri.mushroom,        days: 5,    storage: fridge}
+  - {path: agri.fruit,           days: 7,    storage: fridge}
+  - {path: agri.fruit.pome,      days: 30,   storage: fridge}
+  - {path: agri.fruit.stone,     days: 5,    storage: fridge}
+  - {path: agri.fruit.berry,     days: 4,    storage: fridge}
+  - {path: agri.fruit.citrus,    days: 14,   storage: fridge}
+  - {path: agri.fruit.tropical,  days: 7,    storage: pantry}
+  - {path: agri.grain,           days: 180,  storage: pantry}
+  - {path: agri.grain.rice,      days: 180,  storage: pantry}
+  - {path: agri.grain.wheat,     days: 180,  storage: pantry}
+  - {path: agri.legume,          days: 365,  storage: pantry}
+  - {path: agri.nutseed,         days: 90,   storage: pantry}   # 산패가 기준. 냉장이면 더 길다
+
+  # ── 축산물 ──────────────────────────────────────────────
+  - {path: meat,                 days: 3,    storage: fridge}
+  - {path: meat.beef,            days: 3,    storage: fridge}
+  - {path: meat.pork,            days: 3,    storage: fridge}
+  - {path: meat.chicken,         days: 2,    storage: fridge}   # 가금류가 가장 짧다
+  - {path: meat.egg,             days: 30,   storage: fridge}
+  - {path: meat.othmeat,         days: 3,    storage: fridge}
+
+  # ── 수산물 ──────────────────────────────────────────────
+  - {path: seafood,              days: 2,    storage: fridge}
+  - {path: seafood.fish,         days: 2,    storage: fridge}
+  - {path: seafood.shellfish,    days: 2,    storage: fridge}
+  - {path: seafood.crustacean,   days: 2,    storage: fridge}
+  - {path: seafood.mollusk,      days: 2,    storage: fridge}
+  - {path: seafood.seaweed,      days: 180,  storage: pantry}   # 대부분 건조품
+
+  # ── 유제품 ──────────────────────────────────────────────
+  - {path: dairy,                days: 14,   storage: fridge}
+  - {path: dairy.milk,           days: 7,    storage: fridge}
+  - {path: dairy.cheese,         days: 21,   storage: fridge}
+  - {path: dairy.fermented,      days: 14,   storage: fridge}
+
+  # ── 가공식품 ────────────────────────────────────────────
+  - {path: processed,            days: 90,   storage: pantry}
+  - {path: processed.tofu,       days: 7,    storage: fridge}
+  - {path: processed.kimchi,     days: 90,   storage: fridge}
+  - {path: processed.noodle,     days: 180,  storage: pantry}
+  - {path: processed.bread,      days: 5,    storage: pantry}
+  - {path: processed.tteok,      days: 3,    storage: fridge}
+  - {path: processed.canned,     days: 730,  storage: pantry}
+  - {path: processed.meatproc,   days: 14,   storage: fridge}
+  - {path: processed.seafoodproc, days: 14,  storage: fridge}
+  - {path: processed.jeotgal,    days: 180,  storage: fridge}
+  - {path: processed.othproc,    days: 90,   storage: pantry}
+
+  # ── 조미료 — staple 28종이 여기 몰려 있다 ──────────────
+  #    staple 은 `f_expiring` 계산에서 어차피 제외되지만(설계 결정 2),
+  #    유저가 명시적으로 등록한 경우를 위해 값은 채워둔다.
+  - {path: season,               days: 365,  storage: pantry}
+  - {path: season.jang,          days: 365,  storage: fridge}
+  - {path: season.sauce,         days: 180,  storage: fridge}
+  - {path: season.oil,           days: 180,  storage: pantry}
+  - {path: season.vinegar,       days: 730,  storage: pantry}
+  - {path: season.powder,        days: 365,  storage: pantry}
+  - {path: season.sweetsalt,     days: 1095, storage: pantry}
+  - {path: season.herb,          days: 365,  storage: pantry}
+  - {path: season.broth,         days: 180,  storage: pantry}
+  - {path: season.minced,        days: 30,   storage: fridge}   # 다진마늘 — 생각보다 짧다
+
+# ── 재료명 예외 ────────────────────────────────────────────
+# 카테고리 기본값이 명백히 틀리는 것만. 늘리기보다 카테고리를 고치는 쪽이 낫다.
+overrides:
+  # 실온 보관이 정상이고 매우 오래가는 근채류
+  - {name: 감자,       days: 60,  storage: pantry}
+  - {name: 고구마,     days: 30,  storage: pantry}
+  - {name: 양파,       days: 60,  storage: pantry}
+  - {name: 마늘,       days: 60,  storage: pantry}
+  - {name: 생강,       days: 21,  storage: fridge}
+  - {name: 단호박,     days: 60,  storage: pantry}
+  - {name: 늙은호박,   days: 60,  storage: pantry}
+  # 근채류인데 실제로는 빨리 무르는 것
+  - {name: 무,         days: 14,  storage: fridge}
+  - {name: 우엉,       days: 14,  storage: fridge}
+  - {name: 연근,       days: 10,  storage: fridge}
+  # 며칠 못 가는 것들 — 임박 추천의 주인공이 될 재료
+  - {name: 숙주,       days: 2,   storage: fridge}
+  - {name: 콩나물,     days: 3,   storage: fridge}
+  - {name: 부추,       days: 4,   storage: fridge}
+  - {name: 깻잎,       days: 5,   storage: fridge}
+  - {name: 시금치,     days: 4,   storage: fridge}
+  - {name: 바나나,     days: 5,   storage: pantry}
+  - {name: 아보카도,   days: 5,   storage: pantry}
+  - {name: 딸기,       days: 3,   storage: fridge}
+  - {name: 생크림,     days: 5,   storage: fridge}
+  - {name: 다진마늘,   days: 30,  storage: fridge}
+  - {name: 다진생강,   days: 30,  storage: fridge}
+  # 다짐육은 덩어리육보다 훨씬 빨리 상한다
+  - {name: 소고기다짐육,   days: 2, storage: fridge}
+  - {name: 돼지고기다짐육, days: 2, storage: fridge}
+  # 건조품 — 카테고리 기본값이 생물 기준이라 크게 어긋난다
+  - {name: 건표고버섯, days: 365, storage: pantry}
+  - {name: 목이버섯,   days: 365, storage: pantry}
+  - {name: 건미역,     days: 365, storage: pantry}
+  - {name: 다시마,     days: 365, storage: pantry}
+  - {name: 김,         days: 180, storage: pantry}
+  - {name: 멸치,       days: 180, storage: freezer}
+  - {name: 잔멸치,     days: 180, storage: freezer}
+  - {name: 건새우,     days: 180, storage: freezer}
+  - {name: 북어채,     days: 365, storage: pantry}
+  - {name: 황태채,     days: 365, storage: pantry}
+  # 사실상 상하지 않는 것
+  - {name: 소금,       days: 3650, storage: pantry}
+  - {name: 설탕,       days: 3650, storage: pantry}
+  - {name: 꿀,         days: 1825, storage: pantry}
+  # 생면은 건면과 완전히 다르다
+  - {name: 칼국수면,   days: 7,   storage: fridge}
+  - {name: 우동면,     days: 14,  storage: fridge}
+  - {name: 라면사리,   days: 180, storage: pantry}
+  # 개봉 후 급격히 짧아지는 것
+  - {name: 크림치즈,   days: 14,  storage: fridge}
+  - {name: 휘핑크림,   days: 5,   storage: fridge}
+  - {name: 사워크림,   days: 10,  storage: fridge}

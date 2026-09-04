@@ -1,0 +1,11 @@
+apiVersion: 1
+providers:
+  - name: reco
+    folder: 추천시스템
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/json
+      foldersFromFilesStructure: false

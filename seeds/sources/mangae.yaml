@@ -1,0 +1,155 @@
+# 만개의레시피 → 우리 스키마 매핑
+#
+# ✅ 실크롤 46,552건으로 검증 완료 (09-02). 더 이상 추정치가 아니다.
+#
+# 다음 소스로 갈아탈 때:
+#   1. python -m ingest.probe <샘플.json>   ← 무엇이 맞고 틀린지 리포트
+#   2. 이 파일의 paths 만 수정
+#   3. adapter.py · DB · 파이프라인은 그대로
+#
+# paths 의 다중 후보는 그 전환에 대비해 남겨 둔다.
+
+version: 1
+source: mangae
+description: 만개의레시피
+
+recipe:
+  source_id:
+    paths: [recipe_id, id, rcp_id, seq]
+    required: true
+    transform: strip
+
+  title:
+    paths: [title, name, rcp_nm, recipe_name]
+    required: true
+    transform: strip
+
+  url:
+    paths: [url, link, recipe_url]
+    fallback: "null"
+
+  description:
+    paths: [description, desc, summary, intro]
+    fallback: "null"
+
+  image_url:
+    paths: [image, image_url, thumbnail, img]
+    fallback: "null"
+
+  servings:
+    paths: [serving, servings, portion, 인분]     # 실측: serving (단수)
+    transform: int
+    fallback: "null"
+
+  cook_minutes:
+    paths: [cook_time, cooking_time, time, 조리시간]
+    transform: minutes          # '30분' '1시간' '30' → 30 / 60 / 30
+    fallback: "null"
+    note: |
+      🔴 파싱 실패 시 반드시 NULL. 0 으로 채우면 모든 실패 레시피가
+      "가장 빠른 요리"로 최상위에 올라온다 (설계 2-3).
+      랭킹에서는 NULL 을 중립값 0.5 로 처리한다 (설계 5-2-1 D군).
+
+  difficulty:
+    paths: [difficulty, level, 난이도]
+    transform: difficulty       # '아무나' '초급' '중급' '고급' '신의경지' → 1~5
+    fallback: "null"
+
+  # ── 분류 4축 (설계 2-3-1) ────────────────────────────────────
+  dish_type:
+    paths: [category.type, category_type, 종류별, cat_type, category]
+    transform: strip
+    fallback: "null"
+    note: 원본 '종류별' 축. 국/탕 · 메인반찬 · 면/만두 …
+
+  situation:
+    paths: [category.situation, category_situation, 상황별, cat_situation]
+    transform: list
+    fallback: "null"
+    note: 원본 '상황별' 축. 술안주 · 다이어트 · 도시락 …
+
+  main_ing_cat:
+    paths: [category.ingredient, category_ingredient, 재료별, cat_ingredient]
+    transform: strip
+    fallback: "null"
+    note: 원본 '재료별' 축. 돼지고기 · 해물류 …
+
+  method:
+    paths: [category.method, category_method, 방법별, cat_method, cooking_method]
+    transform: strip
+    fallback: "null"
+    note: 원본 '방법별' 축. 볶음 · 끓이기 …
+
+  # ── 통계 ─────────────────────────────────────────────────────
+  view_count:
+    paths: [views, view_count, hit, 조회수]
+    transform: int
+    fallback: "const:0"
+    note: |
+      🔴 실측 샘플에 조회수·평점이 **없다.** popularity_score 계산 불가.
+      대안으로 rating_count 를 reviews 배열 길이로 대체한다 (아래).
+
+  rating_avg:
+    paths: [rating, score, 평점]
+    transform: float
+    fallback: "null"
+
+  rating_count:
+    paths: [rating_count, review_count, 리뷰수]
+    transform: int
+    fallback: "const:0"
+
+  # 실측: 조회수·평점이 없어 reviews 개수를 인기도 프록시로 쓴다
+  review_count:
+    paths: [reviews]
+    transform: count
+    fallback: "const:0"
+
+  # 🔴 실측: categories 는 4축이 아니라 **자유 태그**다
+  #    ["카레","카레만드는법","레시피","집밥","한끼식사"]
+  #    → dish_type · situation · main_ing_cat · method 를 얻을 수 없다 (설계 2-3-1 수정 필요)
+  tags:
+    paths: [categories, tags, keywords]
+    transform: list
+    fallback: "null"
+
+# ── 재료 (설계 2-3) ────────────────────────────────────────────
+ingredients:
+  container:
+    paths: [ingredients, ingredient_groups, 재료, materials]
+    required: true
+
+  # 컨테이너가 그룹 구조인 경우: [{group:'[재료]', items:[...]}, ...]
+  group_name:
+    paths: ["[].group", "[].group_name", "[].title", "[].section", "[].name"]
+    fallback: "derive:group_from_flat"
+    note: |
+      🔴 원본 '[재료] / [양념] / [고명]' 그룹명. role 판별의 1차 근거 (설계 4-5).
+      없으면 derive:group_from_flat 이 발동해 is_staple/is_seasoning 플래그와
+      수량 표현('약간','조금')으로만 판별한다 — 정확도가 떨어지지만 동작은 한다.
+      essential 과다 판정 → 후보가 좁아지는 방향으로 실패한다.
+
+  raw_text:
+    paths: ["[].items[]", "[].ingredients[]", "[]", "[].raw_text", "[].text", "[].name"]
+    # 실측: items[] 원소가 {name, amount, raw_text} 형태.
+    #       adapter 가 raw_text 를 최우선으로 본다 — name 만 쓰면 수량이 날아간다
+    required: true
+    note: 정규화 전 원문. **절대 가공하지 않고 그대로 저장한다.**
+
+steps:
+  container:
+    paths: [steps, instructions, manual, 조리순서, recipe_steps]
+    fallback: "null"
+  text:
+    paths: ["[].instruction", "[].text", "[].description", "[].content", "[]"]
+  image:
+    paths: ["[].image", "[].img", "[].image_url"]
+    fallback: "null"
+
+# ── 원본 보존 ──────────────────────────────────────────────────
+raw_json:
+  mode: full
+  note: |
+    🔴 파싱한 필드만이 아니라 **원본 전체**를 그대로 담는다.
+    분류 4축 파싱은 나중에 해도 되지만 수집은 미룰 수 없다 (설계 2-3-1).
+    raw_json 에 원본이 있으면 언제든 재파싱이 가능하고, 없으면 재크롤링이다.

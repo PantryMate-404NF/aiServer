@@ -1,0 +1,123 @@
+# P1·P2 테스트 케이스.
+#
+# 실제 크롤링 표현이 오면 여기에 추가한다. 목표 200건.
+# 필드를 생략하면 검사하지 않는다 (qty: null 은 '명시적으로 None' 을 뜻한다).
+#
+#   raw       입력
+#   name      기대 재료명
+#   qty       기대 수량 (null = None)
+#   unit      기대 단위
+#   note      괄호 부가설명
+#   optional  (생략가능) 류 발견
+#   ambiguous '약간' 류 수량
+#   subs      대체재 후보
+#   count     기대 산출 개수 (복합 분리)
+#   mods      제거된 수식어
+#   tag       분류 (리포트용)
+
+cases:
+# ── 기본 ───────────────────────────────────────────────────────
+- {raw: "대파 1대",          name: 대파,   qty: 1,   unit: 대,  tag: basic}
+- {raw: "양파 2개",          name: 양파,   qty: 2,   unit: 개,  tag: basic}
+- {raw: "돼지고기 300g",     name: 돼지고기, qty: 300, unit: g,   tag: basic}
+- {raw: "간장 2큰술",        name: 간장,   qty: 2,   unit: 큰술, tag: basic}
+- {raw: "물 500ml",          name: 물,     qty: 500, unit: ml,  tag: basic}
+- {raw: "두부",              name: 두부,   qty: null, unit: null, tag: basic}
+- {raw: "배추김치 1/4포기",   name: 배추김치, qty: 0.25, unit: 포기, tag: basic}
+- {raw: "우유 200mL",        name: 우유,   qty: 200, unit: ml,  tag: basic}
+- {raw: "설탕 1T",           name: 설탕,   qty: 1,   unit: 큰술, tag: basic}
+- {raw: "소금 1t",           name: 소금,   qty: 1,   unit: 작은술, tag: basic}
+
+# ── 수량 표현 ──────────────────────────────────────────────────
+- {raw: "감자 0.5개",        name: 감자,   qty: 0.5, unit: 개,  tag: qty}
+- {raw: "양파 1/2개",        name: 양파,   qty: 0.5, unit: 개,  tag: qty}
+- {raw: "당근 ½개",          name: 당근,   qty: 0.5, unit: 개,  tag: qty}
+- {raw: "설탕 1과1/2큰술",    name: 설탕,   qty: 1.5, unit: 큰술, tag: qty}
+- {raw: "청양고추 2~3개",     name: 청양고추, qty: 2.5, unit: 개, tag: qty}
+- {raw: "홍고추 1-2개",       name: 홍고추, qty: 1.5, unit: 개,  tag: qty}
+- {raw: "마늘 두쪽",          name: 마늘,   qty: 2,   unit: 쪽,  tag: qty}
+- {raw: "달걀 세개",          name: 달걀,   qty: 3,   unit: 개,  tag: qty}
+- {raw: "시금치 한줌",        name: 시금치, qty: 1,   unit: 줌,  tag: qty}
+- {raw: "무 반개",            name: 무,     qty: 0.5, unit: 개,  tag: qty}
+- {raw: "돼지고기 1근",       name: 돼지고기, qty: 1,  unit: 근,  tag: qty}
+- {raw: "쌀 1,000g",          name: 쌀,     qty: 1000, unit: g,  tag: qty}
+- {raw: "고춧가루 1.5큰술",    name: 고춧가루, qty: 1.5, unit: 큰술, tag: qty}
+
+# ── 한글 수사의 함정 (재료명에 포함된 경우) ────────────────────
+- {raw: "한우 300g",          name: 한우,   qty: 300, unit: g,   tag: numeral_trap}
+- {raw: "세발나물 한줌",       name: 세발나물, qty: 1,  unit: 줌,  tag: numeral_trap}
+- {raw: "한천 5g",            name: 한천,   qty: 5,   unit: g,   tag: numeral_trap}
+- {raw: "두부 1모",           name: 두부,   qty: 1,   unit: 모,  tag: numeral_trap}
+
+# ── 모호 수량 (0 으로 채우면 안 됨) ────────────────────────────
+- {raw: "소금 약간",          name: 소금,   qty: null, unit: 약간, ambiguous: true, tag: ambiguous}
+- {raw: "후추 조금",          name: 후추,   qty: null, unit: 조금, ambiguous: true, tag: ambiguous}
+- {raw: "참기름 적당량",       name: 참기름, qty: null, unit: 적당량, ambiguous: true, tag: ambiguous}
+- {raw: "통깨 듬뿍",          name: 통깨,   qty: null, unit: 듬뿍, ambiguous: true, tag: ambiguous}
+- {raw: "설탕 기호껏",         name: 설탕,   qty: null, unit: 기호껏, ambiguous: true, tag: ambiguous}
+- {raw: "소금 약간씩",         name: 소금,   qty: null, unit: 약간, ambiguous: true, tag: ambiguous}
+
+# ── 괄호: 부위·상태 → note ────────────────────────────────────
+- {raw: "대파 1대(흰 부분만)",      name: 대파,   qty: 1, unit: 대, note: "흰 부분만", tag: bracket_note}
+- {raw: "돼지고기(앞다리살) 300g",  name: 돼지고기, qty: 300, unit: g, note: "앞다리살", tag: bracket_note}
+- {raw: "고추(청양) 2개",          name: 고추,   qty: 2, unit: 개, note: "청양", tag: bracket_note}
+- {raw: "표고버섯(건) 3개",         name: 표고버섯, qty: 3, unit: 개, note: "건", tag: bracket_note}
+- {raw: "새우 10마리 (중하)",       name: 새우,   qty: 10, unit: 마리, note: "중하", tag: bracket_note}
+
+# ── 괄호: 환산값 → 수량 우선 ──────────────────────────────────
+- {raw: "물 2컵(400ml)",       name: 물,   qty: 400, unit: ml, tag: bracket_conv}
+- {raw: "대파 1대(100g)",      name: 대파, qty: 100, unit: g,  tag: bracket_conv}
+- {raw: "우유 1컵(200ml)",     name: 우유, qty: 200, unit: ml, tag: bracket_conv}
+- {raw: "밀가루 2컵 (240g)",    name: 밀가루, qty: 240, unit: g, tag: bracket_conv}
+
+# ── 괄호: 선택 표시 → P4 optional 신호 ────────────────────────
+- {raw: "파슬리 약간(생략가능)",    name: 파슬리, qty: null, optional: true, ambiguous: true, tag: bracket_opt}
+- {raw: "고수 조금(취향껏)",        name: 고수,   qty: null, optional: true, tag: bracket_opt}
+- {raw: "청양고추 1개(없으면 패스)", name: 청양고추, qty: 1, unit: 개, optional: true, tag: bracket_opt}
+- {raw: "参깨 약간(선택)",          name: 参깨,   optional: true, tag: bracket_opt}
+- {raw: "레몬즙 1큰술(옵션)",       name: 레몬즙, qty: 1, unit: 큰술, optional: true, tag: bracket_opt}
+
+# ── 괄호: 대체재 ──────────────────────────────────────────────
+- {raw: "청주 1큰술(또는 미림)",    name: 청주, qty: 1, unit: 큰술, subs: [미림], tag: bracket_sub}
+- {raw: "올리고당 2큰술(또는 물엿)", name: 올리고당, qty: 2, unit: 큰술, subs: [물엿], tag: bracket_sub}
+
+# ── 괄호: 브랜드 → 제거 ───────────────────────────────────────
+- {raw: "설탕(백설) 1큰술",     name: 설탕, qty: 1, unit: 큰술, tag: bracket_brand}
+- {raw: "간장(샘표) 2큰술",     name: 간장, qty: 2, unit: 큰술, tag: bracket_brand}
+
+# ── 복합 분리 ─────────────────────────────────────────────────
+- {raw: "소금,후추 약간",        count: 2, tag: split}
+- {raw: "소금, 후추 조금",       count: 2, tag: split}
+- {raw: "파·마늘 다진것",        count: 2, tag: split}
+- {raw: "당근/양파 각 1개",      count: 2, tag: split}
+- {raw: "소금후추 약간",         count: 1, split_candidate: true, tag: split}
+
+# ── 대체 표현 (또는) ──────────────────────────────────────────
+- {raw: "청주 또는 미림 1큰술",   name: 청주, qty: 1, unit: 큰술, subs: [미림], tag: alt}
+- {raw: "버터 or 마가린 20g",     name: 버터, qty: 20, unit: g, subs: [마가린], tag: alt}
+
+# ── 수식어 (L2 가 재활용) ─────────────────────────────────────
+- {raw: "국내산 대파 1대",       name: 국내산 대파, mods: [국내산], qty: 1, unit: 대, tag: modifier}
+- {raw: "냉동 새우 200g",        name: 냉동 새우, mods: [냉동], qty: 200, unit: g, tag: modifier}
+- {raw: "유기농 양파 2개",       name: 유기농 양파, mods: [유기농], qty: 2, unit: 개, tag: modifier}
+
+# ── 전각·유니코드 ─────────────────────────────────────────────
+- {raw: "밀가루 １００ｇ",        name: 밀가루, qty: 100, unit: g, tag: unicode}
+- {raw: "설탕　2큰술",           name: 설탕,   qty: 2, unit: 큰술, tag: unicode}
+- {raw: "  대파   1대  ",        name: 대파,   qty: 1, unit: 대,  tag: unicode}
+
+# ── 특수문자 ──────────────────────────────────────────────────
+- {raw: "※ 대파 1대",           name: 대파, qty: 1, unit: 대, tag: special}
+- {raw: "▶ 양파 2개",           name: 양파, qty: 2, unit: 개, tag: special}
+- {raw: "- 두부 1모",           name: 두부, qty: 1, unit: 모, tag: special}
+
+# ── 수량이 앞에 오는 경우 ─────────────────────────────────────
+- {raw: "1큰술 참기름",          name: 참기름, qty: 1, unit: 큰술, tag: qty_first}
+- {raw: "300g 소고기",           name: 소고기, qty: 300, unit: g, tag: qty_first}
+
+# ── 엣지 ──────────────────────────────────────────────────────
+- {raw: "",                      count: 0, tag: edge}
+- {raw: "   ",                   count: 0, tag: edge}
+- {raw: "※",                     count: 0, tag: edge}
+- {raw: "재료",                  name: 재료, tag: edge}
+- {raw: "물 적당량(잠길 정도)",   name: 물, qty: null, ambiguous: true, note: "잠길 정도", tag: edge}
