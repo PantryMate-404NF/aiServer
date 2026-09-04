@@ -178,7 +178,7 @@ Grafana 도 `reco_ro` 로 붙는다. 대시보드가 쓰기 권한을 들고 있
 원격 DB 에는 그 메커니즘이 없으므로 명시적 경로가 유일하다.
 
 ```bash
-./infra/apply_schema.sh "postgresql://user:pw@db.example.ac.kr:5432/recodb"
+./deploy/apply_schema.sh "postgresql://user:pw@db.example.ac.kr:5432/recodb"
 # 또는
 DATABASE_URL=... make schema-remote
 ```
@@ -292,7 +292,7 @@ Docker 설치 후 **`make bootstrap` 을 가장 먼저 돌려야 한다.** 첫 �
 `04_functions.sql` 이 실행되지 않았다. 위와 같은 원인이다.
 
 **Grafana 데이터소스 연결 실패**
-`infra/.env` 의 `POSTGRES_PASSWORD` 와 compose 환경변수가 어긋났을 수 있다.
+`deploy/.env` 의 `POSTGRES_PASSWORD` 와 compose 환경변수가 어긋났을 수 있다.
 `make down && make up` 으로 재기동한다.
 
 **`make seed` 가 FK 오류**

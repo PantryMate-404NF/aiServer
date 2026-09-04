@@ -10,7 +10,7 @@
 | 프로젝트 성격 | 부트캠프 최종 프로젝트 |
 | 팀 규모 | 20명 |
 | 기간 | 8주 (2개월) |
-| 문서 상태 | ①~⑦ 작성 완료. ⑧(팀 분할)은 3명 체제라 작성하지 않음 — [`04`](04_실행계획.md) 가 대체 |
+| 문서 상태 | ①~⑦ 작성 완료. ⑧(팀 분할)은 3명 체제라 작성하지 않음 — [`04`](04_EXECUTION_PLAN.md) 가 대체 |
 
 ## v3.1 주요 변경 — 09-02~03 스키마·계약 개정
 
@@ -90,7 +90,7 @@
 | 맛·나라·카테고리 | 🔴 **합치지 마라** — 가중치가 3개→1개로 줄어 NDCG 0.961→0.528 |
 | 코사인 대신 벡터 | ⚠️ 가능하고 코사인의 일반화. **라벨 2,000쌍부터** 이득 |
 | 모델 크기 | ⚠️ **라벨 수에 최적점이 있다.** 600쌍인 지금은 오히려 줄이는 게 낫다 |
-| ~~🔴 공백~~ | ~~**`flavor_vec` 산출 방법이 설계에 없다**~~ → ✅ **닫힘 (v3.1)** — 재료 기반 규칙 채택 · `seeds/ingredient_flavor.yaml` + `src/features/recommend/ingest/p5_flavor.py` (2-5-1 ⑤) |
+| ~~🔴 공백~~ | ~~**`flavor_vec` 산출 방법이 설계에 없다**~~ → ✅ **닫힘 (v3.1)** — 재료 기반 규칙 채택 · `seeds/ingredient_flavor.yaml` + `src/features/recommend/ingest/flavor.py` (2-5-1 ⑤) |
 
 > 딥러닝이 막힌 이유는 응답시간(5-6-1)도 GPU 도 아니고 **라벨**이다.
 > 샘플/파라미터 300~1,000 이 최적인데 DeepFM(20만 모수)은 6,000만 라벨이 필요하다.
@@ -99,7 +99,7 @@
 
 ## 이전 버전 변경 이력
 
-v2.0 이하의 변경 이력은 [`09_CHANGELOG.md`](09_CHANGELOG.md) 로 이관했다.
+v2.0 이하의 변경 이력은 [`09_CHANGELOG.md`](08_CHANGELOG.md) 로 이관했다.
 **헤더에는 최신 1개 버전만 남긴다** — 정정 서사가 본문 앞에 쌓이면 읽는 사람이
 머릿속에서 diff 를 수행해야 한다. 폐기된 문장은 본문 그 자리에서 ~~취소선~~ 처리한다.
 
@@ -109,20 +109,20 @@ v2.0 이하의 변경 이력은 [`09_CHANGELOG.md`](09_CHANGELOG.md) 로 이관�
 
 | 문서 | 내용 |
 |---|---|
-| [`02_협의필요_이슈.md`](02_협의필요_이슈.md) | **혼자 결정할 수 없는 것** 24건. 크롤러팀·백엔드팀·DB관리자·전체팀별로 정리 |
-| [`03_모델_선정_사유.md`](03_모델_선정_사유.md) | **왜 이 모델을 골랐고 왜 저 모델을 버렸는가.** 모델 6종 정량 비교 · 유저 수별 해금 로드맵 · 발표 QA 대응 |
-| [`04_실행계획.md`](04_실행계획.md) | 🔴 **~~2명~~ 3명 · 남은 3주 기준으로 범위를 자른 결과.** 주차별 마일스톤 · 컷라인 · 역할 분담. **충돌 시 이 문서가 우선** |
-| [`05_API_명세.md`](05_API_명세.md) | 엔드포인트 **8개** 전체 스펙 *(v3.1 — 온보딩 추가)*. **Mock 실호출 캡처 기반** — `make api-docs` 로 재생성 |
-| [`06_인프라_사양.md`](06_인프라_사양.md) | **서버 사양 · 디스크·RAM·GPU 산출**. 행당 크기는 전부 실측. 서버 요청서 템플릿 포함 |
-| [`07_평가_및_딥러닝_로드맵.md`](07_평가_및_딥러닝_로드맵.md) | **평가 방법론(D) · 딥러닝 전환 경로(E)** · 🔴 소급 불가 항목 10종 · 하지 않기로 한 것(F) |
-| [`../scripts/reco/bench/README.md`](../scripts/reco/bench/README.md) | **판단 근거 시뮬레이션** — 이 문서에 인용된 숫자의 재현 경로 |
-| [`../seeds/README.md`](../seeds/README.md) | 시드 데이터 구조 · 갭 · 보강 절차 |
-| [`../infra/README.md`](../infra/README.md) | DB 부트스트랩 · 스키마 분리 · 2단 구성 |
+| [`02_협의필요_이슈.md`](03_OPEN_ISSUES.md) | **혼자 결정할 수 없는 것** 24건. 크롤러팀·백엔드팀·DB관리자·전체팀별로 정리 |
+| [`03_모델_선정_사유.md`](../decisions/2026-09-04_model_selection.md) | **왜 이 모델을 골랐고 왜 저 모델을 버렸는가.** 모델 6종 정량 비교 · 유저 수별 해금 로드맵 · 발표 QA 대응 |
+| [`04_실행계획.md`](04_EXECUTION_PLAN.md) | 🔴 **~~2명~~ 3명 · 남은 3주 기준으로 범위를 자른 결과.** 주차별 마일스톤 · 컷라인 · 역할 분담. **충돌 시 이 문서가 우선** |
+| [`05_API_명세.md`](05_API_SPEC.md) | 엔드포인트 **8개** 전체 스펙 *(v3.1 — 온보딩 추가)*. **Mock 실호출 캡처 기반** — `make api-docs` 로 재생성 |
+| [`06_인프라_사양.md`](06_INFRA_SPEC.md) | **서버 사양 · 디스크·RAM·GPU 산출**. 행당 크기는 전부 실측. 서버 요청서 템플릿 포함 |
+| [`07_평가_및_딥러닝_로드맵.md`](07_EVALUATION_ROADMAP.md) | **평가 방법론(D) · 딥러닝 전환 경로(E)** · 🔴 소급 불가 항목 10종 · 하지 않기로 한 것(F) |
+| [`../scripts/reco/bench/README.md`](../../../scripts/reco/bench/README.md) | **판단 근거 시뮬레이션** — 이 문서에 인용된 숫자의 재현 경로 |
+| [`../seeds/README.md`](../../../seeds/README.md) | 시드 데이터 구조 · 갭 · 보강 절차 |
+| [`../../../deploy/README.md`](../../../deploy/README.md) | DB 부트스트랩 · 스키마 분리 · 2단 구성 |
 
 > 🔴 **소급 불가 항목**은 두 곳에 있다 — 협의가 필요한 것은 `02` 최상단 요약, 구현으로 해결하는 것은 `07` E-3 (10종·약 8h). **크롤러팀 C-5(reviews)가 가장 시급하다.**
 >
 > ⚠️ **이 문서는 20명 전제로 쓰였다.** AI 파트 실제 개발 인력은 **3명**이며,
-> 무엇을 실제로 만드는지는 [`04_실행계획.md`](04_실행계획.md) 가 정한다.
+> 무엇을 실제로 만드는지는 [`04_실행계획.md`](04_EXECUTION_PLAN.md) 가 정한다.
 > 설계는 "어떻게 만드는 것이 옳은가", 실행계획은 "그중 **3명이 남은 3주에** 무엇을 하는가" 다.
 
 ## 구현 산출물
@@ -131,16 +131,16 @@ v2.0 이하의 변경 이력은 [`09_CHANGELOG.md`](09_CHANGELOG.md) 로 이관�
 
 | 디렉토리 | 내용 | 규모 | 검증 |
 |---|---|---|---|
-| [`seeds/`](../seeds/) | 재료 시드 + 소비기한 + 대체 라벨 (산출물 A) | 재료 536 · alias 245 · 단위환산 193 · 소비기한 100 · 대체 100쌍 | ✅ `make validate` |
-| [`db/`](../infra/) | DB 부트스트랩 (산출물 B) | DDL **29테이블** · 함수 **6** · 뷰 2 · compose 6서비스 | ✅ **실행 검증** (2-12) |
+| [`seeds/`](../../../seeds) | 재료 시드 + 소비기한 + 대체 라벨 (산출물 A) | 재료 536 · alias 245 · 단위환산 193 · 소비기한 100 · 대체 100쌍 | ✅ `make validate` |
+| [`db/`](../../../deploy) | DB 부트스트랩 (산출물 B) | DDL **29테이블** · 함수 **6** · 뷰 2 · compose 6서비스 | ✅ **실행 검증** (2-12) |
 | [`src/features/recommend/schema.py` · `stage.py`](../../../src/features/recommend/) | **계약 + Mock 서버** (산출물 D 일부) | 모델 20종+ · 엔드포인트 **8개** *(v3.1 — 온보딩 추가)* | ✅ `make contract` **98건** |
-| [`src/features/recommend/engine/`](../src/features/recommend/engine/) | **이유 생성(z-salience) · 혼합 탐색 · interleave** *(v1.9~v2.0)* | 모듈 3종 | ✅ 계약 검증 포함 |
-| [`src/features/recommend/evaluation/`](../src/features/recommend/evaluation/) | **캘리브레이션 임계값** (5-7-3) | Wilson 하한 · 필요표본 계산 | ✅ 계약 검증 포함 |
-| [`src/features/recommend/ingest/`](../src/features/recommend/ingest/) | **크롤러 출력 어댑터** | YAML 매핑 · probe 진단 | ✅ `make probe-all` 3종 |
-| [`src/features/recommend/ingest/`](../src/features/recommend/ingest/) | **정규화 P1 · P2 + 구조매칭(p3_head)** (산출물 C 일부) | 코드 4 · fixture 74건 | ✅ `make normalize-test` |
-| [`scripts/reco/bench/`](../scripts/reco/bench/) | **판단 근거 시뮬레이션** *(v2.0~v2.1)* | 5종 — 문서 인용 숫자 재현 | ✅ `make bench-quick` |
-| [`src/features/recommend/ingest/p3_match.py`](../src/features/recommend/ingest/p3_match.py) | **P3 매칭 캐스케이드** L0~L2 + 커버리지 *(v2.2)* | 회귀 23건 · 실데이터 mention **82.4%** *(v3.1 재측정)* | ✅ `make normalize-test` · `make coverage` |
-| [`src/features/recommend/ingest/p4_role.py`](../src/features/recommend/ingest/p4_role.py) | **P4 역할 판정** + 주재료 가드 *(v2.4)* | 회귀 16건 · 실데이터 essential 51.9% | ✅ `make normalize-test` |
+| [`src/features/recommend/engine/`](../../../src/features/recommend/engine) | **이유 생성(z-salience) · 혼합 탐색 · interleave** *(v1.9~v2.0)* | 모듈 3종 | ✅ 계약 검증 포함 |
+| [`src/features/recommend/evaluation/`](../../../src/features/recommend/evaluation) | **캘리브레이션 임계값** (5-7-3) | Wilson 하한 · 필요표본 계산 | ✅ 계약 검증 포함 |
+| [`src/features/recommend/ingest/`](../../../src/features/recommend/ingest) | **크롤러 출력 어댑터** | YAML 매핑 · probe 진단 | ✅ `make probe-all` 3종 |
+| [`src/features/recommend/ingest/`](../../../src/features/recommend/ingest) | **정규화 P1 · P2 + 구조매칭(head)** (산출물 C 일부) | 코드 4 · fixture 74건 | ✅ `make normalize-test` |
+| [`scripts/reco/bench/`](../../../scripts/reco/bench) | **판단 근거 시뮬레이션** *(v2.0~v2.1)* | 5종 — 문서 인용 숫자 재현 | ✅ `make bench-quick` |
+| [`src/features/recommend/ingest/match.py`](../../../src/features/recommend/ingest/match.py) | **P3 매칭 캐스케이드** L0~L2 + 커버리지 *(v2.2)* | 회귀 23건 · 실데이터 mention **82.4%** *(v3.1 재측정)* | ✅ `make normalize-test` · `make coverage` |
+| [`src/features/recommend/ingest/role.py`](../../../src/features/recommend/ingest/role.py) | **P4 역할 판정** + 주재료 가드 *(v2.4)* | 회귀 16건 · 실데이터 essential 51.9% | ✅ `make normalize-test` |
 | `src/features/recommend/ingest/` P5 | 수량 환산 | — | ⬜ **다음 단계** |
 | `reco/retrieval\|ranking\|rerank/` `dashboard/` | 엔진·대시보드 (산출물 D) | — | ⬜ 미착수 |
 
@@ -178,8 +178,8 @@ make smoke        # Retrieval 설계 검증 13건 (smoke-py 19건)
 | ⑤ | 추천 파이프라인 4단계 | ✅ 확정 (**v3.1** — 2트랙 분리 D-19 · 탐색 슬롯 실삽입 · 블록별 120쌍 D-18) · 5-8·5-9 대체안 **미반영** |
 | ⑥ | ML 스택 · 학습 전략 · 평가 체계 | ✅ 확정 (v1.8 — 임베딩 용도 5종) · 전환 조건은 **5-2-6 이 대체** |
 | ⑦ | API 계약 | ✅ 확정 (**v3.1** — **8개** · 온보딩 신설 · `purchased_at`) — 계약은 [`src/features/recommend/schema.py` · `stage.py`](../../../src/features/recommend/) |
-| ⑧ | ~~20명 팀 분할 & 8주 일정~~ | ❌ **작성 안 함** — ~~2명이면~~ 3명이면 무의미. [`04_실행계획.md`](04_실행계획.md) 가 대체 |
-| ⑨ | ~~리스크 & 대응~~ | ❌ **작성 안 함** — [`04_실행계획.md`](04_실행계획.md) 의 컷라인 6개 · 미해결 의존성 6개가 대체 |
+| ⑧ | ~~20명 팀 분할 & 8주 일정~~ | ❌ **작성 안 함** — ~~2명이면~~ 3명이면 무의미. [`04_실행계획.md`](04_EXECUTION_PLAN.md) 가 대체 |
+| ⑨ | ~~리스크 & 대응~~ | ❌ **작성 안 함** — [`04_실행계획.md`](04_EXECUTION_PLAN.md) 의 컷라인 6개 · 미해결 의존성 6개가 대체 |
 
 ---
 
@@ -540,7 +540,7 @@ reco/
 
 **1단계만으로 스키마 · 시드 · Retrieval · 성능이 전부 검증된다.**
 
-> 📐 **서버 사양 · 디스크 · RAM 산출은 [`06_인프라_사양.md`](06_인프라_사양.md) 참조.**
+> 📐 **서버 사양 · 디스크 · RAM 산출은 [`06_인프라_사양.md`](06_INFRA_SPEC.md) 참조.**
 > 행당 크기가 전부 실측이며 서버 요청서 템플릿도 있다.
 > 요약: **4 core · 16 GB · 50 GB · VRAM 4GB(선택, 배치 전용)**.
 
@@ -626,7 +626,7 @@ TRUNCATE 기반이므로(4-1), 20명이 공용 DB 하나를 쓰면 누군가 재
 원격 DB 에는 그 메커니즘이 아예 없다.
 
 ```bash
-./infra/apply_schema.sh "postgresql://user:pw@db.example.ac.kr:5432/recodb"
+./deploy/apply_schema.sh "postgresql://user:pw@db.example.ac.kr:5432/recodb"
 ```
 
 로컬 `psql` 없이 일회용 컨테이너로 실행한다. `05_roles.sql` 은 제외한다 — 원격 역할과
@@ -902,8 +902,8 @@ CREATE INDEX idx_rir_text   ON recipe_ingredient_raw (raw_text);  -- 빈도 집�
 ```
 
 > ✅ **어댑터 층으로 대응 완료** *(v1.4)* — 크롤러 출력 형태를 아직 모르므로
-> [`src/features/recommend/ingest/`](../src/features/recommend/ingest/) 가 **YAML 매핑으로 흡수**한다. 실제 JSON 이 오면
-> `src/features/recommend/ingest/sources/mangae.yaml` 의 `paths` 만 고치면 되고 이 스키마는 그대로다.
+> [`src/features/recommend/ingest/`](../../../src/features/recommend/ingest) 가 **YAML 매핑으로 흡수**한다. 실제 JSON 이 오면
+> `seeds/sources/mangae.yaml` 의 `paths` 만 고치면 되고 이 스키마는 그대로다.
 >
 > ```bash
 > make probe SAMPLE=샘플.json     # 무엇이 매핑되고 무엇이 없는지 리포트
@@ -1672,7 +1672,7 @@ CREATE TABLE user_vector (
 #### 🔴 채택하지 않은 것 — 강도 보정 (단위·제목·순서)
 
 수량 환산(P5) 없이 "많이 들어감"을 근사하려 `단위 종류 · 제목 등장 · 목록 순서`로
-강도 배수를 만들었으나(`src/features/recommend/ingest/p5_intensity.py`) **판별력이 오히려 나빠졌다.**
+강도 배수를 만들었으나(`src/features/recommend/ingest/flavor.py`) **판별력이 오히려 나빠졌다.**
 
 | 방식 | 원본 코사인 (↓ 좋음) |
 |---|---|
@@ -1700,7 +1700,7 @@ CREATE TABLE user_vector (
 
 > 🔑 *(v3.1)* **`02` I-15 는 닫혔다.** 아래 후보 중 **재료 기반 규칙**을 채택했고
 > 시드와 코드가 모두 있다 — `seeds/ingredient_flavor.yaml` +
-> [`src/features/recommend/ingest/p5_flavor.py`](../src/features/recommend/ingest/p5_flavor.py).
+> [`src/features/recommend/ingest/flavor.py`](../../../src/features/recommend/ingest/flavor.py).
 
 `recipe_feature.flavor_vec` 은 **재료 목록 + 역할**에서 집계한다. 그것이 곧 ①의
 **노이즈 축**이라, 채우는 방법이 부정확하면 축을 6개로 하든 12개로 하든 0.1 근처에서 논다.
@@ -2244,7 +2244,7 @@ make seed-reset            # 위 테이블에 행이 있으면 멈추고 무엇�
 make seed-reset FORCE=1    # 그래도 지운다
 ```
 
-3인 병렬에서 누가 무심코 치면 **남의 하루가 사라진다.** 가드는 `scripts/migrate.py` 의
+3인 병렬에서 누가 무심코 치면 **남의 하루가 사라진다.** 가드는 `scripts/reco/migrate.py` 의
 `_CASCADE_VICTIMS` 목록으로 구현돼 있고, 새 테이블이 `ingredient` 를 참조하게 되면
 거기에도 추가해야 한다.
 
@@ -2252,7 +2252,7 @@ make seed-reset FORCE=1    # 그래도 지운다
 
 ## 2-12. 구현체 — `db/` *(v0.6 신규)*
 
-DDL 은 [`deploy/init/`](../deploy/init/) 에 있고 `make up` 시 알파벳 순으로 자동 실행된다.
+DDL 은 [`deploy/init/`](../../../deploy/init) 에 있고 `make up` 시 알파벳 순으로 자동 실행된다.
 
 | 파일 | 내용 |
 |---|---|
@@ -2339,7 +2339,7 @@ Grafana 패널과 평가 스크립트는 반드시 이 뷰를 기준으로 작�
 
 ### 스모크 테스트가 증명하는 것
 
-크롤링 전에 합성 데이터로 설계를 검증한다 ([`tests/smoke_test.py`](../tests/smoke_test.py)).
+크롤링 전에 합성 데이터로 설계를 검증한다 ([`tests/integration/test_smoke.py`](../../../tests/integration/test_smoke.py)).
 
 | 검사 | 검증 대상 |
 |---|---|
@@ -2958,7 +2958,7 @@ recipe_ingredient_raw.raw_text
 
 > ## ✅ P1·P2 구현 완료 *(2026-08-27)*
 >
-> [`src/features/recommend/ingest/`](../src/features/recommend/ingest/) — fixture **74건 전부 통과** (`make normalize-test`).
+> [`src/features/recommend/ingest/`](../../../src/features/recommend/ingest) — fixture **74건 전부 통과** (`make normalize-test`).
 > **사전·DB·크롤링 데이터 없이 동작하는 순수 함수**라 가장 먼저 만들었다.
 >
 > ```
@@ -3077,7 +3077,7 @@ recipe_ingredient_raw.raw_text
 
 ### 4-4-0. 구현 완료 · 실데이터 실측 *(v2.2)*
 
-`src/features/recommend/ingest/p3_match.py` — **DB 불필요**(사전을 시드에서 로드). 회귀 23건.
+`src/features/recommend/ingest/match.py` — **DB 불필요**(사전을 시드에서 로드). 회귀 23건.
 
 ```
 make normalize-test    # P1·P2 74건 + P3 23건 + P4 16건 = 113건
@@ -3104,7 +3104,7 @@ W3 목표 mention ≥ 0.55 → ✅ 달성 (W5 목표 0.85 는 미달)
 
 #### 🔴 실행해서 드러난 것 2가지
 
-**① P1 이 띄어쓰기를 떼지 않는다.** `seeds/README` 는 "P1 전처리" 담당으로 적었지만
+**① P1 이 띄어쓰기를 떼지 않는다.** `seeds/README.md` 는 "P1 전처리" 담당으로 적었지만
 `normalize("대 파 1대")` 의 `name` 은 `'대 파'` 다. **P3 의 조회 키에서 해결했다** —
 `ParsedIngredient.name` 은 검수 큐에 그대로 표시되는 값이라 원문에 충실해야 하고,
 공백 제거는 "이름의 정정"이 아니라 "매칭을 위한 변형"이기 때문이다.
@@ -3264,7 +3264,7 @@ confusable 42쌍 차단     42/42 = 100%      최대 유사도 0.750 (겹침)
 퍼지 매칭은 **오탈자 전용**으로만 남는다(`얘호박`). 임계값은 손으로 고르지 않고
 캘리브레이션으로 정한다(5-7-3).
 
-구현: `src/features/recommend/ingest/p3_head.py`. 회귀 검사가 `make validate` 에 들어가 있어
+구현: `src/features/recommend/ingest/head.py`. 회귀 검사가 `make validate` 에 들어가 있어
 **confusable 이 자동 확정으로 새는 순간 시드 검증이 실패한다.**
 
 ---
@@ -3336,14 +3336,14 @@ ko-SBERT는 **의미적으로 가까운 것**을 가깝다고 한다. `양파` �
 
 ### 4-5-0. 구현 완료 · 🔴 1순위 근거가 실측에서 사라졌다 *(v2.4)*
 
-`src/features/recommend/ingest/p4_role.py` — 회귀 16건. `make normalize-test` · `make coverage`
+`src/features/recommend/ingest/role.py` — 회귀 16건. `make normalize-test` · `make coverage`
 
 #### 설계가 "압도적으로 정확하다"고 한 규칙 1·2 가 발동하지 않는다
 
 아래 원문은 `group_name` 수집을 1주차 필수 요구사항으로 못박았다. 그런데 실측은:
 
 ```
-tests/fixtures/real/*.json  3건 전부  group_name = "기본재료"
+tests/fixtures/responses/real/*.json  3건 전부  group_name = "기본재료"
 ```
 
 **`[양념]`·`[고명]` 구분이 원본에 존재하지 않는다.** 크롤러가 안 주는 것이 아니라
@@ -3606,7 +3606,7 @@ CREATE TABLE ingredient_unit_weight (
 | 10 | P1~P5 코드 + 단위 테스트 | | | ⬜ 미착수 |
 | — | 실제 커버리지 측정 · 임계값 튜닝 | | | 🔒 크롤링 필요 |
 
-산출물은 [`seeds/`](../seeds/) 에 있으며 `python3 seeds/validate.py` 로 정합성을 검증한다.
+산출물은 [`seeds/`](../../../seeds) 에 있으며 `python3 seeds/validate.py` 로 정합성을 검증한다.
 
 ### 추정치 정정 — alias 2~3천은 잘못된 목표였다
 
@@ -4002,7 +4002,7 @@ score = raw × p_recent × p_cooked × (1 - p_avoid)
 **그리고 같은 실수가 재발하지 않도록 계약 테스트에 못박았다.**
 
 ```python
-# tests/test_contract.py
+# tests/unit/recommend/test_contract.py
 check("w>0 인 피처는 전부 계산 가능하다",
       not [k for k in UNAVAILABLE_FEATURES if DEFAULT_WEIGHTS.get(k, 0) > 0])
 ```
@@ -5446,7 +5446,7 @@ CREATE TABLE user_recipe_affinity (
 
 ### 비용과 맞바꿀 것
 
-**약 20h.** [`04_실행계획.md`](04_실행계획.md) §2 의 버퍼(현재 25h)가 얇아 교환이 필요하다. *(버퍼 수치의 SoT 는 04 §2 한 곳이다)*
+**약 20h.** [`04_실행계획.md`](04_EXECUTION_PLAN.md) §2 의 버퍼(현재 25h)가 얇아 교환이 필요하다. *(버퍼 수치의 SoT 는 04 §2 한 곳이다)*
 
 | | 임베딩 파이프라인 (현재 P2 선택안 — item2vec 은 하차, 04 §2) | 취향 기반 Retrieval |
 |---|---|---|
@@ -5621,7 +5621,7 @@ LightGBM (피처 기반)     →  피처를 학습               →  새 레시
 | **LightGCN** (user-item 그래프) | 고립 노드 70%. 단 **recipe-ingredient 그래프로는 가능** (6-3-2) |
 
 > 모델 6종의 개별 판정 근거·파라미터 계산·도메인 적합성은
-> **[`03_모델_선정_사유.md`](03_모델_선정_사유.md)** 에 분리했다. 발표 QA 대응 문답도 거기에 있다.
+> **[`03_모델_선정_사유.md`](../decisions/2026-09-04_model_selection.md)** 에 분리했다. 발표 QA 대응 문답도 거기에 있다.
 
 ---
 
@@ -6096,7 +6096,7 @@ icount(a.all_ids & b.all_ids)::real / icount(a.all_ids | b.all_ids)
 재료 대체 자동 판정은 어렵다. **성능을 예측할 수 없으므로 측정부터 한다.**
 4-4-1 에서 L3 임계값 0.6 이 재현율 0% 였던 전례가 있다.
 
-**라벨 데이터** — [`seeds/substitutable_pairs.yaml`](../seeds/substitutable_pairs.yaml)
+**라벨 데이터** — [`seeds/substitutable_pairs.yaml`](../../../seeds/substitutable_pairs.yaml)
 
 | | 개수 |
 |---|---|
@@ -6239,7 +6239,7 @@ HNSW 를 만들어두었으므로 **"재료는 부족하지만 콘텐츠가 비�
 | **영양 정보** (`nutrition_100g`) | 정규 재료에 부착 | **식재료 API** |
 
 > **식재료 API 는 재료 목록이 아니라 영양정보 소스로 쓴다.** 식약처 DB 는 "식품"이지
-> "재료"가 아니라 `조리된 김치찌개` 같은 완제품이 섞여 있다 (`seeds/00_README.md` 경고).
+> "재료"가 아니라 `조리된 김치찌개` 같은 완제품이 섞여 있다 (`seeds/README.md` 경고).
 > 그대로 넣으면 사전이 오염된다.
 >
 > 영양정보가 붙으면 지금 비어 있는 `recipe_feature.nutrition` 이 채워지고,

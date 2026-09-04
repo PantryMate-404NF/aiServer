@@ -21,6 +21,16 @@
 충돌 시 번호가 작은 문서가 이깁니다. 규칙을 바꾸려면 01의 9절 개정 절차를 따릅니다.
 설계 결정 기록은 [decisions/](decisions/) 에 날짜별로 있습니다.
 
+### 1.1 기능별 문서
+
+규칙이 아니라 그 기능의 설계와 결정입니다. 위 세 문서와 충돌하면 위가 이깁니다.
+
+| 기능 | 위치 | 담고 있는 것 |
+|---|---|---|
+| 추천 | [reco/](reco/) | [design/](reco/design/) 설계 8건 · [decisions/](reco/decisions/) 결정 기록 · [draft/](reco/draft/) 초안 아카이브 |
+
+추천 파트는 [reco/README.md](reco/README.md) 가 진입점입니다. 문서 형식이 02의 2.5 와 아직 다른 것들이 있으며, 그 범위와 이유는 [reco/decisions/2026-09-04_doc_format_debt.md](reco/decisions/2026-09-04_doc_format_debt.md) 에 있습니다.
+
 ---
 
 ## 2. 신규 합류자가 읽는 순서

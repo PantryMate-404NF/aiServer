@@ -7,8 +7,8 @@ PY      := .venv/bin/python
 PSQL    := $(COMPOSE) exec -T postgres psql -U reco -d recodb
 
 .DEFAULT_GOAL := help
-.PHONY: help env up up-all down down-v ps logs psql wait \
-        install requirements requirements-check \
+.PHONY: help env up down down-v ps logs psql wait \
+        install \
         validate dry-run seed seed-reset verify smoke ddl-test review-sheet review-apply unmatched post-index bootstrap clean
 
 help:  ## 명령 목록
@@ -37,39 +37,8 @@ install:  ## 트랙별 의존성 설치 (make install TRACK=A|B|C)
 	     exit 1 ;; \
 	esac
 
-# ── requirements/ ───────────────────────────────────────────────
-# uv 를 못 쓰는 사람(순정 pip·코랩·조교 채점 환경)을 위한 사본이다.
-# 🔴 손으로 고치지 않는다. pyproject 를 고치고 이 타깃을 다시 돌린다.
-#    손으로 고치면 락과 조용히 갈라지고, 갈라진 걸 아무도 모른다.
-REQ_DIR := requirements
-UVX     := uv export -q --no-hashes --no-emit-project --no-dev
-
-requirements:  ## requirements/*.txt 재생성 (pyproject 고친 뒤 반드시)
-	@uv lock
-	@mkdir -p $(REQ_DIR)
-	@$(UVX)                                        -o $(REQ_DIR)/base.txt
-	@$(UVX) --extra ml                             -o $(REQ_DIR)/A.txt
-	@$(UVX) --extra api --extra ml                 -o $(REQ_DIR)/B.txt
-	@$(UVX) --extra dash --extra ml --extra obs    -o $(REQ_DIR)/C.txt
-	@$(UVX) --extra api --extra dash --extra obs --extra ml --extra rank-v1 \
-	                                               -o $(REQ_DIR)/all.txt
-	@for f in base A B C all; do \
-	   printf "  %-24s %3s개\n" "$(REQ_DIR)/$$f.txt" \
-	     "$$(grep -cE '^[a-zA-Z0-9]' $(REQ_DIR)/$$f.txt)"; \
-	 done
-	@echo "🔴 embed(sentence-transformers) 는 어디에도 안 넣었습니다 — torch 2GB 를 끌고 옵니다."
-
-requirements-check:  ## requirements/ 가 락과 어긋나면 실패 (CI 용)
-	@tmp=$$(mktemp -d); cp -R $(REQ_DIR)/. $$tmp/ 2>/dev/null || true; \
-	 $(MAKE) --no-print-directory requirements >/dev/null; \
-	 if diff -rq $$tmp $(REQ_DIR) >/dev/null; then \
-	   echo "✅ requirements/ 최신"; rm -rf $$tmp; \
-	 else \
-	   echo "🔴 requirements/ 가 pyproject 와 다릅니다. 'make requirements' 결과를 커밋하세요:"; \
-	   diff -rq $$tmp $(REQ_DIR) || true; rm -rf $$tmp; exit 1; \
-	 fi
-
-env:  ## .env 생성 (없을 때만)
+# ── 환경변수 ───────────────────────────────────────────────────
+env:  ## deploy/.env 생성 (없을 때만)
 	@[ -f deploy/.env ] || (cp deploy/.env.example deploy/.env && echo "deploy/.env 생성됨")
 
 # ── 컨테이너 ────────────────────────────────────────────────────
@@ -81,9 +50,10 @@ up-obs: env  ## + 관측 도구 (grafana mlflow) — 대시보드 트랙 시점
 	$(COMPOSE) --profile obs up -d --build
 	@$(MAKE) --no-print-directory wait
 
-up-all: env  ## + 애플리케이션 (reco-api dashboard) — 산출물 D 이후
-	$(COMPOSE) --profile obs --profile app up -d --build
-	@$(MAKE) --no-print-directory wait
+# 🔴 `up-all` 을 없앴다. reco-api·dashboard 서비스가 존재한 적 없는 Dockerfile
+#    (db/app/Dockerfile.api·dashboard)을 가리켜 --profile app 은 언제나 실패했다.
+#    컨테이너로 띄우기로 정하는 시점에 Dockerfile 과 함께 되살린다
+#    (docs/reco/decisions/2026-09-04_app_containers_deferred.md).
 
 mlflow-ui:  ## MLflow UI 를 로컬에서 실행 (컨테이너 불필요)
 	@echo "★ backend 는 반드시 mlflowdb. recodb 로 붙이면 reco 스키마가 오염된다."

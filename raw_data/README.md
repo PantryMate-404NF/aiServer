@@ -9,7 +9,7 @@
 
 | 파일 | 크기 | 받는 곳 |
 |---|---|---|
-| `recipe_raw_data.jsonl` | 약 209MB · 46,552행 | **팀 채널 / 공유 드라이브** |
+| `recipe_raw_data.jsonl` | 약 209MB · 46,552행 | **팀 채널 / 공유 드라이브** — 각자 내려받아 여기 둔다 |
 
 ## 왜 안 올리나
 
@@ -18,22 +18,22 @@
 2. 🔴 **후기 작성자 닉네임이 평문으로 들어 있다** — 고유 177,318종.
    `reviews` 원소가 `"<닉네임><타임스탬프><본문>"` 형태다.
    DB 에는 닉네임 대신 `author_hash`(HMAC-SHA256 앞 16hex)만 넣는데
-   (`scripts/load_recipes.py:72`), 원본이 공개되면 그 해시를 지키는 의미가 사라진다.
+   (`scripts/reco/load_recipes.py:72`), 원본이 공개되면 그 해시를 지키는 의미가 사라진다.
 
 ## 없으면 무엇이 막히나
 
 **막히는 것** — 이것들은 원본 파일이 있어야 한다.
 
 ```
-python -m scripts.load_recipes          크롤 적재 (REVIEW_SALT 도 필요)
-python scripts/reco/bench/unmatched_dump.py   미매칭 표현 덤프
-make doc-check                   문서 수치 대조 (recipe 행이 있어야 한다)
+python scripts/reco/load_recipes.py raw_data/recipe_raw_data.jsonl   크롤 적재
+python scripts/reco/bench/unmatched_dump.py                          미매칭 표현 덤프
+make doc-check                                    문서 수치 대조 (recipe 행 필요)
 ```
 
 **되는 것** — 원본 없이도 된다.
 
 ```
-./setup.sh --track ?    환경 준비 · 시드 적재까지
+./scripts/reco/setup.sh --track ?    환경 준비 · 시드 적재까지
 make contract           계약 검증        (DB 도 불필요)
 make normalize-test     재료 정규화
 make probe-all          크롤러 어댑터
@@ -50,7 +50,7 @@ make smoke · smoke-py   Retrieval (합성 레시피로)
 set -a; . ./.env; set +a
 
 # 3. 적재
-.venv/bin/python -m scripts.load_recipes
+.venv/bin/python scripts/reco/load_recipes.py raw_data/recipe_raw_data.jsonl
 ```
 
 > 🔴 `REVIEW_SALT` 를 새로 만들면 이미 적재된 후기 624,422건의 작성자 해시와

@@ -6,7 +6,7 @@
 |---|---|
 | 작성 | 2026-08-28 |
 | 갱신 | **2026-09-03** — 🔴 **로그 규약이 DDL 에 착지했다**: `event_log.source` 3값 · impression `position` 필수 · `session_id` `d-` 접두어 · 탐색 슬롯 실제 삽입 · 활성 피처 8종 |
-| 기준 문서 | [`01_추천시스템_설계.md`](01_추천시스템_설계.md) **v3.0** · [`03_모델_선정_사유.md`](03_모델_선정_사유.md) **v3.0** · [`04_실행계획.md`](04_실행계획.md) |
+| 기준 문서 | [`01_추천시스템_설계.md`](02_RECOMMENDER_DESIGN.md) **v3.0** · [`03_모델_선정_사유.md`](../decisions/2026-09-04_model_selection.md) **v3.0** · [`04_실행계획.md`](04_EXECUTION_PLAN.md) |
 | 계약 SoT | [`src/features/recommend/schema.py` · `stage.py`](../../../src/features/recommend/) — 이 문서가 코드와 충돌하면 **코드가 맞다** |
 | 목적 | (D) 지금과 나중의 **성능 평가 방법** · (E) 운영 데이터를 쌓아 **딥러닝으로 가는 경로** |
 | 우선순위 | **E-3 이 이 문서에서 유일하게 시간에 쫓기는 절이다.** 나머지는 전부 나중에 써도 된다 |
@@ -646,7 +646,7 @@ MDES 는 0.358(범위 2 의 18%)이다. 클릭 내부 로지스틱 계수로 쓰
 |---|---|---|
 | **하드 컷** | `NOT (all_ids && :allergy_expanded_ids)` (`docs/01:1020`) | ✅ 이미 SQL |
 | 🔴 **입력 경로** | 온보딩·디버거가 `user_allergy.severity` 를 **`'allergy'`** 로 저장 | 🔴 **여기가 실제 구멍이다** |
-| **CI 게이트** | `tests/smoke_test.py` A4~A8 (A7 = 알러젠이 고명에만 있어도 차단) | ✅ 스모크 13/13 · p95 30.2ms (`04 §1`) |
+| **CI 게이트** | `tests/integration/test_smoke.py` A4~A8 (A7 = 알러젠이 고명에만 있어도 차단) | ✅ 스모크 13/13 · p95 30.2ms (`04 §1`) |
 | **운영 감사** | `served` × `recipe_feature.all_ids` ∩ `allergy_snapshot` ≠ ∅ 건수 | ⬜ 배치, 기대값 0 |
 
 > 🔴 **`severity` 를 생략하면 하드 컷이 페널티로 강등된다** *(09-02 · `OnboardingIn`)*.
@@ -1073,7 +1073,7 @@ CHECK (session_id IS NULL OR session_id ~ '^[cgd]-')   -- event_log · recommend
 `recipe_id IS NULL` 이 이미 정상값이므로, **SET NULL 로 죽은 impression 행은 정상 행과
 구분조차 되지 않는다.**
 
-RESTRICT 는 이 저장소의 실제 삭제 경로에 무력하다 — `scripts/migrate.py` 의
+RESTRICT 는 이 저장소의 실제 삭제 경로에 무력하다 — `scripts/reco/migrate.py` 의
 `TRUNCATE ... RESTART IDENTITY CASCADE`(`make seed-reset`)는 FK 의 ON DELETE 규칙을 무시하고
 참조 테이블을 함께 비운다. **FK 제거가 RESTRICT 보다 강하다.**
 
@@ -1096,8 +1096,8 @@ RESTRICT 는 이 저장소의 실제 삭제 경로에 무력하다 — `scripts/
 ## E-4. 로그 스키마 확장 DDL
 
 > 🔴 **`ALTER TABLE` 을 쓰지 않는다.** `deploy/init/*.sql` 은 컨테이너 초기화 DDL 이고
-> `infra/apply_schema.sh` 는 `FILES=(01_extensions 02_schema 03_indexes 04_functions)` 고정 실행이다.
-> `scripts/migrate.py` 헤더는 "시드 파일이 SoT 다. DB 를 직접 수정하지 않는다"고 못박았다.
+> `deploy/apply_schema.sh` 는 `FILES=(01_extensions 02_schema 03_indexes 04_functions)` 고정 실행이다.
+> `scripts/reco/migrate.py` 헤더는 "시드 파일이 SoT 다. DB 를 직접 수정하지 않는다"고 못박았다.
 > ALTER 스니펫은 고아가 되고, W3 크롤링 도착 후 `make db-reset` 을 도는 순간 컬럼이 조용히
 > 사라진다. **`02_schema.sql` 의 CREATE TABLE 본문을 직접 고치고 재초기화한다** —
 > `event_log`·`recommendation_log` 는 아직 빈 테이블이라 무손실이다.
@@ -1251,7 +1251,7 @@ CREATE UNIQUE INDEX uq_pantry_active
 
 > ⚠️ **부분 유니크 인덱스로 바꾸면 딸려오는 것이 있다.**
 > `deploy/init/04_functions.sql` 의 pantry 조회 2곳에 `WHERE removed_at IS NULL` 을 넣어야 하고,
-> `tests/smoke_test.py` 의 `INSERT ... ON CONFLICT DO NOTHING` 은 부분 인덱스에서 술어를 명시하지
+> `tests/integration/test_smoke.py` 의 `INSERT ... ON CONFLICT DO NOTHING` 은 부분 인덱스에서 술어를 명시하지
 > 않으면 추론되지 않아 깨진다. `04 §1` 이 W1 산출물로 못박은 **스모크 13/13 · p95 30.2ms 재검증**
 > 까지가 비용이다. 실질 2.5h.
 >
@@ -1308,7 +1308,7 @@ CREATE INDEX idx_ev_session ON event_log (session_id, created_at)
 검사하므로 컬럼이 없어도 통과한다.
 
 ```python
-# tests/test_contract.py — DB 불필요 원칙(Makefile:77)을 깨지 않는다.
+# tests/unit/recommend/test_contract.py — DB 불필요 원칙(Makefile:77)을 깨지 않는다.
 # 02_schema.sql 을 텍스트로 읽어 설계 3-7 이 이미 열거해둔 닫힌 항목만 이름으로 검사한다.
 ddl = Path("deploy/init/02_schema.sql").read_text()
 check("event_log 에 session_id 컬럼이 있다",       "session_id" in ddl)
@@ -1473,7 +1473,7 @@ log_impressions(request_id, user_id, served, session_id=sid)
 | arm 당 유효표본 상한 `(U/2)/ICC` · 유저 100 → ΔCTR 4.2%p | ✅ 4.1%p (대수 유도도 확인) |
 
 `reviews` 필드에 작성자 닉네임·타임스탬프가 실재한다는 C-1 의 관찰도
-`tests/fixtures/real/*.json` 3건에서 직접 확인했다.
+`tests/fixtures/responses/real/*.json` 3건에서 직접 확인했다.
 
 **검증하지 않은 것:** 문서 안의 개별 파일 라인 번호 인용, 그리고 ICC·ρ·σ 처럼
 **아직 측정된 적 없는 값**에 기반한 추정치. 후자는 본문에도 그렇게 표시돼 있다.
@@ -1536,7 +1536,7 @@ log_impressions(request_id, user_id, served, session_id=sid)
 ## C. (E) 딥러닝 경로에서 검토조차 안 된 선택지
 
 **C-1. 🔴 만개의레시피 후기가 실제 `(user, recipe)` 상호작용인데 버려지고 있다 — (E)에 대한 가장 큰 답이다.**
-실측 fixture 3건 모두 `reviews` 배열이 있고, 원소가 `"<닉네임><타임스탬프><본문>"` 형태로 **작성자 닉네임 + 타임스탬프 + 텍스트**를 담고 있다(tests/fixtures/real/*.json). 그런데 `src/features/recommend/ingest/sources/mangae.yaml:103-105` 는 이걸 `transform: count` 로 **개수만 세서 인기도 프록시로 쓰고 버린다.** 저장할 테이블도 없다(24개 중 review 없음).
+실측 fixture 3건 모두 `reviews` 배열이 있고, 원소가 `"<닉네임><타임스탬프><본문>"` 형태로 **작성자 닉네임 + 타임스탬프 + 텍스트**를 담고 있다(tests/fixtures/responses/real/*.json). 그런데 `seeds/sources/mangae.yaml:103-105` 는 이걸 `transform: count` 로 **개수만 세서 인기도 프록시로 쓰고 버린다.** 저장할 테이블도 없다(24개 중 review 없음).
 이것이 CF 기각의 전제를 흔든다 — 03은 상호작용 4,000건(실유저 100명)을 근거로 기각했지만, 후기는 **같은 아이템 공간의 한국 레시피 상호작용**이라 Food.com 전이(03:201, 01:4183)가 "아이템이 달라 재료 임베딩만" 으로 좁혀졌던 한계가 없다. 지금 당장 해야 할 것은 결론이 아니라 **측정**이다: (a) `reviews` 가 전량인지 첫 페이지인지, (b) 레시피당 평균/head 분포, (c) 고유 작성자 수. head 레시피의 후기가 수백 건이면 03:431의 "500~1,000명 구간 — item-item CF · ALS(head 500 한정)" 이 **실유저 0명으로 지금 열린다.**
 그리고 소급성: `raw_json: mode: full`(mangae.yaml) 덕에 지금 크롤하면 보존은 되지만, 4.4만 건 크롤링 시 "reviews는 무거우니 빼자"는 결정이 한 번 내려지면 재크롤 비용 + 차단 위험 + 삭제된 후기 소실로 사실상 소급 불가. **크롤링 스펙 동결이 로그 스키마 동결과 같은 무게의 소급 불가 결정인데, 3-7 동결 체크리스트(01:1996-2010)에 크롤링 항목이 한 줄도 없다.** (A-5 동의 항목과 연결 — 타인의 닉네임 수집이므로 가명화 규칙을 함께 정해야 한다.)
 

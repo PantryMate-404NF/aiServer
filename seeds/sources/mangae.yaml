@@ -3,7 +3,7 @@
 # ✅ 실크롤 46,552건으로 검증 완료 (09-02). 더 이상 추정치가 아니다.
 #
 # 다음 소스로 갈아탈 때:
-#   1. python -m ingest.probe <샘플.json>   ← 무엇이 맞고 틀린지 리포트
+#   1. python scripts/reco/probe.py <샘플.json>   ← 무엇이 맞고 틀린지 리포트
 #   2. 이 파일의 paths 만 수정
 #   3. adapter.py · DB · 파이프라인은 그대로
 #

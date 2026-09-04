@@ -34,7 +34,7 @@
 ## 빠른 시작
 
 ```bash
-./setup.sh --track B      # A 데이터 · B 엔진 · C 관측 중 자기 트랙
+./scripts/reco/setup.sh --track B      # A 데이터 · B 엔진 · C 관측 중 자기 트랙
 ```
 
 `.venv` 생성 → 트랙별 의존성 → 컨테이너 기동 → 시드 → 검증까지 한 번에 한다.
@@ -43,9 +43,9 @@
 스크립트가 설치 명령을 알려준다.
 
 ```bash
-./setup.sh --check                # 진단만 (아무것도 안 바꾼다)
-./setup.sh --track A --no-db      # 컨테이너 없이 파이썬 환경만
-./setup.sh --track B --extra rank-v1
+./scripts/reco/setup.sh --check                # 진단만 (아무것도 안 바꾼다)
+./scripts/reco/setup.sh --track A --no-db      # 컨테이너 없이 파이썬 환경만
+./scripts/reco/setup.sh --track B --extra rank-v1
 ```
 
 > 🔴 `.env` 의 `REVIEW_SALT` 는 **스크립트가 만들지 않는다.** 후기 624,422건의 작성자
@@ -74,16 +74,16 @@ make probe-all         # 크롤러 어댑터
 
 | 문서 | 무엇 |
 |---|---|
-| ⭐ [`docs/reco/design/01_ARCHITECTURE.md`](docs/reco/design/01_ARCHITECTURE.md) | **여기부터.** 왜 이렇게 만들었는지 — 서술형 30분 |
-| [`docs/reco/design/02_RECOMMENDER_DESIGN.md`](docs/reco/design/02_RECOMMENDER_DESIGN.md) | 전체 설계 ①~⑦ **v2.7** · 📊 **0-5 데이터 플로우** · **5-0-1 모델 아키텍처** |
-| [`docs/reco/design/03_OPEN_ISSUES.md`](docs/reco/design/03_OPEN_ISSUES.md) | 🔴 **혼자 결정할 수 없는 것** |
-| [`docs/reco/decisions/2026-09-04_model_selection.md`](docs/reco/decisions/2026-09-04_model_selection.md) | 모델 6종 정량 비교 · 발표 QA |
-| [`docs/reco/design/04_EXECUTION_PLAN.md`](docs/reco/design/04_EXECUTION_PLAN.md) | 🔴 **3명 · 남은 3주 기준 범위 · 주차별 · 컷라인** |
-| [`docs/reco/design/05_API_SPEC.md`](docs/reco/design/05_API_SPEC.md) | 경로 8개 · 오퍼레이션 9개 (자동 생성) |
-| [`docs/reco/design/06_INFRA_SPEC.md`](docs/reco/design/06_INFRA_SPEC.md) | **서버 사양** · 실측 기반 산출 · 요청서 템플릿 |
-| [`docs/reco/design/07_EVALUATION_ROADMAP.md`](docs/reco/design/07_EVALUATION_ROADMAP.md) | **평가 방법론** · 딥러닝 전환 트리거 · 🔴 **소급 불가 항목 10종** |
-| ⭐ [`docs/reco/decisions/2026-09-04_frozen_design.md`](docs/reco/decisions/2026-09-04_frozen_design.md) | **결정이 끝난 것만** 모은 참조본 · 미결·컷 목록 포함 |
-| [`docs/reco/design/08_CHANGELOG.md`](docs/reco/design/08_CHANGELOG.md) | 버전별 변경 이력 (01 헤더에는 최신 1개만) |
+| ⭐ [`docs/reco/design/01_ARCHITECTURE.md`](design/01_ARCHITECTURE.md) | **여기부터.** 왜 이렇게 만들었는지 — 서술형 30분 |
+| [`docs/reco/design/02_RECOMMENDER_DESIGN.md`](design/02_RECOMMENDER_DESIGN.md) | 전체 설계 ①~⑦ **v2.7** · 📊 **0-5 데이터 플로우** · **5-0-1 모델 아키텍처** |
+| [`docs/reco/design/03_OPEN_ISSUES.md`](design/03_OPEN_ISSUES.md) | 🔴 **혼자 결정할 수 없는 것** |
+| [`docs/reco/decisions/2026-09-04_model_selection.md`](decisions/2026-09-04_model_selection.md) | 모델 6종 정량 비교 · 발표 QA |
+| [`docs/reco/design/04_EXECUTION_PLAN.md`](design/04_EXECUTION_PLAN.md) | 🔴 **3명 · 남은 3주 기준 범위 · 주차별 · 컷라인** |
+| [`docs/reco/design/05_API_SPEC.md`](design/05_API_SPEC.md) | 경로 8개 · 오퍼레이션 9개 (자동 생성) |
+| [`docs/reco/design/06_INFRA_SPEC.md`](design/06_INFRA_SPEC.md) | **서버 사양** · 실측 기반 산출 · 요청서 템플릿 |
+| [`docs/reco/design/07_EVALUATION_ROADMAP.md`](design/07_EVALUATION_ROADMAP.md) | **평가 방법론** · 딥러닝 전환 트리거 · 🔴 **소급 불가 항목 10종** |
+| ⭐ [`docs/reco/decisions/2026-09-04_frozen_design.md`](decisions/2026-09-04_frozen_design.md) | **결정이 끝난 것만** 모은 참조본 · 미결·컷 목록 포함 |
+| [`docs/reco/design/08_CHANGELOG.md`](design/08_CHANGELOG.md) | 버전별 변경 이력 (01 헤더에는 최신 1개만) |
 
 > ⚠️ **`01` 은 20명 전제로 쓰였다.** 실제로 무엇을 만드는지는 **`04` 가 정한다.**
 > 충돌하면 `04` 가 우선한다. `01` 은 "어떻게 만드는 것이 옳은가",
@@ -94,10 +94,10 @@ make probe-all         # 크롤러 어댑터
 | 역할 | 읽을 것 | 분량 |
 |---|---|---|
 | **크롤링 담당** | `02` C절 · `src/features/recommend/ingest/README.md` | ~100줄 |
-| **정규화 (개발자 A)** | `01` ④ · `seeds/00_README.md` | ~450줄 |
+| **정규화 (개발자 A)** | `01` ④ · `seeds/README.md` | ~450줄 |
 | **엔진 (개발자 A)** | `01` ⑤⑥ · `05` | ~900줄 |
 | **대시보드 (개발자 B)** | `01` ③ · `05` · `01` 0-5 판단4 | ~400줄 |
-| **DB 관리자** | `01` 1-7 · `infra/00_README.md` · **`06` 8-C절** | ~400줄 |
+| **DB 관리자** | `01` 1-7 · `deploy/README.md` · **`06` 8-C절** | ~400줄 |
 | **서버 담당** | **`06` 전체** (요청서 템플릿 10절) | ~320줄 |
 | **처음 합류** | 이 README → **`00`** → `04` | ~600줄 |
 
@@ -105,7 +105,7 @@ make probe-all         # 크롤러 어댑터
 
 ## 코드
 
-폴더 구조는 [`docs/rules/00_aiserver_rules.md`](docs/rules/00_aiserver_rules.md) 4절을 따른다.
+폴더 구조는 [`docs/convention/02_DIRECTORY_STRUCTURE.md`](../convention/02_DIRECTORY_STRUCTURE.md) 를 따른다.
 
 ```
 app/
@@ -140,7 +140,7 @@ docs/reco/design/api/             OpenAPI · 실호출 예시 (자동 생성)   
 | **이유 생성 · exploration · interleaving · 우연성** | `src/features/recommend/engine/` |
 | **임계값 캘리브레이션** | `src/features/recommend/evaluation/threshold.py` |
 | **설계 판단의 근거 시뮬레이션** | `scripts/reco/bench/` — 문서에 인용된 숫자를 재현한다 |
-| **다이어그램 렌더 검증** | `scripts/check_mermaid.mjs` — `make diagrams` |
+| **다이어그램 렌더 검증** | `scripts/reco/check_mermaid.mjs` — `make diagrams` |
 | **재료 사전** | `seeds/*.csv` `*.yaml` (DB 아님) |
 | **DB 스키마** | `deploy/init/02_schema.sql` ← `01` ② 와 동기화 |
 | **크롤러 매핑** | `seeds/sources/*.yaml` |
@@ -166,7 +166,7 @@ docs/reco/design/api/             OpenAPI · 실호출 예시 (자동 생성)   
 | **I-8** | 팀 | 온보딩 설문 문항 — 모집 후 바꾸면 데이터 반쯤 폐기 |
 | **B-1** | 백엔드팀 | `public` 스키마 쓰지 않기 |
 
-상세는 [`docs/reco/design/03_OPEN_ISSUES.md`](docs/reco/design/03_OPEN_ISSUES.md).
+상세는 [`docs/reco/design/03_OPEN_ISSUES.md`](design/03_OPEN_ISSUES.md).
 
 ### 주차별
 
@@ -180,7 +180,7 @@ W7  LightGBM v1 · MLflow 실험 · 리포트 초안
 W8  안정화 · 발표    ← 새 기능 넣지 않는다
 ```
 
-**컷라인**(언제 무엇을 포기할지)은 [`docs/reco/design/04_EXECUTION_PLAN.md`](docs/reco/design/04_EXECUTION_PLAN.md) 5절에 있다.
+**컷라인**(언제 무엇을 포기할지)은 [`docs/reco/design/04_EXECUTION_PLAN.md`](design/04_EXECUTION_PLAN.md) 5절에 있다.
 
 ---
 

@@ -8,10 +8,10 @@
 | 갱신 | **2026-09-03** — 3인 전환 반영 · 09-02~03 DDL/계약/구현 확정분 · 실측 재대조 |
 | **개발 인력** | ~~AI 파트 2명~~ → **AI 파트 3명** *(2026-09-02 전환)* (+ 데이터 정제는 팀원 도움 요청 가능) |
 | 기간 | 8주 — **현재 5주차 종료. 남은 15영업일** |
-| 기준 문서 | [`01_추천시스템_설계.md`](01_추천시스템_설계.md) ~~v1.9~~ **v3.0** |
+| 기준 문서 | [`01_추천시스템_설계.md`](02_RECOMMENDER_DESIGN.md) ~~v1.9~~ **v3.0** |
 | 진입점 | [`00_README.md`](../README.md) |
-| 인프라 | [`06_인프라_사양.md`](06_인프라_사양.md) — **신청값 8 core · 32 GB · 100 GB** (현재 개발환경 실측 4 / 16 / 50) |
-| 트랙 지시서 | [`draft/03_작업분담_공통.md`](draft/03_작업분담_공통.md) · [`01_결정사항`](draft/05_작업분담_결정사항.md) **D-1~D-19** |
+| 인프라 | [`06_인프라_사양.md`](06_INFRA_SPEC.md) — **신청값 8 core · 32 GB · 100 GB** (현재 개발환경 실측 4 / 16 / 50) |
+| 트랙 지시서 | [`draft/03_작업분담_공통.md`](../draft/03_작업분담_공통.md) · [`01_결정사항`](../draft/05_작업분담_결정사항.md) **D-1~D-19** |
 
 > ⚠️ **설계 문서는 20명 전제로 쓰였다.** 이 문서가 그것을 ~~2명~~ **3명** 기준으로 잘라낸 결과이며,
 > 충돌하면 **이 문서가 우선**한다. 설계 문서는 "무엇을 어떻게" 이고, 이것은 "그중 무엇을 실제로" 다.
@@ -26,11 +26,11 @@
 > 🔑 **구현 순서는 3-1 절을 본다.** 이 문서의 4절이 *언제*를 정한다면
 > 3-1 은 *무엇부터*를 정한다 — 설계가 끝나고 코드를 쓰기 시작하는 시점의 순서다.
 > 착수 전에 발견된 공백 3건도 거기 있다 — ~~적재 코드 없음~~ ✅ · ~~`reco/` DB 커넥션 없음~~ ✅ ·
-> 🔴 **`infra/app/` 없음(아직 그대로)**.
+> 🔴 **앱 컨테이너 없음(아직 그대로)**.
 
 > ⚠️ **이 문서에 `B-1` 이 두 개 있다.** §0 표의 `B-1` 은 *쌍대비교 수집 + BT 학습*(v1.9 작업 번호)이고,
 > 3-1 절의 `B-1` 은 *트랙 B 의 첫 작업 = mock → 라이터 연결*이다. **서로 무관하다.**
-> 3-1 이후의 `A-*`·`B-*`·`C-*` 는 전부 [지시서](draft/03_작업분담_공통.md)의 트랙 작업 번호다.
+> 3-1 이후의 `A-*`·`B-*`·`C-*` 는 전부 [지시서](../draft/03_작업분담_공통.md)의 트랙 작업 번호다.
 
 # 0. 요약 — 한 장
 
@@ -96,7 +96,7 @@
 | **판단 근거 시뮬레이션** *(v2.0~v2.1)* | `scripts/reco/bench/` 5종 — 문서 인용 숫자를 재현 | `make bench-quick` (q3 는 --quick, 나머지 전량) | W2 |
 | **S1 `src/features/recommend/repository.py`** *(신규 09-02)* | 풀 · `retrieve_for_user()` 래퍼 · S3 자리 | `make smoke-py` **19건** | W5 |
 | **S2 `src/features/recommend/`** *(신규 09-02)* | 라이터 · 카운터 · 종단 테스트 | `make log-test` **48건** | W5 |
-| **S6 크롤 적재** *(신규 09-02)* | `scripts/load_recipes.py` — 레시피 **46,353** · 원문 재료 **451,862** · 조리단계 362,677 · 후기 **624,422** | `make verify` · 재적재 24초 | W5 |
+| **S6 크롤 적재** *(신규 09-02)* | `scripts/reco/load_recipes.py` — 레시피 **46,353** · 원문 재료 **451,862** · 조리단계 362,677 · 후기 **624,422** | `make verify` · 재적재 24초 | W5 |
 | **DDL 개정 + 온보딩 계약** *(신규 09-02~03)* | `event_log.source` · `session_id` 접두어 · `purchased_at` · 온보딩 원본 · `daily_recommendation` · 로더 멱등 제약 · TZ | `make ddl-test` **47건** · `make contract` **98건** | W5 |
 | **환경 일원화** *(신규 09-03)* | `pyproject.toml` + `uv.lock` · `make install TRACK=A\|B\|C` (구 `requirements` 파일 2종 폐지) | `make doc-check` | W5 |
 | **온보딩 제시 레시피** *(신규)* | `seeds/onboarding_recipes.yaml` — 제시 **20** + 교체 후보 **20** · 6축 | `make validate` | W5 |
@@ -271,7 +271,7 @@ S0 규약 동결 ──┬─→ S1 DB 액세스 ──→ S2 로그 쓰기 ─�
 | **S3** | 피처 12종 + `src/features/recommend/engine/scorer.py` | A | 4일 |
 | **S4** | 평가 하네스 자체 검증 (골든 픽스처) | B | 2일 |
 | **S5** | 화면 2종 (디버거 · 검수 큐) | B | 5일 |
-| **S6** ◐ | ~~`scripts/load_recipes.py`~~ **적재 완료 (09-02)** · **정규화 배치 남음** | A+B | ~~4일~~ 잔여 |
+| **S6** ◐ | ~~`scripts/reco/load_recipes.py`~~ **적재 완료 (09-02)** · **정규화 배치 남음** | A+B | ~~4일~~ 잔여 |
 | **S7** | `recipe_feature` 빌더 + 피처 5종 | A | 6일 |
 | **S8** | Re-ranking · 유저 모집 · BT 가중치 교체 | A+B | 잔여 |
 
@@ -279,7 +279,7 @@ S0 규약 동결 ──┬─→ S1 DB 액세스 ──→ S2 로그 쓰기 ─�
 
 ## 🔴 착수 전 발견 — 목록에 없던 공백 3건 *(3건 중 2건 해소)*
 
-**① ~~적재 코드가 없다.~~ 해소 (09-02).** `scripts/load_recipes.py` 가 생겼고
+**① ~~적재 코드가 없다.~~ 해소 (09-02).** `scripts/reco/load_recipes.py` 가 생겼고
 실제로 **레시피 46,353 · 원문 재료 451,862 · 조리단계 362,677 · 후기 624,422** 를 넣었다.
 아래는 발견 당시 기록이다. `src/features/recommend/ingest/` 에 어댑터만 있고
 **`recipe_ingredient_raw` 에 INSERT 하는 코드가 0개다.**
@@ -290,12 +290,13 @@ S0 규약 동결 ──┬─→ S1 DB 액세스 ──→ S2 로그 쓰기 ─�
 > **`NULLS NOT DISTINCT` 가 없으면 `author_hash` 가 NULL 인 후기가 무한히 쌓인다.**
 
 **② ~~`reco/` 에 DB 커넥션이 없다.~~ 해소 (09-02).** `src/features/recommend/repository.py` 가 풀·래퍼를 갖췄다.
-아래는 발견 당시 기록이다. `psycopg` 를 쓰는 것은 `tests/smoke_test.py`·
-`scripts/migrate.py` 뿐이다. SQL 함수는 검증됐지만 **엔진과 연결된 적이 없다.**
+아래는 발견 당시 기록이다. `psycopg` 를 쓰는 것은 `tests/integration/test_smoke.py`·
+`scripts/reco/migrate.py` 뿐이다. SQL 함수는 검증됐지만 **엔진과 연결된 적이 없다.**
 
-**③ 🔴 `infra/app/` 디렉터리가 없다 — 아직 그대로다 (09-03 확인).**
-`docker-compose.yml` 이 `infra/app/Dockerfile.api` 와
-`Dockerfile.dashboard` 를 빌드 대상으로 선언해 놓았는데 디렉터리가 비어 있다.
+**③ 🔴 앱 컨테이너가 없다 — 아직 그대로다 (09-04 갱신).**
+`docker-compose.yml` 이 존재한 적 없는 Dockerfile 을 빌드 대상으로 선언해
+`--profile app` 은 언제나 실패했다. 09-04 에 그 정의를 지웠고, 되살리는 조건은
+`docs/reco/decisions/2026-09-04_app_containers_deferred.md` 에 있다.
 디버거 화면이 **코드 0줄**이고, 이것이 **C 트랙(S5)의 첫 작업**이다.
 
 ## ✅ S1 완료 기록 *(2026-09-02)*
@@ -309,7 +310,7 @@ S0 규약 동결 ──┬─→ S1 DB 액세스 ──→ S2 로그 쓰기 ─�
 | `retrieval.py` | `retrieve_for_user()` → `list[Candidate]`. `retrieve_raw()` 는 벤치용 |
 | `features.py` | S3 자리. 🔴 채울 때 후보 N개를 N번 조회하면 왕복 1회가 깨진다 |
 
-**검증은 케이스를 복제하지 않았다.** `tests/smoke_test.py --via-python` 이 **같은 9건**을
+**검증은 케이스를 복제하지 않았다.** `tests/integration/test_smoke.py --via-python` 이 **같은 9건**을
 `features.recommend.repository.retrieve()` 로 다시 돌린다 (`make smoke-py`). 복제하면 두 벌이 서로 다르게 썩는다.
 여기에 파이썬 경로에서만 깨질 수 있는 6건을 더해 **19건**.
 
@@ -473,11 +474,11 @@ AI 파트가 **2인 → 3인**이 되면서 순차 S3→S7 을 **3트랙 병렬*
 |---|---|---|---|
 | **A** 데이터 | S6 잔여 · S7 (정규화 배치 → `recipe_feature`) | ~~9일~~ **9.25일** (14작업) | `src/features/recommend/ingest/` |
 | **B** 엔진 | S3 (피처·스코어러) + 🔴 로그 개통 | ~~10.5일~~ **11.75일** (19작업) | `src/features/recommend/engine/` `src/features/recommend/repository.py` |
-| **C** 관측 | S4 (평가 하네스) · S5 (화면 2종) | **10.5일** (14작업) | `infra/app/` `src/features/recommend/evaluation/` |
+| **C** 관측 | S4 (평가 하네스) · S5 (화면 2종) | **10.5일** (14작업) | 앱 컨테이너(미생성) · `src/features/recommend/evaluation/` |
 
 ~~남은 15영업일 대비 버퍼 약 30%.~~ **최장 트랙(B 11.75일) 기준 버퍼 3.25일 — 약 22%.**
-지시서는 [`docs/reco/draft/작업분담_*.md`](draft/03_작업분담_공통.md) 이고,
-**트랙 간에 부딪히는 것은 [`05_작업분담_결정사항.md`](draft/05_작업분담_결정사항.md) D-1~D-19 에서 이미 정했다.**
+지시서는 [`docs/reco/draft/작업분담_*.md`](../draft/03_작업분담_공통.md) 이고,
+**트랙 간에 부딪히는 것은 [`05_작업분담_결정사항.md`](../draft/05_작업분담_결정사항.md) D-1~D-19 에서 이미 정했다.**
 
 **병렬이 가능한 이유는 S0~S2 가 경계를 만들어 놨기 때문이다** — 스키마 **29종**,
 계약 **98건**, API **8종**이 고정돼 있어 세 사람이 서로를 기다리지 않는다.
@@ -507,9 +508,9 @@ AI 파트가 **2인 → 3인**이 되면서 순차 S3→S7 을 **3트랙 병렬*
 | `normalization_queue` · `normalization_audit` | C 가 검수 결과를 쓴다 | — |
 | `src/features/recommend/schema.py` · `stage.py` · `src/main.py` | **B** | 고치면 `make contract` 98건 확인 |
 | `src/features/recommend/ingest/` | **A** | — |
-| `infra/app/` | **C** | — |
+| 앱 컨테이너 (미생성) | **C** | — |
 | `deploy/init/*.sql` | **아무도 혼자 안 고친다** | 셋이 모여서 |
-| `Makefile` · `scripts/doc_check.py` | 공용 | 자기 타깃만 · 문서 수치를 고치면 등록 |
+| `Makefile` · `scripts/reco/doc_check.py` | 공용 | 자기 타깃만 · 문서 수치를 고치면 등록 |
 
 > 🔴 **`mention_total` 정의는 "원문 행수"(451,862)로 통일한다** (C 기준 · D-1).
 > A 가 실제로 매칭한 수는 `batch_run.output_count` 에 있다.
@@ -657,7 +658,7 @@ AI 파트 작업이 됐는데 기존 목록에 없었다. ~~2인 반나절.~~
 # 4. 주차별 마일스톤
 
 > ⚠️ **W2~W5 의 A/B 는 2인 시절 표기다.** 09-02 이후의 담당은 3-1 절의 A·B·C 트랙이고,
-> **W6~W8 의 실제 배분은 [`draft/작업분담_*.md`](draft/03_작업분담_공통.md) 가 정본**이다.
+> **W6~W8 의 실제 배분은 [`draft/작업분담_*.md`](../draft/03_작업분담_공통.md) 가 정본**이다.
 > 이 절은 "언제까지 무엇이 되어 있어야 하는가"(완료 기준)를 남긴다.
 
 ## W2 — 크롤링 없이 할 수 있는 것
@@ -666,7 +667,7 @@ AI 파트 작업이 됐는데 기존 목록에 없었다. ~~2인 반나절.~~
 |---|---|---|---|
 | A | `src/features/recommend/ingest/` P1 전처리 · P2 분해 | 설계 4-0 표현이 테스트 통과 | ✅ **74건 통과** |
 | A | P3 매칭 캐스케이드 L0~L2 | 시드 사전으로 exact·alias·rule 매칭 | ✅ **완료** — mention ~~79.4%~~ **80.8%** |
-| B | 디버거 화면 v1 | mock 응답으로 trace 시각화 · 피드백 버튼 | 🔴 **미착수** — `infra/app/` 이 아직 없다. C 트랙 S5 |
+| B | 디버거 화면 v1 | mock 응답으로 trace 시각화 · 피드백 버튼 | 🔴 **미착수** — 앱 컨테이너가 아직 없다. C 트랙 S5 |
 
 **P3 부터 DB 가 필요하다** (`ingredient` · `ingredient_alias` 조회).
 시드는 이미 적재되어 있으므로 바로 이어갈 수 있다 — 크롤링은 여전히 불필요하다.

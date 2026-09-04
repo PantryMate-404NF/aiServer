@@ -362,7 +362,7 @@ def emit(m: dict[str, dict]) -> str:
         "#",
         "# `taste_vec = 고른 레시피의 flavor_vec 평균` 이므로 이 목록이 곧 측정 도구다.",
         "#",
-        "# flavor 는 items 에서 계산된다 (p5_flavor.aggregate, mode='role_w').",
+        "# flavor 는 items 에서 계산된다 (ingest.flavor.aggregate, mode='role_w').",
         "# 시드(seeds/ingredient_flavor.yaml)가 바뀌면 값도 바뀐다 — 재생성이 정본이다.",
         "# 09-04 에 실제로 어긋난 것을 발견했다: 돈까스 기름짐 0.45 → 0.69.",
         "#",

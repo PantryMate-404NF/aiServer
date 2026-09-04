@@ -4,7 +4,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 생성 | 2026-09-04 16:40 — `make api-docs` 캡처 시각 |
+| 생성 | 2026-09-04 20:38 — `make api-docs` 캡처 시각 |
 | 계약 버전 | `v1` |
 | **SoT** | **[`src/features/recommend/schema.py` · `stage.py`](../../../src/features/recommend/)** — 이 문서는 거기서 파생된다 |
 | 검증 | `make contract` — **출력의 통과 건수가 SoT** · Mock 실호출 캡처 |
@@ -104,7 +104,7 @@ make api-docs    # 이 문서 재생성
 ```json
 {
   "contract_version": "v1",
-  "request_id": "ee1943e0-1a48-4dd9-ad4e-50fbfb5812ae",
+  "request_id": "cc933789-af2c-42eb-875a-1edbb3918411",
   "user_id": 7,
   "model_version": "mock-linear-v0",
   "weights": {
@@ -126,7 +126,7 @@ make api-docs    # 이 문서 재생성
     "f_ing_cf": 0.0,
     "f_group_pref": 0.0
   },
-  "served_at": "2026-09-04T07:40:14.806682Z"
+  "served_at": "2026-09-04T11:38:55.402768Z"
 }
 ```
 
@@ -462,7 +462,7 @@ ablation 을 돌릴 수 있게 한다. 디버거 경로이므로 `d-` 세션을 
       "user_id": 7,
       "event_type": "click",
       "recipe_id": 10001,
-      "request_id": "ee1943e0-1a48-4dd9-ad4e-50fbfb5812ae",
+      "request_id": "cc933789-af2c-42eb-875a-1edbb3918411",
       "position": 1,
       "session_id": "c-7-a1b2c3d4e5f6",
       "context": {
@@ -532,7 +532,7 @@ ablation 을 돌릴 수 있게 한다. 디버거 경로이므로 `d-` 세션을 
       "event_type": "rating",
       "recipe_id": 10001,
       "value": 5,
-      "request_id": "ee1943e0-1a48-4dd9-ad4e-50fbfb5812ae",
+      "request_id": "cc933789-af2c-42eb-875a-1edbb3918411",
       "position": 2,
       "session_id": "c-7-a1b2c3d4e5f6"
     }
@@ -551,7 +551,7 @@ ablation 을 돌릴 수 있게 한다. 디버거 경로이므로 `d-` 세션을 
       "user_id": 7,
       "event_type": "click",
       "recipe_id": 10001,
-      "request_id": "ee1943e0-1a48-4dd9-ad4e-50fbfb5812ae",
+      "request_id": "cc933789-af2c-42eb-875a-1edbb3918411",
       "position": 1,
       "session_id": "s-7-a1b2"
     }
@@ -1072,7 +1072,7 @@ expires_at = COALESCE(purchased_at, 등록일) + 재료별 소비기한 일수
 
 ```json
 {
-  "request_id": "ee1943e0-1a48-4dd9-ad4e-50fbfb5812ae",
+  "request_id": "cc933789-af2c-42eb-875a-1edbb3918411",
   "user_id": 7,
   "session_id": "c-7-a1b2c3d4e5f6",
   "model_version": "mock-linear-v0",

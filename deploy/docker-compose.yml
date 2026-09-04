@@ -143,42 +143,6 @@ services:
       - grafana:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
 
-  # ── 아래 둘은 산출물 D(프로젝트 스켈레톤) 이후 활성화 ────────────
-  reco-api:
-    profiles: ["app"]
-    build:
-      context: ..
-      dockerfile: db/app/Dockerfile.api
-    container_name: reco-api
-    depends_on:
-      postgres: {condition: service_healthy}
-      redis:    {condition: service_healthy}
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-reco}:${POSTGRES_PASSWORD:-reco}@postgres:5432/${POSTGRES_DB:-recodb}
-      REDIS_URL:    redis://redis:6379/0
-      MLFLOW_TRACKING_URI: http://mlflow:5000
-    ports:
-      - "${API_PORT:-8000}:8000"
-    volumes:
-      - artifacts:/artifacts:ro
-
-  dashboard:
-    profiles: ["app"]
-    build:
-      context: ..
-      dockerfile: db/app/Dockerfile.dashboard
-    container_name: reco-dashboard
-    depends_on:
-      - reco-api
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-reco}:${POSTGRES_PASSWORD:-reco}@postgres:5432/${POSTGRES_DB:-recodb}
-      RECO_API_URL: http://reco-api:8000
-      MLFLOW_TRACKING_URI: http://mlflow:5000
-    ports:
-      - "${DASHBOARD_PORT:-8501}:8501"
-    volumes:
-      - artifacts:/artifacts:ro
-
 volumes:
   pgdata:
   mlruns:
