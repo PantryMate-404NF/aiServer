@@ -4,7 +4,7 @@
 
 **적용 대상**: aiServer 소스 트리(`src/`)와 저장소의 모든 문서
 
-**버전**: 1.0.0 · **최종 수정**: 2026-09-04 · **작성자**: 김민경
+**버전**: 1.1.0 · **최종 수정**: 2026-09-04 · **작성자**: 김민경
 
 ---
 
@@ -76,13 +76,14 @@ src/                                  (0)  소스 루트. 이 아래가 곧 최�
 │   │   ├── service.py                #    흐름 조립. 구현 없음
 │   │   ├── repository.py             #    이 도메인 테이블에 대한 SQL
 │   │   ├── tables.py                 #    이 도메인이 소유하는 테이블 정의
-│   │   ├── pipeline/                 (3)  처리 단계
-│   │   │   ├── preprocess.py         #      회전 보정·이진화·크롭
-│   │   │   ├── ocr.py                #      OCR 엔진 인스턴스. 이 파일이 유일
-│   │   │   ├── parse.py              #      규칙 기반 1차 추출
-│   │   │   └── normalize.py          #      LLM 정규화
+│   │   ├── pipeline/                 (3)  처리 단계. 이름 앞에 실행 순서를 붙입니다
+│   │   │   ├── s1_preprocess.py      #      디코딩·크기 상한·대비 보정
+│   │   │   ├── s2_ocr.py             #      OCR 엔진 인스턴스. 이 파일이 유일
+│   │   │   ├── s3_parse.py           #      규칙 기반 1차 추출
+│   │   │   ├── s4_mask.py            #      개인정보 마스킹
+│   │   │   └── s5_normalize.py       #      LLM 정규화
 │   │   └── prompts/                  (3)
-│   │       └── normalize-receipt.md
+│   │       └── parse-receipt-v1.md
 │   └── recommend/                    (2)  추천
 │       ├── __init__.py
 │       ├── router.py
@@ -119,6 +120,8 @@ src/                                  (0)  소스 루트. 이 아래가 곧 최�
 | `prompts/` | LLM을 쓰는 도메인만 | `.md` 파일만 |
 
 도메인 루트를 6개로 고정한 이유는 5.1의 "디렉토리당 8개" 기준을 넘지 않으면서, 처리 단계가 늘어도 루트가 붐비지 않게 하기 위함입니다.
+
+**`pipeline/` 안의 파일은 이름 앞에 `sN_` 로 실행 순서를 붙입니다**(MUST). 한 흐름이라 순서가 곧 구조인데, 알파벳순으로 늘어놓으면 그 정보가 이름에서 사라집니다. 축이 여럿인 폴더(`ingest/`, `engine/`)에는 붙이지 않습니다. 거기서는 폴더 이름이 이미 순서를 말합니다.
 
 **처리 단계 폴더 이름은 축의 개수가 정합니다.**
 
@@ -298,13 +301,13 @@ grep -nP "[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}]" $FILES             # 이모지
 | 함수·메서드·변수 | `snake_case` | `extract_items`, `min_confidence` | ruff `N802`, `N806` |
 | 상수·환경변수 | `UPPER_SNAKE_CASE` | `DEFAULT_TIMEOUT_SEC`, `GEMINI_API_KEY` | 리뷰 |
 | 내부 전용 | 앞에 `_` | `_build_payload` | 리뷰 |
-| 테스트 파일 | `test_` + 대상 모듈명 | `test_preprocess.py` | pytest |
+| 테스트 파일 | `test_` + 대상 모듈명 | `test_s1_preprocess.py` | pytest |
 | 프롬프트·정적 자산 | `kebab-case` + 확장자 | `normalize-receipt.md` | 리뷰 |
 
 **camelCase를 쓰지 않습니다.** PEP 8 위반이며 ruff `N` 규칙이 실패시킵니다. 웹 프론트엔드 관례를 그대로 가져오지 않습니다.
 
 ```python
-# src/features/receipt/pipeline/parse.py
+# src/features/receipt/pipeline/s3_parse.py
 """OCR 텍스트에서 품목·금액·날짜를 규칙 기반으로 추출합니다."""
 
 from __future__ import annotations
