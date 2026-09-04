@@ -29,7 +29,7 @@ git clone <repository-url> && cd aiServer
 uv sync                          # 의존성 설치. pip 을 직접 쓰지 않습니다
 cp .env.example .env             # 값은 팀 비밀 저장소에서 개별 수령합니다
 uv run pytest tests/unit         # 환경 정상 여부 확인
-uv run python -m main            # 실행
+uv run uvicorn main:create_app --factory --reload   # 개발 서버 실행
 ```
 
 완료를 선언하기 전에 아래를 실행하고, 통과한 출력을 근거로만 보고합니다.
