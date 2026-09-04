@@ -10,6 +10,13 @@ dependencies = [
     "psycopg[binary]>=3.2",
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
+    "paddlepaddle>=3.3.1",
+    "paddleocr>=3.4.0",
+    "opencv-contrib-python>=4.10.0.84",
+    "google-genai>=2.22.0",
+    "httpx>=0.28.1",
+    "pillow-heif>=1.6.0",
+    "python-multipart>=0.0.32",
 ]
 
 [dependency-groups]
@@ -18,6 +25,7 @@ dev = [
     "mypy>=1.11",
     "pytest>=8.3",
     "pytest-cov>=5.0",
+    "httpx>=0.28.1",
 ]
 
 [build-system]
@@ -38,6 +46,8 @@ select = ["E", "W", "F", "I", "N", "UP", "B", "S", "T20", "ANN", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101"]
+# 평가·백필 스크립트는 사람이 터미널에서 읽는 도구라 print 로 결과를 냅니다.
+"scripts/**" = ["T20"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
@@ -47,6 +57,15 @@ python_version = "3.12"
 strict = true
 disallow_untyped_defs = true
 
+# 타입 스텁이 없는 라이브러리입니다. 둘 다 파이프라인 첫 두 단계가 감싸고, 그 파일들이
+# 반환값을 자체 타입(Image, OcrCell)으로 바꾸므로 타입 경계는 거기서 다시 세워집니다.
+[[tool.mypy.overrides]]
+module = ["paddleocr.*", "pillow_heif.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
-addopts = "-q --strict-markers --cov=src --cov-report=term-missing --cov-fail-under=80"
+# 통합 테스트는 실제 OCR 모델을 올려 느리므로 기본 실행에서 뺍니다.
+# 돌릴 때는 uv run pytest -m integration --no-cov 를 씁니다.
+addopts = "-q --strict-markers -m 'not integration' --cov=src --cov-report=term-missing --cov-fail-under=80"
 testpaths = ["tests"]
+markers = ["integration: 실제 OCR 엔진을 올려 도는 느린 테스트"]
