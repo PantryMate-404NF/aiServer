@@ -98,7 +98,7 @@ def main() -> None:
                 w.write(f"{c}\t{t}\t\t\t\t\n")
         print(f"  ✅ {NEWOUT} 에 {len(news)}종 — 🔴 카테고리를 채워야 등록됩니다")
 
-    print("\n  다음:  make validate  &&  .venv/bin/python -m features.recommend.evaluation.coverage "
+    print("\n  다음:  make validate  &&  .venv/bin/python scripts/reco/coverage.py "
           "raw_data/recipe_raw_data.jsonl --limit 5000")
 
 

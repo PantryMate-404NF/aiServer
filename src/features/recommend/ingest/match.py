@@ -152,20 +152,21 @@ class Dictionary:
         return cls(names, aliases, wl, conf, meta)
 
     @classmethod
-    def from_db(cls, conn, seeds: Path = SEEDS) -> "Dictionary":
-        """운영 경로. 검수로 쌓인 `source='manual'` alias 까지 포함된다."""
+    def from_db(cls, seeds: Path = SEEDS) -> "Dictionary":
+        """운영 경로. 검수로 쌓인 `source='manual'` alias 까지 포함된다.
+
+        🔴 SQL 은 여기 두지 않는다 (03 의 5절). `repository.py` 가 행을 주고
+           이 메서드는 그것을 사전 모양으로 바꾸기만 한다.
+        """
         import yaml
-        cur = conn.cursor()
-        # 🔴 컬럼을 i. 로 한정한다. ingredient 와 ingredient_category 양쪽에
-        #    id·name 이 있어 한정하지 않으면 AmbiguousColumn 으로 죽는다.
-        cur.execute("SELECT i.id, i.name, i.is_staple, i.is_seasoning, c.path::text "
-                    "FROM ingredient i LEFT JOIN ingredient_category c ON c.id = i.category_id")
-        rows = cur.fetchall()
+
+        from features.recommend.repository import load_dictionary_rows
+
+        rows, alias_rows = load_dictionary_rows()
         names = {r[1]: r[0] for r in rows}
         meta = {r[0]: {"is_staple": r[2], "is_seasoning": r[3],
                        "category_path": r[4] or ""} for r in rows}
-        cur.execute("SELECT alias, ingredient_id FROM ingredient_alias")
-        aliases = dict(cur.fetchall())
+        aliases = dict(alias_rows)
         wl_raw = yaml.safe_load(io.open(seeds / "modifier_whitelist.yaml", encoding="utf-8"))
         wl = {x for k, v in wl_raw.items() if k != "do_not_remove_examples" for x in (v or [])}
         conf = {tuple(p[:2]) for p in

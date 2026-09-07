@@ -133,7 +133,7 @@ unmatched:  ## 미매칭 표현을 빈도순으로 덤프 (약 12분)
 	$(PY) scripts/reco/bench/unmatched_dump.py
 
 coverage:  ## 실제 크롤 데이터로 P1→P2→P3 커버리지 측정 (설계 4-8)
-	$(PY) -m features.recommend.evaluation.coverage
+	$(PY) scripts/reco/coverage.py
 
 probe:  ## 크롤링 샘플 진단  (make probe SAMPLE=경로.json)
 	$(PY) scripts/reco/probe.py $(or $(SAMPLE),tests/fixtures/responses/best_case.json)
