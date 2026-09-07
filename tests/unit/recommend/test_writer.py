@@ -48,7 +48,11 @@ def serve(client, uid: int, **kw):
 
 
 def main() -> int:
-    client = TestClient(app)
+    # 🔴 09-07 부터 모든 라우터가 내부 API 키를 요구한다 (deps.verify_internal_api_key).
+    #    헤더가 없으면 401 이라 응답 본문을 볼 수 없다.
+    from config import get_settings
+    from deps import INTERNAL_API_KEY_HEADER
+    client = TestClient(app, headers={INTERNAL_API_KEY_HEADER: get_settings().internal_api_key})
     reset_counters()
 
     print("[1] 정상 경로")

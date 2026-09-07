@@ -90,9 +90,11 @@ class Settings(BaseSettings):
     #: propensity 추정 MC 반복 수.
     propensity_mc: int = 200
 
-    # ── 외부 호출 (03 의 4절 — 라이브러리 기본값에 맡기지 않습니다) ──
-    llm_timeout_s: int = 30
-    llm_max_retries: int = 3
+    # 🔴 LLM 타임아웃·재시도는 위쪽 `llm_timeout_sec` · `llm_max_retries` 하나뿐이다.
+    #    09-07 병합 때 추천 쪽이 같은 뜻의 `llm_timeout_s`(30) · `llm_max_retries`(3)
+    #    를 아래에 또 두어, **나중 정의가 영수증 값(10·1)을 덮었다.** 조용히 덮였고
+    #    gemini 재시도가 1회에서 3회로 늘어 테스트가 깨져서야 드러났다.
+    #    같은 뜻의 설정을 두 이름으로 두지 않는다.
 
     # ── 배치 ──────────────────────────────────────────────────────
     ingest_batch: int = 2000

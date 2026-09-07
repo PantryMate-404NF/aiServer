@@ -36,17 +36,21 @@ OUT = ROOT / "docs" / "reco" / "design" / "api"
 
 
 def main() -> None:
-    c = TestClient(app)
+    # 🔴 09-07 부터 모든 라우터가 내부 API 키를 요구한다 (deps.verify_internal_api_key).
+    #    헤더가 없으면 401 이라 응답 본문을 볼 수 없다.
+    from config import get_settings
+    from deps import INTERNAL_API_KEY_HEADER
+    c = TestClient(app, headers={INTERNAL_API_KEY_HEADER: get_settings().internal_api_key})
     cap: dict[str, dict] = {}
     wrong: list[str] = []
 
     def grab(key: str, method: str, path: str, *, expect: int = 200, **kw):
         """실호출 캡처. 🔴 `expect` 와 다르면 실패한다.
 
-        이 가드가 없어서 09-03 까지 `/v1/events` 의 **정상 예시가 실제로는 422**
+        이 가드가 없어서 09-03 까지 `/v1/events` 의 **정상 예시가 실제로는 400**
         였고, 문서는 그 에러 본문을 "## 응답" 으로 렌더했다. 프론트가 그대로
         따라 하면 즉시 막히는데, 문서만 봐서는 알 수 없었다.
-        의도한 에러 예시는 `expect=422` 처럼 명시한다.
+        의도한 에러 예시는 `expect=400` 처럼 명시한다.
         """
         r = getattr(c, method)(path, **kw)
         if r.status_code != expect:
@@ -59,12 +63,16 @@ def main() -> None:
                   f"의도한 에러 예시라면 expect={r.status_code} 을 명시하세요.",
                   file=sys.stderr)
             sys.exit(1)
+        # 🔴 본문이 빌 수 있다. 09-07 부터 검증 실패는 400 + **빈 응답**이다
+        #    (영수증 파트가 앱 전체에 건 RequestValidationError 핸들러).
+        #    r.json() 을 그냥 부르면 JSONDecodeError 로 캡처가 통째로 죽는다.
+        body = r.json() if r.content else None
         cap[key] = {
             "method": method.upper(), "path": path,
             "request": kw.get("json") or kw.get("params"),
-            "status": r.status_code, "expect": expect, "response": r.json(),
+            "status": r.status_code, "expect": expect, "response": body,
         }
-        return r.json()
+        return body
 
     # 🔴 session_id 를 예시에 **반드시** 넣는다. impression 은 이 요청에서 서버가
     #    자동 기록하므로, 프론트가 안 보내면 이벤트의 95% 에 세션이 빈 채로 쌓인다.
@@ -95,9 +103,9 @@ def main() -> None:
                            "session_id": "c-7-a1b2c3d4e5f6"}]})
     grab("events_reject", "post", "/v1/events",
          json={"events": [{"user_id": 7, "event_type": "cook", "recipe_id": 10001}]})
-    # 🔴 프론트가 가장 흔히 맞을 422 — 세션 접두어를 안 지킨 경우.
+    # 🔴 프론트가 가장 흔히 맞을 400 — 세션 접두어를 안 지킨 경우.
     #    c- 실사용자 · g- 게스트 · d- 개발/디버거 이외는 입력에서 거부된다.
-    grab("events_bad_session", "post", "/v1/events", expect=422,
+    grab("events_bad_session", "post", "/v1/events", expect=400,
          json={"events": [{"user_id": 7, "event_type": "click", "recipe_id": 10001,
                            "request_id": rid, "position": 1,
                            "session_id": "s-7-a1b2"}]})
@@ -125,13 +133,13 @@ def main() -> None:
          json={"picks": [3, 7, 12], "scales": [2, 3, 1],
                "allergy_groups": ["nut", "shellfish"], "allergy_ingredient_ids": [170],
                "avoid_ingredient_ids": [55], "household_size": 2})
-    grab("onboarding_reject", "post", "/v1/onboarding/7", expect=422,
+    grab("onboarding_reject", "post", "/v1/onboarding/7", expect=400,
          json={"picks": [1], "scales": [9, 0, 0]})
     grab("log", "get", f"/v1/recommendations/{rid}")
     # 에러 규약 표가 404 를 말하는데 예시가 없었다.
     grab("log_404", "get", "/v1/recommendations/00000000-0000-4000-8000-000000000000",
          expect=404)
-    grab("error_422", "post", "/v1/recommend", expect=422,
+    grab("error_400", "post", "/v1/recommend", expect=400,
          json={"user_id": 7, "topk": 20})
     grab("health", "get", "/health")
 

@@ -5,6 +5,106 @@
     "version": "v1"
   },
   "paths": {
+    "/health/live": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Live",
+        "description": "프로세스가 살아 있는지만 봅니다. 무거운 자원을 건드리지 않습니다.",
+        "operationId": "live_health_live_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Live Health Live Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Ready",
+        "description": "OCR 워커가 모델을 다 올린 뒤에만 200 입니다. 그 전에는 트래픽을 받지 않습니다.",
+        "operationId": "ready_health_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ocr/receipt": {
+      "post": {
+        "tags": [
+          "receipt"
+        ],
+        "summary": "Parse Receipt",
+        "description": "영수증 이미지 1장을 받아 구매일과 식재료 품목을 돌려줍니다.\n\n매수·포맷·용량 검증은 프론트와 백엔드가 앞단에서 합니다. 여기서는 필드가 빠졌을 때만\n400 이고, 처리 실패는 전부 500 입니다.",
+        "operationId": "parse_receipt_v1_ocr_receipt_post",
+        "parameters": [
+          {
+            "name": "X-Internal-Api-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Internal-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_parse_receipt_v1_ocr_receipt_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -12,6 +112,18 @@
         ],
         "summary": "Health",
         "operationId": "health_health_get",
+        "parameters": [
+          {
+            "name": "X-Internal-Api-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Internal-Api-Key"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -19,6 +131,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HealthOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -33,15 +155,27 @@
         ],
         "summary": "Recommend",
         "operationId": "recommend_v1_recommend_post",
+        "parameters": [
+          {
+            "name": "X-Internal-Api-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Internal-Api-Key"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/RecommendRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -84,6 +218,16 @@
               "format": "uuid",
               "title": "Request Id"
             }
+          },
+          {
+            "name": "X-Internal-Api-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Internal-Api-Key"
+            }
           }
         ],
         "responses": {
@@ -118,15 +262,27 @@
         "summary": "Events",
         "description": "행동 로그 수집.\n\n`impression` 은 클라이언트가 보내지 않습니다 — `/v1/recommend` 가 서버측에서\n자동 기록합니다 (설계 3-2). 클라이언트에 맡기면 새로고침·세션 만료로 누락되고,\n랭킹 학습의 negative 샘플이 사라집니다.",
         "operationId": "events_v1_events_post",
+        "parameters": [
+          {
+            "name": "X-Internal-Api-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Internal-Api-Key"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/EventBatchIn"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -177,6 +333,16 @@
               "type": "integer",
               "default": 5,
               "title": "Limit"
+            }
+          },
+          {
+            "name": "X-Internal-Api-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Internal-Api-Key"
             }
           }
         ],
@@ -262,6 +428,16 @@
               ],
               "title": "Max Missing"
             }
+          },
+          {
+            "name": "X-Internal-Api-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Internal-Api-Key"
+            }
           }
         ],
         "responses": {
@@ -304,6 +480,16 @@
               "type": "integer",
               "title": "User Id"
             }
+          },
+          {
+            "name": "X-Internal-Api-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Internal-Api-Key"
+            }
           }
         ],
         "responses": {
@@ -343,6 +529,16 @@
             "schema": {
               "type": "integer",
               "title": "User Id"
+            }
+          },
+          {
+            "name": "X-Internal-Api-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Internal-Api-Key"
             }
           }
         ],
@@ -397,6 +593,16 @@
               "type": "integer",
               "title": "User Id"
             }
+          },
+          {
+            "name": "X-Internal-Api-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Internal-Api-Key"
+            }
           }
         ],
         "requestBody": {
@@ -436,6 +642,25 @@
   },
   "components": {
     "schemas": {
+      "Body_parse_receipt_v1_ocr_receipt_post": {
+        "properties": {
+          "receipt_id": {
+            "type": "string",
+            "title": "Receipt Id"
+          },
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "receipt_id",
+          "file"
+        ],
+        "title": "Body_parse_receipt_v1_ocr_receipt_post"
+      },
       "EventAck": {
         "properties": {
           "accepted": {
@@ -1180,6 +1405,65 @@
         ],
         "title": "RankedItem",
         "description": "③ 산출. 유저에게 나가는 최종 형태."
+      },
+      "ReceiptItem": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "ingredient_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ingredient Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ReceiptItem",
+        "description": "응답에 나가는 품목. is_food 는 내부 필터라 여기에 없습니다."
+      },
+      "ReceiptResponse": {
+        "properties": {
+          "receipt_id": {
+            "type": "string",
+            "title": "Receipt Id"
+          },
+          "purchased_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purchased At"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReceiptItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "receipt_id",
+          "items"
+        ],
+        "title": "ReceiptResponse",
+        "description": "성공 응답. 처리 시간과 모델 버전은 싣지 않고 로그로만 남깁니다."
       },
       "RecipeHit": {
         "properties": {
