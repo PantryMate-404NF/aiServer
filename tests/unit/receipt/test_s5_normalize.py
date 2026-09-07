@@ -14,7 +14,7 @@ import pytest
 
 import config
 from features.receipt.pipeline import s5_normalize as normalize
-from features.receipt.schema import ParsedReceipt
+from features.receipt.schema import MAX_ITEM_NAME_LENGTH, ParsedReceipt
 from utils.errors import ResponseValidationError
 
 CARD_LINE = "우리카드:4902************"
@@ -115,3 +115,21 @@ def test_prompt_version_comes_from_settings(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setenv("RECEIPT_PROMPT_VERSION", "2")
     config.get_settings.cache_clear()
     assert "주류는 false입니다" in normalize.build_prompt(OCR_TEXT)
+
+
+def test_long_item_name_is_trimmed_to_the_form_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """프롬프트가 20자를 요청하지만 LLM 이 지킨다는 보장이 없습니다."""
+    long_name = "유기농무항생제특란대란왕란모듬계란한판삼십구"
+    fake = _FakeGemini({"purchased_at": None, "items": [{"name": long_name, "is_food": True}]})
+
+    parsed = _run(fake, monkeypatch)
+
+    assert parsed.items[0].name == long_name[:MAX_ITEM_NAME_LENGTH]
+    assert len(parsed.items[0].name) == MAX_ITEM_NAME_LENGTH
+
+
+def test_short_item_name_is_left_alone_but_stripped(monkeypatch: pytest.MonkeyPatch) -> None:
+    """길다고 품목을 버리지 않습니다. 짧은 이름은 공백만 정리합니다."""
+    fake = _FakeGemini({"purchased_at": None, "items": [{"name": "  깐마늘 ", "is_food": True}]})
+
+    assert _run(fake, monkeypatch).items[0].name == "깐마늘"

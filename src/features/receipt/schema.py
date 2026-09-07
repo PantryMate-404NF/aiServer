@@ -10,6 +10,9 @@ from pydantic import BaseModel, field_validator
 
 logger = logging.getLogger(__name__)
 
+# 팬트리 등록 폼(PANTRY-003)의 품목명 입력 상한입니다.
+MAX_ITEM_NAME_LENGTH = 20
+
 
 class OcrCell(NamedTuple):
     """OCR 이 찾은 텍스트 조각 하나.
@@ -29,11 +32,25 @@ class OcrCell(NamedTuple):
 
 
 class ParsedItem(BaseModel):
-    """LLM 이 뽑아낸 품목 하나."""
+    """LLM 이 뽑아낸 품목 하나. 신뢰하지 않고 여기서 한 번 다듬습니다."""
 
     name: str
     # 응답에는 싣지 않는 내부 필터입니다. 비식재료를 걸러내는 데만 씁니다.
     is_food: bool
+
+    @field_validator("name")
+    @classmethod
+    def _fit_to_the_form(cls, value: str) -> str:
+        """폼 상한을 넘는 이름은 자릅니다. 길다고 품목을 버리지는 않습니다.
+
+        프롬프트가 이미 20자를 요청하지만 LLM 이 지킨다는 보장이 없고, 넘긴 값이 그대로
+        나가면 등록 화면에서 잘립니다. 들어오는 경계에서 한 번 맞춰 둡니다.
+        """
+        name = value.strip()
+        if len(name) <= MAX_ITEM_NAME_LENGTH:
+            return name
+        logger.info("item name over %d chars, truncated", MAX_ITEM_NAME_LENGTH)
+        return name[:MAX_ITEM_NAME_LENGTH]
 
 
 class ParsedReceipt(BaseModel):
