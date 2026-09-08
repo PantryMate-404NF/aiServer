@@ -4,7 +4,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 생성 | 2026-09-07 17:08 — `make api-docs` 캡처 시각 |
+| 생성 | 2026-09-07 17:48 — `make api-docs` 캡처 시각 |
 | 계약 버전 | `v1` |
 | **SoT** | **[`src/features/recommend/schema.py` · `stage.py`](../../../src/features/recommend/)** — 이 문서는 거기서 파생된다 |
 | 검증 | `make contract` — **출력의 통과 건수가 SoT** · Mock 실호출 캡처 |
@@ -40,8 +40,11 @@ make api-docs    # 이 문서 재생성
 | `GET` · `PUT` | `/v1/users/{user_id}/pantry` | 냉장고 조회 · 갱신 |
 | `GET` | `/v1/recommendations/{request_id}` | trace 재조회 |
 | `GET` | `/health` | 상태 |
+| `GET` | `/health/live` | ⚠️ **용도 미기재** — scripts/reco/api/render.py 의 `_PURPOSE` 에 추가하세요 |
+| `GET` | `/health/ready` | ⚠️ **용도 미기재** — scripts/reco/api/render.py 의 `_PURPOSE` 에 추가하세요 |
+| `POST` | `/v1/ocr/receipt` | ⚠️ **용도 미기재** — scripts/reco/api/render.py 의 `_PURPOSE` 에 추가하세요 |
 
-**경로 8개 · 오퍼레이션 9개다** (pantry 가 GET·PUT 두 개).
+**경로 11개 · 오퍼레이션 12개다** (pantry 가 GET·PUT 두 개).
 소수 인원이 유지할 수 있는 최소 표면으로 잘랐다. AI 파트가 3명으로 늘었지만 표면은
 그대로 둔다 — 남은 기간이 3주다.
 
@@ -86,7 +89,7 @@ make api-docs    # 이 문서 재생성
 | `weight_override` | dict? | null | **디버거 전용** — ablation(R9) 실행 |
 | `interleave_with` | str? | null | **Team-Draft Interleaving** — 비교 모델 지정 시 `items[].team` 이 채워진다 (설계 5-7-2) |
 | `include_trace` | bool | true | false 여도 DB 에는 그대로 남는다 |
-| `context` | dict | `{}` | `hour` `weekday` `device` `source_screen`. **값은 문자열·정수·null 만** — 실수·배열·중첩 객체는 422 |
+| `context` | dict | `{}` | `hour` `weekday` `device` `source_screen`. **값은 문자열·정수·null 만** — 실수·배열·중첩 객체는 400 |
 
 ### `session_id` 접두어
 
@@ -96,7 +99,7 @@ make api-docs    # 이 문서 재생성
 | `g-` | 게스트 |
 | `d-` | 개발·디버거·시딩 |
 
-접두어는 DB CHECK 로도 강제된다. 위반하면 **422** 다.
+접두어는 DB CHECK 로도 강제된다. 위반하면 **400** 이다.
 `d-` 는 지표 뷰에서 통째로 제외되므로, 디버거·시딩 트래픽은 반드시 `d-` 를 쓴다.
 
 ## 응답 200 — 봉투
@@ -104,7 +107,7 @@ make api-docs    # 이 문서 재생성
 ```json
 {
   "contract_version": "v1",
-  "request_id": "72feb037-3c8b-46f9-9249-d94a7fceae63",
+  "request_id": "382f0284-4e6d-4d96-8656-19bf6df6a44d",
   "user_id": 7,
   "model_version": "mock-linear-v0",
   "weights": {
@@ -126,7 +129,7 @@ make api-docs    # 이 문서 재생성
     "f_ing_cf": 0.0,
     "f_group_pref": 0.0
   },
-  "served_at": "2026-09-07T08:08:59.003092Z"
+  "served_at": "2026-09-07T08:48:21.867841Z"
 }
 ```
 
@@ -283,7 +286,7 @@ make api-docs    # 이 문서 재생성
 
 > `features` 는 **17개 키 전부**가 있어야 한다. 빠뜨리거나 모르는 키가
 > 있으면 **`ScoredCandidate` 생성 자체가 거부된다** — 이것은 요청으로 보내는 필드가 아니라
-> 서버 내부 계약이라, 어기면 422 가 아니라 **응답 조립 중 500** 이다.
+> 서버 내부 계약이라, 어기면 400 이 아니라 **응답 조립 중 500** 이다.
 > `w=0` 피처가 로그에서 소실되어 소급 학습이 불가능해지는 것을 계약이 막는 장치다.
 
 ## 응답 200 — trace
@@ -447,7 +450,7 @@ ablation 을 돌릴 수 있게 한다. 디버거 경로이므로 `d-` 세션을 
 
 # POST /v1/events
 
-행동 로그를 기록한다. 한 번에 **1~200건**. 0건이나 201건은 배치 전체가 **422** 다.
+행동 로그를 기록한다. 한 번에 **1~200건**. 0건이나 201건은 배치 전체가 **400** 이다.
 
 > 🔴 **`impression` 은 클라이언트가 보내지 않는다.** `/v1/recommend` 가 응답을 반환하는
 > 순간 **서버측에서 자동 기록**한다. 클라이언트에 맡기면 새로고침·세션 만료로 누락되고,
@@ -462,7 +465,7 @@ ablation 을 돌릴 수 있게 한다. 디버거 경로이므로 `d-` 세션을 
       "user_id": 7,
       "event_type": "click",
       "recipe_id": 10001,
-      "request_id": "72feb037-3c8b-46f9-9249-d94a7fceae63",
+      "request_id": "382f0284-4e6d-4d96-8656-19bf6df6a44d",
       "position": 1,
       "session_id": "c-7-a1b2c3d4e5f6",
       "context": {
@@ -480,9 +483,9 @@ ablation 을 돌릴 수 있게 한다. 디버거 경로이므로 `d-` 세션을 
 | `recipe_id` | int? | `search` 등 아이템이 없는 이벤트는 생략 |
 | `value` | float? | `rating` 은 **원점수 1~5**, dwell time 은 초(sec). 한 칸을 두 뜻으로 쓴다. 🔴 **서버가 범위를 검증하지 않는다** — 100 을 보내도 200 이고 라벨이 48.5 가 된다 |
 | `request_id` | UUID? | 🔴 없으면 학습 라벨과 추천 로그를 이을 수 없다 |
-| `position` | int (1~100)? | 🔴 **1-base** — `items[].final_rank` 와 같은 기준이다. 배열 인덱스(0-base)를 그대로 보내면 **422** |
+| `position` | int (1~100)? | 🔴 **1-base** — `items[].final_rank` 와 같은 기준이다. 배열 인덱스(0-base)를 그대로 보내면 **400** |
 | `session_id` | str? | 🔴 `^[cgd]-` — 아래 접두어 표 참조 |
-| `context` | dict | 값은 **문자열·정수·null 만**. 실수(37.5)·배열·중첩 객체는 422 |
+| `context` | dict | 값은 **문자열·정수·null 만**. 실수(37.5)·배열·중첩 객체는 400 |
 
 | `event_type` | 학습 라벨 | 비고 |
 |---|---|---|
@@ -500,7 +503,7 @@ ablation 을 돌릴 수 있게 한다. 디버거 경로이므로 `d-` 세션을 
 ## `source` — 클라이언트는 보내지 않는다
 
 `event_log.source` 는 **NOT NULL 이고 기본값이 없다.** 채우는 것은 서버다.
-`EventIn` 에 이 필드가 없으므로 `{"source": "client"}` 를 보내면 **422** 다.
+`EventIn` 에 이 필드가 없으므로 `{"source": "client"}` 를 보내면 **400** 이다.
 
 | 값 | 뜻 | 누가 쓰나 |
 |---|---|---|
@@ -532,7 +535,7 @@ ablation 을 돌릴 수 있게 한다. 디버거 경로이므로 `d-` 세션을 
       "event_type": "rating",
       "recipe_id": 10001,
       "value": 5,
-      "request_id": "72feb037-3c8b-46f9-9249-d94a7fceae63",
+      "request_id": "382f0284-4e6d-4d96-8656-19bf6df6a44d",
       "position": 2,
       "session_id": "c-7-a1b2c3d4e5f6"
     }
@@ -540,9 +543,9 @@ ablation 을 돌릴 수 있게 한다. 디버거 경로이므로 `d-` 세션을 
 }
 ```
 
-## 422 — 세션 접두어를 안 지키면
+## 400 — 세션 접두어를 안 지키면
 
-가장 흔히 맞는 422 다. 접두어 3종 이외는 **입력에서** 거부된다.
+가장 흔히 맞는 400 이다. 접두어 3종 이외는 **입력에서** 거부된다.
 
 ```json
 {
@@ -551,7 +554,7 @@ ablation 을 돌릴 수 있게 한다. 디버거 경로이므로 `d-` 세션을 
       "user_id": 7,
       "event_type": "click",
       "recipe_id": 10001,
-      "request_id": "72feb037-3c8b-46f9-9249-d94a7fceae63",
+      "request_id": "382f0284-4e6d-4d96-8656-19bf6df6a44d",
       "position": 1,
       "session_id": "s-7-a1b2"
     }
@@ -559,29 +562,12 @@ ablation 을 돌릴 수 있게 한다. 디버거 경로이므로 `d-` 세션을 
 }
 ```
 ```json
-{
-  "detail": [
-    {
-      "type": "string_pattern_mismatch",
-      "loc": [
-        "body",
-        "events",
-        0,
-        "session_id"
-      ],
-      "msg": "String should match pattern '^[cgd]-'",
-      "input": "s-7-a1b2",
-      "ctx": {
-        "pattern": "^[cgd]-"
-      }
-    }
-  ]
-}
+null
 ```
 
 ## 🔴 소급 불가 필드
 
-`request_id` 없이 보내면 — **422 가 아니라 200 + `rejected` 집계다.**
+`request_id` 없이 보내면 — **400 이 아니라 200 + `rejected` 집계다.**
 상태코드만 보고 성공 처리하면 안 된다.
 
 ```json
@@ -647,7 +633,7 @@ GET /v1/recipes/search?q=김치&limit=5&user_id=7
 | `max_missing` | int? — 주면 **만들 수 있는 것만** 남긴다 |
 
 > 🔴 **Mock 은 이 상한을 걸지 않는다** — 라우트가 계약 모델(`RecipeSearchIn`)을 쓰지 않고
-> 평문 쿼리 인자를 받기 때문이다. `limit=500` 이 Mock 에서는 200 이지만 SoT 는 422 다.
+> 평문 쿼리 인자를 받기 때문이다. `limit=500` 이 Mock 에서는 200 이지만 SoT 는 400 이다.
 > **이 엔드포인트에 한해 예시와 `openapi.json` 을 믿으면 안 된다.**
 
 ```json
@@ -977,7 +963,7 @@ expires_at = COALESCE(purchased_at, 등록일) + 재료별 소비기한 일수
 | `avoid_ingredient_ids` | int[] | 기피(알러지 아님). **최대 3개** |
 | `household_size` | int? | 1~10. 선택 |
 
-> 🔴 `scales` 순서를 바꿔 보내도 범위만 맞으면 **422 가 나지 않는다** — `taste_vec` 이
+> 🔴 `scales` 순서를 바꿔 보내도 범위만 맞으면 **400 이 나지 않는다** — `taste_vec` 이
 > 조용히 뒤집힌다. 원본이 그대로 저장되므로 재계산으로도 못 되돌린다.
 
 ```json
@@ -1027,7 +1013,7 @@ expires_at = COALESCE(purchased_at, 등록일) + 재료별 소비기한 일수
 > (`["견과류"]` 를 보내도 그럴듯한 `n_blocked_ingredients` 가 돌아온다).
 > 그러나 실 DB 는 CHECK 로 거부한다. **오타 하나가 알러지 차단을 통째로 끈다.**
 
-## 422 — 범위를 벗어난 척도
+## 400 — 범위를 벗어난 척도
 
 ```json
 {
@@ -1042,26 +1028,7 @@ expires_at = COALESCE(purchased_at, 등록일) + 재료별 소비기한 일수
 }
 ```
 ```json
-{
-  "detail": [
-    {
-      "type": "value_error",
-      "loc": [
-        "body",
-        "scales"
-      ],
-      "msg": "Value error, 척도는 0~4 다",
-      "input": [
-        9,
-        0,
-        0
-      ],
-      "ctx": {
-        "error": {}
-      }
-    }
-  ]
-}
+null
 ```
 
 ---
@@ -1072,7 +1039,7 @@ expires_at = COALESCE(purchased_at, 등록일) + 재료별 소비기한 일수
 
 ```json
 {
-  "request_id": "72feb037-3c8b-46f9-9249-d94a7fceae63",
+  "request_id": "382f0284-4e6d-4d96-8656-19bf6df6a44d",
   "user_id": 7,
   "session_id": "c-7-a1b2c3d4e5f6",
   "model_version": "mock-linear-v0",
@@ -1160,7 +1127,7 @@ expires_at = COALESCE(purchased_at, 등록일) + 재료별 소비기한 일수
 
 | 상황 | 코드 | 비고 |
 |---|---|---|
-| 계약 위반 (오타 · 범위 · 세션 접두어) | **422** | Pydantic 상세 |
+| 계약 위반 (오타 · 범위 · 세션 접두어) | **400** | 🔴 **본문 없음** — 사유는 서버 로그에만 |
 | 없는 `request_id` | 404 | |
 | **후보 부족** | **200** | `trace.totals.degraded=true` |
 | **모델 로드 실패** | **200** | `stage_trace.ranking.fallback` |
@@ -1172,7 +1139,7 @@ expires_at = COALESCE(purchased_at, 등록일) + 재료별 소비기한 일수
 최악의 경우에도 **인기순 Top-N** 을 돌려주고 `degraded` 로 표시한다 (설계 5-6).
 빈 목록은 유저에게 장애로 보이고 **디버깅 정보도 남지 않는다.**
 
-## 422 예시 — 필드 오타
+## 400 예시 — 필드 오타
 
 ```json
 {
@@ -1181,29 +1148,20 @@ expires_at = COALESCE(purchased_at, 등록일) + 재료별 소비기한 일수
 }
 ```
 ```json
-{
-  "detail": [
-    {
-      "type": "extra_forbidden",
-      "loc": [
-        "body",
-        "topk"
-      ],
-      "msg": "Extra inputs are not permitted",
-      "input": 20
-    }
-  ]
-}
+null
 ```
 
 전 모델이 `extra="forbid"` 이므로 `topk` 같은 오타가 **조용히 무시되지 않고 즉시 터진다.**
 3명이 각자 짜다 필드명을 다르게 쓰는 사고를 막는 장치다.
 
-`detail[].loc` 이 문제 필드 경로, `detail[].msg` 가 사유다 — 프론트는 `loc` 로 입력 필드를
-하이라이트한다.
-
-> 🔴 **4xx 본문은 모양이 두 가지다.** 422 는 `{"detail": [...]}`, 404 는
-> `{"detail": "문자열"}` 이다. 계약의 `ErrorOut`(`error`/`detail`/`request_id`)은
+> 🔴 **본문이 비어 있다 (09-07 변경).** 영수증 파트가 앱 전체에
+> `RequestValidationError → 400` 핸들러를 걸면서, 이전의 `422 {"detail": [...]}`
+> 가 **빈 400** 으로 바뀌었다. 어느 필드가 왜 틀렸는지는 **서버 로그에만** 남는다.
+>
+> 대시보드는 사유를 화면에 띄울 수 없다. 필요해지면 그때 핸들러가 본문을 싣도록
+> 영수증 파트와 협의한다 — 상태코드 통일을 먼저 맞춘 상태다.
+>
+> 404 는 여전히 `{"detail": "문자열"}` 이다. 계약의 `ErrorOut` 은
 > **아직 어느 라우트에도 붙어 있지 않으니** 그 모델로 파싱하지 말 것.
 
 ---
@@ -1235,5 +1193,5 @@ make api-docs
 다음 재생성에서 사라진다.
 
 `capture.py` 는 각 호출의 **기대 상태코드**를 명시하고 다르면 그 자리에서 멈춘다.
-09-03 까지 `/v1/events` 의 “정상 예시” 가 실제로는 422 였고 이 문서가 그 에러 본문을
+09-03 까지 `/v1/events` 의 “정상 예시” 가 실제로는 에러였고 이 문서가 그 에러 본문을
 `## 응답` 으로 싣고 있었다 — 가드가 없어서 아무도 몰랐다.

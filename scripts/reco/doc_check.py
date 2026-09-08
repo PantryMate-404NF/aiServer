@@ -15,7 +15,7 @@
   ① 문서의 **수치**가 DB·시드·코드와 같은가
   ② 검증 명령 **건수**를 적은 문서가 낡지 않았는가 (docs/ 전부를 훑는다)
   ③ `05_API_명세.md` 가 적은 **단언**대로 실제로 동작하는가
-     — "position 0 은 422" 같은 문장은 05 가 생성 파일이어도 손으로 쓴 것이라
+     — "position 0 은 400" 같은 문장은 05 가 생성 파일이어도 손으로 쓴 것이라
        코드가 바뀌어도 안 따라온다. 거기가 남은 유일한 드리프트 경로다.
 
 🔴 **서술의 논리와 최신성은 여전히 사람이 본다.** 등록되지 않은 문장은 안 본다.
@@ -290,7 +290,7 @@ def main() -> int:
     # ─────────────────────────────────────────────────────────────
     # 05_API_명세.md 의 **단언** ↔ 실제 동작
     # 🔴 05 는 생성 파일이라 예시·숫자는 어긋날 수 없다. 그런데 render.py 안의
-    #    "position 0 은 422" 같은 **손으로 쓴 단언**은 코드가 바뀌어도 안 따라온다.
+    #    "position 0 은 400" 같은 **손으로 쓴 단언**은 코드가 바뀌어도 안 따라온다.
     #    거기가 지금 유일하게 남은 드리프트 경로다.
     # 각 항목은 둘을 함께 본다 — ① 실제 동작이 그런가 ② 문서가 아직 그렇게 말하는가.
     #    문서에서 그 문장을 지워도 빨개진다.
@@ -306,7 +306,11 @@ def main() -> int:
     except Exception as e:                                    # noqa: BLE001
         print(f"  ⏭  Mock 을 못 띄워 건너뜀 ({e})")
     else:
-        tc = TestClient(app)
+        # 🔴 09-07 부터 모든 라우터가 내부 API 키를 요구한다 (deps.verify_internal_api_key).
+        #    헤더가 없으면 401 이라 응답 본문을 볼 수 없다.
+        from config import get_settings
+        from deps import INTERNAL_API_KEY_HEADER
+        tc = TestClient(app, headers={INTERNAL_API_KEY_HEADER: get_settings().internal_api_key})
         _rid = tc.post("/v1/recommend", json={"user_id": 7, "top_k": 3}).json()["request_id"]
 
         def _ev(**kw) -> int:
@@ -322,14 +326,14 @@ def main() -> int:
 
         #        라벨                      실제값 함수            기대  문서에 있어야 하는 문구
         PROBES = [
-            ("position 0 은 422",     lambda: _ev(position=0),   422, "1-base"),
-            ("position 101 은 422",   lambda: _ev(position=101), 422, "1~100"),
-            ("이벤트 0건은 422",       lambda: _batch(0),         422, "1~200건"),
-            ("이벤트 201건은 422",     lambda: _batch(201),       422, "201건은 배치 전체가"),
-            ("source 를 보내면 422",   lambda: _ev(source="client"), 422,
-                                                        "보내면 **422** 다"),
-            ("context 실수는 422",    lambda: _ev(context={"lat": 37.5}), 422,
-                                                        "실수(37.5)·배열·중첩 객체는 422"),
+            ("position 0 은 400",     lambda: _ev(position=0),   400, "1-base"),
+            ("position 101 은 400",   lambda: _ev(position=101), 400, "1~100"),
+            ("이벤트 0건은 400",       lambda: _batch(0),         400, "1~200건"),
+            ("이벤트 201건은 400",     lambda: _batch(201),       400, "201건은 배치 전체가"),
+            ("source 를 보내면 400",   lambda: _ev(source="client"), 400,
+                                                        "보내면 **400** 이다"),
+            ("context 실수는 400",    lambda: _ev(context={"lat": 37.5}), 400,
+                                                        "실수(37.5)·배열·중첩 객체는 400"),
             ("rating value=100 은 200", lambda: tc.post("/v1/events", json={"events": [
                 {"user_id": 7, "event_type": "rating", "recipe_id": 1,
                  "value": 100, "request_id": _rid}]}).status_code, 200,
@@ -339,8 +343,8 @@ def main() -> int:
             ("검색 limit=500 이 200",  lambda: tc.get("/v1/recipes/search",
                                         params={"q": "김치", "limit": 500}).status_code,
                                                    200, "Mock 은 이 상한을 걸지 않는다"),
-            ("잘못된 세션 접두어는 422", lambda: tc.post("/v1/recommend", json={
-                "user_id": 7, "session_id": "s-7-x", "top_k": 2}).status_code, 422,
+            ("잘못된 세션 접두어는 400", lambda: tc.post("/v1/recommend", json={
+                "user_id": 7, "session_id": "s-7-x", "top_k": 2}).status_code, 400,
                                                         "접두어 3종 이외는"),
         ]
         for label, fn, want, phrase in PROBES:

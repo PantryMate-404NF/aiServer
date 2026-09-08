@@ -303,7 +303,11 @@ try:
     from main import create_app
 
     _app = create_app()
-    _c = TestClient(_app)
+    # 🔴 09-07 부터 모든 라우터가 내부 API 키를 요구한다 (deps.verify_internal_api_key).
+    #    헤더가 없으면 401 이라 응답 본문을 볼 수 없다.
+    from config import get_settings
+    from deps import INTERNAL_API_KEY_HEADER
+    _c = TestClient(_app, headers={INTERNAL_API_KEY_HEADER: get_settings().internal_api_key})
     _r = _c.post("/v1/recommend", json={"user_id": 1, "top_k": 20})
     check("🔴 mock 실호출이 200 을 돌려준다 (계약과 구현이 일치)", _r.status_code == 200)
     if _r.status_code == 200:
@@ -427,7 +431,11 @@ try:
     from main import create_app
 
     _app2 = create_app()
-    _c2 = TestClient(_app2)
+    # 🔴 09-07 부터 모든 라우터가 내부 API 키를 요구한다 (deps.verify_internal_api_key).
+    #    헤더가 없으면 401 이라 응답 본문을 볼 수 없다.
+    from config import get_settings
+    from deps import INTERNAL_API_KEY_HEADER
+    _c2 = TestClient(_app2, headers={INTERNAL_API_KEY_HEADER: get_settings().internal_api_key})
     _pos = set()
     for _u in range(1, 60):
         _d2 = _c2.post("/v1/recommend", json={"user_id": _u, "top_k": 8}).json()
