@@ -17,9 +17,8 @@ from features.recommend.enums import (
     FEATURE_KEYS,
     PROPENSITY_SEMANTICS,
     REQUIRED_TRACE_PARAMS,
-    Stage,
 )
-from features.recommend.stage import RankedItem, ScoredCandidate, StageInfo, StageTrace
+from features.recommend.stage import RankedItem, ScoredCandidate
 
 # ─────────────────────────────────────────────────────────────────
 # 추천 이유 선택 — z-salience (설계 5-5) *(v1.9)*

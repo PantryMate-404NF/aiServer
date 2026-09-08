@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """크롤링 샘플을 진단한다. **크롤링 담당자에게 무엇을 고쳐달라 할지 알려주는 도구.**
 
-    python -m scripts.probe 샘플.json
-    python -m scripts.probe 샘플들/ --source mangae
+    python scripts/reco/probe.py 샘플.json
+    python scripts/reco/probe.py 샘플들/ --source mangae
 
 "미확인" 상태를 "확인 가능"으로 바꾼다. 실제 크롤링 JSON 이 오면 이것부터 돌린다.
 매핑이 틀렸으면 sources/mangae.yaml 의 paths 만 고치면 되고,

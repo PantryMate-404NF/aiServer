@@ -5,7 +5,7 @@
 | 항목 | 내용 |
 |---|---|
 | 작성 | 2026-08-27 |
-| 기준 | [`01_추천시스템_설계.md`](01_추천시스템_설계.md) **v3.0** |
+| 기준 | [`01_추천시스템_설계.md`](02_RECOMMENDER_DESIGN.md) **v3.0** |
 | 갱신 | **2026-09-03** — 🔴 **DB 시간대 Asia/Seoul** · 환경이 `pyproject.toml`+`uv.lock` 로 · 실측 재측정 · **2.5 GB / 7.8 GB / 1,013 MB 잔재 정정** · 시뮬 로그 전제 폐기 |
 | 이전 | 2026-09-01 — 레시피 4.4만 정정 (DB 2.50→0.48GB · 벡터 지배 해소) · 트랙1 LLM · DB 분리 |
 | 산출 방식 | **행당 크기는 전부 실측 또는 실측 파생치** (아래 2절) |
@@ -119,7 +119,7 @@
 >    *(v2.1 정정)* CPU 소규모 학습은 **한다** — Bradley-Terry(파라미터 11, 초 단위) ·
 >    LightGBM(분 단위) · k-means K≈50 · (조건부) ALS. 전부 CPU 로 수 분 내 작업이라
 >    GPU 판단은 바뀌지 않는다.
-> 근거는 [`03_모델_선정_사유.md`](03_모델_선정_사유.md) 4절 —
+> 근거는 [`03_모델_선정_사유.md`](../decisions/2026-09-04_model_selection.md) 4절 —
 > Two-Tower 파라미터 70만 개는 fp32 로 2.8MB 이고, **부족한 것은 VRAM 이 아니라 데이터**다
 > (필요 유저 3.2만 명 vs 확보 가능 100명). GPU 를 "딥러닝 학습용"으로 신청하면
 > 실제 용도와 어긋난다.
@@ -134,7 +134,7 @@
 > 스모크 테스트(합성 5만~20만 건)가 남긴 **죽은 공간**이었고, `VACUUM FULL` 후
 > **recodb 10 MB · reco 스키마 1.9 MB** 다. 시드만 든 상태의 실제 크기다.
 
-크롤 샘플 3건(`tests/fixtures/real/`)에서 행당 크기를 실측해 4.4만 건으로 투영했다.
+크롤 샘플 3건(`tests/fixtures/responses/real/`)에서 행당 크기를 실측해 4.4만 건으로 투영했다.
 
 > ⚠️ **이 문서 전체에서 "4.4만"은 산정 당시의 추정 건수다. 실적재는 46,353건이다.**
 > 차이 5.3% 만큼 아래 투영치가 **낮게 잡혀 있다** — 보수적인 방향이 아니라 낙관적인 방향이라
@@ -283,7 +283,7 @@ DB 순수 데이터는 **884 MB → 약 180 MB** 가 된다.
 > 우선순위는 벡터 튜닝도 로그 보존도 아니고, **9절 autovacuum 과 로더 멱등성**이다 —
 > 실제로 디스크를 배로 늘린 사건은 그쪽에서 났다.
 
-> [`01_추천시스템_설계.md`](01_추천시스템_설계.md) 6-7 에서 "레시피 1만이 유리"라고 한 근거가
+> [`01_추천시스템_설계.md`](02_RECOMMENDER_DESIGN.md) 6-7 에서 "레시피 1만이 유리"라고 한 근거가
 > 여기서도 확인된다 — ~~디스크가 1.6배 차이~~ → **약 3.6배** (순수 데이터 180 MB vs 660 MB).
 >
 > 🔄 **v3.0 — 배수가 다시 벌어졌다.** v2.9 가 1.6배로 좁힌 이유는 "로그가 유저 수의 함수라
@@ -386,7 +386,7 @@ $ docker exec reco-postgres psql -U reco -d recodb -c "SHOW TimeZone"
 
 ### ✅ 이 권장값은 **v2.6 까지 적용되어 있지 않았다 — v2.7 에서 고쳤다**
 
-`infra/docker-compose.yml` 의 `postgres` 서비스에 `command:` 도 `postgresql.conf`
+`deploy/docker-compose.yml` 의 `postgres` 서비스에 `command:` 도 `postgresql.conf`
 마운트도 없어서, **문서에만 있고 실제로는 PG16 기본값으로 돌고 있었다.**
 
 | 파라미터 | 문서 권장 | v2.6 실제 (기본값) | **v2.7 적용 후** |
@@ -399,7 +399,7 @@ $ docker exec reco-postgres psql -U reco -d recodb -c "SHOW TimeZone"
 | `tcp_keepalives_idle` | (미기재) | **0** (OS 기본 7200s) | **60s** ✅ |
 
 ```yaml
-# infra/docker-compose.yml — 값은 .env 로 덮어쓸 수 있다 (4.4만 적재 시 상향)
+# deploy/docker-compose.yml — 값은 .env 로 덮어쓸 수 있다 (4.4만 적재 시 상향)
 command:
   - "postgres"
   - "-c"
@@ -420,7 +420,7 @@ HNSW 인덱스는 그래프가 `maintenance_work_mem` 안에서 만들어진다.
 > 턱없이 부족했다. 4.4만에서는 **194 MB** 라 전역 안에 들어간다.
 > **그래도 세션 설정을 남겨 둔다** — 인덱스 빌드 중 피크 메모리가 최종 크기와 같은지가
 > 문서에 없어 **미확인**이고, 확인 전에 안전장치를 걷어낼 이유가 없다.
-그래서 전역은 256 MB 로 두고 `deploy/init/post_index.sql` 이 세션 단위로만 올린다:
+그래서 전역은 256 MB 로 두고 `deploy/post/post_index.sql` 이 세션 단위로만 올린다:
 
 ```sql
 SET maintenance_work_mem = '1GB';
@@ -539,7 +539,7 @@ LightGBM 의 GPU 지원은 **학습**용이며, 추론은 CPU 가 빠르다 (500
 **개발 노트북에서 돌려도 된다** (8-A 참조).
 
 > **4,000 샘플로 딥러닝 모델을 학습하면 몇 초 만에 끝난다. 그 자체가 데이터 부족의 증거다.**
-> 상세는 [`03_모델_선정_사유.md`](03_모델_선정_사유.md).
+> 상세는 [`03_모델_선정_사유.md`](../decisions/2026-09-04_model_selection.md).
 
 ## 5-4. 임베딩 배치가 확정되면서 달라진 것 *(2026-08-27)*
 
@@ -879,7 +879,7 @@ HNSW 그래프는 `maintenance_work_mem` 안에서 만들어지고, 넘치면 �
 > 3절의 같은 항목과 판단을 일치시킨 것이다.
 
 그런데 **전역을 1 GB 로 잡으면 autovacuum 워커마다 물린다** (기본 3워커 = 최대 3 GB).
-그래서 전역은 256 MB 로 두고 **`deploy/init/post_index.sql` 이 세션 단위로만 올린다** — 반영 완료:
+그래서 전역은 256 MB 로 두고 **`deploy/post/post_index.sql` 이 세션 단위로만 올린다** — 반영 완료:
 
 ```sql
 SET maintenance_work_mem = '1GB';
@@ -915,7 +915,7 @@ CREATE INDEX ... USING hnsw ...;
 `vector(768)` 행당 3,080 B (`768 × 4 + 8`) 이므로 fp32 다. **이 행당 크기만 실측이고
 합계는 투영이다** — `recipe_feature` 는 09-03 현재 **0행**이다.
 
-> 🔴 **HNSW 인덱스는 대량 적재 후에 만든다** (9절 · `deploy/init/post_index.sql`).
+> 🔴 **HNSW 인덱스는 대량 적재 후에 만든다** (9절 · `deploy/post/post_index.sql`).
 > 빈 테이블에 만들면 INSERT 마다 느려진다. `make post-index` 로 분리해 뒀다.
 > 생성에는 `maintenance_work_mem` 이 필요하니 **DB 서버 RAM 이 여기서도 쓰인다.**
 
@@ -1090,12 +1090,12 @@ RAM 이 주는 것은 한 대일 때 잡아둔 공용 여유가 쪼개지기 때
 
 ## 🔴 `make seed-reset` 가드 — `CASCADE` 가 크롤 데이터를 함께 지운다 *(09-02)*
 
-`scripts/migrate.py --reset` 은 `TRUNCATE ... RESTART IDENTITY CASCADE` 를 쓴다.
+`scripts/reco/migrate.py --reset` 은 `TRUNCATE ... RESTART IDENTITY CASCADE` 를 쓴다.
 `ingredient` 를 비우면 **`recipe_ingredient` · `pantry_item` 이 CASCADE 로 함께 사라진다** —
 크롤 46,353건을 정규화한 결과와 유저 냉장고가 같이 날아간다.
 
 ```
-_CASCADE_VICTIMS  (scripts/migrate.py) — 여기 행이 있으면 reset 을 막는다
+_CASCADE_VICTIMS  (scripts/reco/migrate.py) — 여기 행이 있으면 reset 을 막는다
   recipe_ingredient       A 트랙 정규화 결과 (46,353건 배치 = 10분)
   pantry_item             유저 냉장고
   user_allergy            🔴 온보딩 재수집 불가
@@ -1145,7 +1145,7 @@ v2.6 은 이 현상을 "TRUNCATE + 전량 재삽입이 dead tuple 을 쌓는다"
                      recipe_ingredient 0 dead   ← TRUNCATE 대상인데 깨끗하다
 ```
 
-`tests/smoke_test.py` 는 합성 레시피 1만 건을 `ON CONFLICT` 로 넣는다(`:76,85,203,212`).
+`tests/integration/test_smoke.py` 는 합성 레시피 1만 건을 `ON CONFLICT` 로 넣는다(`:76,85,203,212`).
 두 번째 실행부터는 같은 `source_id` 와 충돌하는데, PostgreSQL 은 **투기적 삽입**을
 하므로 튜플을 먼저 쓰고 충돌을 확인한 뒤 dead 로 표시한다. 그래서 **실행 1회당
 약 1만 개**가 쌓인다. 원래 관측된 두 테이블이 정확히 이 두 개다.

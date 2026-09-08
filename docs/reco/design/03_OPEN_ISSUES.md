@@ -5,7 +5,7 @@
 | 항목 | 내용 |
 |---|---|
 | 작성 | 2026-08-26 |
-| 기준 문서 | [`01_추천시스템_설계.md`](01_추천시스템_설계.md) **v1.9** |
+| 기준 문서 | [`01_추천시스템_설계.md`](02_RECOMMENDER_DESIGN.md) **v1.9** |
 | 목적 | **혼자 결정할 수 없는 것**만 모음. 회의에 그대로 들고 갈 수 있는 형태 |
 
 ## 우선순위 기준
@@ -50,8 +50,8 @@
 make probe SAMPLE=경로/샘플.json
 ```
 
-[`src/features/recommend/ingest/`](../src/features/recommend/ingest/) 가 크롤러 출력을 우리 스키마로 매핑한다.
-**실제 JSON 이 오면 `src/features/recommend/ingest/sources/mangae.yaml` 의 `paths` 만 고치면 되고**,
+[`src/features/recommend/ingest/`](../../../src/features/recommend/ingest) 가 크롤러 출력을 우리 스키마로 매핑한다.
+**실제 JSON 이 오면 `seeds/sources/mangae.yaml` 의 `paths` 만 고치면 되고**,
 `adapter.py` · DB 스키마 · 정규화 파이프라인은 건드리지 않는다.
 
 `probe` 가 리포트하는 것:
@@ -71,7 +71,7 @@ make probe SAMPLE=경로/샘플.json
 
 ### ✅ C-1. ~~재료 그룹명(`group_name`) 을 수집하고 있는가~~ — **해결. 요청 불필요**
 
-> **실데이터로 확인됨** (`tests/fixtures/real/*.json` 3건).
+> **실데이터로 확인됨** (`tests/fixtures/responses/real/*.json` 3건).
 > `ingredient_groups[].group_name` 은 **이미 수집되고 있다.** 다만 3/3 전부 `"기본재료"` 다.
 >
 > **답은 "쓸 수 없다"이지 "안 온다"가 아니다.** 크롤러에 요청할 것이 없고,
@@ -224,10 +224,10 @@ DeepFM(8,000명)·LightGCN(5,000명) 문턱을 넘는다.
 리뷰어B  2026-08-21 19:35:47  (후기 본문 — 저장소에 원문을 싣지 않는다)
 ```
 > 🔴 실제 닉네임·후기 원문은 여기 적지 않는다. DB 에도 `author_hash`(HMAC)만 남긴다
-> (`scripts/load_recipes.py:72`). 원문은 `raw_data/` 안에만 두고 저장소 밖으로 내보내지 않는다.
+> (`scripts/reco/load_recipes.py:72`). 원문은 `raw_data/` 안에만 두고 저장소 밖으로 내보내지 않는다.
 
 이것은 **진짜 `(user, recipe)` 상호작용**이다. 그런데 현재 어댑터는
-`transform: count` 로 **개수만 세고 버린다** (`src/features/recommend/ingest/sources/mangae.yaml:103`).
+`transform: count` 로 **개수만 세고 버린다** (`seeds/sources/mangae.yaml:103`).
 
 #### 왜 최우선인가 — 크롤링 스펙 동결은 로그 스키마 동결과 같은 무게다
 
@@ -941,7 +941,7 @@ severity 생략    아몬드 차단 · 호두 통과 · 잣 통과   ← 실측 
 
 **용도를 정확히** — 식재료 API 는 **재료 목록이 아니라 영양정보 소스**다.
 식약처 DB 는 "식품"이지 "재료"가 아니라 `조리된 김치찌개` 같은 완제품이 섞여 있다
-(`seeds/00_README.md` 경고). 그대로 넣으면 사전이 오염된다.
+(`seeds/README.md` 경고). 그대로 넣으면 사전이 오염된다.
 
 **확인 필요** — 어떤 API 인가 / 인증·쿼터 제한 / 재료명 매칭 가능 여부(우리 536종과) /
 `kcal · carb · protein · fat · sodium` 제공 여부
@@ -974,7 +974,7 @@ american · mexican · thai · vietnamese · fusion · (모르겠음)
 
 **이슈**
 재료 대체 자동 판정은 **구현 전에 측정**하기로 했다 (설계 6-4-6).
-라벨은 확보했다 — [`seeds/substitutable_pairs.yaml`](../seeds/substitutable_pairs.yaml)
+라벨은 확보했다 — [`seeds/substitutable_pairs.yaml`](../../../seeds/substitutable_pairs.yaml)
 positive 69쌍 · negative 31쌍.
 
 **판단 시점** — 임베딩 파이프라인 완성 후 (W5)
@@ -1328,5 +1328,5 @@ make up-obs             # grafana + mlflow
 
 디스크 여유가 2GB 미만이거나 교내망 정책상 이미지 pull 이 막힌 경우뿐이다.
 그 경우 대안은 `brew install postgresql@16 pgvector` 후
-`DATABASE_URL=... ./infra/apply_schema.sh` 인데, `pgvector` 설치가 번거로워
+`DATABASE_URL=... ./deploy/apply_schema.sh` 인데, `pgvector` 설치가 번거로워
 컨테이너 쪽이 훨씬 쉽다.

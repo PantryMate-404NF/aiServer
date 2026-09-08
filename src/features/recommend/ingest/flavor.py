@@ -152,7 +152,7 @@ DEFAULT_TIER = 1.0
 TITLE_BOOST = 2.0
 #: 목록 앞쪽 1/3 에 있으면 주재료일 가능성이 높다 (한국 레시피의 관행)
 POSITION_BOOST = 1.2
-#: 역할 가중 (p5_flavor.ROLE_WEIGHT 와 곱해지지 않도록 여기서는 쓰지 않는다)
+#: 역할 가중 (이 파일 위쪽 ROLE_WEIGHT 와 곱해지지 않도록 여기서는 쓰지 않는다)
 
 _TITLE_STRIP = re.compile(r"[\s\-_()\[\]/·,.]+")
 

@@ -22,7 +22,7 @@
 ## L2 는 두 겹이다
 
 수식어를 떼고 재시도하는 것만으로는 위험하다 — `건포도` 에서 `건` 을 떼면 `포도` 가 되는데
-둘 다 사전 표제어인 **다른 재료**다. 그래서 떼기 전에 구조 매칭이 감시한다 (`p3_head`).
+둘 다 사전 표제어인 **다른 재료**다. 그래서 떼기 전에 구조 매칭이 감시한다 (`head.py`).
 
     ① 수식어 whitelist 제거 → L0/L1 재시도
     ② 🔴 구조 검증: relation(원문, 후보) 이 same|rule 이어야 확정.
@@ -38,7 +38,6 @@ from __future__ import annotations
 
 import csv
 import io
-import os
 import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path

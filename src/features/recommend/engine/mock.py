@@ -22,7 +22,6 @@ from features.recommend.engine.rank import feature_stats, top_reasons
 from features.recommend.engine.reason import build_reason
 from features.recommend.engine.serendipity import ClusterStats, mixed_exploration
 from features.recommend.enums import (
-    CONTRACT_VERSION,
     DEFAULT_WEIGHTS,
     FEATURE_KEYS,
     PROPENSITY_SEMANTICS,
