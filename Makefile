@@ -102,9 +102,14 @@ verify:  ## 적재 결과 확인
 contract:  ## 스테이지·API 계약 검증 (DB 불필요)
 	$(PY) -m tests.unit.recommend.test_contract
 
-api-docs:  ## API 명세 재생성 (Mock 실호출 캡처 → 문서)
-	$(PY) scripts/reco/api/capture.py
-	$(PY) scripts/reco/api/render.py
+# 🔴 아래 세 타깃은 docs/reco/ 를 읽습니다. 그 문서는 저장소에 올리지 않으므로
+#    (09-08, .gitignore 참조) 클론한 사람에게는 폴더가 없습니다. 없으면 조용히
+#    건너뜁니다 — 문서가 없다고 검증이 통째로 빨개지면 아무도 안 돌립니다.
+DOCS_RECO := $(wildcard docs/reco)
+
+api-docs:  ## API 명세 재생성 (Mock 실호출 캡처 → 문서). docs/reco 가 있을 때만
+	@if [ -z "$(DOCS_RECO)" ]; then echo "  건너뜀 — docs/reco 없음 (설계 문서는 저장소에 없습니다)"; else \
+	  $(PY) scripts/reco/api/capture.py && $(PY) scripts/reco/api/render.py; fi
 
 mock:  ## Mock 추천 API 기동 — 대시보드가 엔진을 기다리지 않게
 	@echo "  http://localhost:8000/docs  ← OpenAPI"
@@ -143,8 +148,9 @@ probe-all:  ## 합성 샘플 3종으로 어댑터 자체를 검증
 	  echo "=== $$f ==="; $(PY) scripts/reco/probe.py $$f | tail -4; echo; done
 
 # ── 검증 ────────────────────────────────────────────────────────
-doc-check:  ## 문서 수치가 실제 DB·코드와 맞는지 대조
-	PYTHONPATH=. $(PY) scripts/reco/doc_check.py
+doc-check:  ## 문서 수치가 실제 DB·코드와 맞는지 대조. docs/reco 가 있을 때만
+	@if [ -z "$(DOCS_RECO)" ]; then echo "  건너뜀 — docs/reco 없음 (설계 문서는 저장소에 없습니다)"; else \
+	  PYTHONPATH=. $(PY) scripts/reco/doc_check.py; fi
 
 log-test:  ## S2 — 라이터 종단 검증 (mock 출력 → 실제 DB)
 	PYTHONPATH=. $(PY) -m tests.unit.recommend.test_writer
@@ -186,7 +192,7 @@ diagrams:  ## 문서의 mermaid 다이어그램이 실제로 렌더되는지 검
 	@cd $(MERMAID_TMP) && [ -d node_modules/mermaid ] || \
 	  npm i --silent --no-fund --no-audit mermaid@11 jsdom
 	@cp scripts/reco/check_mermaid.mjs $(MERMAID_TMP)/
-	@cd $(MERMAID_TMP) && node check_mermaid.mjs $(CURDIR)/docs
+	@cd $(MERMAID_TMP) && node check_mermaid.mjs "$(CURDIR)/docs"
 
 # ── 판단 근거 시뮬레이션 ────────────────────────────────────────
 bench-quick:  ## 설계 판단 근거 시뮬레이션 (q3 는 --quick, 나머지는 전량 · 약 12분→3분)
