@@ -1,0 +1,112 @@
+# 재료 카테고리 계층 트리
+# → ingredient_category 테이블 (id는 migrate.py가 부여, path가 정체성)
+#
+# depth 0 = 대분류 / 1 = 중분류 / 2 = 소분류
+# path 는 ltree. 알러지 전개가 이 트리에 의존하므로 자식 누락 금지.
+#   예) 견과 알러지 → path <@ 'agri.nutseed'  로 전량 전개
+#
+# ⚠️ 이름을 바꾸면 ingredient.csv 의 category_path 도 함께 바꿔야 한다.
+
+categories:
+  # ── 농산물 ────────────────────────────────────────────
+  - {path: agri,                    name: 농산물,        depth: 0}
+  - {path: agri.veg,                name: 채소,         depth: 1}
+  - {path: agri.veg.leafy,          name: 엽채류,        depth: 2}
+  - {path: agri.veg.root,           name: 근채류,        depth: 2}
+  - {path: agri.veg.fruitveg,       name: 과채류,        depth: 2}
+  - {path: agri.veg.stem,           name: 경채류,        depth: 2}   # 대파·쪽파·셀러리
+  - {path: agri.veg.pepper,         name: 고추류,        depth: 2}
+  - {path: agri.veg.namul,          name: 나물류,        depth: 2}
+  - {path: agri.veg.othveg,         name: 기타채소,       depth: 2}
+  - {path: agri.mushroom,           name: 버섯류,        depth: 1}
+  - {path: agri.fruit,              name: 과일,         depth: 1}
+  - {path: agri.fruit.pome,         name: 인과류,        depth: 2}
+  - {path: agri.fruit.stone,        name: 핵과류,        depth: 2}   # ★복숭아 알러지 전개 지점
+  - {path: agri.fruit.berry,        name: 장과류,        depth: 2}
+  - {path: agri.fruit.citrus,       name: 감귤류,        depth: 2}
+  - {path: agri.fruit.tropical,     name: 열대과일,       depth: 2}
+  - {path: agri.grain,              name: 곡류,         depth: 1}
+  - {path: agri.grain.rice,         name: 쌀류,         depth: 2}
+  - {path: agri.grain.wheat,        name: 밀가루류,       depth: 2}   # ★글루텐 전개 지점
+  - {path: agri.grain.miscgrain,    name: 잡곡류,        depth: 2}
+  - {path: agri.grain.starch,       name: 전분류,        depth: 2}
+  - {path: agri.legume,             name: 두류,         depth: 1}   # ★대두 전개 지점
+  - {path: agri.nutseed,            name: 견과·종실,      depth: 1}   # ★견과 알러지 전개 지점
+  - {path: agri.nutseed.nuts,       name: 견과류,        depth: 2}
+  - {path: agri.nutseed.seeds,      name: 종실류,        depth: 2}   # 참깨·들깨
+
+  # ── 축산물 ────────────────────────────────────────────
+  - {path: meat,                    name: 축산물,        depth: 0}
+  - {path: meat.beef,               name: 소고기,        depth: 1}
+  - {path: meat.pork,               name: 돼지고기,       depth: 1}
+  - {path: meat.chicken,            name: 닭고기,        depth: 1}
+  - {path: meat.othmeat,            name: 기타육류,       depth: 1}
+  - {path: meat.egg,                name: 난류,         depth: 1}   # ★난류 알러지 전개 지점
+
+  # ── 수산물 ────────────────────────────────────────────
+  - {path: seafood,                 name: 수산물,        depth: 0}
+  - {path: seafood.fish,            name: 어류,         depth: 1}   # ★어류 알러지 전개 지점
+  - {path: seafood.fish.whitefish,  name: 흰살생선,       depth: 2}
+  - {path: seafood.fish.bluefish,   name: 등푸른생선,      depth: 2}
+  - {path: seafood.fish.driedfish,  name: 건어물,        depth: 2}
+  - {path: seafood.crustacean,      name: 갑각류,        depth: 1}   # ★갑각류 알러지 전개 지점
+  - {path: seafood.mollusk,         name: 연체류,        depth: 1}
+  - {path: seafood.shellfish,       name: 패류,         depth: 1}
+  - {path: seafood.seaweed,         name: 해조류,        depth: 1}
+
+  # ── 유가공 ────────────────────────────────────────────
+  - {path: dairy,                   name: 유가공,        depth: 0}   # ★유제품 알러지 전개 지점
+  - {path: dairy.milk,              name: 우유류,        depth: 1}
+  - {path: dairy.cheese,            name: 치즈류,        depth: 1}
+  - {path: dairy.fermented,         name: 발효유,        depth: 1}
+
+  # ── 가공식품 ──────────────────────────────────────────
+  - {path: processed,               name: 가공식품,       depth: 0}
+  - {path: processed.tofu,          name: 두부·묵,       depth: 1}
+  - {path: processed.noodle,        name: 면류,         depth: 1}
+  - {path: processed.meatproc,      name: 육가공,        depth: 1}
+  - {path: processed.seafoodproc,   name: 수산가공,       depth: 1}
+  - {path: processed.jeotgal,       name: 젓갈,         depth: 1}
+  - {path: processed.kimchi,        name: 김치·절임,      depth: 1}
+  - {path: processed.canned,        name: 통조림,        depth: 1}
+  - {path: processed.tteok,         name: 떡류,         depth: 1}
+  - {path: processed.bread,         name: 빵류,         depth: 1}
+  - {path: processed.othproc,       name: 기타가공,       depth: 1}
+
+  # ── 🔴 물 계열 (2026-09-02 신설) ──────────────────────────────
+  # 재료이긴 하나 성격이 다르다 — **모두가 항상 갖고 있고 맛에 기여하지 않는다.**
+  # 실측 11,987건이 미매칭이었다. 사전에 없어서 '물이 없어 못 만든다' 가 될 뻔했다.
+  - {path: water,                   name: 물,             depth: 0}
+
+  # ── 양념·조미 ────────────────────────────────────────
+  # 이 대분류 하위는 대부분 is_staple 또는 is_seasoning 이다
+  - {path: season,                  name: 양념·조미,      depth: 0}
+  - {path: season.jang,             name: 장류,         depth: 1}
+  - {path: season.sweetsalt,        name: 소금·당류,      depth: 1}
+  - {path: season.vinegar,          name: 식초·주류,      depth: 1}
+  - {path: season.oil,              name: 기름류,        depth: 1}
+  - {path: season.powder,           name: 가루양념,       depth: 1}
+  - {path: season.minced,           name: 다진양념,       depth: 1}
+  - {path: season.sauce,            name: 소스류,        depth: 1}
+  - {path: season.broth,            name: 육수·조미료,     depth: 1}
+  - {path: season.herb,             name: 허브·향신료,     depth: 1}
+
+# ── 알러지 그룹 → 전개 기준 ─────────────────────────────
+# user_allergy.category_id 로 아래 path 를 지정하면 하위 전량이 하드 컷된다.
+# ingredient.allergen_group 컬럼과 이중화되어 있다(2-2 설계): 계층이 틀려도 컬럼이 잡는다.
+# by_category  : ltree 하위 전개로 잡는 그룹
+# column_only  : 카테고리가 알러젠과 일치하지 않아 ingredient.allergen_group 컬럼으로만 잡는 그룹
+#                (예: 메밀은 잡곡류에 속하나 같은 잡곡류의 보리·귀리는 메밀 알러젠이 아니다)
+allergen_expansion:
+  nut:        [agri.nutseed.nuts]
+  sesame:     [agri.nutseed.seeds]
+  soy:        [agri.legume, processed.tofu, season.jang]
+  gluten:     [agri.grain.wheat, processed.noodle, processed.bread]
+  egg:        [meat.egg]
+  dairy:      [dairy]
+  fish:       [seafood.fish]
+  shellfish:  [seafood.crustacean, seafood.shellfish]
+  peach:      [agri.fruit.stone]
+
+allergen_column_only:
+  - buckwheat     # 메밀·메밀가루·메밀묵·메밀면·냉면사리

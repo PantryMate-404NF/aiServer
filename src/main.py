@@ -1,4 +1,21 @@
-"""애플리케이션 진입점. uv run uvicorn main:create_app --factory 로 실행합니다."""
+"""애플리케이션 진입점. `uv run uvicorn main:create_app --factory` 로 실행합니다.
+
+    uvicorn main:create_app --factory --reload --port 8000
+    http://localhost:8000/docs        ← OpenAPI 문서 자동 생성
+
+**목적: 대시보드 트랙이 엔진 완성을 기다리지 않게 하는 것입니다.**
+엔진과 대시보드를 순차로 진행하면 남은 기간이 모자랍니다.
+두 트랙을 동시에 진행하려면 이 서버가 먼저 있어야 합니다.
+
+지금 응답은 `features/recommend/engine/mock.py` 가 만듭니다 — 고정 시드라
+재현 가능하고 실제 추천 로직은 없습니다. 각 스테이지 담당자가 자기 mock 을
+실제 구현으로 갈아끼우면 라우터와 계약은 그대로 둔 채 서비스만 바뀝니다.
+
+02 의 3.1 — 여기는 **앱과 라우터 등록만** 합니다.
+
+⬜ 01 의 7.1 은 LLM 클라이언트·임베딩 모델을 `lifespan` 에서 1회 만들라고 합니다.
+   지금은 둘 다 없어서 lifespan 이 비어 있습니다 — 생기는 시점에 여기 붙입니다.
+"""
 
 from __future__ import annotations
 
@@ -17,6 +34,7 @@ from deps import verify_internal_api_key
 from features import receipt
 from features.receipt.router import router as receipt_router
 from features.receipt.schema import ReceiptErrorDetail, ReceiptErrorResponse
+from features.recommend.enums import CONTRACT_VERSION
 from features.recommend.router import router as recommend_router
 from infra import gemini
 from utils.errors import ReceiptError
@@ -82,7 +100,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
     configure_logging(settings.log_level)
 
-    app = FastAPI(title="aiServer", lifespan=lifespan)
+    app = FastAPI(title="aiServer", version=CONTRACT_VERSION, lifespan=lifespan)
     add_request_logging(app)
     app.add_exception_handler(ReceiptError, handle_receipt_error)
     app.add_exception_handler(RequestValidationError, handle_missing_field)
@@ -103,7 +121,7 @@ def create_app() -> FastAPI:
     app.include_router(receipt_router, dependencies=internal_only)
     app.include_router(recommend_router, dependencies=internal_only)
 
-    logger.info("aiServer started (db=%s)", settings.db_name)
+    logger.info("aiServer started (contract=%s · db=%s)", CONTRACT_VERSION, settings.db_name)
     return app
 
 

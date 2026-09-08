@@ -1,0 +1,23 @@
+# Grafana → PostgreSQL 직결.
+# Prometheus 를 쓰지 않는 이유(설계 1-3): 레이턴시·처리량이 이미
+# recommendation_log.total_latency_ms 에 적재되므로 PG 를 직접 쿼리하면 된다.
+apiVersion: 1
+
+datasources:
+  - name: recodb
+    type: postgres
+    uid: recodb
+    access: proxy
+    url: ${PG_HOST}
+    user: ${PG_USER}
+    database: ${PG_DATABASE}
+    isDefault: true
+    secureJsonData:
+      password: ${PG_PASSWORD}
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1600
+      timescaledb: false
+      maxOpenConns: 5
+      maxIdleConns: 2
+      connMaxLifetime: 14400

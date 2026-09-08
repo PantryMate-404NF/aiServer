@@ -1,0 +1,186 @@
+# 냉장고 추천 시스템 — 로컬 개발 스택
+#   make up        핵심만  (postgres · redis)          ~440MB
+#   make up-obs    + 관측   (grafana · mlflow)          ~1.4GB
+#   make up-all    + 앱     (reco-api · dashboard)      산출물 D 이후
+#
+# 필요한 것만 단계적으로 올린다. 디스크와 첫 부팅 시간을 아끼는 것보다
+# "지금 검증할 수 있는 범위"를 좁게 유지하는 것이 목적이다.
+#
+# ⚠️ MLflow 는 컨테이너가 필수가 아니다. 순수 Python 패키지이고 서버가 상태를
+#    갖지 않으므로, 로컬에서 아래처럼 띄워도 같은 실험 데이터를 본다.
+#      pip install mlflow
+#      mlflow ui --backend-store-uri postgresql://reco:reco@localhost:5432/mlflowdb
+#    컨테이너의 가치는 "항상 켜져 있는 공용 UI 주소" 하나뿐이다.
+#    ★ backend-store-uri 는 반드시 mlflowdb 다. recodb 로 붙이면 MLflow 가
+#      자기 테이블 15개를 reco 스키마에 쏟아붓는다.
+
+name: reco
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: reco-postgres
+    restart: unless-stopped
+    # 🔴 이 블록이 없으면 PG16 기본값으로 돈다 (shared_buffers 128MB · 실측 160MB).
+    #    06 3절의 "권장 설정"이 문서에만 있고 적용되지 않던 문제를 여기서 막는다.
+    #    값은 레시피 1만 기준. 4.4만 적재 시 .env 로 올린다 (06 3절 표).
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=${PG_SHARED_BUFFERS:-512MB}"
+      - "-c"
+      - "effective_cache_size=${PG_EFFECTIVE_CACHE:-4GB}"
+      # 실측 정렬이 top-N heapsort 58kB 다. 크게 잡을 이유가 없다.
+      - "-c"
+      - "work_mem=${PG_WORK_MEM:-4MB}"
+      # HNSW 그래프가 이 안에서 만들어진다. 넘치면 on-disk 경로로 떨어져 크게 느려진다.
+      # 전역을 크게 잡으면 autovacuum 워커마다 물리므로, 여기는 보수적으로 두고
+      # post_index.sql 이 세션 단위로 올린다.
+      - "-c"
+      - "maintenance_work_mem=${PG_MAINT_WORK_MEM:-256MB}"
+      - "-c"
+      - "max_connections=${PG_MAX_CONNECTIONS:-50}"
+      # 🔴 원격 분리(06 8-D) 대비. 유닉스 소켓과 달리 TCP 는 상대가 죽어도 서버가 모른다.
+      #    리눅스 기본 7200초 동안 락이 유지되고 그 xmin 이 autovacuum 을 멈춘다.
+      - "-c"
+      - "tcp_keepalives_idle=60"
+      - "-c"
+      - "tcp_keepalives_interval=10"
+      - "-c"
+      - "tcp_keepalives_count=6"
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER:-reco}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-reco}
+      POSTGRES_DB:       ${POSTGRES_DB:-recodb}
+      # 🔴 locale=C 를 쓰면 안 된다. 실측으로 확인된 두 가지가 깨진다.
+      #   1. pg_trgm 이 한글 trigram 을 하나도 만들지 못한다 → L3 퍼지 매칭 전멸
+      #   2. ltree 가 한글 라벨을 거부한다 (현재는 ASCII 슬러그라 무관하지만)
+      # en_US.UTF-8 은 trigram 은 되지만 한글 정렬이 틀린다 (하늘 < 다시마).
+      # C.UTF-8 이 trigram · 정렬 · ltree 모두 올바르다.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
+      # 🔴 서버 시간대를 한국으로 맞춘다 (09-03 발견).
+      #    UTC 로 두면 한국 자정~오전 9시 사이에 `current_date` 가 **하루 전**이라
+      #    f_expiring 의 임박 판정이 하루씩 어긋난다. 유저가 "오늘 뭐 해먹지" 를
+      #    물을 때의 '오늘' 은 한국 날짜다.
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # 알파벳 순서로 실행된다. 파일명 앞자리 숫자가 곧 실행 순서.
+      - ./init:/docker-entrypoint-initdb.d:ro
+      # 🔴 post_index.sql 은 여기 두면 안 된다 — initdb.d 는 자동 실행이라
+      #    빈 테이블에 HNSW 가 생기고, 그러면 대량 적재 INSERT 마다 느려진다 (06 9절).
+      #    별도 경로에 마운트하고 `make post-index` 로 적재 후에 수동 실행한다.
+      - ./post:/post:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-reco} -d ${POSTGRES_DB:-recodb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: reco-redis
+    restart: unless-stopped
+    # 순수 캐시다. 영속화하지 않는다 (설계 1-5).
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "512mb",
+              "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mlflow:
+    profiles: ["obs"]          # 선택. 로컬 `mlflow ui` 로 대체 가능
+    build: ./mlflow
+    container_name: reco-mlflow
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      BACKEND_URI: postgresql://${POSTGRES_USER:-reco}:${POSTGRES_PASSWORD:-reco}@postgres:5432/mlflowdb
+    command: >
+      mlflow server
+      --host 0.0.0.0 --port 5000
+      --backend-store-uri postgresql://${POSTGRES_USER:-reco}:${POSTGRES_PASSWORD:-reco}@postgres:5432/mlflowdb
+      --default-artifact-root /mlruns
+    ports:
+      - "${MLFLOW_PORT:-5000}:5000"
+    volumes:
+      - mlruns:/mlruns
+
+  grafana:
+    profiles: ["obs"]          # 대시보드 트랙 착수 시점에 활성화
+    image: grafana/grafana-oss:11.3.0
+    container_name: reco-grafana
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      GF_SECURITY_ADMIN_USER:     ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP:     "false"
+      GF_AUTH_ANONYMOUS_ENABLED:  "true"       # 팀 20명이 로그인 없이 조회
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
+      # 프로비저닝이 참조하는 값
+      # 대시보드는 읽기 전용 계정으로 붙는다.
+      # reco_ro 는 ROLE 수준 search_path 가 reco,public 으로 설정되어 있다.
+      PG_HOST:     postgres:5432
+      PG_DATABASE: ${POSTGRES_DB:-recodb}
+      PG_USER:     ${GRAFANA_DB_USER:-reco_ro}
+      PG_PASSWORD: ${GRAFANA_DB_PASSWORD:-reco_ro_dev}
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - grafana:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+
+  # ── 아래 둘은 산출물 D(프로젝트 스켈레톤) 이후 활성화 ────────────
+  reco-api:
+    profiles: ["app"]
+    build:
+      context: ..
+      dockerfile: db/app/Dockerfile.api
+    container_name: reco-api
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis:    {condition: service_healthy}
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-reco}:${POSTGRES_PASSWORD:-reco}@postgres:5432/${POSTGRES_DB:-recodb}
+      REDIS_URL:    redis://redis:6379/0
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - artifacts:/artifacts:ro
+
+  dashboard:
+    profiles: ["app"]
+    build:
+      context: ..
+      dockerfile: db/app/Dockerfile.dashboard
+    container_name: reco-dashboard
+    depends_on:
+      - reco-api
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-reco}:${POSTGRES_PASSWORD:-reco}@postgres:5432/${POSTGRES_DB:-recodb}
+      RECO_API_URL: http://reco-api:8000
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    ports:
+      - "${DASHBOARD_PORT:-8501}:8501"
+    volumes:
+      - artifacts:/artifacts:ro
+
+volumes:
+  pgdata:
+  mlruns:
+  grafana:
+  artifacts:

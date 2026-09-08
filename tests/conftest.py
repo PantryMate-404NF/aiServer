@@ -1,4 +1,19 @@
-"""모든 테스트가 공유하는 픽스처."""
+"""모든 테스트가 공유하는 픽스처.
+
+## 🔴 추천 파트 검사는 pytest 가 수집하지 않습니다
+
+`tests/unit/recommend/` 와 `tests/integration/` 의 검사들은 pytest 함수가 아니라
+**단독 실행 스크립트**입니다. 모듈 최상단에서 검사를 돌리고 `sys.exit()` 로
+끝내므로, pytest 가 수집하는 순간 `SystemExit` 이 올라와 **실행 전체가
+INTERNALERROR 로 죽습니다** (09-04 실측).
+
+그래서 아래에서 제외합니다. 이 검사들은 `make contract` · `make log-test` ·
+`make normalize-test` · `make smoke` · `make ddl-test` 가 돌립니다 —
+합쳐서 242건이고 전부 통과합니다.
+
+⬜ pytest 함수로 옮기는 것은 별도 작업입니다. 구조 이식과 섞으면 무엇이 왜
+   깨졌는지 가릴 수 없습니다.
+"""
 
 from __future__ import annotations
 
@@ -6,6 +21,11 @@ import pytest
 
 import config
 from infra import db
+
+collect_ignore_glob = [
+    "unit/recommend/*.py",
+    "integration/*.py",
+]
 
 ENV = {
     "DB_HOST": "localhost",

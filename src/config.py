@@ -1,4 +1,19 @@
-"""환경변수를 읽어 설정 객체로 만드는 단일 진입점."""
+"""환경변수를 읽어 설정 객체로 만드는 단일 진입점.
+
+03 의 2절 — **이 파일 하나가 환경변수를 읽습니다.** 다른 파일에서 `os.environ`
+을 호출하지 않습니다. 없는 키는 처리 중간이 아니라 **실행 시작 시점에** 터져야
+합니다. 중간에 터지면 어느 입력에서 실패했는지 추적이 어려워집니다.
+
+    from config import get_settings
+    get_settings().candidate_limit
+
+🔴 **비밀값은 여기 기본값으로 두지 않습니다.** `.env` 에만 두고 환경변수로
+   읽습니다. 특히 `REVIEW_SALT` 는 후기 624,422건의 작성자 해시를 만든 값이라
+   기본값을 주면 "없어도 도는" 착각을 만듭니다 — 없으면 없다고 말해야 합니다.
+
+튜닝 상수도 전부 여기 있습니다. 임계값·가중치·타임아웃처럼 데이터와 환경에
+따라 다시 맞춰야 하는 값을 코드에 박으면 조정 자체를 막습니다 (03 의 2절).
+"""
 
 from __future__ import annotations
 
@@ -13,11 +28,16 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    # ── DB ────────────────────────────────────────────────────────
+    # 🔴 기본값을 주지 않습니다. 없으면 시작 시점에 터져야 합니다.
     db_host: str
     db_port: int = 5432
     db_name: str
     db_user: str
     db_password: str
+
+    #: 이 애플리케이션의 테이블이 사는 스키마. Engine 이 커넥션마다 걸어 준다.
+    db_schema: str = "reco"
 
     log_level: str = "INFO"
     internal_api_key: str
@@ -53,9 +73,42 @@ class Settings(BaseSettings):
     # v2 는 v1 에서 주류를 비식재료로 옮긴 것입니다. 출력 스키마는 v1 과 같습니다.
     receipt_prompt_version: int = 2
 
+    # ── 커넥션 풀 ─────────────────────────────────────────────────
+    #: 🔴 min 을 max 와 같게 둡니다. 작으면 반납 때 초과분을 **닫아** 매 요청이
+    #:    새 커넥션을 엽니다 — 동시 8요청 p50 32ms. 같게 두면 2.5ms 입니다
+    #:    (09-02 실측, psycopg2 풀 기준. SQLAlchemy 도 같은 이유로 맞춥니다).
+    pg_max_conn: int = 10
+    pg_min_conn: int | None = None
+    pool_timeout_sec: int = 30
+
+    # ── 서빙 ──────────────────────────────────────────────────────
+    #: 후보 조회 상한. Retrieval 이 이만큼만 보고 자릅니다
+    #: (`deploy/init/04_functions.sql` 의 `p_limit`).
+    candidate_limit: int = 500
+    #: 탐색 풀 = 상위 N (설계 5-3-3). trace params 의 `explore_pool_size` 와 같아야 합니다.
+    explore_pool_size: int = 200
+    #: propensity 추정 MC 반복 수.
+    propensity_mc: int = 200
+
+    # ── 외부 호출 (03 의 4절 — 라이브러리 기본값에 맡기지 않습니다) ──
+    llm_timeout_s: int = 30
+    llm_max_retries: int = 3
+
+    # ── 배치 ──────────────────────────────────────────────────────
+    ingest_batch: int = 2000
+
+    # ── 비밀값 ────────────────────────────────────────────────────
+    #: 🔴 기본값 없음. 없으면 None — 부르는 쪽이 멈춰야 합니다.
+    #:    새로 만들면 이미 적재된 후기의 작성자 해시와 어긋나고 되돌릴 수 없습니다.
+    review_salt: str | None = None
+
+    @property
+    def pool_min(self) -> int:
+        return self.pg_max_conn if self.pg_min_conn is None else self.pg_min_conn
+
     @property
     def database_dsn(self) -> str:
-        """접속 정보는 이 DSN 하나로만 나갑니다."""
+        """SQLAlchemy 용 DSN. 접속 정보는 이 하나로만 나갑니다."""
         return str(
             PostgresDsn.build(
                 scheme="postgresql+psycopg",
@@ -66,6 +119,11 @@ class Settings(BaseSettings):
                 path=self.db_name,
             )
         )
+
+    @property
+    def libpq_url(self) -> str:
+        """드라이버 접두어가 없는 형태. `psql` 과 적재 스크립트가 씁니다."""
+        return self.database_dsn.replace("postgresql+psycopg://", "postgresql://", 1)
 
 
 @lru_cache(maxsize=1)
