@@ -1,7 +1,7 @@
 """실제 크롤 데이터로 P1→P2→P3→P4 를 관통시켜 커버리지를 잰다 (설계 4-8).
 
     make coverage
-    .venv/bin/python -m features.recommend.evaluation.coverage tests/fixtures/responses/real/*.json
+    .venv/bin/python scripts/reco/coverage.py tests/fixtures/responses/real/*.json
 
 ## 🔴 두 숫자를 모두 보고한다
 

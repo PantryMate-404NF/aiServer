@@ -334,3 +334,34 @@ def _tombstone(rid: str, resp: RecommendResponse, sid: str, exc: Exception) -> N
         bump("tombstoned")
     except Exception:
         bump("tombstone_failed")
+
+
+# ─────────────────────────────────────────────────────────────────
+# 재료 사전 — ingest 의 P3 매칭이 운영 경로에서 쓴다
+#
+# 🔴 SQL 이 여기 있는 이유. 03 의 5절이 "SQL 은 repository.py 밖으로 나가지
+#    않는다" 고 정한다. 09-05 까지는 이 두 쿼리가 ingest/match.py 안에 있었다.
+#    ingest 는 스테이지이고, 스테이지는 DB 접근을 여기에 위임한다.
+# ─────────────────────────────────────────────────────────────────
+#: 🔴 컬럼을 `i.` 로 한정한다. ingredient 와 ingredient_category 양쪽에
+#:    id·name 이 있어 한정하지 않으면 AmbiguousColumn 으로 죽는다.
+_DICT_SQL = """
+SELECT i.id, i.name, i.is_staple, i.is_seasoning, c.path::text
+FROM ingredient i LEFT JOIN ingredient_category c ON c.id = i.category_id
+"""
+
+_ALIAS_SQL = "SELECT alias, ingredient_id FROM ingredient_alias"
+
+
+def load_dictionary_rows() -> tuple[list[tuple], list[tuple]]:
+    """(재료 행, 별칭 행). 검수로 쌓인 `source='manual'` alias 까지 포함된다.
+
+    한 커서에서 두 번 조회한다 — 사전 로드는 배치 시작에 1회뿐이라
+    왕복 2회가 문제되지 않고, 조인하면 재료 하나가 별칭 수만큼 중복된다.
+    """
+    with cursor() as cur:
+        cur.execute(_DICT_SQL)
+        ingredients = cur.fetchall()
+        cur.execute(_ALIAS_SQL)
+        aliases = cur.fetchall()
+    return ingredients, aliases
