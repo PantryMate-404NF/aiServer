@@ -51,8 +51,6 @@
 from __future__ import annotations
 
 import re
-
-import io
 from pathlib import Path
 
 import yaml
@@ -64,7 +62,7 @@ ROOT = Path(__file__).resolve().parents[4]
 AXES = ["매움", "짠맛", "단맛", "신맛", "감칠맛", "기름짐"]
 N_AXIS = 6
 
-#: 역할별 집계 가중치. **양념이 맛을 만든다**는 도메인 사실을 수치로 넣은 것.
+#: 역할별 집계 가중치. 양념이 맛을 만든다는 도메인 사실을 수치로 넣은 것.
 #: ⚠️ 근거는 요리 상식이지 측정이 아니다 — bench/flavor_agg.py 가 대안과 비교한다.
 ROLE_WEIGHT = {
     IngredientRole.SEASONING: 3.0,
@@ -83,8 +81,8 @@ class FlavorTable:
         self.overrides = overrides
 
     @classmethod
-    def from_seeds(cls, seeds: Path = ROOT / "seeds") -> "FlavorTable":
-        d = yaml.safe_load(io.open(seeds / "ingredient_flavor.yaml", encoding="utf-8"))
+    def from_seeds(cls, seeds: Path = ROOT / "seeds") -> FlavorTable:
+        d = yaml.safe_load(open(seeds / "ingredient_flavor.yaml", encoding="utf-8"))
         return cls({x["path"]: x["v"] for x in d["defaults"]},
                    {x["name"]: x["v"] for x in d["overrides"]})
 
@@ -133,7 +131,7 @@ def aggregate(items: list[tuple[list[float], IngredientRole | None]],
 # ─────────────────────────────────────────────────────────────────
 
 
-#: 단위 → 강도 등급. **양이 아니라 "그 단위를 쓴다는 것이 뜻하는 규모"** 다.
+#: 단위 → 강도 등급. 양이 아니라 "그 단위를 쓴다는 것이 뜻하는 규모" 다.
 #:   g·kg·개·마리·대·모·공기 를 쓰면 주재료급이고, 큰술·작은술은 양념 규모다.
 UNIT_TIER = {
     # 주재료급 — 무게·개수로 센다

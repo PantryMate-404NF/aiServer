@@ -18,7 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from features.recommend.ingest.adapter import SourceAdapter  # noqa: E402
+from features.recommend.ingest.adapter import SourceAdapter
 
 #: 없을 때 무엇이 나빠지는지. 크롤링 담당자에게 그대로 전달할 문장.
 IMPACT = {
@@ -160,8 +160,8 @@ def main() -> int:
     print("\n── 🔴 raw_json 원본 보존 ────────────────────────────────")
     top_keys = Counter(k for s in samples for k in (s.keys() if isinstance(s, dict) else []))
     print(f"  최상위 키 {len(top_keys)}개: {' '.join(list(top_keys)[:12])}")
-    print(f"  → raw_json 에 전부 보존된다. 분류 4축 파싱은 나중에 해도 되지만")
-    print(f"    수집은 미룰 수 없다 (설계 2-3-1).")
+    print("  → raw_json 에 전부 보존된다. 분류 4축 파싱은 나중에 해도 되지만")
+    print("    수집은 미룰 수 없다 (설계 2-3-1).")
 
     # ── 판정 ─────────────────────────────────────────────────────
     crit = [k for k in miss_c] + [k for lv, k, _, _ in rows if lv == "🔴"]

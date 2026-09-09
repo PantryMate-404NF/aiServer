@@ -44,7 +44,7 @@ def get_engine() -> Engine:
         max_overflow=settings.pg_max_conn - settings.pool_min,
         pool_timeout=settings.pool_timeout_sec,
         pool_pre_ping=True,
-        # 🔴 **search_path 를 명시한다.** 지금은 접속 유저명(`reco`)과 스키마명이
+        # 주의: search_path 를 명시한다. 지금은 접속 유저명(`reco`)과 스키마명이
         #    같아서 기본값 `"$user", public` 이 우연히 맞는다. 유저가 달라지는
         #    순간(예: 대시보드용 `reco_ro`) 조용히 public 만 보게 되고,
         #    `retrieve_for_user()` 를 못 찾아 런타임에야 드러난다.

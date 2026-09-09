@@ -23,22 +23,22 @@ from features.recommend.stage import RankedItem, ScoredCandidate
 # ─────────────────────────────────────────────────────────────────
 # 추천 이유 선택 — z-salience (설계 5-5) *(v1.9)*
 #
-# 🔴 `contrib = w·f` 의 최댓값으로 이유를 고르면 **이유가 한 종류로 붕괴한다.**
+# 주의: `contrib = w·f` 의 최댓값으로 이유를 고르면 이유가 한 종류로 붕괴한다.
 #    측정: 후보 500건 시뮬레이션에서 Top-20 의 이유가 100% `f_coverage` 였다.
 #    ① 이 곧 max_missing 으로 걸러낸 뒤라 상위 후보의 f_coverage 는 항상 1.0 근처이고,
 #    ② w(f_coverage)=0.24 가 최대 가중치이므로 w·f 의 argmax 가 사실상 고정된다.
 #
-#    이유는 "점수가 높은 이유"가 아니라 **"다른 후보와 달라서 뽑힌 이유"** 여야 한다.
+#    이유는 "점수가 높은 이유"가 아니라 "다른 후보와 달라서 뽑힌 이유" 여야 한다.
 #    따라서 같은 요청의 후보 집합을 기준으로 표준화한다.
 # ─────────────────────────────────────────────────────────────────
-#: σ 하한. 🔴 **없으면 z-salience 가 무의미한 차이를 증폭한다.**
+#: σ 하한. 없으면 z-salience 가 무의미한 차이를 증폭한다.
 #:    후보 500건의 `f_coverage` 가 전부 0.98~0.99 라면 σ≈0.003 이고,
 #:    0.01 차이가 z=3 으로 튀어 그것이 추천 이유가 된다. 유저가 지각할 수 없는 차이다.
 #:    모든 피처가 0~1 로 정규화돼 있으므로(설계 5-2-1) 5% 를 지각 하한으로 둔다.
 SIGMA_FLOOR = 0.05
 
 
-def feature_stats(cands: Sequence["ScoredCandidate"]) -> dict[str, tuple[float, float]]:
+def feature_stats(cands: Sequence[ScoredCandidate]) -> dict[str, tuple[float, float]]:
     """후보 집합의 피처별 (평균, 표준편차). None 은 제외하고 계산한다."""
     out: dict[str, tuple[float, float]] = {}
     for k in FEATURE_KEYS:
@@ -53,7 +53,7 @@ def feature_stats(cands: Sequence["ScoredCandidate"]) -> dict[str, tuple[float, 
     return out
 
 
-def salience(cand: "ScoredCandidate", weights: dict[str, float],
+def salience(cand: ScoredCandidate, weights: dict[str, float],
              stats: dict[str, tuple[float, float]]) -> dict[str, float]:
     """w·(f−μ)/σ — 후보 집합 대비 이 레시피가 두드러진 정도."""
     out = {}
@@ -67,7 +67,7 @@ def salience(cand: "ScoredCandidate", weights: dict[str, float],
     return out
 
 
-def top_reasons(cand: "ScoredCandidate", weights: dict[str, float],
+def top_reasons(cand: ScoredCandidate, weights: dict[str, float],
                 stats: dict[str, tuple[float, float]], n: int = 2) -> list[str]:
     """이유 템플릿에 쓸 상위 n개 피처.
 
@@ -79,8 +79,8 @@ def top_reasons(cand: "ScoredCandidate", weights: dict[str, float],
 
 
 
-def merge_served_detail(scored: Sequence["ScoredCandidate"],
-                        items: Sequence["RankedItem"]) -> list["ScoredCandidate"]:
+def merge_served_detail(scored: Sequence[ScoredCandidate],
+                        items: Sequence[RankedItem]) -> list[ScoredCandidate]:
     """③ 산출(RankedItem)을 ② 산출(ScoredCandidate) 위에 덮어쓴다.
 
     🔴 **propensity 는 `RankedItem` 에만 있다.** `ScoredCandidate` 에는 없고,
@@ -103,8 +103,8 @@ def merge_served_detail(scored: Sequence["ScoredCandidate"],
     return [by_id.get(c.recipe_id, c) for c in scored]
 
 
-def keep_candidates(candidates: Sequence["ScoredCandidate"], served: Sequence[int],
-                    serving_mode: str = "real") -> list["ScoredCandidate"]:
+def keep_candidates(candidates: Sequence[ScoredCandidate], served: Sequence[int],
+                    serving_mode: str = "real") -> list[ScoredCandidate]:
     """🔴 저장할 candidates 를 고른다 — **`served ⊆ candidates` 를 보장한다** (S0 ① 확정).
 
     후보 500건을 다 저장하면 1행이 100KB 를 넘는다. 그래서 상위 N 만 남기는데,

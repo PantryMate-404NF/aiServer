@@ -167,7 +167,7 @@ def main() -> None:
              user_id=uid, event_type="click")
     _rejects("미정의 source 거부", user_id=uid, event_type="click", source="guess")
 
-    # 🔴 impression 에 position 이 없으면 그 시대가 통째로 못 쓴다
+    # 주의: impression 에 position 이 없으면 그 시대가 통째로 못 쓴다
     _rejects("position 없는 impression 거부",
              user_id=uid, event_type="impression", source="served",
              request_id=str(rid), recipe_id=1)
@@ -189,7 +189,7 @@ def main() -> None:
              user_id=uid, event_type="impression", source="served",
              request_id=str(rid), recipe_id=1, position=1)
 
-    # 🔴 dual 창: 같은 아이템에 served 와 viewport 가 공존해야 환산계수가 나온다
+    # 주의: dual 창: 같은 아이템에 served 와 viewport 가 공존해야 환산계수가 나온다
     _ev(user_id=uid, event_type="impression", source="viewport",
         request_id=str(rid), recipe_id=1, position=1)
     cur.execute("SELECT count(*) FROM event_log WHERE request_id=%s AND recipe_id=1", (str(rid),))
@@ -197,7 +197,7 @@ def main() -> None:
 
     print("\n[5c] 09-02 신설 — 트래픽 표식 · 온보딩 원본")
 
-    # 🔴 디버거 트래픽 접두어. 없으면 실유저 지표에 개발자가 눌러본 것이 섞인다.
+    # 주의: 디버거 트래픽 접두어. 없으면 실유저 지표에 개발자가 눌러본 것이 섞인다.
     _ev(user_id=uid, event_type="click", session_id=f"d-{uid}-debug0000", source="client")
     check("d- 접두어 허용 (디버거 트래픽)", True)
     _rejects("미정의 접두어는 여전히 거부", user_id=uid, event_type="click",
@@ -291,7 +291,7 @@ def main() -> None:
     cur.execute("SELECT count(*), min(rank), max(rank) FROM daily_recommendation WHERE user_id=%s", (uid,))
     check("사전계산 3건 저장", cur.fetchone() == (3, 1, 3))
 
-    # 🔴 stale 판정 — 냉장고가 바뀌면 지문이 달라진다
+    # 주의: stale 판정 — 냉장고가 바뀌면 지문이 달라진다
     cur.execute("SELECT DISTINCT pantry_fingerprint FROM daily_recommendation WHERE user_id=%s", (uid,))
     _saved = cur.fetchone()[0]
     check("🔴 냉장고가 그대로면 stale 아님", _saved == _fp(_pan))

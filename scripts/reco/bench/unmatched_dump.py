@@ -37,7 +37,7 @@ def main() -> None:
                         if p.is_non_ingredient:      # 도구·용기는 분모에서 뺀다
                             continue
                         total += 1
-                        # 🔴 MatchResult 는 미매칭일 때도 객체를 돌려준다.
+                        # 주의: MatchResult 는 미매칭일 때도 객체를 돌려준다.
                         #    `.matched` 로 봐야 한다 — 객체 truthiness 를 보면
                         #    항상 참이라 미매칭이 0 으로 나온다 (실제로 그랬다).
                         if match(p.name, d).matched:

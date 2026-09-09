@@ -10,8 +10,8 @@ from __future__ import annotations
 import sys
 
 from features.recommend.enums import IngredientRole
-from features.recommend.ingest.parse import normalize
 from features.recommend.ingest.match import Dictionary, match
+from features.recommend.ingest.parse import normalize
 from features.recommend.ingest.role import MAIN_CATEGORIES, judge, judge_all
 
 ok, fail = 0, []
@@ -45,7 +45,7 @@ for txt, want_role, want_rule in [
     check(f"{want_rule:<18} {txt} → {want_role.value}",
           r.role == want_role and r.rule == want_rule)
 
-# ── 🔴 주재료 가드 — 설계 4-5 규칙 5 를 그대로 쓰면 깨지는 곳 ──
+# ── 주재료 가드 — 설계 4-5 규칙 5 를 그대로 쓰면 깨지는 곳 ──
 #    "돼지고기 적당량" 이 optional 이 되면 돼지고기 없는 사람에게 제육볶음을 권한다.
 for txt in ["돼지고기 적당량", "새우 약간", "소고기 약간"]:
     r = role_of(txt, d)
@@ -58,13 +58,13 @@ for txt in ["간장 2큰술", "참기름 1큰술", "설탕 1작은술"]:
     check(f"양념은 수량이 명확해도 seasoning — {txt}",
           r.role == IngredientRole.SEASONING)
 
-# ── 🔴 미매칭은 판정하지 않는다 ─────────────────────────────
+# ── 미매칭은 판정하지 않는다 ─────────────────────────────
 #    is_staple 을 알 수 없고, ingredient_id 가 없어 essential_ids 에 못 들어간다.
 r = role_of("올리브유오일 약간", d)
 check("🔴 미매칭은 판정 보류 (임의로 optional 로 떨구지 않는다)",
       r.role is None and r.rule == "R0_미매칭")
 
-# ── 🔴 group_name 규칙이 발동하지 않는 것을 명시적으로 확인 ──
+# ── group_name 규칙이 발동하지 않는 것을 명시적으로 확인 ──
 #    실측: 크롤 데이터의 group_name 이 전부 '기본재료' 라 1·2번은 죽어 있다.
 codes = {role_of(t, d).rule for t in
          ["소금 약간", "대파 1대", "돼지고기 적당량", "간장 2큰술"]}

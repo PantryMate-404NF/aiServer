@@ -50,7 +50,7 @@ class HeadIndex:
     `기름` 처럼 단독으로 없는 핵심어는 `extra_heads` 로 보충한다.
     """
 
-    #: 🔴 1글자 핵심어는 쓰지 않는다. `간장` 이 [간]+`장` 으로 쪼개져
+    #: 주의: 1글자 핵심어는 쓰지 않는다. `간장` 이 [간]+`장` 으로 쪼개져
     #:    `진간장`([진]+간장) 과 핵심어가 달라지고, 구조 판정이 무의미해진다.
     MIN_HEAD_LEN = 2
 
@@ -96,10 +96,10 @@ class HeadIndex:
         수식어이지 별도 핵심어가 아니다.
         """
         name = name.strip()
-        # 🔴 `name == h` 로 먼저 끊으면 안 된다. `참기름` 은 사전 표제어이므로
+        # 주의: `name == h` 로 먼저 끊으면 안 된다. `참기름` 은 사전 표제어이므로
         #    자기 자신과 먼저 일치해 [참]+기름 으로 쪼개지지 않고, 그러면
         #    `들기름` 과의 관계가 'unrelated' 가 되어 구조 판정이 무의미해진다.
-        #    **항상 가장 긴 진부분 접미사를 먼저 찾는다.**
+        #    항상 가장 긴 진부분 접미사를 먼저 찾는다.
         for h in self._ordered:
             if len(h) < len(name) and name.endswith(h):
                 return Decomposed(name, (name[: -len(h)],), h)
@@ -121,7 +121,7 @@ class HeadIndex:
         if a == b:
             return "same"
 
-        # 🔴 둘 다 사전 표제어면 정의상 서로 다른 재료다.
+        # 주의: 둘 다 사전 표제어면 정의상 서로 다른 재료다.
         #    `건포도`↔`포도` 는 접미 관계이고 `건` 이 whitelist 에 있지만
         #    둘 다 등록된 재료이므로 절대 합치면 안 된다. 사전이 최종 권위다.
         both_registered = a in self.names and b in self.names

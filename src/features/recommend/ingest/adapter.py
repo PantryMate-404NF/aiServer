@@ -18,7 +18,7 @@ from typing import Any
 
 import yaml
 
-#: 🔴 매핑 yaml 은 코드가 아니라 **시드 데이터**다. 09-04 에 seeds/sources/ 로
+#: 주의: 매핑 yaml 은 코드가 아니라 시드 데이터다. 09-04 에 seeds/sources/ 로
 #:    옮겼다 — 크롤 대상이 늘 때 고치는 사람이 데이터 담당이지 코드 담당이
 #:    아니고, 다른 시드(ingredient.csv 등)와 같은 자리에 있어야 찾는다.
 SOURCES = Path(__file__).resolve().parents[4] / "seeds" / "sources"
@@ -216,7 +216,7 @@ class SourceAdapter:
             if isinstance(g, dict):
                 for gp in ing["group_name"]["paths"]:
                     key = gp.removeprefix("[].")
-                    if key in g and g[key]:
+                    if g.get(key):
                         gname, has_group = str(g[key]).strip(), True
                         break
                 items = None
@@ -230,7 +230,7 @@ class SourceAdapter:
                 items = [g]
 
             for it in items:
-                # 🔴 raw_text 를 최우선으로 본다. name 만 쓰면 수량이 통째로 날아간다
+                # 주의: raw_text 를 최우선으로 본다. name 만 쓰면 수량이 통째로 날아간다
                 #    (실측: {"name":"소고기","amount":"100g","raw_text":"소고기 100g"})
                 txt = it if isinstance(it, str) else (
                     it.get("raw_text") or it.get("text")

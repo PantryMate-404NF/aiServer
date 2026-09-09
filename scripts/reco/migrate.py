@@ -15,8 +15,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import io
-import os
 import os
 import sys
 import unicodedata
@@ -35,12 +33,12 @@ except ImportError:
 # 로딩
 # ─────────────────────────────────────────────────────────────────
 def load_yaml(name: str):
-    with io.open(SEEDS / name, encoding="utf-8") as f:
+    with open(SEEDS / name, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
 def load_csv(name: str) -> list[dict]:
-    with io.open(SEEDS / name, encoding="utf-8") as f:
+    with open(SEEDS / name, encoding="utf-8") as f:
         return list(csv.DictReader(f))
 
 
@@ -189,7 +187,7 @@ def connect(url: str):
     return conn
 
 
-#: 🔴 CASCADE 로 같이 날아가는 테이블. 여기 행이 있으면 reset 을 막는다.
+#: 주의: CASCADE 로 같이 날아가는 테이블. 여기 행이 있으면 reset 을 막는다.
 #: 3인 병렬에서 누가 무심코 `make seed-reset` 을 치면 남의 하루가 사라진다.
 _CASCADE_VICTIMS = [
     ("recipe_ingredient", "A 트랙의 정규화 결과 (46,353건 배치 = 10분)"),

@@ -109,9 +109,11 @@ def main() -> int:
     # ── 코드 대조 ────────────────────────────────────────────
     print("\n00_아키텍처_개요.md — 가중치")
     sys.path.insert(0, str(ROOT))
-    from features.recommend.enums import (ACTIVE_WEIGHT_TODAY, DEFAULT_WEIGHTS,
-                                     FEATURE_KEYS, PENDING_DATA_FEATURES,
-                                     UNAVAILABLE_FEATURES)
+    from features.recommend.enums import (
+        ACTIVE_WEIGHT_TODAY,
+        DEFAULT_WEIGHTS,
+        FEATURE_KEYS,
+    )
     check("설계 가중치 합 1.00", 1.0, round(sum(DEFAULT_WEIGHTS.values()), 4))
     check("오늘 실효 가중치가 문서에 있다", True,
           has("01_ARCHITECTURE.md", re.escape(f"{ACTIVE_WEIGHT_TODAY}")))
@@ -176,7 +178,7 @@ def main() -> int:
     check("요리 유형 축 0건 경고가 있다", True, "전제가 깨졌다" in b1)
 
     print("\n환경 · 의존성")
-    # 🔴 requirements.txt 는 09-02 에 폐지했다. 문서가 그것을 안내하면
+    # 주의: requirements.txt 는 09-02 에 폐지했다. 문서가 그것을 안내하면
     #    새로 합류하는 사람이 없는 파일을 찾는다.
     for f in ("01_ARCHITECTURE.md", "02_RECOMMENDER_DESIGN.md",
               "04_EXECUTION_PLAN.md", "06_INFRA_SPEC.md"):
@@ -189,8 +191,8 @@ def main() -> int:
           (ROOT / "reco/requirements.txt").exists())
 
     print("\n06_인프라_사양.md — 실측 규모")
-    # 🔴 DB 크기는 VACUUM·WAL·시험 데이터로 늘 흔들린다. 정확히 대조하면
-    #    아무 잘못 없이 매번 빨개진다. **자릿수가 맞는지**만 본다 —
+    # 주의: DB 크기는 VACUUM·WAL·시험 데이터로 늘 흔들린다. 정확히 대조하면
+    #    아무 잘못 없이 매번 빨개진다. 자릿수가 맞는지만 본다 —
     #    잡으려는 것은 "크롤 전 10 MB" 같은 낡은 값이다.
     db_mb = int(one(cur, "SELECT round(pg_database_size(current_database())/1024.0/1024)"))
     b6 = doc("06_INFRA_SPEC.md")
@@ -199,7 +201,7 @@ def main() -> int:
     check(f"DB 크기 서술이 실측 {db_mb} MB 와 같은 자릿수", True, bool(near))
 
     print("\n09-03 신설 — 스키마·함수가 문서와 맞는가")
-    # 🔴 DDL 을 바꾸면 문서의 인라인 DDL 블록이 조용히 낡는다.
+    # 주의: DDL 을 바꾸면 문서의 인라인 DDL 블록이 조용히 낡는다.
     #    실제 컬럼이 있는데 문서에 없으면 새로 합류하는 사람이 못 찾는다.
     for tbl, col, doc_name in [
         ("event_log", "source", "02_RECOMMENDER_DESIGN.md"),
@@ -237,18 +239,18 @@ def main() -> int:
         check(f"{f} 머메이드 {len(blocks)}개 문법 균형", True, bool(blocks) and okb)
 
     print("\n검증 명령 건수 — 문서가 적은 수 vs 실제")
-    # 🔴 문서가 "make contract 84건" 처럼 적는데, 테스트가 늘면 조용히 낡는다.
+    # 주의: 문서가 "make contract 84건" 처럼 적는데, 테스트가 늘면 조용히 낡는다.
     #    09-03 에 실제로 contract 84→98 · ddl-test 41→47 로 늘면서
     #    docs/ 8개 파일 18곳이 한꺼번에 낡았다.
-    #    그때 이 검사는 지시서 1개만 보고 있어서 **하나도 못 잡았다.**
+    #    그때 이 검사는 지시서 1개만 보고 있어서 하나도 못 잡았다.
     #    그래서 docs/ 아래 모든 .md 를 본다.
     import subprocess
     TARGETS = ["contract", "ddl-test", "smoke", "smoke-py", "log-test"]
 
-    # 명령 이름 뒤 WINDOW 자(같은 줄) 안에서 **건수 표기**만 읽는다.
-    #  · `98건` 또는 `**98**` / `**98건**` 만 건수로 본다.
+    # 명령 이름 뒤 WINDOW 자(같은 줄) 안에서 건수 표기만 읽는다.
+    #  · `98건` 또는 `98` / `98건` 만 건수로 본다.
     #    "경계값 5종" · "test_contract.py:176" 같은 산문 속 숫자를 세지 않으려는 것이다.
-    #  · ~~42~~ (취소선) 과 "65건 → 98건" 의 앞쪽은 **일부러 남긴 옛 값**이라 건너뛴다
+    #  · ~~42~~ (취소선) 과 "65건 → 98건" 의 앞쪽은 일부러 남긴 옛 값이라 건너뛴다
     WINDOW = 40
     DOCS = live_docs()
     _COUNT = re.compile(r"(?<![.\d])(\d{1,4})건|\*\*(\d{1,4})건?\*\*")
@@ -257,7 +259,7 @@ def main() -> int:
         """(줄번호, 인용된 건수) 목록."""
         out = []
         # smoke 가 smoke-py 를 잡아먹지 않게 경계를 준다
-        # 🔴 `make contract` / `contract` 처럼 **명령으로 적힌 것**만 본다.
+        # 주의: `make contract` / `contract` 처럼 명령으로 적힌 것만 본다.
         #    test_contract.py · feature_version='smoke' 같은 이름 속 등장을 세지 않으려는 것이다.
         pat = rf"(?:make {re.escape(t)}|`{re.escape(t)})(?![\w-])`?"
         for m in re.finditer(pat, text):
@@ -288,9 +290,9 @@ def main() -> int:
         check(f"문서의 {t} 건수 (실제 {n})", [], stale)
 
     # ─────────────────────────────────────────────────────────────
-    # 05_API_명세.md 의 **단언** ↔ 실제 동작
-    # 🔴 05 는 생성 파일이라 예시·숫자는 어긋날 수 없다. 그런데 render.py 안의
-    #    "position 0 은 400" 같은 **손으로 쓴 단언**은 코드가 바뀌어도 안 따라온다.
+    # 05_API_명세.md 의 단언 ↔ 실제 동작
+    # 주의: 05 는 생성 파일이라 예시·숫자는 어긋날 수 없다. 그런데 render.py 안의
+    #    "position 0 은 400" 같은 손으로 쓴 단언은 코드가 바뀌어도 안 따라온다.
     #    거기가 지금 유일하게 남은 드리프트 경로다.
     # 각 항목은 둘을 함께 본다 — ① 실제 동작이 그런가 ② 문서가 아직 그렇게 말하는가.
     #    문서에서 그 문장을 지워도 빨개진다.
@@ -300,13 +302,14 @@ def main() -> int:
     try:
         sys.path.insert(0, str(ROOT))
         from fastapi.testclient import TestClient
+
         from main import create_app
 
         app = create_app()
-    except Exception as e:                                    # noqa: BLE001
+    except Exception as e:
         print(f"  ⏭  Mock 을 못 띄워 건너뜀 ({e})")
     else:
-        # 🔴 09-07 부터 모든 라우터가 내부 API 키를 요구한다 (deps.verify_internal_api_key).
+        # 주의: 09-07 부터 모든 라우터가 내부 API 키를 요구한다 (deps.verify_internal_api_key).
         #    헤더가 없으면 401 이라 응답 본문을 볼 수 없다.
         from config import get_settings
         from deps import INTERNAL_API_KEY_HEADER
@@ -350,12 +353,12 @@ def main() -> int:
         for label, fn, want, phrase in PROBES:
             try:
                 got = fn()
-            except Exception as e:                            # noqa: BLE001
+            except Exception as e:
                 got = f"예외 {e}"
             check(f"동작 — {label}", want, got)
             check(f"문서 — {label}", True, phrase in spec)
 
-        from features.recommend.enums import rating_to_label     # noqa: E402
+        from features.recommend.enums import rating_to_label
         check("동작 — rating 100 의 라벨", 48.5, rating_to_label(100.0))
         check("문서 — rating 100 의 라벨", True, "48.5" in spec)
 
@@ -402,8 +405,8 @@ def main() -> int:
     conn2.close()
 
     # ─────────────────────────────────────────────────────────────
-    # 문서 곳곳의 수치 ↔ 실제 — **전 문서** 대조
-    # 🔴 아래 값들은 09-03 감사에서 docs/ 여러 곳이 한꺼번에 낡은 채로 발견됐다.
+    # 문서 곳곳의 수치 ↔ 실제 — 전 문서 대조
+    # 주의: 아래 값들은 09-03 감사에서 docs/ 여러 곳이 한꺼번에 낡은 채로 발견됐다.
     #    엔드포인트 7개(5곳) · 테이블 27/28개(9곳) · 기본양념 28종(3곳) ·
     #    재료 525종(7곳) · 알러지 9그룹(3곳). 아무도 안 보고 있었기 때문이다.
     #    취소선(~~27~~)과 "A → B" 의 앞쪽은 일부러 남긴 옛 값이라 건너뛴다.
@@ -450,7 +453,7 @@ def main() -> int:
             for pat in pats:
                 for m in re.finditer(pat, clean):
                     got = int(m.group(1))
-                    # 🔴 "알레르기 재료 186종"·"마트 alias 시드 200종" 처럼 **부분집합**을
+                    # 주의: "알레르기 재료 186종"·"마트 alias 시드 200종" 처럼 부분집합을
                     #    총 시드 수로 오인하지 않는다. 총수의 절반 미만이면 다른 얘기다.
                     if got * 2 < actual:
                         continue
@@ -461,8 +464,8 @@ def main() -> int:
 
     conn.close()
 
-    # ── 자기 건수 — 검사가 아니라 **경고**다 ──────────────────────
-    # 🔴 check() 로 세면 자기 참조가 된다: 검사를 하나 더하면 총계가 늘고,
+    # ── 자기 건수 — 검사가 아니라 경고다 ──────────────────────
+    # 주의: check() 로 세면 자기 참조가 된다: 검사를 하나 더하면 총계가 늘고,
     #    늘어난 총계를 문서가 다시 못 따라와서 영원히 안 맞는다.
     #    그래서 세지 않고 알리기만 한다 — 사람이 고칠 수 있으면 충분하다.
     total = ok + len(fail)

@@ -6,7 +6,8 @@
 from __future__ import annotations
 
 import random
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 
 def exploration_slots(top_k: int, n: int, rng: random.Random) -> list[int]:
@@ -43,14 +44,14 @@ def propensity_of(position: int, explore_positions: Sequence[int],
     return 1.0
 
 
-# 🔴 **이 함수를 서빙 경로에서 쓰지 말 것** (v2.9).
+# 주의: 이 함수를 서빙 경로에서 쓰지 말 것 (v2.9).
 #
-#    위 식은 **(아이템, 위치)** 확률이고, 실제로 쓰는
-#    `serendipity.mixed_exploration()` 은 **아이템** 확률을 돌려준다 —
+#    위 식은 (아이템, 위치) 확률이고, 실제로 쓰는
+#    `serendipity.mixed_exploration()` 은 아이템 확률을 돌려준다 —
 #    `p_uniform = n_uniform / len(pool)`. 같은 조건에서 값이 10배 다르다
 #    (0.0005 vs 0.005). 두 정의로 찍힌 로그가 섞이면 IPS 가 사후에 구분되지 않는다.
 #
-#    현재 이 함수는 **어디에서도 호출되지 않고** `rank/__init__.py` 에도 없다.
+#    현재 이 함수는 어디에서도 호출되지 않고 `rank/__init__.py` 에도 없다.
 #    남겨 둔 이유는 position bias 곡선을 따로 추정할 때 참고식으로 쓰기 위해서다.
 #    서빙 propensity 의 정본은 `mixed_exploration` 의 반환값 하나뿐이다.
 

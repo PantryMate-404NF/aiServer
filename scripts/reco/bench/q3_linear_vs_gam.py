@@ -25,10 +25,10 @@ from __future__ import annotations
 import sys, numpy as np
 
 QUICK = "--quick" in sys.argv
-#: 라벨 노이즈. 🔴 저장소 어디에도 근거가 없는 자유 상수다 — 결론이 여기 크게 좌우된다.
+#: 라벨 노이즈. 저장소 어디에도 근거가 없는 자유 상수다 — 결론이 여기 크게 좌우된다.
 #:   temp 가 작을수록 사람의 쌍대비교가 일관적이라는 뜻.
 TEMP = float(__import__("os").environ.get("Q3TEMP", "0.10"))
-#: MODE=ablate 면 블라인드 변환의 항을 하나씩 빼서 **무엇이 이득의 원천인지** 가른다.
+#: MODE=ablate 면 블라인드 변환의 항을 하나씩 빼서 무엇이 이득의 원천인지 가른다.
 MODE = __import__("os").environ.get("Q3MODE", "base")
 assert MODE in ("base", "ablate"), (
     f"Q3MODE={MODE!r} 미지원 — 'corr'(상관 세계) 등은 폭주 정리 때 소실됐다 (W3 복원 예정). "

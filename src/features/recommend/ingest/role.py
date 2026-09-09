@@ -47,13 +47,13 @@ from features.recommend.enums import IngredientRole
 from features.recommend.ingest.match import Dictionary, MatchResult
 from features.recommend.stage import ParsedIngredient
 
-#: 🔴 "약간/적당량" 이 붙어도 **필수로 남기는** 대분류.
+#: 주의: "약간/적당량" 이 붙어도 필수로 남기는 대분류.
 #:    설계 4-5 규칙 5 를 그대로 쓰면 `돼지고기 적당량` 이 optional 이 되어
 #:    돼지고기 없는 사람에게 제육볶음을 권하게 된다. 그 실패는 조용하다.
-#:    실측 표본(3건)에는 나타나지 않았으나 **비용이 0 이고 실패가 치명적**이라 먼저 막는다.
+#:    실측 표본(3건)에는 나타나지 않았으나 비용이 0 이고 실패가 치명적이라 먼저 막는다.
 MAIN_CATEGORIES = ("meat", "seafood")
 
-#: 위치 기반 garnish 추정. **측정 전까지 켜지 않는다** (근거 없는 임계값 금지).
+#: 위치 기반 garnish 추정. 측정 전까지 켜지 않는다 (근거 없는 임계값 금지).
 GARNISH_BY_POSITION = False
 
 
@@ -86,7 +86,7 @@ def judge(p: ParsedIngredient, m: MatchResult, d: Dictionary,
     meta = d.meta.get(m.ingredient_id, {})
     cat0 = (meta.get("category_path") or "").split(".")[0]
 
-    # ── 1·2. group_name — 🔴 실측상 발동하지 않는다 ─────────
+    # ── 1·2. group_name — 실측상 발동하지 않는다 ─────────
     #    원본이 [양념]/[고명] 을 구분하지 않는다. 자리만 남긴다.
 
     # ── 3. 사전 플래그 — 지금 가장 강한 근거 ────────────────
@@ -99,7 +99,7 @@ def judge(p: ParsedIngredient, m: MatchResult, d: Dictionary,
     if p.is_optional_hint:
         return RoleResult(IngredientRole.OPTIONAL, "R4_note_hint", p.note or "")
 
-    # ── 5. 모호 수량 ('약간' '적당량') + 🔴 주재료 가드 ──────
+    # ── 5. 모호 수량 ('약간' '적당량') + 주재료 가드 ──────
     if p.is_ambiguous_qty:
         if cat0 in MAIN_CATEGORIES:
             return RoleResult(IngredientRole.ESSENTIAL, "R5_가드_주재료",

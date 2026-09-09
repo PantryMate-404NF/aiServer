@@ -105,9 +105,13 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "N", "UP", "B", "S", "T20", "ANN", "RUF"]
+# 한글 주석·문서에서 ·(가운뎃점) — (줄표) 같은 전각 기호를 "헷갈리는 문자" 로
+# 지적합니다. 한글 프로젝트에서는 의도한 표기라 검사에서 뺍니다.
+ignore = ["RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101"]
+# 테스트는 assert 를 쓰고(S101), 결과를 print 로 보고합니다(T20).
+"tests/**" = ["S101", "T20"]
 # 평가·백필·벤치 스크립트는 사람이 터미널에서 읽는 도구라 print 로 결과를 냅니다.
 "scripts/**" = ["T20"]
 # 🔴 `scripts/reco/bench/` 는 설계 근거를 재는 **일회용 시뮬레이션**이다.

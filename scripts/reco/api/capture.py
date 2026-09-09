@@ -24,19 +24,24 @@ from main import create_app  # noqa: E402
 
 app = create_app()
 from features.recommend.enums import (  # noqa: E402
-    ACTIVE_WEIGHT_TODAY, DEFAULT_WEIGHTS, FEATURE_KEYS, PENDING_DATA_FEATURES,
-    PROPENSITY_SEMANTICS, REQUIRED_TRACE_PARAMS, SESSION_PREFIXES,
+    ACTIVE_WEIGHT_TODAY,
+    DEFAULT_WEIGHTS,
+    FEATURE_KEYS,
+    PENDING_DATA_FEATURES,
+    PROPENSITY_SEMANTICS,
+    REQUIRED_TRACE_PARAMS,
+    SESSION_PREFIXES,
     UNAVAILABLE_FEATURES,
 )
 
 OUT = ROOT / "docs" / "reco" / "design" / "api"
-#: 🔴 산출물은 저장소 루트 기준으로 쓴다. 예전에는 이 스크립트가 docs/api/ 에
+#: 주의: 산출물은 저장소 루트 기준으로 쓴다. 예전에는 이 스크립트가 docs/api/ 에
 #:    있어서 자기 폴더가 곧 출력지였다. 지금은 scripts/reco/api/ 라
 #:    그대로 두면 스크립트 옆에 json 을 흘린다 (09-04 실제로 그랬다).
 
 
 def main() -> None:
-    # 🔴 09-07 부터 모든 라우터가 내부 API 키를 요구한다 (deps.verify_internal_api_key).
+    # 주의: 09-07 부터 모든 라우터가 내부 API 키를 요구한다 (deps.verify_internal_api_key).
     #    헤더가 없으면 401 이라 응답 본문을 볼 수 없다.
     from config import get_settings
     from deps import INTERNAL_API_KEY_HEADER
@@ -54,8 +59,8 @@ def main() -> None:
         """
         r = getattr(c, method)(path, **kw)
         if r.status_code != expect:
-            # 🔴 그 자리에서 멈춘다. 계속 가면 뒤 호출이 KeyError 로 죽으면서
-            #    **진짜 원인이 묻힌다** — 무엇이 왜 틀렸는지 여기서 말해야 한다.
+            # 주의: 그 자리에서 멈춘다. 계속 가면 뒤 호출이 KeyError 로 죽으면서
+            #    진짜 원인이 묻힌다 — 무엇이 왜 틀렸는지 여기서 말해야 한다.
             wrong.append(key)
             print(f"\n🔴 {key}: {method.upper()} {path} → {r.status_code} "
                   f"(기대 {expect})\n   {r.text[:400]}\n\n"
@@ -63,7 +68,7 @@ def main() -> None:
                   f"의도한 에러 예시라면 expect={r.status_code} 을 명시하세요.",
                   file=sys.stderr)
             sys.exit(1)
-        # 🔴 본문이 빌 수 있다. 09-07 부터 검증 실패는 400 + **빈 응답**이다
+        # 주의: 본문이 빌 수 있다. 09-07 부터 검증 실패는 400 + 빈 응답이다
         #    (영수증 파트가 앱 전체에 건 RequestValidationError 핸들러).
         #    r.json() 을 그냥 부르면 JSONDecodeError 로 캡처가 통째로 죽는다.
         body = r.json() if r.content else None
@@ -74,11 +79,11 @@ def main() -> None:
         }
         return body
 
-    # 🔴 session_id 를 예시에 **반드시** 넣는다. impression 은 이 요청에서 서버가
+    # 주의: session_id 를 예시에 반드시 넣는다. impression 은 이 요청에서 서버가
     #    자동 기록하므로, 프론트가 안 보내면 이벤트의 95% 에 세션이 빈 채로 쌓인다.
     #    예시에 없으면 아무도 안 보낸다 — 그리고 그건 소급해서 못 채운다.
-    # 🔴 top_k 를 8 로 둔다. 3 이면 items 가 전부 한 종류라 문서에
-    #    **탐색 슬롯의 실제 모양이 안 나온다** — propensity 가 1.0 으로만 보여
+    # 주의: top_k 를 8 로 둔다. 3 이면 items 가 전부 한 종류라 문서에
+    #    탐색 슬롯의 실제 모양이 안 나온다 — propensity 가 1.0 으로만 보여
     #    "IPS 분모" 라는 설명과 예시가 어긋난다.
     resp = grab("recommend", "post", "/v1/recommend",
                 json={"user_id": 7, "session_id": "c-7-a1b2c3d4e5f6",
@@ -103,7 +108,7 @@ def main() -> None:
                            "session_id": "c-7-a1b2c3d4e5f6"}]})
     grab("events_reject", "post", "/v1/events",
          json={"events": [{"user_id": 7, "event_type": "cook", "recipe_id": 10001}]})
-    # 🔴 프론트가 가장 흔히 맞을 400 — 세션 접두어를 안 지킨 경우.
+    # 주의: 프론트가 가장 흔히 맞을 400 — 세션 접두어를 안 지킨 경우.
     #    c- 실사용자 · g- 게스트 · d- 개발/디버거 이외는 입력에서 거부된다.
     grab("events_bad_session", "post", "/v1/events", expect=400,
          json={"events": [{"user_id": 7, "event_type": "click", "recipe_id": 10001,
@@ -111,7 +116,7 @@ def main() -> None:
                            "session_id": "s-7-a1b2"}]})
     grab("recipe_search", "get", "/v1/recipes/search",
          params={"q": "김치", "limit": 5, "user_id": 7})
-    # 🔴 '라따뚜이' 는 mock 제목과 글자가 겹쳐 **결과가 나왔다** — 결과 없음 예시가
+    # 주의: '라따뚜이' 는 mock 제목과 글자가 겹쳐 결과가 나왔다 — 결과 없음 예시가
     #    결과 있음이었다. 한글 제목과 문자 교집합이 0 인 값을 쓴다.
     miss = grab("recipe_search_miss", "get", "/v1/recipes/search",
                 params={"q": "ratatouille"})
@@ -120,7 +125,7 @@ def main() -> None:
     smiss = grab("search_miss", "get", "/v1/ingredients/search", params={"q": "zzzz"})
     assert not smiss["hits"], "결과 없음 예시에 hits 가 있다"
     grab("pantry_get", "get", "/v1/users/7/pantry")
-    # 🔴 purchased_at 을 담는 예시 — 소비기한은 구매일 기준으로 추정한다 (09-03).
+    # 주의: purchased_at 을 담는 예시 — 소비기한은 구매일 기준으로 추정한다 (09-03).
     #    유저가 expires_at 을 직접 주면 그것이 추정을 이긴다.
     grab("pantry_put", "put", "/v1/users/7/pantry",
          json={"items": [{"ingredient_id": 1042, "quantity": 1, "unit": "대",
@@ -144,8 +149,8 @@ def main() -> None:
     grab("health", "get", "/health")
 
     # ─────────────────────────────────────────────────────────────
-    # 계약 상수 — render.py 가 **손으로 못 적게** 여기서 실어 보낸다.
-    # 🔴 render.py 는 `.venv/bin/python scripts/reco/api/render.py` 로 도는데
+    # 계약 상수 — render.py 가 손으로 못 적게 여기서 실어 보낸다.
+    # 주의: render.py 는 `.venv/bin/python scripts/reco/api/render.py` 로 도는데
     #    그때 sys.path[0] 이 scripts/reco/api 라 `import main` 이 안 된다 (Makefile).
     #    그래서 SoT 를 읽을 수 있는 쪽(여기)이 읽어서 넘긴다.
     #    문서에 숫자를 손으로 적으면 다음 변경에서 조용히 낡는다.
