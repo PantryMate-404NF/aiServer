@@ -1,0 +1,18 @@
+# 소스 어댑터 스펙 — 이 파일은 문서다. 실제 매핑은 mangae.yaml 등을 본다.
+#
+# 목적: 크롤러 출력 형태가 우리 스키마에 직접 닿지 않게 한다.
+#       크롤링이 끝나고 실제 JSON 을 보면 sources/*.yaml 만 고치면 되고,
+#       adapter.py · DB 스키마 · 파이프라인은 건드리지 않는다.
+#
+# 각 필드는 다음을 가진다.
+#   paths     : 후보 경로 목록. 위에서부터 시도해 처음 찾은 것을 쓴다
+#               'a.b.c' 점 표기 · 'a[].b' 배열 순회
+#   required  : true 면 없을 때 해당 레시피를 reject
+#   fallback  : 없을 때의 동작
+#                 null        → NULL 로 둔다 (0 이나 '' 로 채우지 않는다)
+#                 const:<v>   → 고정값
+#                 derive:<f>  → adapter.py 의 파생 함수
+#   transform : strip · int · float · minutes · list · json
+#   note      : 없을 때 무엇이 나빠지는지 (사람이 읽는다)
+
+version: 1

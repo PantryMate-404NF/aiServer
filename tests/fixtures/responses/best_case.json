@@ -1,0 +1,25 @@
+[{
+  "recipe_id": "6832145",
+  "title": "돼지고기 김치찌개",
+  "url": "https://www.10000recipe.com/recipe/6832145",
+  "description": "묵은지로 끓인 진한 김치찌개",
+  "image": "https://img.example/6832145.jpg",
+  "servings": "2인분",
+  "cook_time": "30분",
+  "difficulty": "초급",
+  "views": "12,340",
+  "rating": "4.6",
+  "rating_count": "218",
+  "category": {"type": "찌개", "situation": ["일상", "해장"],
+               "ingredient": "돼지고기", "method": "끓이기"},
+  "ingredients": [
+    {"group": "[재료]", "items": ["배추김치 1/4포기", "돼지고기 200g", "두부 1/2모", "대파 1대"]},
+    {"group": "[양념]", "items": ["고춧가루 1큰술", "다진마늘 1큰술", "국간장 1큰술"]},
+    {"group": "[고명]", "items": ["청양고추 1개", "참깨 약간"]}
+  ],
+  "steps": [
+    {"text": "김치를 먹기 좋게 썬다", "image": "https://img.example/s1.jpg"},
+    {"text": "돼지고기와 김치를 볶는다"},
+    {"text": "물을 붓고 20분 끓인다"}
+  ]
+}]

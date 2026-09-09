@@ -21,6 +21,23 @@
 충돌 시 번호가 작은 문서가 이깁니다. 규칙을 바꾸려면 01의 9절 개정 절차를 따릅니다.
 설계 결정 기록은 [decisions/](decisions/) 에 날짜별로 있습니다.
 
+### 1.1 추천 파트의 설계 문서는 저장소에 없습니다
+
+이 저장소에는 기능 개발 코드만 둡니다. 추천 파트의 설계 노트와 초안은 팀 채널에 있습니다.
+
+**그래서 계약은 문서가 아니라 코드와 DDL 이 정합니다.** 아래를 보면 됩니다.
+
+| 알고 싶은 것 | 볼 곳 |
+|---|---|
+| `recipe_feature` 가 어떤 컬럼을 갖는가 | [deploy/init/02_schema.sql](../deploy/init/02_schema.sql) |
+| 후보 조회가 어떻게 도는가 | [deploy/init/04_functions.sql](../deploy/init/04_functions.sql) |
+| `flavor_vec` 을 어떻게 만드는가 | [src/features/recommend/ingest/flavor.py](../src/features/recommend/ingest/flavor.py) |
+| API 요청·응답 모양 | [src/features/recommend/schema.py](../src/features/recommend/schema.py) · [stage.py](../src/features/recommend/stage.py) |
+| 재료 사전을 어떻게 채우는가 | [seeds/README.md](../seeds/README.md) |
+| DB 를 어떻게 띄우는가 | [deploy/README.md](../deploy/README.md) |
+
+문서와 코드가 어긋나면 **코드가 맞습니다.**
+
 ---
 
 ## 2. 신규 합류자가 읽는 순서
