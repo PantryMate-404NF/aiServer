@@ -122,6 +122,15 @@ normalize-test:  ## P1·P2 fixture + P3 캐스케이드 검증 (DB 불필요)
 	$(PY) -m tests.unit.recommend.test_role
 	$(PY) -m tests.unit.recommend.test_batch
 
+normalize-batch:  ## 전량 정규화 — recipe_ingredient 재생성 (약 9분. make normalize-batch LIMIT=2000)
+	$(PY) -m features.recommend.ingest.batch --truncate $(if $(LIMIT),--limit $(LIMIT))
+
+normalize-dry:  ## 쓰지 않고 커버리지만 확인  (make normalize-dry LIMIT=2000)
+	$(PY) -m features.recommend.ingest.batch --dry-run $(if $(LIMIT),--limit $(LIMIT))
+
+normalize-verify:  ## 배치 결과 검증 — 행 수·match_method·role·재료 수 분포
+	@$(PSQL) -f - < scripts/reco/batch_verify.sql
+
 normalize-demo:  ## 임의 문자열 파싱 결과 확인  (make normalize-demo T="대파 1대")
 	@$(PY) -c "import sys; from features.recommend.ingest.parse import normalize; \
 	[print(f'  {r.name!r:<16} qty={r.quantity} unit={r.unit} note={r.note} \
