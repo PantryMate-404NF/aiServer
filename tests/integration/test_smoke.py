@@ -28,6 +28,23 @@ import time
 SRC = "smoketest"
 SEED = 20260826  # 재현성. Date.now() 류를 쓰지 않는다.
 
+# 정확성 검사용 조회 상한.
+#
+# 🔴 500 을 쓰면 안 된다. 합성분만 걸러 보는 것은 조회가 끝난 **뒤**인데,
+#    retrieve_candidates 는 그 전에 `missing_count ASC, popularity DESC` 로
+#    정렬해 상한만큼 자른다. recipe_feature 가 비어 있던 동안은 500칸이 전부
+#    합성분 차지라 통과했지만, A-4 가 크롤 46,353건을 채우자 상위 500칸을
+#    실레시피가 전부 가져가고 합성분이 한 건도 안 남았다 — 필터가 맞는데도
+#    "김치찌개가 안 나온다" 로 보인다.
+#
+#    정확성 검사가 묻는 것은 "필터가 이 레시피를 넣는가/빼는가" 이지
+#    "상위 500 안에 드는가" 가 아니다. 그래서 계약이 허용하는 최대치로 연다.
+#    지연시간 측정은 아래에서 실제 상한 500 으로 따로 잰다.
+#
+#    2000 은 RetrievalRequest.limit 의 상한이다(stage.py). 계약이 금지하는 값을
+#    테스트가 쓰면 테스트가 통과해도 서빙에서 되는지 알 수 없다.
+CORRECTNESS_LIMIT = 2000
+
 
 def connect(url: str):
     try:
@@ -127,9 +144,10 @@ class Smoke:
         if self.via_python:
             return {t for _, t in self.cands_for(uid, max_missing, minutes)}
         self.cur.execute(
-            """SELECT r.title FROM retrieve_for_user(%s,%s,%s,500,TRUE) c
+            """SELECT r.title FROM retrieve_for_user(%s,%s,%s,%s,TRUE) c
                JOIN recipe r ON r.id = c.recipe_id
-               WHERE r.source = %s""", (uid, max_missing, minutes, SRC))
+               WHERE r.source = %s""",
+            (uid, max_missing, minutes, CORRECTNESS_LIMIT, SRC))
         return {row[0] for row in self.cur.fetchall()}
 
     def cands_for(self, uid, max_missing=2, minutes=None):
@@ -148,8 +166,9 @@ class Smoke:
                 "SELECT id, title FROM recipe WHERE source = %s", (SRC,))
             self._titles = dict(self.cur.fetchall())
         return [(c, self._titles[c.recipe_id])
-                for c in retrieve(uid, max_missing, minutes, 500, include_test=True)
-                if c.recipe_id in self._titles]   # 합성분만. 크롤 4.4만 건 제외
+                for c in retrieve(uid, max_missing, minutes, CORRECTNESS_LIMIT,
+                                  include_test=True)
+                if c.recipe_id in self._titles]   # 합성분만. 크롤 4.6만 건 제외
 
     # ── 시나리오 ────────────────────────────────────────────────
     def run_correctness(self):
@@ -173,8 +192,9 @@ class Smoke:
         # ── A2. 부족 재료 계산 ──────────────────────────────────
         u = self.add_user("partial", pantry=["두부"])
         self.cur.execute(
-            """SELECT c.missing_count FROM retrieve_for_user(%s,3,NULL,500,TRUE) c
-               JOIN recipe r ON r.id=c.recipe_id WHERE r.title='김치찌개'""", (u,))
+            """SELECT c.missing_count FROM retrieve_for_user(%s,3,NULL,%s,TRUE) c
+               JOIN recipe r ON r.id=c.recipe_id WHERE r.title='김치찌개'""",
+            (u, CORRECTNESS_LIMIT))
         row = self.cur.fetchone()
         self.check("A2 김치찌개 부족 재료 = 2 (김치·돼지고기)", row[0] if row else None, 2)
 
