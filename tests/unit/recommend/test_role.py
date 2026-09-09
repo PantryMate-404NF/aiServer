@@ -52,6 +52,20 @@ for txt in ["돼지고기 적당량", "새우 약간", "소고기 약간"]:
     check(f"🔴 주재료는 '약간' 이어도 essential — {txt}",
           r.role == IngredientRole.ESSENTIAL and r.rule == "R5_가드_주재료")
 
+# 가공식품·유제품도 가드 안이다 (09-09). '스팸 적당량' 이 optional 로 빠지면
+# 스팸 없는 사람에게 부대찌개를 권한다 — 위 돼지고기와 같은 실패이고 재료만 다르다.
+for txt in ["스팸 적당량", "모짜렐라치즈 적당량", "배추김치 약간", "버터 약간"]:
+    r = role_of(txt, d)
+    check(f"가공식품·유제품도 '약간' 이어도 essential — {txt}",
+          r.role == IngredientRole.ESSENTIAL and r.rule == "R5_가드_주재료")
+
+# 반대쪽 — 채소는 넓힌 뒤에도 optional 로 남아야 한다. 여기까지 필수가 되면
+# 파 하나 없다고 레시피가 후보에서 빠진다 (전량 optional 6,854행 중 채소가 5,734).
+for txt in ["대파 약간", "당근 적당량", "부추 약간"]:
+    r = role_of(txt, d)
+    check(f"채소는 '약간' 이면 optional 로 남는다 — {txt}",
+          r.role == IngredientRole.OPTIONAL and r.rule == "R5_모호수량")
+
 # ── 양념은 '약간' 없이도 seasoning ──────────────────────────
 for txt in ["간장 2큰술", "참기름 1큰술", "설탕 1작은술"]:
     r = role_of(txt, d)

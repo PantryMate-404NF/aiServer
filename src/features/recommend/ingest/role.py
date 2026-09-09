@@ -51,7 +51,18 @@ from features.recommend.stage import ParsedIngredient
 #:    설계 4-5 규칙 5 를 그대로 쓰면 `돼지고기 적당량` 이 optional 이 되어
 #:    돼지고기 없는 사람에게 제육볶음을 권하게 된다. 그 실패는 조용하다.
 #:    실측 표본(3건)에는 나타나지 않았으나 비용이 0 이고 실패가 치명적이라 먼저 막는다.
-MAIN_CATEGORIES = ("meat", "seafood")
+#:
+#: 09-09 에 processed·dairy 를 더했다. meat·seafood 만으로는 `스팸 적당량` 이
+#: optional 로 빠졌는데, 스팸은 processed.meatproc 이라 가드 밖이었다. 위 주석이
+#: 걱정한 것과 같은 실패이고 재료만 다르다. 전량 실측으로 optional 6,854행 중
+#: dairy 613 · processed 507 이 이 경로였다 — 모짜렐라치즈·배추김치·햄·떡볶이떡처럼
+#: 그 음식을 그 음식이게 하는 것들이다.
+#:
+#: 버터·우유(dairy.milk)까지 함께 필수가 된다. 실패가 비대칭이라 그 편을 택했다 —
+#: 치즈 없는 사람에게 피자를 권하는 쪽이, 치즈 있는 사람에게 피자를 덜 권하는
+#: 쪽보다 나쁘다. 되돌리는 값은 이 줄과 재정규화 10분이 전부다
+#: (recipe_ingredient 는 recipe_ingredient_raw 에서 언제든 다시 만든다).
+MAIN_CATEGORIES = ("meat", "seafood", "processed", "dairy")
 
 #: 위치 기반 garnish 추정. 측정 전까지 켜지 않는다 (근거 없는 임계값 금지).
 GARNISH_BY_POSITION = False
