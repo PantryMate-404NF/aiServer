@@ -128,8 +128,14 @@ normalize-batch:  ## 전량 정규화 — recipe_ingredient 재생성 (약 9분.
 normalize-dry:  ## 쓰지 않고 커버리지만 확인  (make normalize-dry LIMIT=2000)
 	$(PY) -m features.recommend.ingest.batch --dry-run $(if $(LIMIT),--limit $(LIMIT))
 
+feature-build:  ## recipe_feature 만 다시 만든다 (배치 재실행 없이. n_unmatched 는 유지)
+	$(PY) -m features.recommend.ingest.feature_build
+
 normalize-verify:  ## 배치 결과 검증 — 행 수·match_method·role·재료 수 분포
 	@$(PSQL) -f - < scripts/reco/batch_verify.sql
+
+feature-verify:  ## 피처 빌더 검증 — 완료 기준 6줄 + D-10 판정 분포
+	@$(PSQL) -f - < scripts/reco/feature_verify.sql
 
 normalize-demo:  ## 임의 문자열 파싱 결과 확인  (make normalize-demo T="대파 1대")
 	@$(PY) -c "import sys; from features.recommend.ingest.parse import normalize; \

@@ -38,7 +38,7 @@ from __future__ import annotations
 import argparse
 import logging
 from collections.abc import Iterator, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from config import get_settings
 from features.recommend.enums import IngredientRole
@@ -81,6 +81,12 @@ class BatchStats:
     collapsed: int = 0
     prepared: int = 0
     written: int = 0
+    #: 레시피별 미매칭 수. A-4 의 recipe_feature.n_unmatched 가 이것을 받습니다.
+    #: 미매칭이 있는 레시피만 키를 갖습니다.
+    unmatched_by_recipe: dict[int, int] = field(default_factory=dict)
+    #: 이번 실행이 실제로 처리한 레시피. 미매칭이 0 인 것도 들어 있어야
+    #: 부분 실행이 범위 밖의 값을 건드리지 않습니다.
+    processed_ids: list[int] = field(default_factory=list)
 
     @property
     def coverage(self) -> float:
@@ -119,6 +125,11 @@ def _rows_for_recipe(
     먼저 나온 것을 남깁니다 — 원문 순서가 유일하게 재현 가능한 기준입니다.
     """
     best: dict[int, tuple[int, Row]] = {}
+    # 레시피 안에서 서로 다른 미매칭 표현만 셉니다. n_total 이
+    # cardinality(all_ids) — 중복이 접힌 고유 재료 수 — 라서, 언급마다 세면
+    # D-10 의 n_unmatched/(n_total+n_unmatched) 가 분자만 부풀어 한쪽으로
+    # 기웁니다. '소금' 이 세 번 나온 레시피가 정규화 실패로 몰립니다.
+    missed: set[str] = set()
     n_total = len(raws)
     for pos, (raw_id, _position, raw_text) in enumerate(raws):
         for p in normalize(raw_text):
@@ -131,6 +142,10 @@ def _rows_for_recipe(
             m = match(p.name, d)
             if m.ingredient_id is None or m.method is None:
                 st.unmatched += 1
+                # 못 붙은 재료는 recipe_ingredient 에 행이 없어서 나중에 셀
+                # 방법이 없습니다. 여기서 안 세면 A-4 의 n_unmatched 가 비고,
+                # D-10 은 미매칭 0 을 정상으로 읽어 조용히 꺼집니다.
+                missed.add(p.name)
                 continue
             st.matched += 1
             r = judge(p, m, d, pos=pos, n_total=n_total)
@@ -157,6 +172,8 @@ def _rows_for_recipe(
                 st.collapsed += 1
                 if rank < prev[0]:
                     best[m.ingredient_id] = (rank, row)
+    if missed:
+        st.unmatched_by_recipe[recipe_id] = len(missed)
     return [row for _, row in best.values()]
 
 
@@ -196,6 +213,7 @@ def run(limit: int | None = None, truncate: bool = False, dry_run: bool = False)
         for recipe_id, raws in by_recipe.items():
             rows.extend(_rows_for_recipe(recipe_id, raws, d, st))
         st.recipes += len(chunk)
+        st.processed_ids.extend(chunk)
         st.prepared += len(rows)
         if not dry_run:
             st.written += insert_recipe_ingredients(rows)
@@ -211,6 +229,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--limit", type=int, help="앞에서 N개 레시피만")
     ap.add_argument("--truncate", action="store_true", help="쓰기 전에 recipe_ingredient 를 비운다")
     ap.add_argument("--dry-run", action="store_true", help="DB 에 쓰지 않고 통계만")
+    ap.add_argument(
+        "--no-features",
+        action="store_true",
+        help="recipe_feature 를 다시 만들지 않는다 (기본은 만든다)",
+    )
     a = ap.parse_args(argv)
 
     st = run(limit=a.limit, truncate=a.truncate, dry_run=a.dry_run)
@@ -221,6 +244,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     if st.mentions and not st.matched:
         logger.error("매칭 0건 — 사전 로딩을 확인하십시오")
         return 1
+
+    # 주의: 피처를 여기서 이어 만든다. 따로 돌리면 recipe_ingredient 는 새 규칙,
+    #    recipe_feature 는 옛 규칙인 상태로 어긋난 채 에러 없이 돈다. 그리고
+    #    레시피별 미매칭 수는 이 프로세스 메모리에만 있어서, 여기서 안 넘기면
+    #    다시 셀 방법이 없다 — 못 붙은 재료는 DB 에 행이 남지 않기 때문이다.
+    if a.dry_run or a.no_features:
+        logger.info("recipe_feature 는 만들지 않았습니다")
+        return 0
+
+    from features.recommend.ingest.feature_build import build
+
+    logger.info("─" * 52)
+    # scope 를 함께 넘긴다. 미매칭이 0 인 레시피는 unmatched 에 키가 없어서,
+    # 이것 없이는 "이번에 처리했는데 깨끗한 레시피" 와 "이번에 안 건드린
+    # 레시피" 를 구분할 수 없다 — 부분 실행이 남의 값을 지우게 된다.
+    fs = build(unmatched=st.unmatched_by_recipe, scope=st.processed_ids)
+    logger.info("%s", fs.report())
     return 0
 
 

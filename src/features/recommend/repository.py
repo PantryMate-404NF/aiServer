@@ -52,8 +52,9 @@ def retrieve_raw(
     인자는 계약(`RetrievalRequest`)으로 검증한다 — 상한을 여기 다시 적으면
     두 곳이 어긋난다.
     """
-    q = RetrievalRequest(user_id=user_id, max_missing=max_missing,
-                         max_minutes=max_minutes, limit=limit)
+    q = RetrievalRequest(
+        user_id=user_id, max_missing=max_missing, max_minutes=max_minutes, limit=limit
+    )
     with cursor() as cur:
         cur.execute(_SQL, (q.user_id, q.max_missing, q.max_minutes, q.limit, include_test))
         return cur.fetchall()
@@ -87,7 +88,7 @@ def retrieve(
 
 
 import json
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from features.recommend.engine.rank import (
@@ -237,7 +238,7 @@ def write_recommendation(
     # 주의: merge 를 거쳐야 노출분에 propensity 가 실린다. 안 거치면 저장되는 후보가
     #    전부 ② 투영이라 IPS 분모가 로그에 한 번도 안 남는다.
     pool = merge_served_detail(list(scored) if scored else [], resp.items)
-    if not pool:                      # 후보 풀이 없으면 노출분이 곧 후보다
+    if not pool:  # 후보 풀이 없으면 노출분이 곧 후보다
         pool = list(resp.items)
     kept = keep_candidates(pool, served, mode)
     if not set(served) <= {c.recipe_id for c in kept} and CANDIDATE_KEEP.get(mode):
@@ -246,9 +247,15 @@ def write_recommendation(
     # 주의: 이 셋이 없으면 그 행의 점수는 영원히 재현되지 않는다. 호출자가 안 넘겼다고
     #    조용히 NULL 을 넣으면, 나중에 "왜 이 추천이 나왔나" 를 물었을 때 답이 없다.
     #    강제할 수는 없으니 행에 표시해서 분석이 걸러낼 수 있게 한다.
-    no_repro = [k for k, v in (("config_hash", config_hash),
-                               ("warm_alpha", warm_alpha),
-                               ("stats_version", stats_version)) if v is None]
+    no_repro = [
+        k
+        for k, v in (
+            ("config_hash", config_hash),
+            ("warm_alpha", warm_alpha),
+            ("stats_version", stats_version),
+        )
+        if v is None
+    ]
     if no_repro:
         flags["not_reproducible"] = no_repro
 
@@ -268,24 +275,39 @@ def write_recommendation(
 
         with cursor(commit=True) as cur:
             cur.execute(f"SET LOCAL statement_timeout = '{STATEMENT_TIMEOUT_MS}ms'")
-            cur.execute(_RL_SQL, (
-                rid, resp.user_id, sid, resp.model_version, mlflow_run_id, config_hash,
-                warm_alpha, stats_version, list(pantry_ids),
-                json.dumps(pantry_detail, ensure_ascii=False) if pantry_detail else None,
-                list(allergy_ids) if allergy_ids is not None else None,
-                json.dumps(params, ensure_ascii=False),
-                json.dumps(policies, ensure_ascii=False) if policies else None,
-                json.dumps(tr.model_dump(mode="json"), ensure_ascii=False) if tr else "{}",
-                _dump(kept), served, total_ms, TOMBSTONE_KEY,
-            ))
+            cur.execute(
+                _RL_SQL,
+                (
+                    rid,
+                    resp.user_id,
+                    sid,
+                    resp.model_version,
+                    mlflow_run_id,
+                    config_hash,
+                    warm_alpha,
+                    stats_version,
+                    list(pantry_ids),
+                    json.dumps(pantry_detail, ensure_ascii=False) if pantry_detail else None,
+                    list(allergy_ids) if allergy_ids is not None else None,
+                    json.dumps(params, ensure_ascii=False),
+                    json.dumps(policies, ensure_ascii=False) if policies else None,
+                    json.dumps(tr.model_dump(mode="json"), ensure_ascii=False) if tr else "{}",
+                    _dump(kept),
+                    served,
+                    total_ms,
+                    TOMBSTONE_KEY,
+                ),
+            )
             # 없음 = 정본이 이미 있어 가드가 막았다. 버려도 잃는 것이 없다.
             # True  = 새로 넣었다.  False = 묘비를 정본으로 승격했다.
             got = cur.fetchone()
             outcome = "duplicate" if got is None else ("written" if got[0] else "promoted")
             # 주의: position 은 final_rank 다. 비면 그 시대 데이터는 통째로 못 쓴다 —
             #    '상위 k 만 잘라 보기' 조차 안 되고 position bias 보정이 불가능하다.
-            rows = [(resp.user_id, it.recipe_id, "impression", rid,
-                     it.final_rank, sid, "served") for it in resp.items]
+            rows = [
+                (resp.user_id, it.recipe_id, "impression", rid, it.final_rank, sid, "served")
+                for it in resp.items
+            ]
             n_ins = 0
             if rows:
                 # 주의: 넣은 건수를 반드시 센다. psycopg2 시절에는
@@ -299,7 +321,7 @@ def write_recommendation(
         bump(outcome)
         bump("impressions", n_ins)
         return True
-    except Exception as e:                    # 주의: 추천 응답은 절대 실패시키지 않는다
+    except Exception as e:  # 주의: 추천 응답은 절대 실패시키지 않는다
         bump("failed")
         bump(f"failed:{type(e).__name__}")
         _tombstone(rid, resp, sid, e)
@@ -316,10 +338,11 @@ def _tombstone(rid: str, resp: RecommendResponse, sid: str, exc: Exception) -> N
     #    너무 긴 문자열이 원인이었다면 마지막 보루까지 같이 죽는다.
     #    묘비는 반드시 직렬화되는 최소 페이로드만 싣는다.
     marker = json.dumps(
-        {"log_degraded": {TOMBSTONE_KEY: True, "err": type(exc).__name__}},
-        ensure_ascii=False)
+        {"log_degraded": {TOMBSTONE_KEY: True, "err": type(exc).__name__}}, ensure_ascii=False
+    )
     try:
         from infra.db import cursor
+
         with cursor(commit=True) as cur:
             cur.execute(f"SET LOCAL statement_timeout = '{STATEMENT_TIMEOUT_MS}ms'")
             cur.execute(
@@ -327,8 +350,16 @@ def _tombstone(rid: str, resp: RecommendResponse, sid: str, exc: Exception) -> N
                 "model_version, pantry_snapshot, request_params, stage_trace, served, "
                 "total_latency_ms) VALUES (%s,%s,%s,%s,%s,%s,'{}'::jsonb,%s,0) "
                 "ON CONFLICT (request_id) DO NOTHING",
-                (rid, resp.user_id, sid[:64], resp.model_version[:32], [], marker,
-                 [it.recipe_id for it in resp.items]))
+                (
+                    rid,
+                    resp.user_id,
+                    sid[:64],
+                    resp.model_version[:32],
+                    [],
+                    marker,
+                    [it.recipe_id for it in resp.items],
+                ),
+            )
         bump("tombstoned")
     except Exception:
         bump("tombstone_failed")
@@ -432,3 +463,143 @@ def insert_recipe_ingredients(rows: Sequence[tuple]) -> int:
     with cursor(commit=True) as cur:
         cur.executemany(_INS_SQL, rows)
         return max(cur.rowcount, 0)
+
+
+# ─────────────────────────────────────────────────────────────────
+# recipe_feature 빌더 — ingest/feature_build.py 가 쓴다 (A-4)
+# ─────────────────────────────────────────────────────────────────
+#: 집계와 삽입을 한 문장으로 끝낸다. 46,353행을 파이썬으로 왕복시키면 배열까지
+#: 실어 나르게 되는데, 계산이 전부 집합 연산이라 DB 안에서 끝내는 편이 싸다.
+#:
+#: 주의: is_staple 을 SQL 에서 한 번 더 건다. P4 가 이미 staple 을 seasoning 으로
+#:    보내지만, 39종 중 15종(쌀·밀가루·물·얼음 등)은 is_staple 로만 걸린다.
+#:    검수 alias 나 manual override 가 role 을 바꾸면 물·쌀이 essential_ids 에
+#:    들어가고, 그러면 "물이 없어서 못 만드는 레시피" 가 된다. 두 겹으로 건다.
+#:
+#: 주의: LEFT JOIN 이다. 재료가 하나도 안 붙은 레시피도 행을 만든다 —
+#:    n_total=0 으로 남겨야 조회의 ⓪ 관문이 그것을 걸러낸다. 빼 버리면
+#:    "왜 이 레시피가 없지" 를 추적할 근거가 사라진다.
+#:
+#: 주의: n_unmatched 는 여기서 안 건드린다. 재삽입할 때마다 0 으로 덮으면
+#:    배치가 넣어 둔 값이 조용히 사라진다. 갱신은 _UNMATCHED_SQL 이 따로 한다.
+_FEATURE_SQL = """
+INSERT INTO recipe_feature
+    (recipe_id, essential_ids, all_ids, category_ids,
+     n_essential, n_total, flavor_vec, cook_minutes, difficulty, feature_version)
+SELECT r.id,
+       ess, alls, cats,
+       cardinality(ess), cardinality(alls),
+       ARRAY[0,0,0,0,0,0]::REAL[],
+       r.cook_minutes, r.difficulty, %s
+FROM recipe r
+CROSS JOIN LATERAL (
+    SELECT COALESCE(array_agg(DISTINCT ri.ingredient_id)
+                    FILTER (WHERE ri.role = 'essential' AND NOT i.is_staple),
+                    '{}')::INTEGER[] AS ess,
+           COALESCE(array_agg(DISTINCT ri.ingredient_id), '{}')::INTEGER[] AS alls,
+           COALESCE(array_agg(DISTINCT i.category_id)
+                    FILTER (WHERE i.category_id IS NOT NULL),
+                    '{}')::INTEGER[] AS cats
+    FROM recipe_ingredient ri
+    JOIN ingredient i ON i.id = ri.ingredient_id
+    WHERE ri.recipe_id = r.id
+) agg
+ON CONFLICT (recipe_id) DO UPDATE SET
+    essential_ids  = EXCLUDED.essential_ids,
+    all_ids        = EXCLUDED.all_ids,
+    category_ids   = EXCLUDED.category_ids,
+    n_essential    = EXCLUDED.n_essential,
+    n_total        = EXCLUDED.n_total,
+    cook_minutes   = EXCLUDED.cook_minutes,
+    difficulty     = EXCLUDED.difficulty,
+    feature_version = EXCLUDED.feature_version,
+    updated_at     = now()
+"""
+
+#: 배치가 센 레시피별 미매칭 수를 한 문장으로 반영한다.
+#:
+#: 주의: 이번에 처리한 레시피만 0 으로 되돌린다. 범위를 안 주고 전 행을 비우면
+#:    `--limit 2000` 부분 실행 한 번이 나머지 44,353건의 n_unmatched 를 지운다.
+#:    그 값은 배치 메모리에만 있었으므로 전량을 다시 돌리기 전에는 복구되지
+#:    않고, D-10 은 미매칭 0 을 정상으로 읽어 조용히 꺼진다.
+#:
+#: 0 으로 되돌리는 것 자체는 필요하다. 사전이 좋아져 미매칭이 사라진 레시피가
+#: 옛 값을 이고 있으면 고친 것이 안 고쳐진 것처럼 보인다.
+_RESET_UNMATCHED_SQL = """
+UPDATE recipe_feature SET n_unmatched = 0
+WHERE  recipe_id = ANY(%s::BIGINT[]) AND n_unmatched <> 0
+"""
+
+_UNMATCHED_SQL = """
+UPDATE recipe_feature rf
+SET    n_unmatched = u.n
+FROM   (SELECT unnest(%s::BIGINT[]) AS rid, unnest(%s::INT[]) AS n) u
+WHERE  rf.recipe_id = u.rid AND rf.n_unmatched IS DISTINCT FROM u.n
+"""
+
+#: 정규화가 끝났음을 표시한다.
+#:
+#: 주의: 'raw' 만 건드린다. 출발 상태를 안 보면 사람이 검수해 'published' 로
+#:    올린 레시피가 배치를 다시 돌릴 때마다 'normalized' 로 강등되고, 수동으로
+#:    'rejected' 를 찍어 둔 것도 되살아난다. 이 빌더는 자기가 만든 상태만 쓴다.
+#:
+#: 주의: D-10 실패를 여기에 'rejected' 로 쓰지 않는다. D-14 가 거르는 곳을
+#:    조회 함수로 정했다 — recipe_feature 46,353행 계약을 살리고, C 가 "몇 건을
+#:    왜 버렸나" 를 셀 수 있게 하기 위해서다. status 로 거르면 조회가 recipe 를
+#:    조인하지 않으므로 아무것도 걸리지 않는다.
+_STATUS_SQL = """
+UPDATE recipe r
+SET    status = 'normalized'
+WHERE  r.status = 'raw'
+   AND EXISTS (SELECT 1 FROM recipe_feature rf
+               WHERE rf.recipe_id = r.id AND rf.n_total > 0)
+"""
+
+
+def rebuild_recipe_features(version: str) -> int:
+    """recipe_feature 를 recipe_ingredient 로부터 다시 만든다. 멱등이다."""
+    with cursor(commit=True) as cur:
+        cur.execute(_FEATURE_SQL, (version,))
+        return max(cur.rowcount, 0)
+
+
+def set_unmatched_counts(counts: Mapping[int, int], scope: Sequence[int]) -> int:
+    """레시피별 P3 미매칭 수를 반영한다.
+
+    Args:
+        counts: 미매칭이 있는 레시피만. 없는 레시피는 키가 없다.
+        scope: 이번 배치가 실제로 처리한 레시피 전체. 이 범위 안에서만 0 으로
+            되돌린다 — 범위 밖은 손대지 않아야 부분 실행이 남의 값을 지우지 않는다.
+
+    한 트랜잭션에서 되돌리고 다시 채운다. 둘로 나뉘면 그 사이에 조회가 들어와
+    미매칭 0 을 보고 D-10 이 통과시킨다.
+    """
+    ids = list(scope)
+    with cursor(commit=True) as cur:
+        cur.execute(_RESET_UNMATCHED_SQL, (ids,))
+        n = max(cur.rowcount, 0)
+        if counts:
+            rids = list(counts.keys())
+            cur.execute(_UNMATCHED_SQL, (rids, [counts[r] for r in rids]))
+            n += max(cur.rowcount, 0)
+        return n
+
+
+def mark_recipe_status() -> int:
+    """피처가 붙은 레시피를 'raw' 에서 'normalized' 로 올린다."""
+    with cursor(commit=True) as cur:
+        cur.execute(_STATUS_SQL)
+        return max(cur.rowcount, 0)
+
+
+_QUALITY_SQL = """
+SELECT rf.recipe_id, rf.n_essential, rf.n_total, rf.n_unmatched
+FROM recipe_feature rf
+"""
+
+
+def load_feature_quality() -> list[tuple[int, int, int, int]]:
+    """(recipe_id, n_essential, n_total, n_unmatched). D-10 판정과 품질 보고용."""
+    with cursor() as cur:
+        cur.execute(_QUALITY_SQL)
+        return cur.fetchall()

@@ -135,6 +135,15 @@ SET search_path = reco, public AS $$
                                                                          --   n_essential=0 → 1.0 이
                                                                          --   정규화 실패 레시피에도
                                                                          --   만점을 주기 때문이다.
+      -- ⓪'' D-10·D-14 — 필수재료 0개는 미매칭 비율로 가른다.
+      --    ⓪ 는 전멸(n_total=0)만 잡는다. 12개 중 11개를 놓친 레시피는 통과하고,
+      --    아래 coverage 가 n_essential=0 에 만점을 줘서 오히려 상위로 올라온다.
+      --    에러는 하나도 안 난다 — Top-20 이 전부 이것으로 채워져도 조용하다.
+      --    n_essential ≥ 1 에는 걸지 않는다. 전 레시피에 걸면 20.1% 가 사라진다
+      --    (D-14 실측 2,962/14,735). 그쪽은 분포를 보고 따로 정한다.
+      AND  (rf.n_essential > 0
+            OR rf.n_unmatched::REAL
+               / NULLIF(rf.n_total + rf.n_unmatched, 0) <= 0.3)
       AND  (rf.essential_ids && p_pantry_ids                             -- ① GIN 1차 축소
             OR cardinality(rf.essential_ids) = 0)                        --   ★필수재료가 전부
                                                                          --    staple 인 레시피.
