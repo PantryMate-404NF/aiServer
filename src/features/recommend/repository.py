@@ -363,3 +363,72 @@ def load_dictionary_rows() -> tuple[list[tuple], list[tuple]]:
         cur.execute(_ALIAS_SQL)
         aliases = cur.fetchall()
     return ingredients, aliases
+
+
+# ─────────────────────────────────────────────────────────────────
+# 정규화 배치 — ingest/batch.py 가 읽고 쓴다 (A-2)
+# ─────────────────────────────────────────────────────────────────
+_RECIPE_IDS_SQL = "SELECT id FROM recipe ORDER BY id"
+
+#: 주의: recipe_id 로 좁힌다. 배치가 레시피 단위로 끊어 돌기 때문이다.
+#:    한 레시피의 원문이 두 청크로 갈리면 역할 우선순위 병합이 반쪽만 보고
+#:    돌아, 같은 재료가 두 역할로 나뉜 경우를 파이썬이 못 접고 DB 의
+#:    ON CONFLICT 에 떠넘기게 된다 — 그러면 결과가 실행마다 달라진다.
+_RAW_SQL = """
+SELECT recipe_id, id, position, raw_text
+FROM recipe_ingredient_raw
+WHERE recipe_id = ANY(%s)
+ORDER BY recipe_id, position
+"""
+
+#: 주의: DELETE 가 아니라 TRUNCATE 다. 45만 행을 DELETE 하면 死행이 남아
+#:    VACUUM 전까지 순차 스캔이 계속 그것을 읽는다. 이 테이블은 DDL 주석대로
+#:    "재생성 가능" 이라 통째로 버려도 잃는 것이 없다.
+_TRUNCATE_SQL = "TRUNCATE recipe_ingredient"
+
+_INS_SQL = """
+INSERT INTO recipe_ingredient
+    (recipe_id, ingredient_id, raw_id, quantity, unit, quantity_g,
+     role, match_method, match_score)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+ON CONFLICT (recipe_id, ingredient_id) DO NOTHING
+"""
+
+
+def load_recipe_ids(limit: int | None = None) -> list[int]:
+    """정규화 대상 레시피 id. id 순으로 준다 — 부분 실행을 재현 가능하게 한다."""
+    sql = _RECIPE_IDS_SQL + (" LIMIT %s" if limit else "")
+    with cursor() as cur:
+        cur.execute(sql, (limit,) if limit else None)
+        return [r[0] for r in cur.fetchall()]
+
+
+def load_raw_ingredients(recipe_ids: Sequence[int]) -> list[tuple[int, int, int, str]]:
+    """(recipe_id, raw_id, position, raw_text). position 순으로 준다.
+
+    청크 하나를 한 번의 왕복으로 읽는다. 레시피마다 조회하면 2,000 왕복이 된다.
+    """
+    with cursor() as cur:
+        cur.execute(_RAW_SQL, (list(recipe_ids),))
+        return cur.fetchall()
+
+
+def truncate_recipe_ingredient() -> None:
+    """정규화 결과를 비운다. 원문(`recipe_ingredient_raw`)은 건드리지 않는다."""
+    with cursor(commit=True) as cur:
+        cur.execute(_TRUNCATE_SQL)
+
+
+def insert_recipe_ingredients(rows: Sequence[tuple]) -> int:
+    """넣은 행 수를 돌려준다.
+
+    주의: 반환값을 반드시 쓴다. psycopg3 의 executemany 는 rowcount 에 전체
+       합을 담으므로 청크가 나뉘어도 수가 맞다. psycopg2 시절 `execute_values` 는
+       page_size 를 안 주면 마지막 청크만 보고해, 로더가 62만 건을 넣고도
+       29,035 만 넣은 줄 알았던 전례가 있다.
+    """
+    if not rows:
+        return 0
+    with cursor(commit=True) as cur:
+        cur.executemany(_INS_SQL, rows)
+        return max(cur.rowcount, 0)

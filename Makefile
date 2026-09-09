@@ -120,6 +120,7 @@ normalize-test:  ## P1·P2 fixture + P3 캐스케이드 검증 (DB 불필요)
 	$(PY) -m tests.unit.recommend.run
 	$(PY) -m tests.unit.recommend.test_match
 	$(PY) -m tests.unit.recommend.test_role
+	$(PY) -m tests.unit.recommend.test_batch
 
 normalize-demo:  ## 임의 문자열 파싱 결과 확인  (make normalize-demo T="대파 1대")
 	@$(PY) -c "import sys; from features.recommend.ingest.parse import normalize; \
