@@ -11,14 +11,14 @@ import sys
 
 from fastapi.testclient import TestClient
 
-from infra.db import cursor
 from features.recommend.repository import write_recommendation
 from features.recommend.service import counters, reset_counters
+from infra.db import cursor
 from main import create_app
 
 app = create_app()
-from features.recommend.schema import RecommendRequest, RecommendResponse
 from features.recommend.engine.rank import keep_candidates
+from features.recommend.schema import RecommendRequest, RecommendResponse
 
 ok, fail = 0, []
 
@@ -48,7 +48,7 @@ def serve(client, uid: int, **kw):
 
 
 def main() -> int:
-    # 🔴 09-07 부터 모든 라우터가 내부 API 키를 요구한다 (deps.verify_internal_api_key).
+    # 주의: 09-07 부터 모든 라우터가 내부 API 키를 요구한다 (deps.verify_internal_api_key).
     #    헤더가 없으면 401 이라 응답 본문을 볼 수 없다.
     from config import get_settings
     from deps import INTERNAL_API_KEY_HEADER
@@ -112,7 +112,7 @@ def main() -> int:
         n_ev = cur.fetchone()[0]
     check("recommendation_log 여전히 1행", n_rl == 1, str(n_rl))
     check("event_log 중복 없음", n_ev == len(resp.items), str(n_ev))
-    # 🔴 정본 위 재시도는 written 이 아니라 duplicate 다 — 실제로 쓴 것이 아니므로
+    # 주의: 정본 위 재시도는 written 이 아니라 duplicate 다 — 실제로 쓴 것이 아니므로
     #    written 으로 세면 대시보드가 유실을 성공으로 읽는다.
     check("정본 위 재시도는 written 을 올리지 않는다",
           counters().get("written", 0) == before, str(counters()))
@@ -145,7 +145,7 @@ def main() -> int:
     try:
         wrote3 = write_recommendation(req3, resp3, pantry_ids=[1])
         raised = False
-    except Exception as e:                              # noqa: BLE001
+    except Exception as e:
         wrote3, raised = None, True
         print(f"      예외: {e}")
     check("예외를 올리지 않는다", not raised)

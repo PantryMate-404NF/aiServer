@@ -154,7 +154,7 @@ _unres = [r["name"] for r in ing if _shelf(r) is None]
 if _unres:
     E(f"소비기한 미해소 {len(_unres)}건: {_unres[:5]}")
 
-# 🔴 값이 전부 같으면 피처가 상수가 되어 랭킹에 기여하지 못한다
+# 주의: 값이 전부 같으면 피처가 상수가 되어 랭킹에 기여하지 못한다
 _days = sorted({_shelf(r)["days"] for r in ing if _shelf(r)})
 if len(_days) < 6:
     E(f"소비기한 값 종류가 {len(_days)}종뿐 — f_expiring 이 사실상 상수가 된다")
@@ -170,7 +170,7 @@ _SUMMARY_SHELF = (f"  소비기한 {len(_days)}종 · 3일 이하 {len(_short)}�
 
 # ── 9. 구조 매칭 (P3) 회귀 검사 ───────────────────────────
 # 4-4-1 에서 퍼지 매칭이 임계값 0.6 에 재현율 0% 였다. 구조 매칭이 그 자리를
-# 대신하므로, **confusable 이 자동확정으로 새는 순간 즉시 실패**해야 한다.
+# 대신하므로, confusable 이 자동확정으로 새는 순간 즉시 실패해야 한다.
 import sys as _sys, os as _os
 _sys.path.insert(0, _os.path.dirname(D) or ".")
 from features.recommend.ingest.head import HeadIndex          # noqa: E402

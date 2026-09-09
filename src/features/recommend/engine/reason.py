@@ -32,7 +32,7 @@ import re
 from typing import Any
 
 #: 피처 → (종결형, 연결형). `{}` 는 `ctx` 로, `{{이/가}}` 는 받침으로 채운다.
-#: 🔴 두 형태를 반드시 같이 적는다. 하나만 적고 나머지를 규칙으로 만들면 깨진다.
+#: 주의: 두 형태를 반드시 같이 적는다. 하나만 적고 나머지를 규칙으로 만들면 깨진다.
 REASON_TEMPLATES: dict[str, tuple[str, str]] = {
     "f_expiring":   ("{expiring_name}(D-{expiring_days}){{을/를}} 소진할 수 있어요",
                      "{expiring_name}(D-{expiring_days}){{을/를}} 소진할 수 있고"),
@@ -123,7 +123,7 @@ def _fill(key: str, ctx: dict[str, Any], connective: bool) -> str | None:
     if tpl is None:
         return None
     try:
-        # 🔴 조사 마커는 템플릿에 `{{이/가}}` 로 적혀 있다. format 이 `{이/가}` 로
+        # 주의: 조사 마커는 템플릿에 `{{이/가}}` 로 적혀 있다. format 이 `{이/가}` 로
         #    풀어준 뒤에야 받침을 볼 수 있다 — 값이 채워져야 앞 글자를 알기 때문이다.
         return _apply_josa(tpl[1 if connective else 0].format(**ctx))
     except (KeyError, IndexError):

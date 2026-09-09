@@ -42,10 +42,10 @@ class _Base(BaseModel):
 # ─────────────────────────────────────────────────────────────────
 class RecommendRequest(_Base):
     user_id: int
-    #: 🔴 소급 불가 — impression 은 서버가 이 요청에서 자동 기록하므로(3-2),
-    #:    여기 없으면 **impression 전량(이벤트의 95%)에 세션이 비게 된다.**
-    #: 🔴 패턴을 **입력에서** 검증한다. 없으면 잘못된 값이 그대로 통과해
-    #:    응답 조립 중 로그 계약에서 터진다 — 422 여야 할 것이 **500 이 된다**
+    #: 주의: 소급 불가 — impression 은 서버가 이 요청에서 자동 기록하므로(3-2),
+    #:    여기 없으면 impression 전량(이벤트의 95%)에 세션이 비게 된다.
+    #: 주의: 패턴을 입력에서 검증한다. 없으면 잘못된 값이 그대로 통과해
+    #:    응답 조립 중 로그 계약에서 터진다 — 422 여야 할 것이 500 이 된다
     #:    (09-03 발견·수정). c- 실사용자 · g- 게스트 · d- 개발·디버거·시딩.
     session_id: str | None = Field(
         default=None, pattern=r"^[cgd]-",
@@ -75,7 +75,7 @@ class RecommendResponse(_Base):
     request_id: UUID = Field(description="event 기록 시 이 값을 함께 보낸다")
     user_id: int
     model_version: str
-    #: 🔑 이 응답을 만든 **실효 가중치**. `weight_override` 가 반영된 값이다.
+    #: 🔑 이 응답을 만든 실효 가중치. `weight_override` 가 반영된 값이다.
     #:    없으면 로그만 보고 점수를 재현할 수 없다 (features 만으로는 부족).
     weights: dict[str, float] = Field(default_factory=dict)
     items: list[RankedItem]
@@ -97,7 +97,7 @@ class EventIn(_Base):
     position: int | None = Field(
         default=None, ge=1, le=100,
         description="🔴 없으면 position bias 보정이 영구 불가. **1-base** — final_rank 와 동일 기준")
-    #: 🔴 **소급 불가.** 세션 = 한 번의 앉은 자리. 시퀀스 모델이 학습하는 단위다.
+    #: 주의: 소급 불가. 세션 = 한 번의 앉은 자리. 시퀀스 모델이 학습하는 단위다.
     #:    지금 안 남기면 나중에 SASRec/BERT4Rec 을 시도할 데이터가 영원히 없다.
     session_id: str | None = Field(
         default=None, pattern=r"^[cgd]-",
@@ -110,7 +110,7 @@ class EventBatchIn(_Base):
 
 
 class EventAck(_Base):
-    #: 🔴 **계약 검사를 통과해 받아들인 개수**다 — 보낸 건수 − rejected.
+    #: 주의: 계약 검사를 통과해 받아들인 개수다 — 보낸 건수 − rejected.
     #:    저장에 성공한 개수가 아니다. DB 가 흡수한 중복도 여기 반영되지 않는다.
     accepted: int = Field(description="보낸 건수 − rejected. 저장 성공 개수가 아니다")
     rejected: int = 0
@@ -124,19 +124,19 @@ class PantryItemIn(_Base):
     ingredient_id: int
     quantity: float | None = None
     unit: str | None = None
-    #: 🔴 **구매일**. 소비기한 추정의 기준점이다 (09-02 신설).
+    #: 주의: 구매일. 소비기한 추정의 기준점이다 (09-02 신설).
     #: 사용자가 이것만 넣으면 서버가 재료별 소비기한을 더해 `expires_at` 을 만든다.
     #: 앱 등록일과 다르다 — 마트에서 사고 사흘 뒤에 넣으면 사흘을 공짜로 벌어준다.
     purchased_at: date | None = Field(
         default=None, description="구매일. 소비기한 추정의 기준점")
-    #: **소비기한**(use-by). 유통기한(sell-by)이 아니다.
+    #: 소비기한(use-by). 유통기한(sell-by)이 아니다.
     #: 사용자가 직접 넣으면 그것이 이긴다 — 추정보다 우선한다.
     expires_at: date | None = Field(
         default=None, description="소비기한. 안 주면 purchased_at + 재료별 일수로 추정")
 
 
 # ─────────────────────────────────────────────────────────────────
-# 온보딩 — 🔴 09-02 신설. 이 계약이 없어서 **가중치 0.27 을 저장할 곳이 없었다.**
+# 온보딩 — 09-02 신설. 이 계약이 없어서 가중치 0.27 을 저장할 곳이 없었다.
 # ─────────────────────────────────────────────────────────────────
 class OnboardingIn(_Base):
     """온보딩 5문항 응답 (S0 ② 확정 문항).
@@ -147,13 +147,13 @@ class OnboardingIn(_Base):
        유저를 다시 모아야 한다 (실제로 09-02 에 시드 2건을 고쳤다).
        저장 위치는 `user_vector.onboarding_picks` · `onboarding_scales`.
     """
-    #: 제시 20개 중 고른 것의 **인덱스** (seeds/onboarding_recipes.yaml 의 presented 순서).
+    #: 제시 20개 중 고른 것의 인덱스 (seeds/onboarding_recipes.yaml 의 presented 순서).
     #: 확정 문항은 3개지만 개수는 서버가 강제하지 않는다 — 프론트가 정한다.
     picks: list[int] = Field(min_length=1, max_length=20)
     #: 맛 척도 3축 [매움, 짠맛, 단맛] 각 0~4. 순서가 계약이다.
     scales: list[int] = Field(min_length=3, max_length=3)
-    #: 알러지 — 그룹명과 재료 ID 를 **둘 다** 받는다 (안전 관련이라 이중화).
-    #: 🔴 서버는 이것을 `severity='allergy'` 로 저장한다. DB 기본값 'avoid' 에
+    #: 알러지 — 그룹명과 재료 ID 를 둘 다 받는다 (안전 관련이라 이중화).
+    #: 주의: 서버는 이것을 `severity='allergy'` 로 저장한다. DB 기본값 'avoid' 에
     #:    맡기면 그룹 확산이 조용히 꺼져 본인이 적은 재료만 막힌다.
     allergy_groups: list[str] = Field(default_factory=list)
     allergy_ingredient_ids: list[int] = Field(default_factory=list)
@@ -187,13 +187,13 @@ class PantryRemoval(_Base):
     """
     ingredient_id: int
     #: consumed 다 씀 · discarded 상해서 버림 · unknown 물었는데 건너뜀
-    #: 아예 안 물었으면 이 항목을 **보내지 않는다** (DB 에서 NULL 로 남는다).
+    #: 아예 안 물었으면 이 항목을 보내지 않는다 (DB 에서 NULL 로 남는다).
     reason: Literal["consumed", "discarded", "unknown"]
 
 
 class PantryIn(_Base):
     items: list[PantryItemIn]
-    #: 🔴 소급 불가 (07 E-3 ③). 이번 교체로 **사라진** 재료의 사유.
+    #: 주의: 소급 불가 (07 E-3 ③). 이번 교체로 사라진 재료의 사유.
     #:    PUT 이 전체 교체라 클라이언트가 diff 를 계산해 실어 보낸다.
     #:    "다 씀"과 "버림"은 부호가 반대인 신호라 합치면 영원히 못 나눈다 —
     #:    소비기한 낭비율·shelf_life 검증·소진 시퀀스가 전부 여기 달려 있다.
@@ -275,10 +275,10 @@ class RecommendationLogOut(_Base):
     """
     request_id: UUID
     user_id: int
-    #: 🔴 세션 식별자. **소급 불가** — 시퀀스 모델(SASRec 등)의 전제다 (설계 3-2).
+    #: 주의: 세션 식별자. 소급 불가 — 시퀀스 모델(SASRec 등)의 전제다 (설계 3-2).
     #:    규약: c-{user_id}-{uuid4hex12} 클라이언트 · g-{user_id}-{YYYYMMDDHHMI} 서버 갭
-    #: 🔴 접두어가 트래픽 종류를 가른다 — DDL 의 CHECK 와 같아야 한다.
-    #:   c- 실사용자 · g- 게스트 · **d- 개발·디버거·시딩**
+    #: 주의: 접두어가 트래픽 종류를 가른다 — DDL 의 CHECK 와 같아야 한다.
+    #:   c- 실사용자 · g- 게스트 · d- 개발·디버거·시딩
     #: d- 를 빼먹었더니 디버거가 규약대로 부를 때 500 이 났다 (09-03 수정).
     session_id: str | None = Field(default=None, pattern=r"^[cgd]-")
     model_version: str
@@ -287,18 +287,18 @@ class RecommendationLogOut(_Base):
     # ── 점수 재현 3종 (설계 5-2-2-1) ──────────────────────────────
     #: 기준 가중치를 되찾는 열쇠. `scoring_config` 레지스트리를 가리킨다.
     config_hash: str | None = None
-    #: 🔴 웜 전환 계수 α = min(1, n_events/n_warm). 실효 w 는 유저·요청마다 다르다.
+    #: 주의: 웜 전환 계수 α = min(1, n_events/n_warm). 실효 w 는 유저·요청마다 다르다.
     warm_alpha: float | None = Field(default=None, ge=0.0, le=1.0)
-    #: 🔴 어느 코퍼스 평균 μ 로 f_taste 를 계산했나 (`feature_stats`).
+    #: 주의: 어느 코퍼스 평균 μ 로 f_taste 를 계산했나 (`feature_stats`).
     stats_version: int | None = None
 
     pantry_snapshot: list[int]
-    #: 🔴 소급 불가. `pantry_snapshot` 은 id 만 담아 f_expiring 원값을 검증할 수 없다.
+    #: 주의: 소급 불가. `pantry_snapshot` 은 id 만 담아 f_expiring 원값을 검증할 수 없다.
     #:    [{ingredient_id, quantity, unit, expires_at, expires_at_source}]
     pantry_detail: list[dict[str, Any]] | None = None
     allergy_snapshot: list[int] = Field(default_factory=list)
 
-    #: 🔴 소급 불가. Interleaving 승패 귀속 — 'A' 가 어느 모델이었나.
+    #: 주의: 소급 불가. Interleaving 승패 귀속 — 'A' 가 어느 모델이었나.
     #:    [{team, model_version, mlflow_run_id}]. 단일 정책이면 None.
     policies: list[dict[str, Any]] | None = None
 
@@ -307,9 +307,9 @@ class RecommendationLogOut(_Base):
     total_latency_ms: int
     created_at: datetime
 
-    #: 🔴 **`weights` 를 뺐다** (v2.9). v1.9 는 "실효 가중치를 저장해야 재현된다"고 했으나,
+    #: 주의: `weights` 를 뺐다 (v2.9). v1.9 는 "실효 가중치를 저장해야 재현된다"고 했으나,
     #:    5-2-2-1 이 재분배를 나눗셈으로 바꾸면서 `config_hash` + `warm_alpha` +
-    #:    `features` 의 None 패턴으로 **유도된다.** 저장할 이유가 사라졌다.
+    #:    `features` 의 None 패턴으로 유도된다. 저장할 이유가 사라졌다.
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -339,10 +339,10 @@ class HealthOut(_Base):
 # ─────────────────────────────────────────────────────────────────
 class QueueCandidate(_Base):
     """검수 화면에 버튼으로 놓일 후보 하나."""
-    #: 🔴 **반드시 사전에 있는 표제어.** 없는 이름을 만들지 않는다 —
+    #: 주의: 반드시 사전에 있는 표제어. 없는 이름을 만들지 않는다 —
     #:    검수자가 누르면 그대로 사전에 들어가기 때문이다.
     name: str = Field(min_length=1)
-    #: 0~1. 화면이 정렬·표시에만 쓴다. **자동 확정하지 않는다** —
+    #: 0~1. 화면이 정렬·표시에만 쓴다. 자동 확정하지 않는다 —
     #: 실측에서 임계 0.6 재현율이 0% 였다(정탐 0.143 vs 오탐 0.118).
     score: float = Field(ge=0.0, le=1.0)
     method: Literal["exact", "alias", "rule", "jamo_trgm"]

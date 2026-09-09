@@ -124,11 +124,11 @@ def load(paths: list[Path], limit: int | None, dsn: str) -> None:
         nonlocal rec_buf, pending, n_rec, n_raw, n_rev, n_step
         if not rec_buf:
             return
-        # 🔴 **RETURNING 을 한 줄도 흘리면 안 된다.** psycopg2 시절 execute_values 는
+        # 주의: RETURNING 을 한 줄도 흘리면 안 된다. psycopg2 시절 execute_values 는
         #    page_size 를 배치 크기로 맞추지 않으면 여러 문장으로 쪼개 실행하고
         #    RETURNING 이 마지막 조각만 돌아왔다. idmap 이 비어 재료·후기가 조용히
         #    버려졌다 — 실제로 후기 627,610 → 29,035 였다. 에러가 안 나서 더 위험했다.
-        #    psycopg3 는 executemany(returning=True) 로 **모든 실행의 결과 집합**을
+        #    psycopg3 는 executemany(returning=True) 로 모든 실행의 결과 집합을
         #    돌려주므로, nextset() 으로 끝까지 훑어 전부 모은다.
         cur.executemany("""
             INSERT INTO recipe (source, source_id, url, title, description,
@@ -155,7 +155,7 @@ def load(paths: list[Path], limit: int | None, dsn: str) -> None:
             if rid is None:
                 continue
             for pos, it in enumerate(d["ings"]):
-                # 🔴 원문 보존 — 수량을 분리하지 않고 한 문자열로 넣는다.
+                # 주의: 원문 보존 — 수량을 분리하지 않고 한 문자열로 넣는다.
                 #    분리는 P2 의 일이고, 규칙이 바뀌면 여기서 다시 만든다 (설계 4-1).
                 txt = f'{it["name"]} {it["amount"]}'.strip() if it.get("amount") else it["name"]
                 raw_rows.append((rid, it.get("group"), pos, txt[:255]))
@@ -247,9 +247,9 @@ def load(paths: list[Path], limit: int | None, dsn: str) -> None:
     cur.close()
     conn.close()
 
-    print(f"\n✅ 적재 완료")
+    print("\n✅ 적재 완료")
     print(f"   레시피 {n_rec:,} · 재료원문 {n_raw:,} · 조리순서 {n_step:,} · 후기 {n_rev:,} · 건너뜀 {n_skip:,}")
-    print(f"   다음:  make coverage   (정규화 커버리지 실측)")
+    print("   다음:  make coverage   (정규화 커버리지 실측)")
 
 
 def main() -> None:

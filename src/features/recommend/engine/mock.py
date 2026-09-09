@@ -16,7 +16,6 @@ import time
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID, uuid4
 
-
 from features.recommend.engine.explore import exploration_slots
 from features.recommend.engine.rank import feature_stats, top_reasons
 from features.recommend.engine.reason import build_reason
@@ -50,7 +49,7 @@ from features.recommend.stage import RankedItem, StageInfo, StageTrace, TraceTot
 
 SEED = 20260827                      # 재현성. Date.now() 류를 응답 생성에 쓰지 않는다
 
-#: (제목, 부족재료수, 두드러진 피처, 클러스터) — 이유 문구는 **하드코딩하지 않는다.**
+#: (제목, 부족재료수, 두드러진 피처, 클러스터) — 이유 문구는 하드코딩하지 않는다.
 #: v1.9 부터 z-salience 로 실제 계산해서 만든다. 그래야 mock 이 실제와 같은 코드를 탄다.
 _RECIPES = [
     ("김치찌개",   0, "f_coverage",   1),   # 1 = 국물류
@@ -64,7 +63,7 @@ _RECIPES = [
 ]
 
 #: 유저별 클러스터 관측. 실제 구현은 `user_cluster_stat` 테이블에서 읽는다 (설계 5-3-5).
-#: 배치가 채우는 값이므로 서빙 중에는 **변하지 않는다.** mock 도 그렇게 흉내 낸다.
+#: 배치가 채우는 값이므로 서빙 중에는 변하지 않는다. mock 도 그렇게 흉내 낸다.
 _CLUSTER_STAT: dict[int, ClusterStats] = {}
 
 
@@ -164,7 +163,7 @@ def build_recommendation(req: RecommendRequest) -> RecommendResponse:
             continue
         base = max(0.05, 0.95 - i * 0.03 - rng.random() * 0.05)
 
-        # 🔴 w 와 무관하게 FEATURE_KEYS 전부를 채운다. None 은 "계산 불가".
+        # 주의: w 와 무관하게 FEATURE_KEYS 전부를 채운다. None 은 "계산 불가".
         feats: dict[str, float | None] = {}
         for k in FEATURE_KEYS:
             if k in UNAVAILABLE_FEATURES:
@@ -184,7 +183,7 @@ def build_recommendation(req: RecommendRequest) -> RecommendResponse:
             cluster_id=cluster, features=feats, final_rank=i + 1,
         ))
 
-    # 🔴 점수 내림차순으로 정렬한다. 두 가지 이유다.
+    # 주의: 점수 내림차순으로 정렬한다. 두 가지 이유다.
     #    ① mixed_exploration 이 "정렬돼 있어야 한다"를 전제한다 (serendipity.py:148)
     #    ② final_rank 는 순위지 열거 순서가 아니다. 지터 폭(0.05)이 스텝(0.03)보다
     #       커서 정렬 없이는 역전이 난다 — 실측 top_k=20 에서 53/59명.
@@ -194,7 +193,7 @@ def build_recommendation(req: RecommendRequest) -> RecommendResponse:
     stats = feature_stats(scored)
 
     # 🔑 우연성 (설계 5-3-5) — 균등 절반(support 보장) + Thompson 절반(우연성)
-    # 🔴 요청마다 누적하지 않는다. 실제 구현은 `user_cluster_stat` 을 **배치가**
+    # 주의: 요청마다 누적하지 않는다. 실제 구현은 `user_cluster_stat` 을 배치가
     #    갱신하므로 같은 날 같은 요청은 같은 propensity 를 낸다. mock 이 인라인으로
     #    누적하면 현실보다 더 변덕스러울 뿐 아니라, 모듈 docstring 의
     #    "재현 가능하다" 가 propensity 에 대해 거짓이 된다 — 실측으로 같은 요청
@@ -207,9 +206,9 @@ def build_recommendation(req: RecommendRequest) -> RecommendResponse:
     n_uniform = max(1, round(k_ex * 0.5))
     src = {p["recipe_id"]: ("uniform" if j < n_uniform else "thompson")
            for j, p in enumerate(picked)}
-    # 🔴 탐색 아이템을 **무작위 위치에 실제로 꽂는다** (09-02 수정).
+    # 주의: 탐색 아이템을 무작위 위치에 실제로 꽂는다 (09-02 수정).
     #    이전에는 위치만 뽑고 `explore` 를 쓰지 않아, 탐색 아이템이 점수 순서
-    #    그대로 남았다 — 즉 **항상 비슷한 위치**에 왔다.
+    #    그대로 남았다 — 즉 항상 비슷한 위치에 왔다.
     #    그러면 위치별 CTR 이 검사확률 곡선이 되지 않아 IPS 보정이 성립하지 않는다.
     #    explore.py 의 docstring 이 정확히 그것을 설명한다.
     slots = exploration_slots(len(scored), len(picked), rng)
@@ -248,7 +247,7 @@ def build_recommendation(req: RecommendRequest) -> RecommendResponse:
     _LOGS[rid] = RecommendationLogOut(
         request_id=rid, user_id=req.user_id,
         model_version=req.model_version or "mock-linear-v0",
-        # 🔴 `weights` 를 싣지 않는다 (v2.9). 5-2-2-1 이 재분배를 나눗셈으로 바꾸면서
+        # 주의: `weights` 를 싣지 않는다 (v2.9). 5-2-2-1 이 재분배를 나눗셈으로 바꾸면서
         #    실효 가중치가 config_hash + warm_alpha + features 의 None 패턴으로 유도된다.
         config_hash=_config_hash(weights),
         warm_alpha=0.0,                       # mock 은 콜드 유저만 흉내낸다
@@ -352,7 +351,7 @@ def read_pantry(user_id: int) -> PantryOut:
 
 def replace_pantry(user_id: int, body: PantryIn) -> PantryOut:
     name = {i: n for i, n, _ in _INGREDIENTS}
-    # 🔴 `removed` 를 버리지 않는다. 소진/폐기 사유는 안 물어보면 나중에
+    # 주의: `removed` 를 버리지 않는다. 소진/폐기 사유는 안 물어보면 나중에
     #    물을 대상이 없다 (S0 ⑤). 실제 구현은 tombstone 으로 남긴다 —
     #    행을 지우면 "무엇을 얼마나 버렸나" 를 영원히 못 센다.
     for rm in body.removed:

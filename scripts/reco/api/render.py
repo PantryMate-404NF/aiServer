@@ -19,14 +19,14 @@ from pathlib import Path
 
 HERE = Path(__file__).parent
 ROOT = HERE.parents[2]
-#: 🔴 출력 위치는 저장소 루트 기준이다. 예전에는 이 스크립트가 docs/api/ 에
+#: 주의: 출력 위치는 저장소 루트 기준이다. 예전에는 이 스크립트가 docs/api/ 에
 #:    있어서 `HERE.parent` 가 곧 docs/ 였다. 지금은 scripts/reco/api/ 라
 #:    그대로 두면 scripts/reco/ 에 문서를 쓴다 (09-04 실제로 그랬다).
 DOCS = ROOT / "docs" / "reco" / "design"
 CAP = json.loads((DOCS / "api" / "examples.json").read_text(encoding="utf-8"))
 C = CAP["_const"]
 
-# 🔴 캡처가 기대와 다른 상태로 들어왔으면 렌더하지 않는다.
+# 주의: 캡처가 기대와 다른 상태로 들어왔으면 렌더하지 않는다.
 #    capture.py 가 이미 막지만, render.py 만 따로 돌리는 경로가 있다.
 _bad = [k for k, v in CAP.items()
         if not k.startswith("_") and v.get("status") != v.get("expect")]
@@ -71,9 +71,9 @@ ALLERGEN_ROWS = "\n".join(
     f"| `{g}` | {ALLERGEN_KO.get(g, '')} |" for g in C["allergen_groups"])
 
 # ── 피처 17종의 오늘 상태 ─────────────────────────────────────
-# 🔴 상태를 두 갈래(UNAVAILABLE / PENDING)로만 나누면 **거짓말을 한다.**
+# 주의: 상태를 두 갈래(UNAVAILABLE / PENDING)로만 나누면 거짓말을 한다.
 #    f_content 는 둘 중 어디에도 없는데 w=0 이고 응답에서 항상 null 이다 —
-#    "정상" 이라고 찍혔었다. 가중치와 **실제 캡처값**까지 보고 판정한다.
+#    "정상" 이라고 찍혔었다. 가중치와 실제 캡처값까지 보고 판정한다.
 _W = C["default_weights"]
 _NULL_ALWAYS = {k for k in C["feature_keys"]
                 if all(i["features"].get(k) is None for i in R["items"])}
@@ -116,7 +116,7 @@ TRACE_PARAM_ROWS = "\n".join(
 
 
 # ── 엔드포인트 표 — 목록은 openapi 에서, 용도는 손으로 ────────
-# 🔴 손으로 적은 표는 라우트가 늘어도 안 늘어난다. 실제로 온보딩이 09-03 에
+# 주의: 손으로 적은 표는 라우트가 늘어도 안 늘어난다. 실제로 온보딩이 09-03 에
 #    생겼는데 목록에 없어서 "7개다" 인 채로 남아 있었다. 목록을 생성한다.
 OAS = json.loads((DOCS / "api" / "openapi.json").read_text(encoding="utf-8"))
 _PURPOSE = {
@@ -139,9 +139,9 @@ def _ep_rows() -> str:
                        key=lambda p: _ORDER.index(p) if p in _ORDER else 99):
         verbs = " · ".join(f"`{m.upper()}`"
                            for m in _METHODS if m in OAS["paths"][path])
-        # 🔴 새 라우트가 생기면 설명이 비어 문서에 경고가 보인다 — 조용히 빠지지 않는다
+        # 주의: 새 라우트가 생기면 설명이 비어 문서에 경고가 보인다 — 조용히 빠지지 않는다
         use = _PURPOSE.get(path, "⚠️ **용도 미기재** — scripts/reco/api/render.py 의 `_PURPOSE` 에 추가하세요")
-        # 이 값은 f-string 에 **값으로** 꽂히므로 중괄호를 이스케이프하지 않는다
+        # 이 값은 f-string 에 값으로 꽂히므로 중괄호를 이스케이프하지 않는다
         rows.append(f"| {verbs} | `{path}` | {use} |")
     return "\n".join(rows)
 

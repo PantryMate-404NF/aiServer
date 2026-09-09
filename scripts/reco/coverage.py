@@ -14,19 +14,18 @@
 from __future__ import annotations
 
 import glob
-import io
 import json
 import sys
 from collections import Counter
 
-from features.recommend.ingest.parse import normalize
 from features.recommend.ingest.match import Dictionary, match, match_all
+from features.recommend.ingest.parse import normalize
 from features.recommend.ingest.role import judge_all
 
 
 def _records(f: str):
     """JSON 한 건 또는 JSONL 여러 건. 크롤 산출물이 JSONL 이라 둘 다 받는다."""
-    with io.open(f, encoding="utf-8") as fh:
+    with open(f, encoding="utf-8") as fh:
         head = fh.read(2048)
         fh.seek(0)
         if head.lstrip()[:1] == "[":                 # JSON 배열
@@ -79,7 +78,7 @@ def main(patterns: list[str]) -> int:
     parsed = list(_iter_mentions(files, limit))
     res, cov = match_all([p.name for p in parsed], d)
 
-    # 🔴 len(files) 는 *파일* 수다. JSONL 한 개에 4.6만 건이 들어 있어서
+    # 주의: len(files) 는 *파일* 수다. JSONL 한 개에 4.6만 건이 들어 있어서
     #    "레시피 1건 · 언급 72,790건" 으로 찍혔다.
     print(f"파일 {len(files)}개 · 재료 언급 {cov.mention_total:,}건\n")
     print("═══ P3 매칭 커버리지 (설계 4-8) ═══")
@@ -105,8 +104,8 @@ def main(patterns: list[str]) -> int:
             print(f"  {q:<14} ×{c}{blocked}  → {s}")
         print("\n  🔴 자동 확정하지 않는다 (4-4-1). 후보는 검수자에게 제안될 뿐이다.")
 
-    # 🔴 --min 이 없으면 항상 0 을 반환한다 — 커버리지가 떨어져도 CI 가 초록이었다.
-    # 🔴 속성명은 `mention` 이다. `mention_rate` 로 적혀 있어서 --min 이
+    # 주의: --min 이 없으면 항상 0 을 반환한다 — 커버리지가 떨어져도 CI 가 초록이었다.
+    # 주의: 속성명은 `mention` 이다. `mention_rate` 로 적혀 있어서 --min 이
     #    조건과 무관하게 AttributeError 로 죽었다 — 100% 여도 실패했다.
     if min_cov is not None and cov.mention < min_cov:
         print(f"\n❌ mention {cov.mention:.3f} < 목표 {min_cov}")

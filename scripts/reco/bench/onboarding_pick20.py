@@ -50,7 +50,7 @@ CAP = {"한식": 8, "양식": 4, "중식": 4, "일식": 3, "기타": 3}
 
 # ─────────────────────────────────────────────────────────────
 # 후보 풀 — (메뉴, 계열, [(재료, 역할)])
-# 🔴 재료는 seeds/ingredient.csv 536종에 있는 이름으로만 적는다.
+# 주의: 재료는 seeds/ingredient.csv 536종에 있는 이름으로만 적는다.
 #    한 글자라도 다르면 맛 기여를 못 찾아 그 재료가 0 으로 계산된다.
 #    역할: E 주재료 · S 양념(맛을 결정한다) · O 선택
 # ─────────────────────────────────────────────────────────────
@@ -181,7 +181,7 @@ MENUS: list[tuple[str, str, list[tuple[str, R]]]] = [
 # 🔑 정본 — 사람이 정한 목록. 바꾸려면 여기를 고친다.
 #    09-04 확정 (검수: 박재우)
 # ─────────────────────────────────────────────────────────────
-#: 유저에게 보여줄 20개. picks 는 **이 배열의 인덱스**다 (src/features/recommend/schema.py).
+#: 유저에게 보여줄 20개. picks 는 이 배열의 인덱스다 (src/features/recommend/schema.py).
 PRESENTED = [
     "오징어볶음",
     "오징어초무침",
@@ -280,7 +280,7 @@ def check(m: dict[str, dict], unknown: set[str]) -> list[str]:
 
     rows = [m[n] for n in PRESENTED if n in m]
     if rows:
-        # 🔴 양념(S)이 없으면 맛 벡터가 밋밋해져 측정 도구로 못 쓴다.
+        # 주의: 양념(S)이 없으면 맛 벡터가 밋밋해져 측정 도구로 못 쓴다.
         flat = [r["name"] for r in rows if not any(role is S for _, role in r["items"])]
         if flat:
             bad.append(f"양념(S)이 없는 메뉴: {', '.join(flat)}")

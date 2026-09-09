@@ -69,8 +69,8 @@ MMR 은 이번 목록을 흩뜨릴 뿐, 유저가 **가본 적 없는 곳으로 
 from __future__ import annotations
 
 import random
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Sequence
 
 
 @dataclass

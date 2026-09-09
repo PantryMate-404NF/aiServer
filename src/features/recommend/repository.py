@@ -27,10 +27,9 @@ S3 에서 채웁니다. 채울 때 **후보 N개를 N번 조회하면 안 됩니
 from __future__ import annotations
 
 from features.recommend.stage import Candidate, RetrievalRequest
-
 from infra.db import cursor
 
-#: 🔴 ① 은 넉넉히 뽑고 ②③ 에서 좁힌다. 500 은 p95 30.2ms 로 실측된 값
+#: 주의: ① 은 넉넉히 뽑고 ②③ 에서 좁힌다. 500 은 p95 30.2ms 로 실측된 값
 #:    (06 8-A). 늘리면 ② 의 파이썬 점수 계산이 선형으로 늘어난다.
 DEFAULT_LIMIT = 500
 
@@ -77,7 +76,7 @@ def retrieve(
         Candidate(
             recipe_id=r[0],
             missing_count=r[1],
-            # 🔴 SQL 이 NULL 을 줄 수 있다 (부족 재료가 없는 경우 빈 배열이 아니라 NULL).
+            # 주의: SQL 이 NULL 을 줄 수 있다 (부족 재료가 없는 경우 빈 배열이 아니라 NULL).
             missing_ids=list(r[2] or []),
             coverage=float(r[3]),
             # SMALLINT → int. NULL 이면 클러스터링 배치 전이므로 균등 탐색 폴백.
@@ -88,34 +87,33 @@ def retrieve(
 
 
 import json
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
-from features.recommend.schema import RecommendRequest, RecommendResponse
-from features.recommend.enums import CANDIDATE_KEEP, SESSION_PREFIXES
 from features.recommend.engine.rank import (
     check_trace_params,
     keep_candidates,
     merge_served_detail,
 )
-from features.recommend.enums import Stage
+from features.recommend.enums import CANDIDATE_KEEP, SESSION_PREFIXES, Stage
+from features.recommend.schema import RecommendRequest, RecommendResponse
+from features.recommend.service import bump
 from features.recommend.stage import ScoredCandidate
 
-from features.recommend.service import bump
-
-#: 🔴 로그 쓰기가 요청을 오래 붙들지 않게 한다. 여기 걸리면 실패로 세고 넘어간다.
+#: 주의: 로그 쓰기가 요청을 오래 붙들지 않게 한다. 여기 걸리면 실패로 세고 넘어간다.
 STATEMENT_TIMEOUT_MS = 300
 
 #: 묘비를 표시하는 키. 정본과 구분하는 유일한 근거다.
 TOMBSTONE_KEY = "tombstone"
 
-# 🔴 `DO NOTHING` 이면 안 된다. 묘비(_tombstone)가 먼저 들어간 뒤 재시도하면
-#    정본이 통째로 **조용히 버려지고** 함수는 True 를 돌려준다 — 실측으로
+# 주의: `DO NOTHING` 이면 안 된다. 묘비(_tombstone)가 먼저 들어간 뒤 재시도하면
+#    정본이 통째로 조용히 버려지고 함수는 True 를 돌려준다 — 실측으로
 #    candidates=NULL·config_hash=NULL·latency=0 인 행이 written 으로 집계됐다.
 #    재시도 시점에는 propensity 가 아직 메모리에 살아 있으므로, 이건
-#    **복구 가능한 문제를 복구 불가능한 문제로 바꾸는 거래**다 (07:918 이 같은
+#    복구 가능한 문제를 복구 불가능한 문제로 바꾸는 거래다 (07:918 이 같은
 #    안티패턴을 명시적으로 반려한다).
 #
-#    그래서 **묘비 위에서만 승격**한다. 정본 위에는 절대 덮지 않는다 —
+#    그래서 묘비 위에서만 승격한다. 정본 위에는 절대 덮지 않는다 —
 #    로그는 append-only 이고, 나중 호출이 앞선 정본을 훼손하면 안 된다.
 _RL_SQL = """
 INSERT INTO recommendation_log (
@@ -184,11 +182,11 @@ def _session_id(req: RecommendRequest, user_id: int) -> str:
     강제하므로(02_schema.sql) 폴백도 규약을 지켜야 한다.
     """
     s = req.session_id
-    # 🔴 허용 접두어를 여기 다시 적지 않는다 — 그렇게 했다가 'd-' 를 빠뜨려
+    # 주의: 허용 접두어를 여기 다시 적지 않는다 — 그렇게 했다가 'd-' 를 빠뜨려
     #    디버거 트래픽이 'g-' 로 바뀌어 저장됐다 (09-03).
     if not s or not s.startswith(SESSION_PREFIXES):
         return f"g-{user_id}-000000000000"
-    # 🔴 DDL 이 VARCHAR(64) 다. 넘치면 INSERT 가 통째로 실패해 **요청 로그를 잃는다** —
+    # 주의: DDL 이 VARCHAR(64) 다. 넘치면 INSERT 가 통째로 실패해 요청 로그를 잃는다 —
     #    세션 묶음이 조금 뭉치는 것보다 행 유실이 훨씬 비싸다. 잘라서라도 남긴다.
     return s[:64]
 
@@ -219,7 +217,7 @@ def write_recommendation(
     `candidates` 에 미노출 후보 정보가 0 이 된다 — mock 처럼 후보 풀이 없는
     경우에 해당한다. `served ⊆ candidates` 는 그래도 성립한다.
     """
-    # 🔴 `include_trace=false` 는 **응답 페이로드**를 줄이라는 뜻이지 로그를 비우라는
+    # 주의: `include_trace=false` 는 응답 페이로드를 줄이라는 뜻이지 로그를 비우라는
     #    뜻이 아니다. 여기서 실효 추적을 먼저 정해야 한다 — 나중에 정하면
     #    `serving_mode` 가 real 로 잘못 떨어져 절단 폭이 10 이 아니라 50 이 된다.
     tr = trace if trace is not None else resp.trace
@@ -236,7 +234,7 @@ def write_recommendation(
     if missing:
         flags["missing_trace_params"] = missing
 
-    # 🔴 merge 를 거쳐야 노출분에 propensity 가 실린다. 안 거치면 저장되는 후보가
+    # 주의: merge 를 거쳐야 노출분에 propensity 가 실린다. 안 거치면 저장되는 후보가
     #    전부 ② 투영이라 IPS 분모가 로그에 한 번도 안 남는다.
     pool = merge_served_detail(list(scored) if scored else [], resp.items)
     if not pool:                      # 후보 풀이 없으면 노출분이 곧 후보다
@@ -245,9 +243,9 @@ def write_recommendation(
     if not set(served) <= {c.recipe_id for c in kept} and CANDIDATE_KEEP.get(mode):
         flags["served_not_subset"] = True
 
-    # 🔴 이 셋이 없으면 그 행의 점수는 **영원히 재현되지 않는다.** 호출자가 안 넘겼다고
+    # 주의: 이 셋이 없으면 그 행의 점수는 영원히 재현되지 않는다. 호출자가 안 넘겼다고
     #    조용히 NULL 을 넣으면, 나중에 "왜 이 추천이 나왔나" 를 물었을 때 답이 없다.
-    #    강제할 수는 없으니 **행에 표시**해서 분석이 걸러낼 수 있게 한다.
+    #    강제할 수는 없으니 행에 표시해서 분석이 걸러낼 수 있게 한다.
     no_repro = [k for k, v in (("config_hash", config_hash),
                                ("warm_alpha", warm_alpha),
                                ("stats_version", stats_version)) if v is None]
@@ -259,7 +257,7 @@ def write_recommendation(
         bump("contract_violation")
         params["log_degraded"] = flags
 
-    # 🔴 `include_trace=false` 는 **응답 페이로드**를 줄이라는 뜻이지 로그를 비우라는
+    # 주의: `include_trace=false` 는 응답 페이로드를 줄이라는 뜻이지 로그를 비우라는
     #    뜻이 아니다. resp.trace 만 보면 그 요청의 stage_trace 를 통째로 잃는다.
     #    호출자가 내부에 들고 있는 것을 `trace=` 로 넘길 수 있다.
     total_ms = tr.totals.latency_ms if tr else 0
@@ -284,16 +282,16 @@ def write_recommendation(
             # True  = 새로 넣었다.  False = 묘비를 정본으로 승격했다.
             got = cur.fetchone()
             outcome = "duplicate" if got is None else ("written" if got[0] else "promoted")
-            # 🔴 position 은 final_rank 다. 비면 그 시대 데이터는 통째로 못 쓴다 —
+            # 주의: position 은 final_rank 다. 비면 그 시대 데이터는 통째로 못 쓴다 —
             #    '상위 k 만 잘라 보기' 조차 안 되고 position bias 보정이 불가능하다.
             rows = [(resp.user_id, it.recipe_id, "impression", rid,
                      it.final_rank, sid, "served") for it in resp.items]
             n_ins = 0
             if rows:
-                # 🔴 **넣은 건수를 반드시 센다.** psycopg2 시절에는
+                # 주의: 넣은 건수를 반드시 센다. psycopg2 시절에는
                 #    execute_values(fetch=True) 에 page_size 를 안 주면 RETURNING 이
                 #    마지막 청크만 돌려줘 후기 60만 건이 조용히 유실된 전례가 있다.
-                #    psycopg3 의 executemany 는 rowcount 에 **전체 합**을 담으므로
+                #    psycopg3 의 executemany 는 rowcount 에 전체 합을 담으므로
                 #    청크 문제가 없다. ON CONFLICT DO NOTHING 이라 실제로 들어간
                 #    행만 세어진다 — 중복은 0 으로 잡힌다.
                 cur.executemany(_EV_SQL, rows)
@@ -301,7 +299,7 @@ def write_recommendation(
         bump(outcome)
         bump("impressions", n_ins)
         return True
-    except Exception as e:                    # 🔴 추천 응답은 절대 실패시키지 않는다
+    except Exception as e:                    # 주의: 추천 응답은 절대 실패시키지 않는다
         bump("failed")
         bump(f"failed:{type(e).__name__}")
         _tombstone(rid, resp, sid, e)
@@ -314,9 +312,9 @@ def _tombstone(rid: str, resp: RecommendResponse, sid: str, exc: Exception) -> N
     ⚠️ DB 가 통째로 죽은 경우엔 이것도 실패한다. 그때는 카운터만 남는다.
        그래서 카운터가 선택이 아니라 필수다.
     """
-    # 🔴 실패를 유발한 값을 그대로 재사용하지 않는다 — 직렬화 불가한 context 나
+    # 주의: 실패를 유발한 값을 그대로 재사용하지 않는다 — 직렬화 불가한 context 나
     #    너무 긴 문자열이 원인이었다면 마지막 보루까지 같이 죽는다.
-    #    묘비는 **반드시 직렬화되는 최소 페이로드**만 싣는다.
+    #    묘비는 반드시 직렬화되는 최소 페이로드만 싣는다.
     marker = json.dumps(
         {"log_degraded": {TOMBSTONE_KEY: True, "err": type(exc).__name__}},
         ensure_ascii=False)
@@ -339,11 +337,11 @@ def _tombstone(rid: str, resp: RecommendResponse, sid: str, exc: Exception) -> N
 # ─────────────────────────────────────────────────────────────────
 # 재료 사전 — ingest 의 P3 매칭이 운영 경로에서 쓴다
 #
-# 🔴 SQL 이 여기 있는 이유. 03 의 5절이 "SQL 은 repository.py 밖으로 나가지
+# 주의: SQL 이 여기 있는 이유. 03 의 5절이 "SQL 은 repository.py 밖으로 나가지
 #    않는다" 고 정한다. 09-05 까지는 이 두 쿼리가 ingest/match.py 안에 있었다.
 #    ingest 는 스테이지이고, 스테이지는 DB 접근을 여기에 위임한다.
 # ─────────────────────────────────────────────────────────────────
-#: 🔴 컬럼을 `i.` 로 한정한다. ingredient 와 ingredient_category 양쪽에
+#: 주의: 컬럼을 `i.` 로 한정한다. ingredient 와 ingredient_category 양쪽에
 #:    id·name 이 있어 한정하지 않으면 AmbiguousColumn 으로 죽는다.
 _DICT_SQL = """
 SELECT i.id, i.name, i.is_staple, i.is_seasoning, c.path::text

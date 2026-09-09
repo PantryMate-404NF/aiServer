@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     # ── DB ────────────────────────────────────────────────────────
-    # 🔴 기본값을 주지 않습니다. 없으면 시작 시점에 터져야 합니다.
+    # 주의: 기본값을 주지 않습니다. 없으면 시작 시점에 터져야 합니다.
     db_host: str
     db_port: int = 5432
     db_name: str
@@ -74,7 +74,7 @@ class Settings(BaseSettings):
     receipt_prompt_version: int = 2
 
     # ── 커넥션 풀 ─────────────────────────────────────────────────
-    #: 🔴 min 을 max 와 같게 둡니다. 작으면 반납 때 초과분을 **닫아** 매 요청이
+    #: 주의: min 을 max 와 같게 둡니다. 작으면 반납 때 초과분을 닫아 매 요청이
     #:    새 커넥션을 엽니다 — 동시 8요청 p50 32ms. 같게 두면 2.5ms 입니다
     #:    (09-02 실측, psycopg2 풀 기준. SQLAlchemy 도 같은 이유로 맞춥니다).
     pg_max_conn: int = 10
@@ -90,9 +90,9 @@ class Settings(BaseSettings):
     #: propensity 추정 MC 반복 수.
     propensity_mc: int = 200
 
-    # 🔴 LLM 타임아웃·재시도는 위쪽 `llm_timeout_sec` · `llm_max_retries` 하나뿐이다.
+    # 주의: LLM 타임아웃·재시도는 위쪽 `llm_timeout_sec` · `llm_max_retries` 하나뿐이다.
     #    09-07 병합 때 추천 쪽이 같은 뜻의 `llm_timeout_s`(30) · `llm_max_retries`(3)
-    #    를 아래에 또 두어, **나중 정의가 영수증 값(10·1)을 덮었다.** 조용히 덮였고
+    #    를 아래에 또 두어, 나중 정의가 영수증 값(10·1)을 덮었다. 조용히 덮였고
     #    gemini 재시도가 1회에서 3회로 늘어 테스트가 깨져서야 드러났다.
     #    같은 뜻의 설정을 두 이름으로 두지 않는다.
 
@@ -100,7 +100,7 @@ class Settings(BaseSettings):
     ingest_batch: int = 2000
 
     # ── 비밀값 ────────────────────────────────────────────────────
-    #: 🔴 기본값 없음. 없으면 None — 부르는 쪽이 멈춰야 합니다.
+    #: 주의: 기본값 없음. 없으면 None — 부르는 쪽이 멈춰야 합니다.
     #:    새로 만들면 이미 적재된 후기의 작성자 해시와 어긋나고 되돌릴 수 없습니다.
     review_salt: str | None = None
 

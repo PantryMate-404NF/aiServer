@@ -28,6 +28,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from features.recommend.enums import FEATURE_KEYS, Stage, UserMode
 
+
 class _Base(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=False)
 
@@ -96,7 +97,7 @@ class ScoredCandidate(Candidate):
     `contrib` 는 저장하지 않고 `contrib(weights)` 로 언제든 되계산한다.
     가중치가 바뀌어도 과거 로그를 다시 해석할 수 있다.
     """
-    #: 🔴 FEATURE_KEYS 전부가 있어야 한다. **`None` 과 `0.0` 은 다른 의미다.**
+    #: 주의: FEATURE_KEYS 전부가 있어야 한다. `None` 과 `0.0` 은 다른 의미다.
     #:    `0.0` = 계산했더니 0 · `None` = 계산할 수 없음(수단 미구현·데이터 없음).
     #:    LightGBM 은 결측을 native 로 처리하므로 0 으로 메우면 정보가 왜곡된다.
     features: dict[str, float | None] = Field(
@@ -138,16 +139,16 @@ class RankedItem(ScoredCandidate):
         default=False,
         description="무작위 삽입 슬롯. position bias 보정의 기준점 (설계 5-3-3)",
     )
-    #: 🔴 **소급 불가.** 이 아이템이 이 위치에 노출될 확률. IPS/SNIPS 의 분모다.
+    #: 주의: 소급 불가. 이 아이템이 이 위치에 노출될 확률. IPS/SNIPS 의 분모다.
     #:    나중에 off-policy 평가를 하려면 그때의 로그 정책을 알아야 하는데,
     #:    저장해두지 않으면 영원히 복원할 수 없다 (설계 3-2).
     propensity: float | None = Field(
         default=None, gt=0.0, le=1.0,
         description="노출 확률. exploration 슬롯은 1/|pool|, 결정적 슬롯은 1.0")
-    #: 🔑 탐색 슬롯을 **어느 경로가** 채웠는가 (설계 5-3-5).
+    #: 🔑 탐색 슬롯을 어느 경로가 채웠는가 (설계 5-3-5).
     #:    'uniform'  — 균등 무작위. support 보장용. propensity 가 모든 후보에 > 0
     #:    'thompson' — 클러스터 Thompson. 우연성용. propensity 가 아이템마다 다르다
-    #:    🔴 구분하지 않으면 두 경로의 로그가 섞여 off-policy 분석에서 나눌 수 없다.
+    #:    주의: 구분하지 않으면 두 경로의 로그가 섞여 off-policy 분석에서 나눌 수 없다.
     explore_source: str | None = Field(
         default=None, description="uniform | thompson | None(탐색 슬롯이 아님)")
     #: Team-Draft Interleaving 시 어느 랭커가 이 자리를 가져갔는가 (설계 5-7-2)
@@ -155,7 +156,7 @@ class RankedItem(ScoredCandidate):
 
 
 # ─────────────────────────────────────────────────────────────────
-# stage_trace — 🔴 1주차 동결 대상 (설계 3-1)
+# stage_trace — 1주차 동결 대상 (설계 3-1)
 # ─────────────────────────────────────────────────────────────────
 class StageInfo(_Base):
     """단계 하나의 기록. filters 가 디버깅에서 가장 유용하다."""
@@ -224,9 +225,9 @@ class ParsedIngredient:
     is_ambiguous_qty: bool = False    # '약간' 류 → P4 optional 신호
     split_candidate: bool = False     # 복합 의심 → P3 실패 시 검수 큐
     position: int = 0                 # 한 raw_text 에서 몇 번째로 나왔나
-    #: 🔴 재료가 아니다 — 조리도구·용기·소모품 (seeds/non_ingredient.yaml).
+    #: 주의: 재료가 아니다 — 조리도구·용기·소모품 (seeds/non_ingredient.yaml).
     #:    만개의레시피는 재료 목록에 도구를 섞어 넣는다 (도마 ×2,259 · 냄비 ×1,124).
-    #:    **지우지 않고 표시만 한다.** 유저에게 묻는 값이 아니라
+    #:    지우지 않고 표시만 한다. 유저에게 묻는 값이 아니라
     #:    후속 코드가 읽어가는 내부 플래그다 — position 이 어긋나면 안 되고,
     #:    "무엇을 걸렀는지" 자체가 데이터 품질 지표이기 때문이다.
     is_non_ingredient: bool = False

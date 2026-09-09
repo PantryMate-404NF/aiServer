@@ -39,7 +39,7 @@ def pick(kind, cand, ranked, belief, n, rng, k=2, ushare=0.5, temp=0.0):
     draw = {c: rng.betavariate(1 + belief[c] * n[c] + 1, 1 + (1 - belief[c]) * n[c] + 1)
             for c in range(NC)}
     if kind == "floor":
-        # 🔑 슬롯을 나누지 않는다. **두 칸 다 Thompson** 으로 뽑되
+        # 🔑 슬롯을 나누지 않는다. 두 칸 다 Thompson 으로 뽑되
         #    클러스터 선택 확률에 바닥 ε 를 깔아 support 를 보장한다.
         #      p(c) = (1-ε)·Thompson(c) + ε/|C|
         cs2 = sorted({d["c"] for d in pool})

@@ -37,7 +37,6 @@ DB 없이 검증할 수 있고, 운영에서는 같은 인터페이스로 DB 에
 from __future__ import annotations
 
 import csv
-import io
 import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -119,7 +118,7 @@ class Dictionary:
         self.aliases_key = {_key(k): v for k, v in aliases.items()}
         self.whitelist = whitelist               # 제거 가능한 수식어
         self.confusable = confusable or set()
-        #: id → {is_staple, is_seasoning, category_path}. **P4 역할 판정의 유일한 근거**이다
+        #: id → {is_staple, is_seasoning, category_path}. P4 역할 판정의 유일한 근거이다
         #: (`group_name` 이 실측에서 전부 '기본재료' 라 쓸 수 없기 때문 — 설계 4-5)
         self.meta = meta or {}
         self.id_to_name = {v: k for k, v in names.items()}
@@ -129,30 +128,30 @@ class Dictionary:
 
     # ── 로더 ────────────────────────────────────────────────
     @classmethod
-    def from_seeds(cls, seeds: Path = SEEDS) -> "Dictionary":
+    def from_seeds(cls, seeds: Path = SEEDS) -> Dictionary:
         """시드 파일에서. **DB 불필요** — 테스트·CI 경로."""
         import yaml
-        rows = list(csv.DictReader(io.open(seeds / "ingredient.csv", encoding="utf-8")))
+        rows = list(csv.DictReader(open(seeds / "ingredient.csv", encoding="utf-8")))
         names = {r["name"]: i + 1 for i, r in enumerate(rows)}
         meta = {i + 1: {"is_staple": r["is_staple"] == "true",
                         "is_seasoning": r["is_seasoning"] == "true",
                         "category_path": r["category_path"]}
                 for i, r in enumerate(rows)}
         aliases = {}
-        for r in csv.DictReader(io.open(seeds / "ingredient_alias.csv", encoding="utf-8")):
+        for r in csv.DictReader(open(seeds / "ingredient_alias.csv", encoding="utf-8")):
             tgt = names.get(r["ingredient_name"])
             if tgt:
                 aliases[r["alias"]] = tgt
-        wl_raw = yaml.safe_load(io.open(seeds / "modifier_whitelist.yaml", encoding="utf-8"))
-        # 🔴 do_not_remove_examples 는 "제거하면 안 되는 것" 목록이다. 섞으면 정반대로 동작한다
+        wl_raw = yaml.safe_load(open(seeds / "modifier_whitelist.yaml", encoding="utf-8"))
+        # 주의: do_not_remove_examples 는 "제거하면 안 되는 것" 목록이다. 섞으면 정반대로 동작한다
         wl = {x for k, v in wl_raw.items() if k != "do_not_remove_examples" for x in (v or [])}
         conf = {tuple(p[:2]) for p in
-                yaml.safe_load(io.open(seeds / "confusable_pairs.yaml", encoding="utf-8"))["pairs"]
+                yaml.safe_load(open(seeds / "confusable_pairs.yaml", encoding="utf-8"))["pairs"]
                 if isinstance(p, (list, tuple))}
         return cls(names, aliases, wl, conf, meta)
 
     @classmethod
-    def from_db(cls, seeds: Path = SEEDS) -> "Dictionary":
+    def from_db(cls, seeds: Path = SEEDS) -> Dictionary:
         """운영 경로. 검수로 쌓인 `source='manual'` alias 까지 포함된다.
 
         🔴 SQL 은 여기 두지 않는다 (03 의 5절). `repository.py` 가 행을 주고
@@ -167,10 +166,10 @@ class Dictionary:
         meta = {r[0]: {"is_staple": r[2], "is_seasoning": r[3],
                        "category_path": r[4] or ""} for r in rows}
         aliases = dict(alias_rows)
-        wl_raw = yaml.safe_load(io.open(seeds / "modifier_whitelist.yaml", encoding="utf-8"))
+        wl_raw = yaml.safe_load(open(seeds / "modifier_whitelist.yaml", encoding="utf-8"))
         wl = {x for k, v in wl_raw.items() if k != "do_not_remove_examples" for x in (v or [])}
         conf = {tuple(p[:2]) for p in
-                yaml.safe_load(io.open(seeds / "confusable_pairs.yaml", encoding="utf-8"))["pairs"]
+                yaml.safe_load(open(seeds / "confusable_pairs.yaml", encoding="utf-8"))["pairs"]
                 if isinstance(p, (list, tuple))}
         return cls(names, aliases, wl, conf, meta)
 
@@ -254,7 +253,7 @@ def match(name: str, d: Dictionary) -> MatchResult:
         hit = d.names_key.get(stripped) or d.aliases_key.get(stripped)
         if hit:
             target = d.id_to_name.get(hit, stripped)
-            # 🔴 구조 검증 — 수식어를 뗐더니 '다른 재료'가 되는 경우를 막는다
+            # 주의: 구조 검증 — 수식어를 뗐더니 '다른 재료'가 되는 경우를 막는다
             rel = d.head.relation(q, target, d.whitelist)
             if rel in ("same", "rule"):
                 r.ingredient_id = hit

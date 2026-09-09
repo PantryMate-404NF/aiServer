@@ -11,12 +11,16 @@ from uuid import uuid4
 from pydantic import ValidationError
 
 from features.recommend.engine.explore import exploration_slots, interleave
-from features.recommend.engine.serendipity import ClusterStats, mixed_exploration, thompson_propensity
-from features.recommend.engine.reason import build_reason, check_templates
 from features.recommend.engine.rank import (
     feature_stats,
     merge_served_detail,
     top_reasons,
+)
+from features.recommend.engine.reason import build_reason, check_templates
+from features.recommend.engine.serendipity import (
+    ClusterStats,
+    mixed_exploration,
+    thompson_propensity,
 )
 from features.recommend.enums import (
     DEFAULT_WEIGHTS,
@@ -69,16 +73,17 @@ check("cook 라벨이 최대", LABEL_WEIGHT[EventType.COOK] == max(LABEL_WEIGHT.
 check("w>0 인 피처는 전부 계산 가능하다",
       not [k for k in UNAVAILABLE_FEATURES if DEFAULT_WEIGHTS.get(k, 0) > 0])
 
-# 🔴 위 검사만으로는 부족했다. 크롤이 도착하며 f_cuisine·f_season 이 계산 불가가
-#    됐는데 UNAVAILABLE 집합을 갱신하지 않아 **0.06 이 초록으로 통과**했다 (09-02 발견).
+# 주의: 위 검사만으로는 부족했다. 크롤이 도착하며 f_cuisine·f_season 이 계산 불가가
+#    됐는데 UNAVAILABLE 집합을 갱신하지 않아 0.06 이 초록으로 통과했다 (09-02 발견).
 #    "수단이 없다"와 "데이터가 없다"는 다르므로 집합을 갈랐다.
 from features.recommend.enums import ACTIVE_WEIGHT_TODAY, PENDING_DATA_FEATURES
+
 check("두 집합이 겹치지 않는다 (수단 없음 ≠ 데이터 없음)",
       not (UNAVAILABLE_FEATURES & PENDING_DATA_FEATURES))
 check("데이터 대기 피처는 FEATURE_KEYS 안에 있다",
       PENDING_DATA_FEATURES <= set(FEATURE_KEYS))
 # 나눗셈 정규화가 None 을 분자·분모에서 함께 빼므로 w 를 0 으로 내릴 필요가 없다.
-# 대신 **오늘 실효 가중치**를 문서에 쓰는 숫자로 노출한다.
+# 대신 오늘 실효 가중치를 문서에 쓰는 숫자로 노출한다.
 check(f"오늘 실효 가중치 = {ACTIVE_WEIGHT_TODAY} (설계 의도 1.00)",
       abs(ACTIVE_WEIGHT_TODAY - (1.0 - sum(DEFAULT_WEIGHTS[k]
           for k in PENDING_DATA_FEATURES))) < 1e-9)
@@ -133,6 +138,7 @@ check("값이 없는 템플릿은 건너뛴다", build_reason(["f_cooccur"], {})
 # ── 🔑 exploration 슬롯 위치는 무작위여야 한다 (설계 5-3-3) ───────
 #    고정 위치(6·14)로는 위치별 검사확률 곡선을 만들 수 없어 IPS 가 불가능하다.
 import random as _r
+
 _pos = {tuple(exploration_slots(20, 2, _r.Random(s))) for s in range(60)}
 check("exploration 위치가 요청마다 달라진다 (IPS 전제)", len(_pos) > 20)
 check("exploration 개수는 그대로", all(len(p) == 2 for p in _pos))
@@ -140,7 +146,7 @@ check("exploration 개수는 그대로", all(len(p) == 2 for p in _pos))
 # ── 🔑 우연성 — 혼합 탐색 정책 (설계 5-3-5) ─────────────────────
 #    Thompson 단독은 유망하지 않은 클러스터를 아예 뽑지 않아 propensity=0 이 생긴다.
 #    (실측: 클러스터 50개 중 32개). 그 영역은 IPS 분모가 0 이라 영원히 평가 불가능하다.
-#    균등 절반을 섞어 **모든 후보에 최소 노출확률을 보장**한다.
+#    균등 절반을 섞어 모든 후보에 최소 노출확률을 보장한다.
 _cand = [{"recipe_id": i, "cluster_id": i % 12, "score": 1.0 - i * 0.004}
          for i in range(200)]
 _st = ClusterStats(n={c: 30 for c in range(12)}, hits={c: (8 if c < 3 else 0) for c in range(12)})
@@ -246,10 +252,9 @@ try:
 except ValidationError:
     check("position 은 1-base — 0 을 거부한다", True)
 
-# ── 🔴 S0 ① 로그 규약 동결 (2026-09-01) — 소급 불가 ──────────────
-from features.recommend.enums import (CANDIDATE_KEEP, PROPENSITY_SEMANTICS,
-                              REQUIRED_TRACE_PARAMS)
+# ── S0 ① 로그 규약 동결 (2026-09-01) — 소급 불가 ──────────────
 from features.recommend.engine.rank import check_trace_params, keep_candidates
+from features.recommend.enums import CANDIDATE_KEEP, PROPENSITY_SEMANTICS, REQUIRED_TRACE_PARAMS
 
 check("🔴 propensity 의미론이 'item' 으로 동결됐다 (아이템 주변확률)",
       PROPENSITY_SEMANTICS == "item")
@@ -277,7 +282,7 @@ check("serving_mode 별 저장 개수가 정책과 같다",
       len(keep_candidates(_cands, [], "sim")) == CANDIDATE_KEEP["sim"]
       and keep_candidates(_cands, [3], "load_test") == [])
 
-# ── 🔴 S0 ⑤ pantry 소진/폐기 1비트 (2026-09-02) — 소급 불가 ──────
+# ── S0 ⑤ pantry 소진/폐기 1비트 (2026-09-02) — 소급 불가 ──────
 from features.recommend.schema import PantryIn as _PIn
 
 _p = _PIn(items=[], removed=[{"ingredient_id": 1, "reason": "discarded"}])
@@ -293,7 +298,7 @@ except ValidationError:
 check("사유를 안 보내도 된다 — 안 물었으면 빈 목록",
       _PIn(items=[]).removed == [])
 
-# ── 🔴 종단 검증 — mock 을 실제로 호출한다 ───────────────────────
+# ── 종단 검증 — mock 을 실제로 호출한다 ───────────────────────
 #    스키마만 검사하면 "계약은 맞는데 구현이 안 따라온" 상태를 놓친다.
 #    실제로 v2.9 에서 계약의 weights 를 뺐는데 mock 이 계속 싣고 있었고,
 #    아래 테스트가 없었으면 W4 에 로그를 쓰기 시작한 뒤에야 터졌다.
@@ -303,7 +308,7 @@ try:
     from main import create_app
 
     _app = create_app()
-    # 🔴 09-07 부터 모든 라우터가 내부 API 키를 요구한다 (deps.verify_internal_api_key).
+    # 주의: 09-07 부터 모든 라우터가 내부 API 키를 요구한다 (deps.verify_internal_api_key).
     #    헤더가 없으면 401 이라 응답 본문을 볼 수 없다.
     from config import get_settings
     from deps import INTERNAL_API_KEY_HEADER
@@ -327,7 +332,7 @@ except ImportError:
 # ── S1. DB 액세스 레이어 (04 3-1) ────────────────────────────────
 print("\n[S1 · DB 액세스 계약]")
 
-# 🔴 왕복 1회. pantry 를 파이썬이 조회해 넘기면 왕복이 2회가 된다.
+# 주의: 왕복 1회. pantry 를 파이썬이 조회해 넘기면 왕복이 2회가 된다.
 check("서빙 요청은 집합을 받지 않는다",
       "pantry_ids" not in RetrievalRequest.model_fields
       and "allergy_ids" not in RetrievalRequest.model_fields)
@@ -375,7 +380,7 @@ _ri = [RankedItem(recipe_id=i, missing_count=0, coverage=1.0, score=1.0 - i * 0.
        for n, i in enumerate((0, 1, 2, 55))]
 _served = [0, 1, 2, 55]          # 55 는 탐색 슬롯 — 상위 50 밖이다
 
-# 🔴 병합을 건너뛰면 저장되는 후보가 전부 ② 투영이라 propensity 가 로그에
+# 주의: 병합을 건너뛰면 저장되는 후보가 전부 ② 투영이라 propensity 가 로그에
 #    단 한 번도 남지 않는다. off-policy 평가의 IPS 분모가 통째로 사라진다.
 _bare = keep_candidates(_sc, _served, "real")
 check("병합 없이는 propensity 가 없다 (이 결함의 재현)",
@@ -404,7 +409,8 @@ check("동결 키는 10종이다 (04 문서의 7종은 낡았다)",
 print("\n[신설 · 온보딩 · 팬트리 · 탐색]")
 
 from features.recommend.schema import OnboardingIn, PantryIn
-# 🔴 온보딩 저장 경로가 없어서 **가중치 0.27 을 담을 곳이 없었다.**
+
+# 주의: 온보딩 저장 경로가 없어서 가중치 0.27 을 담을 곳이 없었다.
 check("온보딩 계약이 원본을 받는다 (picks · scales)",
       {"picks", "scales"} <= set(OnboardingIn.model_fields))
 check("알러지를 그룹·재료 둘 다 받는다 (안전 이중화)",
@@ -422,16 +428,17 @@ except ValidationError:
     _ok2 = True
 check("척도는 정확히 3축이어야 한다", _ok2)
 
-# 🔴 소진/폐기 사유를 버리면 안 물어본 것과 구분이 안 된다
+# 주의: 소진/폐기 사유를 버리면 안 물어본 것과 구분이 안 된다
 check("팬트리가 removed 를 받는다", "removed" in PantryIn.model_fields)
 
-# 🔴 탐색 아이템이 무작위 위치에 꽂혀야 position bias 곡선이 나온다
+# 주의: 탐색 아이템이 무작위 위치에 꽂혀야 position bias 곡선이 나온다
 try:
     from fastapi.testclient import TestClient
+
     from main import create_app
 
     _app2 = create_app()
-    # 🔴 09-07 부터 모든 라우터가 내부 API 키를 요구한다 (deps.verify_internal_api_key).
+    # 주의: 09-07 부터 모든 라우터가 내부 API 키를 요구한다 (deps.verify_internal_api_key).
     #    헤더가 없으면 401 이라 응답 본문을 볼 수 없다.
     from config import get_settings
     from deps import INTERNAL_API_KEY_HEADER
@@ -452,12 +459,14 @@ except ImportError:
 
 # ── session_id 접두어 — DDL 과 계약이 같아야 한다 (09-03) ─────────
 print("\n[session_id 접두어]")
-from features.recommend.schema import EventIn as _EvIn, RecommendationLogOut as _LogOut
+from features.recommend.schema import EventIn as _EvIn
+from features.recommend.schema import RecommendationLogOut as _LogOut
+
 _pat = lambda m, f: str(getattr(m.model_fields[f], "metadata", ""))
 check("요청·이벤트·로그 셋 다 ^[cgd]- 를 쓴다",
       all("cgd" in _pat(m, "session_id")
           for m in (RecommendRequest, _EvIn, _LogOut)))
-# 🔴 입력에 패턴이 없으면 잘못된 값이 통과해 **응답 조립 중** 로그 계약에서 터진다.
+# 주의: 입력에 패턴이 없으면 잘못된 값이 통과해 응답 조립 중 로그 계약에서 터진다.
 #    422 여야 할 것이 500 이 된다 — 09-03 에 실제로 그랬다.
 _ok = False
 try:
@@ -481,12 +490,17 @@ for _sid in ("c-1-a", "g-1-b", "d-1-c"):
 
 
 # ── JSONB 칸의 속 형식 (09-03 신설) ──────────────────────────────
-# 🔴 표가 있다고 양식이 정해진 게 아니다. jsonb 는 무엇이든 받는다 —
+# 주의: 표가 있다고 양식이 정해진 게 아니다. jsonb 는 무엇이든 받는다 —
 #    실제로 A 와 C 가 suggested 를 배열과 객체로 각각 적어 놓았었다.
-#    그대로 짰으면 에러가 아니라 **빈 화면**으로 나타났을 것이다.
+#    그대로 짰으면 에러가 아니라 빈 화면으로 나타났을 것이다.
 print("\n[JSONB 속 형식]")
-from features.recommend.schema import (QualityExtra, PantrySnapshotItem, PolicyArm,
-                               QueueCandidate, QueueSuggestion)
+from features.recommend.schema import (
+    PantrySnapshotItem,
+    PolicyArm,
+    QualityExtra,
+    QueueCandidate,
+    QueueSuggestion,
+)
 
 _q = QueueSuggestion(candidates=[
     QueueCandidate(name="매실청", score=0.62, method="jamo_trgm")])
@@ -503,7 +517,7 @@ for _kw in ({"name": "x", "score": 1.5, "method": "jamo_trgm"},
         _bad += 1
 check("잘못된 후보 3종을 거부한다 (점수 범위·방법·빈 이름)", _bad == 3)
 
-# 🔴 소비기한이 유저 입력인지 추정인지 구분해야 f_expiring 을 검증할 수 있다
+# 주의: 소비기한이 유저 입력인지 추정인지 구분해야 f_expiring 을 검증할 수 있다
 _pd = PantrySnapshotItem(ingredient_id=1, expires_at_source="user")
 check("냉장고 스냅샷이 소비기한 출처를 구분한다",
       _pd.expires_at_source == "user")
@@ -514,11 +528,11 @@ except ValidationError:
     _ok_src = True
 check("미정의 출처를 거부한다", _ok_src)
 
-# 🔴 recipe_ids 가 없으면 어느 정책이 이겼는지 셀 수 없다
+# 주의: recipe_ids 가 없으면 어느 정책이 이겼는지 셀 수 없다
 _arm = PolicyArm(team="A", model_version="v1", recipe_ids=[10, 11])
 check("정책 배정이 recipe_ids 를 담는다 (승패 귀속)", _arm.recipe_ids == [10, 11])
 
-# 🔴 표본 수가 없으면 배치 개선 없이도 추이선이 움직인다
+# 주의: 표본 수가 없으면 배치 개선 없이도 추이선이 움직인다
 _qe = QualityExtra(_sample_n=8000, _source="file", _log_counters={"failed": 2})
 check("품질 기록이 표본 수와 출처를 담는다",
       (_qe.sample_n, _qe.source) == (8000, "file"))
