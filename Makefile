@@ -137,6 +137,9 @@ flavor-build:  ## flavor_vec 6축 + 코퍼스 평균 μ (A-5). 약 10초
 flavor-check:  ## 중심화가 실제로 낫다는 검증 — 판별력 게이트 (A-5)
 	$(PY) -m features.recommend.ingest.flavor_check
 
+popularity-build:  ## popularity_score 백분위 순위 + quality_score 0 (A-6). 1초
+	$(PY) -m features.recommend.ingest.popularity_build
+
 normalize-verify:  ## 배치 결과 검증 — 행 수·match_method·role·재료 수 분포
 	@$(PSQL) -f - < scripts/reco/batch_verify.sql
 

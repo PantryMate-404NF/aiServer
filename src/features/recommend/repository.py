@@ -714,3 +714,80 @@ def load_latest_mu() -> tuple[int, list[float], int] | None:
     with cursor() as cur:
         cur.execute(_LATEST_MU_SQL)
         return cur.fetchone()
+
+
+# ─────────────────────────────────────────────────────────────────
+# popularity_score — ingest/popularity_build.py 가 쓴다 (A-6, D-9)
+# ─────────────────────────────────────────────────────────────────
+#: log1p 후 백분위 순위. min-max 를 쓰면 상위 1%(p99 181 vs max 1,079)가 나머지를
+#: 0.02 근처로 눌러 popularity 가 사실상 이진 피처가 된다.
+#:
+#: 주의: percent_rank 가 아니라 row_number 다. 동점 블록이 8,470건이라
+#:    percent_rank 는 3분위가 통째로 비고, 그러면 후보 500컷이 비결정적이 되어
+#:    propensity 재현이 깨진다 (D-9). id 로 동점을 깨서 실행마다 같은 값이 나오게 한다.
+#:
+#: 주의: review_count 는 recipe 테이블의 원문 개수(627,605)를 쓴다. recipe_review
+#:    실적재(624,422)를 쓰면 후기 파싱 규칙이 바뀔 때마다 인기도가 흔들린다.
+#:    값이 둘 다 그럴듯해서 틀린 것을 알아채지 못한다.
+_POPULARITY_SQL = """
+WITH ranked AS (
+    SELECT r.id,
+           row_number() OVER (ORDER BY ln(1 + r.review_count), r.id)::REAL
+             / count(*) OVER () AS score
+    FROM recipe r
+)
+UPDATE recipe_feature rf
+SET    popularity_score = ranked.score, updated_at = now()
+FROM   ranked
+WHERE  rf.recipe_id = ranked.id
+"""
+
+#: 평점 계열이 전부 비어 있어 만들 재료가 없다. 후기 개수로 만들면 popularity 와
+#: 상관계수 1.0 인 가짜 축이 하나 늘 뿐이다 (A-6). 0 으로 두고 이유를 남긴다.
+_QUALITY_ZERO_SQL = "UPDATE recipe_feature SET quality_score = 0 WHERE quality_score <> 0"
+
+_QUALITY_COMMENT_SQL = """
+COMMENT ON COLUMN recipe_feature.quality_score IS
+'항상 0. 크롤에 평점이 없다 — rating_avg NOT NULL 0건 · rating_count>0 0건 ·
+view_count>0 0건 (46,353건 전수, 2026-09-10). 후기 개수로 만들면 popularity 와
+상관 1.0 인 가짜 축이 되므로 만들지 않는다. f_quality 가중치도 0.0 이다.'
+"""
+
+_POPULARITY_STATS_SQL = """
+SELECT min(rf.popularity_score), max(rf.popularity_score),
+       corr(rf.popularity_score, ln(1 + r.review_count)),
+       count(*) FILTER (WHERE rf.quality_score <> 0)
+FROM recipe_feature rf JOIN recipe r ON r.id = rf.recipe_id
+"""
+
+#: 주의: 최댓값 1.0 을 그대로 넣으면 width_bucket 이 11 을 돌려준다 — 상한
+#:    이상은 n+1 로 보내기 때문이다. 순위 1위 한 건이 11분위로 튀어 균등 검사가
+#:    실패한다. 분포는 멀쩡한데 검사만 빨개지는 자리라 여기서 한 칸 당긴다.
+_POPULARITY_DECILE_SQL = """
+SELECT width_bucket(LEAST(popularity_score, 1 - 1e-6), 0, 1, 10) AS d, count(*)
+FROM recipe_feature GROUP BY 1 ORDER BY 1
+"""
+
+
+def rebuild_popularity() -> int:
+    """popularity_score 를 다시 만들고 quality_score 를 0 으로 둔다. 멱등이다."""
+    with cursor(commit=True) as cur:
+        cur.execute(_POPULARITY_SQL)
+        n = max(cur.rowcount, 0)
+        cur.execute(_QUALITY_ZERO_SQL)
+        cur.execute(_QUALITY_COMMENT_SQL)
+        return n
+
+
+def load_popularity_stats() -> tuple[float, float, float, int]:
+    """(min, max, 로그값과의 상관, quality<>0 행 수). A-6 완료 기준이 읽는다."""
+    with cursor() as cur:
+        cur.execute(_POPULARITY_STATS_SQL)
+        return cur.fetchone()
+
+
+def load_popularity_deciles() -> list[tuple[int, int]]:
+    """10분위 히스토그램. 백분위 순위라 균등해야 한다."""
+    with cursor() as cur:
+        cur.execute(_POPULARITY_DECILE_SQL)
+        return cur.fetchall()
