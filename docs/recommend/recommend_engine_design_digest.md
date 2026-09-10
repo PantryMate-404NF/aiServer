@@ -10,6 +10,8 @@
 
 ## 1. 목적과 제약
 
+> **이 문서는 1차 3자 회의 이전의 계획입니다.** 회의 결정(2026-09-10)으로 맛 축 수, 피처 체계, 노출확률의 의미, 그리고 계약 파일의 정본이 전부 데이터 파트 쪽으로 바뀌었습니다. **현재 계약은 `src/features/recommend/{enums,stage,schema}.py` 와 `deploy/init/02_schema.sql` 이 정합니다.** 바뀐 내용과 근거는 `recommend_engine_work_log.md` 3.2 의 D-19~D-26 과 `../decisions/2026-09-10_recommend_engine_follows_data_track_contract.md` 에 있습니다. 이 문서는 그때의 판단 근거를 남기기 위해 그대로 둡니다.
+
 | 키 | 값 |
 |---|---|
 | 목표 | 추천 코어 서빙 파이프라인(Track B). 3단계: Retrieval → 5블록 스코어링·감점 → Re-ranking |
@@ -20,9 +22,9 @@
 
 ---
 
-## 2. 계약 (`src/features/recommend/schema.py`)
+## 2. 계약 (회의 이전 계획)
 
-모든 모델 `extra="ignore"`. 구현본은 원본과 필드가 다를 수 있으며 차이는 작업기록 D-07, D-08, D-13.
+**아래 모델은 더 이상 존재하지 않습니다.** B 의 `schema.py` 는 D-20 으로 폐기됐고 같은 경로에 데이터 파트의 계약이 들어와 있습니다(`RecommendRequest`, `RecommendResponse`, `EventIn`, `OnboardingIn` 등). `TastePreference`·`RecommendedItem`·`FeedbackEventRequest`·`FeedbackEventResponse` 는 현재 코드에 없습니다. D-07·D-08·D-13 도 D-20 으로 대체됐습니다. 아래는 그때의 계획입니다.
 
 | 모델 | 필드 (기본값) |
 |---|---|
@@ -76,7 +78,9 @@
 
 ---
 
-## 4. DDL (`src/features/recommend/tables.py`, 미작성)
+## 4. DDL (회의 이전 계획)
+
+`src/features/recommend/tables.py` 는 만들지 않았습니다. DDL 은 데이터 파트가 `deploy/init/02_schema.sql` 과 `04_functions.sql` 로 소유합니다.
 
 | 테이블 | 컬럼 |
 |---|---|

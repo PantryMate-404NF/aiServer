@@ -10,6 +10,9 @@
 
 ## 1. 시스템 아키텍처와 설계 원칙
 
+
+> **이 문서는 1차 3자 회의 이전의 계획입니다.** 회의 결정(2026-09-10)으로 맛 축 수, 피처 체계, 노출확률의 의미, 그리고 계약 파일의 정본이 전부 데이터 파트 쪽으로 바뀌었습니다. **현재 계약은 `src/features/recommend/{enums,stage,schema}.py` 와 `deploy/init/02_schema.sql` 이 정합니다.** 바뀐 내용과 근거는 `recommend_engine_work_log.md` 3.2 의 D-19~D-26 과 `../decisions/2026-09-10_recommend_engine_follows_data_track_contract.md` 에 있습니다. 이 문서는 그때의 판단 근거를 남기기 위해 그대로 둡니다.
+
 이 문서의 식별자는 `PM-ENG-RECO-B-001`, 상태는 OnReview(개발 착수본)입니다. 진행 상태와 계획 대비 차이는 `recommend_engine_work_log.md` 에, 검증 결과는 `recommend_engine_verification.md` 에 적습니다. 이 문서의 체크리스트는 템플릿이며 완료 표시를 남기지 않습니다(04의 2.2).
 
 Pentry-Mate 추천 시스템의 코어 서빙 파이프라인(Track B) 구현을 위한 상세 설계입니다. 초기 서비스의 극단적 데이터 희소성(Sparsity > 99.99%)과 표본 라벨의 한계(600쌍)를 고려하여, 외부 상용 API 에 의존하지 않고 로컬 CPU 환경에서 완결되는 3단계 계층형 파이프라인을 구축합니다.

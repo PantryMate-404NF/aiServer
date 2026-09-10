@@ -16,7 +16,7 @@
 | 계획서 | `recommend_engine_design.md` (사람용, 정본) · `recommend_engine_design_digest.md` (요약, 어긋나면 원본이 이김) |
 | 브랜치 | `feat/recommend-engine-core`. `origin/main`(6b7c7b7)·`origin/develop-data-part`(658d79a) 병합 완료. A 전량 병합은 9.6 |
 | 단계 | ② Ranking 과 ③ Re-ranking 을 A 계약 위에서 구현 완료. ① Retrieval·로그 적재·DDL·배치는 A 것이 브랜치에 들어와 있습니다(9.6). 라우터에 `rank_candidates` 를 끼우는 것(N-03)과 DB 연결이 남았습니다 |
-| 검증 (2026-09-10, A 병합 후) | ruff check OK · ruff format 128 files OK · mypy **58 files** OK · `pytest tests/unit` **190 passed / 0 failed** / coverage **88.12%**. A 자체 게이트(`validate`·`contract`·`normalize-test`)도 통과. 출력은 `recommend_engine_verification.md` 9절 |
+| 검증 (2026-09-10, A 병합 후) | ruff check OK · ruff format 129 files OK · mypy **58 files** OK · `pytest tests/unit` **190 passed / 0 failed** / coverage **88.12%**. A 자체 게이트(`validate`·`contract`·`normalize-test`)도 통과. 출력은 `recommend_engine_verification.md` 9절 |
 | 다음 행동 | A 개발자와 병합 순서 합의(B → main → A) → 게이트 예외 4건 Tech Lead 승인(G-16) → G-09·G-10 규약 개정 신청 → N-03(라우터 연결). 남은 회의 안건 G-06, G-12~G-17 |
 | 병합 정책 | PR 없음. 브랜치 커밋·push 만. `main` 병합은 A·B 파트 완료 후 논의 (P-10). `origin/main` 은 merge 로 따라감 (A 가 브랜치를 본 뒤라 rebase 금지, 01의 2.1) |
 | 갱신 규칙 | 세션마다 1절·3절·9절 갱신. 새 항목은 다음 번호, 번호 재사용 금지. 사람용 서술본 동시 갱신 (2절) |
@@ -84,7 +84,7 @@
 
 ```text
 uv run ruff check .                   → All checks passed!
-uv run ruff format --check .          → 128 files already formatted
+uv run ruff format --check .          → 129 files already formatted
 uv run python -m mypy src             → Success: no issues found in 58 source files   (E-01)
 uv run pytest tests/unit              → 190 passed, coverage 88.12% (기준 80%)
 ```
@@ -101,7 +101,7 @@ python -m tests.unit.recommend.test_batch    → 5건 중 5건 통과
 ```
 
 커버리지 측정 범위는 `ingest/*`·`repository.py`·`engine/mock.py` 를 뺀 1,734문입니다. 뺀 근거는 D-24 의 결정 기록에 있습니다.
-변경 규모: `main` 대비 193 파일 · +60,887줄 (A 커밋 21개 포함).
+변경 규모: 병합 커밋 `da6de58` 에서 `main` 대비 194 파일 · +60,961줄. 들어온 A 커밋 21개.
 
 ---
 
@@ -202,7 +202,7 @@ uv run ruff check . && uv run python -m mypy src
 | E-07 | `Path.write_text` 가 CRLF | 생성 스크립트 `newline="\n"` |
 | E-08 | Bash heredoc 10KB 초과 → 명령 잘림 | 큰 파일은 편집기 도구(Write) |
 | E-09 | addopts 에 `-q` 있음. `-q` 추가 시 요약 줄 사라짐 | 명령줄에 `-q` 안 붙임 |
-| E-11 | A 의 `make` 검사가 `✓` 를 찍다가 `UnicodeEncodeError` (cp949). 검사 실패가 아니라 콘솔 인코딩 | `PYTHONIOENCODING=utf-8` 을 세우고 실행. 항구 대책은 G-14 |
+| E-11 | A 의 `make` 검사가 통과 표시(U+2713)를 찍다가 `UnicodeEncodeError` (cp949). 검사 실패가 아니라 콘솔 인코딩 | `PYTHONIOENCODING=utf-8` 을 세우고 실행. 항구 대책은 G-14 |
 | E-12 | A `uv.lock` 의 `pillow-heif` 1.7.0 → `_pillow_heif` DLL 이 앱 제어 정책에 차단. 영수증 검사 8건이 수집에서 죽음 | `uv.lock` 항목만 `main` 값 1.6.0 으로 되돌림 (D-25). 1.6.0 은 같은 머신에서 정상 import |
 | E-10 | git 사용자 설정 전무 | 저장소 로컬 `user.name=유재현`, `user.email=yjhorion@gmail.com`. 변경은 `git config --local` 후 push 전 `git rebase --exec 'git commit --amend --no-edit --reset-author' main` |
 
@@ -316,7 +316,7 @@ uv run ruff check . && uv run python -m mypy src
 |---|---|
 | 입력 | 유재현 지시: `origin/develop-data-part` 현재 버전을 전부 우리 브랜치에 합치고 `main` 에 병합 가능한 상태로 만들 것. `main` 병합 자체와 `stage.py` 규약 논의는 A 개발자와 함께 처리하므로 제외 |
 | 병합 | `git merge --no-ff origin/develop-data-part`(658d79a). 충돌 8건 — `engine/{explore,rank,reason,serendipity}.py`, `enums.py`, `stage.py`, `service.py` 는 우리 쪽 채택(A 내용 + 9.5 의 26곳 수정, `service.py` 는 A 카운터 + B `rank_candidates`), `docs/README.md` 는 양쪽 병기 |
-| 규모 | `main` 대비 193 파일 · +60,887줄. A 커밋 21개 |
+| 규모 | 병합 커밋 `da6de58` 에서 `main` 대비 194 파일 · +60,961줄. 병합으로 들어온 A 커밋 21개 |
 | 게이트 시작값 | ruff 373건 · mypy 31건 · 커버리지 46.15%. A 는 자기 `pyproject.toml` 에 게이트 미통과를 명시해 두었습니다 |
 | 경계 | 서빙 경로(`src/**`)는 손으로 고치고, 사람이 한 번 돌려 읽는 도구는 범위를 좁힌 예외. 근거는 `../decisions/2026-09-10_merge_data_track_gate_exceptions.md` |
 | `src/` 수정 (D-23) | ruff 45건 — `repository.py` 중간 import 8개를 위로, `mock.py` 세미콜론·미사용 언팩·S311 사유, `flavor.py`·`threshold.py` `zip(strict=)`, `match.py` 대문자 지역변수, `parse.py` 정규식 줄 분리, `__init__` 반환형 4곳. mypy 31건 — `tuple`·`dict` 타입 인자, `fetchone()` 의 None 처리 4곳, `_trgm` 반환형 오기(`str \| float` → `float`), `IngredientRole \| None`·`int \| None` 좁히기, `db.py` 커서 캐스트 |
@@ -325,6 +325,6 @@ uv run ruff check . && uv run python -m mypy src
 | 고친 것 (D-26) | A `tests/conftest.py` 의 `collect_ignore_glob = ["unit/recommend/*.py", "integration/*.py"]` 를 파일 8개 명시로. 그대로 두면 B 의 pytest 검사 63건과 `integration/test_receipt_pipeline.py` 가 **세어지지 않은 채** 사라집니다 (G-08 의 (a)안) |
 | 추가한 것 | `types-PyYAML`(dev). A 의 `src/` 3개 파일이 `yaml` 을 import 하는데 스텁이 없어 mypy 가 막혔습니다 |
 | A 파일에 남은 차이 | 37 파일. 대부분 `ruff format` 출력이고 의미 변경은 위 D-23 뿐입니다 |
-| 검증 | ruff `All checks passed!` · `ruff format --check` 128 files · mypy 58 files · `pytest tests/unit` 190 passed / coverage 88.12%. A 자체 게이트 — `validate` 통과(경고 13), `contract` 통과, `normalize-test` 74+23+23+5건 통과 |
+| 검증 | ruff `All checks passed!` · `ruff format --check` 129 files · mypy 58 files · `pytest tests/unit` 190 passed / coverage 88.12%. A 자체 게이트 — `validate` 통과(경고 13), `contract` 통과, `normalize-test` 74+23+23+5건 통과 |
 | 새 안건 | G-13~G-17, N-12 |
 | 넘긴 것 | `main` 병합(A 개발자와), G-06, G-09~G-17, N-01, N-03, N-11 |

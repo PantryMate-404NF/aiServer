@@ -12,7 +12,7 @@
 
 | 키 | 값 |
 |---|---|
-| 대상 | `feat/recommend-engine-core` HEAD `60f1d40` 의 `src/features/recommend/` |
+| 대상 | `feat/recommend-engine-core` 의 `src/features/recommend/`. 1~3차는 `60f1d40`, 4차는 A 브랜치 병합 커밋 `da6de58` 기준입니다 |
 | 데이터 | `tests/fixtures/recommend/` (레시피 120, 페르소나 12). 정답 라벨 없음 → 정확도가 아니라 명세 준수와 방향성만 판정 |
 | 기획서 정합 | 조항 23건 중 일치 13 · 확장 3 · 차이 3 · 미구현 4 (3절) |
 | 동작 검증 | 항목 16건 중 통과 12 · 조건부 2 · 관측 불가 1 · 목표 미달 0 (4절). 지연시간 목표 충족 |
@@ -268,7 +268,7 @@ uv run python scripts/eval_recommend_mock.py --only-latency  # 후보 500건 지
 
 ```text
 uv run ruff check .                   → All checks passed!
-uv run ruff format --check .          → 128 files already formatted
+uv run ruff format --check .          → 129 files already formatted
 uv run python -m mypy src             → Success: no issues found in 58 source files
 uv run pytest tests/unit              → 190 passed, coverage 88.12% (기준 80%)
 ```
@@ -323,5 +323,5 @@ A 개발자와 함께 확인할 항목입니다.
 | F-19 | A `uv.lock` 이 `pillow-heif` 를 1.6.0 → 1.7.0 으로 올렸고, 1.7.0 의 DLL 이 Windows 앱 제어 정책에 차단되어 영수증 검사 8건이 수집 단계에서 죽습니다 | 이 병합에 필요한 변경이 아닙니다. `uv.lock` 의 그 항목만 `main` 값으로 되돌렸습니다 (D-25, G-13) |
 | F-20 | 커버리지가 92.21% → 46.15% 로 떨어집니다 | 코드가 검사되지 않는 것이 아니라 그 검사를 pytest 가 아니라 `make` 가 돌립니다. 측정 범위를 그 사실에 맞췄습니다 (D-24). 옮기면(G-08) 그대로 사라집니다 |
 | F-21 | `scripts/reco/bench/` 5개 파일이 작성자 로컬 절대경로를 `exec()` 로 읽습니다. 저장소 안에서는 애초에 돌지 않고 정적 검사에 미정의 이름 27건으로 잡힙니다 | 규칙을 부분적으로 끄는 대신 검사 대상에서 뺐습니다 (D-24). 문서가 인용하는 숫자를 재현하려면 읽는 파일을 저장소 안으로 옮겨야 합니다 (G-15) |
-| F-22 | A 의 `make` 검사가 Windows 에서 `UnicodeEncodeError` 로 끝납니다(cp949 가 `✓` 를 못 찍음). 검사 실패가 아니라 출력 실패인데 종료 코드가 1 입니다 | `PYTHONIOENCODING=utf-8` 로 우회했습니다(E-11). `Makefile` 한 곳에서 세우는 것이 낫습니다 (G-14) |
+| F-22 | A 의 `make` 검사가 Windows 에서 `UnicodeEncodeError` 로 끝납니다(cp949 가 통과 표시 U+2713 을 못 찍음). 검사 실패가 아니라 출력 실패인데 종료 코드가 1 입니다 | `PYTHONIOENCODING=utf-8` 로 우회했습니다(E-11). `Makefile` 한 곳에서 세우는 것이 낫습니다 (G-14) |
 | F-23 | `evaluation/threshold.py` 는 57문 전부 미실행이고 저장소 안에서 import 하는 코드가 없습니다 | 커버리지에서 **일부러 빼지 않았습니다.** 0% 가 계속 보이는 편이 낫습니다 (G-17) |

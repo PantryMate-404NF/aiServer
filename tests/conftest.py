@@ -7,7 +7,8 @@
 pytest 가 수집하는 순간 `SystemExit` 이 올라와 **실행 전체가 INTERNALERROR 로
 죽습니다** (09-04 실측). 이 검사들은 `make contract` · `make log-test` ·
 `make normalize-test` · `make smoke` · `make ddl-test` 가 돌립니다 —
-합쳐서 242건이고 전부 통과합니다.
+데이터 파트 기준 합계 242건입니다. 이 가운데 실 DB 가 필요 없는 125건은
+2026-09-10 병합에서 직접 돌려 통과를 확인했습니다.
 
 **디렉터리를 통째로 빼지 않고 파일 이름을 적습니다.** `unit/recommend/*.py` 로
 빼면 같은 디렉터리에 있는 추천 엔진의 pytest 검사 63건과
