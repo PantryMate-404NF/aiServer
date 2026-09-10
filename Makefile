@@ -140,6 +140,15 @@ flavor-check:  ## 중심화가 실제로 낫다는 검증 — 판별력 게이�
 popularity-build:  ## popularity_score 백분위 순위 + quality_score 0 (A-6). 1초
 	$(PY) -m features.recommend.ingest.popularity_build
 
+batch-log:  ## 배치 실행 기록 — status·건수·실패 사유 (A-7)
+	@$(PSQL) -c "SET search_path=reco,public; \
+	  SELECT id, job_name, status, input_count, output_count, \
+	         to_char(started_at,'MM-DD HH24:MI') AS started, \
+	         CASE WHEN finished_at IS NULL THEN '(안 닫힘)' \
+	              ELSE to_char(finished_at - started_at,'MI:SS') END AS 소요, \
+	         left(coalesce(error_msg,'-'),40) AS error \
+	  FROM batch_run ORDER BY id DESC LIMIT 12"
+
 normalize-verify:  ## 배치 결과 검증 — 행 수·match_method·role·재료 수 분포
 	@$(PSQL) -f - < scripts/reco/batch_verify.sql
 

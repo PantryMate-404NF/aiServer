@@ -45,6 +45,7 @@ from features.recommend.enums import IngredientRole
 from features.recommend.ingest.match import Dictionary, match
 from features.recommend.ingest.parse import normalize
 from features.recommend.ingest.role import judge
+from features.recommend.ingest.run_log import batch_run
 from features.recommend.repository import (
     insert_recipe_ingredients,
     load_raw_ingredients,
@@ -236,7 +237,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     a = ap.parse_args(argv)
 
-    st = run(limit=a.limit, truncate=a.truncate, dry_run=a.dry_run)
+    # dry-run 은 DB 를 안 건드리므로 기록도 남기지 않는다 — 안 한 일을
+    # 했다고 적으면 batch_run 이 거짓말을 한다.
+    if a.dry_run:
+        st = run(limit=a.limit, truncate=a.truncate, dry_run=True)
+    else:
+        with batch_run("normalize", {"limit": a.limit, "truncate": a.truncate}) as rl:
+            st = run(limit=a.limit, truncate=a.truncate, dry_run=False)
+            rl.input_count = st.raw_rows
+            rl.output_count = st.written
+            rl.params["coverage"] = round(st.coverage, 4)
+            rl.params["unmatched"] = st.unmatched
     logger.info("─" * 52)
     logger.info("%s", st.report())
     # 주의: 매칭이 0 이면 사전 로딩이 깨진 것이다. 0 을 반환하면 Makefile 이

@@ -40,6 +40,7 @@ from config import get_settings
 from features.recommend.enums import IngredientRole
 from features.recommend.ingest.flavor import N_AXIS, FlavorTable, aggregate, intensity
 from features.recommend.ingest.parse import _units
+from features.recommend.ingest.run_log import batch_run
 from features.recommend.repository import (
     insert_feature_stats,
     load_all_flavor_vectors,
@@ -154,7 +155,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--note", default="A-5 flavor_vec 1회차", help="feature_stats.note")
     a = ap.parse_args(argv)
 
-    st = build(limit=a.limit, note=a.note)
+    with batch_run("flavor", {"limit": a.limit, "note": a.note}) as rl:
+        st = build(limit=a.limit, note=a.note)
+        rl.input_count = st.recipes
+        rl.output_count = st.written
+        rl.params["stats_version"] = st.stats_version
+        rl.params["all_zero"] = st.all_zero
     logger.info("─" * 52)
     logger.info("%s", st.report())
     # 주의: 전부 0 이면 맛 사전 로딩이 깨진 것이다. 0 을 반환하면 스코어러가

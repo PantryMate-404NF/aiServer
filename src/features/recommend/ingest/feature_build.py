@@ -40,6 +40,7 @@ import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
+from features.recommend.ingest.run_log import batch_run
 from features.recommend.repository import (
     load_feature_quality,
     mark_recipe_status,
@@ -161,7 +162,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 1
 
-    st = build(version=a.version)
+    with batch_run("feature", {"version": a.version}) as rl:
+        st = build(version=a.version)
+        rl.input_count = st.recipes
+        rl.output_count = st.recipes
+        rl.params["zero_essential_failed"] = st.zero_essential_failed
+        rl.params["dirty_with_essential"] = st.dirty_with_essential
     logger.info("─" * 52)
     logger.info("%s", st.report())
     # 주의: 피처 행 수는 recipe 테이블 행 수라 항상 46,353 이다 — 0 이 되는 일이

@@ -48,6 +48,7 @@ import logging
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
+from features.recommend.ingest.run_log import batch_run
 from features.recommend.repository import (
     load_popularity_deciles,
     load_popularity_stats,
@@ -121,7 +122,14 @@ def build() -> PopularityStats:
 def main(argv: Sequence[str] | None = None) -> int:
     argparse.ArgumentParser(description="popularity_score 빌더 (D-9, A-6)").parse_args(argv)
 
-    st = build()
+    with batch_run("popularity") as rl:
+        st = build()
+        rl.input_count = st.n_recipes
+        rl.output_count = st.updated
+        # 백분위 순위는 모집단에 대한 상대값이다. 몇 건 기준인지를 안 남기면
+        # 크롤이 늘었을 때 과거 점수를 재현할 수 없다 (A-6).
+        rl.params["n_recipes"] = st.n_recipes
+        rl.params["corr"] = round(st.corr, 4)
     logger.info("─" * 52)
     logger.info("%s", st.report())
     # 주의: 백분위 순위는 모집단에 대한 상대값이다. 크롤이 늘면 과거 점수가

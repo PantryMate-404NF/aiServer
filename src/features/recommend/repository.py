@@ -791,3 +791,61 @@ def load_popularity_deciles() -> list[tuple[int, int]]:
     with cursor() as cur:
         cur.execute(_POPULARITY_DECILE_SQL)
         return cur.fetchall()
+
+
+# ─────────────────────────────────────────────────────────────────
+# batch_run — ingest/run_log.py 가 쓴다 (A-7, D-1)
+#
+# 주의: data_quality_snapshot 은 쓰지 않는다. D-1 이 C 전담으로 정했다.
+#    같은 컬럼에 두 정의(A "파싱 언급" vs C "원문 행수")가 섞이면 시계열이
+#    조용히 꺾인다 — 값은 둘 다 그럴듯하고 에러도 안 난다.
+# ─────────────────────────────────────────────────────────────────
+_RUN_START_SQL = """
+INSERT INTO batch_run (job_name, status, params)
+VALUES (%s, 'running', %s)
+RETURNING id
+"""
+
+_RUN_FINISH_SQL = """
+UPDATE batch_run
+SET    status = %s, finished_at = now(),
+       input_count = %s, output_count = %s, error_msg = %s, params = %s
+WHERE  id = %s
+"""
+
+_RUN_RECENT_SQL = """
+SELECT id, job_name, status, input_count, output_count,
+       finished_at IS NOT NULL, error_msg
+FROM batch_run ORDER BY id DESC LIMIT %s
+"""
+
+
+def start_batch_run(job_name: str, params: str | None = None) -> int:
+    """'running' 행을 열고 id 를 돌려준다."""
+    with cursor(commit=True) as cur:
+        cur.execute(_RUN_START_SQL, (job_name, params))
+        row = cur.fetchone()
+        return int(row[0])
+
+
+def finish_batch_run(
+    run_id: int,
+    status: str,
+    input_count: int | None = None,
+    output_count: int | None = None,
+    error_msg: str | None = None,
+    params: str | None = None,
+) -> None:
+    """'running' 행을 닫는다. 실패도 반드시 기록한다."""
+    with cursor(commit=True) as cur:
+        cur.execute(
+            _RUN_FINISH_SQL,
+            (status, input_count, output_count, error_msg, params, run_id),
+        )
+
+
+def load_recent_batch_runs(limit: int = 10) -> list[tuple]:
+    """(id, job_name, status, input, output, 닫혔나, error_msg)."""
+    with cursor() as cur:
+        cur.execute(_RUN_RECENT_SQL, (limit,))
+        return cur.fetchall()
