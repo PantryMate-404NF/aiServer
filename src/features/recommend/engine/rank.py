@@ -51,7 +51,7 @@ def block_scores(
             ctx.taste_vec, recipe.flavor_vec, corpus.flavor_mean, cfg.taste_min_norm
         ),
         BLOCK_QUALITY: quality_score(recipe, cfg),
-        BLOCK_CTX: context_score(recipe, ctx.max_cook_minutes),
+        BLOCK_CTX: context_score(recipe, ctx),
     }
 
 
@@ -125,12 +125,33 @@ def quality_score(recipe: RecipeCandidate, cfg: RankConfig) -> float | None:
     return _clamp(share * popularity + (1.0 - share) * quality)
 
 
-def context_score(recipe: RecipeCandidate, max_minutes: int | None) -> float | None:
+def context_score(recipe: RecipeCandidate, ctx: UserContext) -> float | None:
+    """조리시간 적합과 선호 요리군 일치의 평균. 측정 가능한 쪽만 씁니다(블록 안 Zero-Drop).
+
+    요리군 선호는 명세 3.2 에 없던 항입니다. Mock 검증에서 한식·분식을 고른 사용자의
+    상위 20 에 중식 7, 일식 5 가 섰습니다(검증 기록 F-06). A 트랙의 17 피처 설계도
+    f_cuisine 에 가중치를 주고 있어 방향은 같습니다. 가중치 학습 전까지의 임시값입니다.
+    """
+    fits = (time_fit(recipe, ctx.max_cook_minutes), cuisine_fit(recipe, ctx.preferred_cuisines))
+    parts = [part for part in fits if part is not None]
+    if not parts:
+        return None
+    return _clamp(sum(parts) / len(parts))
+
+
+def time_fit(recipe: RecipeCandidate, max_minutes: int | None) -> float | None:
     """조리시간 적합도. 상한이나 조리시간이 없으면 측정 불가입니다."""
     if max_minutes is None or recipe.cook_minutes is None:
         return None
     overrun = max(0.0, (recipe.cook_minutes - max_minutes) / max_minutes)
     return _clamp(1.0 - overrun)
+
+
+def cuisine_fit(recipe: RecipeCandidate, preferred: frozenset[str]) -> float | None:
+    """선호 요리군이면 1, 아니면 0. 선호가 없거나 요리군을 모르면 측정 불가입니다."""
+    if not preferred or recipe.cuisine is None:
+        return None
+    return 1.0 if recipe.cuisine in preferred else 0.0
 
 
 def _clamp(value: float) -> float:

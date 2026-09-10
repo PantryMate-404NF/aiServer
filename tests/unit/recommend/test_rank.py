@@ -11,10 +11,12 @@ import pytest
 from features.recommend.engine.rank import (
     BLOCKS,
     context_score,
+    cuisine_fit,
     match_score,
     quality_score,
     score_candidate,
     taste_score,
+    time_fit,
     weighted_sum,
 )
 from features.recommend.schema import CorpusStats, RankConfig, RecipeCandidate, UserContext
@@ -94,11 +96,35 @@ def test_match_score_counts_missing_essentials(make_recipe: Callable[..., Recipe
     assert match_score(make_recipe(2, essential=[]), frozenset()) == pytest.approx(1.0)
 
 
-def test_context_score_penalises_overrun(make_recipe: Callable[..., RecipeCandidate]) -> None:
-    assert context_score(make_recipe(1, cook_minutes=45), 30) == pytest.approx(0.5)
-    assert context_score(make_recipe(1, cook_minutes=20), 30) == pytest.approx(1.0)
-    assert context_score(make_recipe(1, cook_minutes=20), None) is None
-    assert context_score(make_recipe(1, cook_minutes=None), 30) is None
+def test_time_fit_penalises_overrun(make_recipe: Callable[..., RecipeCandidate]) -> None:
+    assert time_fit(make_recipe(1, cook_minutes=45), 30) == pytest.approx(0.5)
+    assert time_fit(make_recipe(1, cook_minutes=20), 30) == pytest.approx(1.0)
+    assert time_fit(make_recipe(1, cook_minutes=20), None) is None
+    assert time_fit(make_recipe(1, cook_minutes=None), 30) is None
+
+
+def test_context_block_averages_time_and_cuisine_fit(
+    make_recipe: Callable[..., RecipeCandidate], make_context: Callable[..., UserContext]
+) -> None:
+    """선호 요리군이 있으면 시간 적합과 반씩 섭니다. 없으면 시간 적합만 봅니다."""
+    recipe = make_recipe(1, cook_minutes=30, cuisine="한식")
+    liked = make_context(max_cook_minutes=30, preferred_cuisines=frozenset({"한식"}))
+    disliked = make_context(max_cook_minutes=30, preferred_cuisines=frozenset({"양식"}))
+    no_preference = make_context(max_cook_minutes=30)
+
+    assert context_score(recipe, liked) == pytest.approx(1.0)
+    assert context_score(recipe, disliked) == pytest.approx(0.5)
+    assert context_score(recipe, no_preference) == pytest.approx(1.0)
+    assert context_score(recipe, make_context()) is None
+
+
+def test_cuisine_fit_is_unmeasurable_without_preference_or_cuisine(
+    make_recipe: Callable[..., RecipeCandidate],
+) -> None:
+    assert cuisine_fit(make_recipe(1, cuisine=None), frozenset({"한식"})) is None
+    assert cuisine_fit(make_recipe(1, cuisine="한식"), frozenset()) is None
+    assert cuisine_fit(make_recipe(1, cuisine="한식"), frozenset({"양식"})) == 0.0
+    assert cuisine_fit(make_recipe(1, cuisine="한식"), frozenset({"한식", "양식"})) == 1.0
 
 
 def test_quality_uses_whatever_part_is_available(
