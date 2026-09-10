@@ -1,9 +1,13 @@
-"""12인 가상 페르소나와 Mock 레시피 풀을 만들어 tests/fixtures/recommend 에 씁니다.
+"""12인 가상 사용자와 Mock 레시피 풀을 만들어 tests/fixtures/recommend 에 씁니다.
 
 실행: uv run python scripts/generate_mock_fixtures.py
 
+DB 가 없는 동안 `recipe_feature` 와 사용자 프로필을 대신합니다. 레시피의 맛은 A 트랙과
+같은 **6축**(매움, 짠맛, 단맛, 신맛, 감칠맛, 기름짐)이고, 사용자 취향은 온보딩이 지금
+받는 **앞 3축**만 채웁니다. 나머지 축은 랭킹에서 None 으로 들어가 계산에서 빠집니다.
+
 난수 대신 키의 해시를 쓰므로 언제 돌려도 같은 파일이 나옵니다. 값을 바꾸려면 SEED 를 올립니다.
-페르소나에는 백엔드가 보낼 법한 비정형 값(문자열 가구원 수, 규약 밖 필드)을 일부러 섞어 둡니다.
+사용자 프로필에는 백엔드가 보낼 법한 비정형 값(문자열 가구원 수, 규약 밖 필드)을 일부러 섞어 둡니다.
 """
 
 from __future__ import annotations
@@ -22,6 +26,8 @@ PRODUCT_ID_BASE = 100
 SEASONING_ID_START = 45
 # 20건에 하나는 품질 점수가 비어 있습니다. Zero-Drop 경로를 밟게 하기 위함입니다.
 MISSING_QUALITY_EVERY = 20
+# 우연성 탐색이 쓰는 클러스터 수. A 트랙 설계의 50개를 축소한 값입니다.
+CLUSTER_COUNT = 8
 
 INGREDIENTS: dict[int, str] = {
     1: "양파",
@@ -113,22 +119,31 @@ ALLERGEN_GROUPS: dict[str, list[int]] = {
 class CuisineSpec:
     dishes: list[str]
     seasonings: list[int]
-    # (매움, 짠맛, 단맛). A 트랙 recipe_feature.flavor_vec 의 앞 3축과 같은 순서입니다.
-    flavor: tuple[float, float, float]
+    #: 6축 (매움, 짠맛, 단맛, 신맛, 감칠맛, 기름짐).
+    #: A 트랙 recipe_feature.flavor_vec 과 같은 순서입니다.
+    flavor: tuple[float, float, float, float, float, float]
 
 
 CUISINES: dict[str, CuisineSpec] = {
     "한식": CuisineSpec(
         ["볶음", "찌개", "국", "무침", "조림", "전", "덮밥"],
         [45, 46, 47, 50, 51, 52],
-        (0.65, 0.6, 0.35),
+        (0.65, 0.6, 0.35, 0.3, 0.7, 0.45),
     ),
-    "중식": CuisineSpec(["볶음밥", "탕", "덮밥", "튀김"], [45, 48, 49, 53, 36], (0.55, 0.65, 0.45)),
-    "일식": CuisineSpec(["덮밥", "구이", "조림", "우동"], [45, 48, 52], (0.2, 0.55, 0.5)),
+    "중식": CuisineSpec(
+        ["볶음밥", "탕", "덮밥", "튀김"], [45, 48, 49, 53, 36], (0.55, 0.65, 0.45, 0.35, 0.75, 0.7)
+    ),
+    "일식": CuisineSpec(
+        ["덮밥", "구이", "조림", "우동"], [45, 48, 52], (0.2, 0.55, 0.5, 0.3, 0.65, 0.3)
+    ),
     "양식": CuisineSpec(
-        ["파스타", "샐러드", "스테이크", "그라탕", "리소토"], [52, 53, 57, 49, 13], (0.2, 0.5, 0.4)
+        ["파스타", "샐러드", "스테이크", "그라탕", "리소토"],
+        [52, 53, 57, 49, 13],
+        (0.2, 0.5, 0.4, 0.4, 0.55, 0.6),
     ),
-    "분식": CuisineSpec(["떡볶이", "김밥", "볶음", "전골"], [46, 48, 51, 45], (0.75, 0.6, 0.55)),
+    "분식": CuisineSpec(
+        ["떡볶이", "김밥", "볶음", "전골"], [46, 48, 51, 45], (0.75, 0.6, 0.55, 0.35, 0.6, 0.55)
+    ),
 }
 COOK_MINUTES_OPTIONS = [10, 15, 20, 25, 30, 40, 45, 60, 90]
 
@@ -312,6 +327,8 @@ def build_recipe(index: int) -> dict[str, object]:
         "recipe_id": index,
         "title": f"{INGREDIENTS[essential[0]]} {pick(f'{key}:dish', spec.dishes)}",
         "cuisine": cuisine,
+        # 우연성 탐색의 축. A 트랙 recipe_feature.cluster_id 를 흉내 냅니다.
+        "cluster_id": int(unit(f"{key}:cluster") * CLUSTER_COUNT),
         "essential_ids": sorted(essential),
         "all_ids": sorted({*essential, *extra_mains, *extra_seasonings}),
         "flavor_vec": flavor,

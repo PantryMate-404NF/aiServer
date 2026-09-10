@@ -1,9 +1,13 @@
-"""Mock 픽스처로 추천 파이프라인을 끝까지 돌려 동작을 눈으로 확인하고 요약 지표를 냅니다.
+"""Mock 픽스처로 랭킹과 재정렬을 끝까지 돌려 동작을 눈으로 확인하고 요약 지표를 냅니다.
 
-실행: uv run python scripts/eval_recommend_mock.py [--persona 1001] [--no-latency] [--only-latency]
+실행: uv run python scripts/eval_recommend_mock.py [--user 1001] [--only-latency]
 
-DB 없이 tests/fixtures/recommend 만 씁니다. 정답 라벨이 없으므로 정확도가 아니라
-"엔진이 명세대로 움직이는가"를 봅니다. 결과는 docs/recommend 의 검증 기록에 옮겨 적습니다.
+DB 없이 tests/fixtures/recommend 만 씁니다. 후보 조회는 A 트랙 SQL 함수
+`retrieve_candidates` 의 조건을 파이썬으로 흉내 낸 것이며, 조건이 어긋나면 여기 결과와
+서빙 결과가 조용히 갈라집니다.
+
+정답 라벨이 없으므로 정확도가 아니라 "엔진이 계약대로 움직이는가"를 봅니다.
+결과는 docs/recommend 의 검증 기록에 옮겨 적습니다.
 """
 
 from __future__ import annotations
@@ -15,66 +19,182 @@ import math
 import random
 import statistics
 import sys
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from time import perf_counter
 from types import ModuleType
+from typing import Any
 
 from features.recommend import service
-from features.recommend.engine import candidate, context, explain, feedback, penalty, rank, rerank
-from features.recommend.schema import FLAVOR_AXES, RecommendRequest
-from features.recommend.stage import CorpusStats, RankConfig, RecipeCandidate, UserHistory
+from features.recommend.engine import candidate as plan_module
+from features.recommend.engine import taste
+from features.recommend.engine.context import (
+    CorpusStats,
+    RecipeFeature,
+    UserContext,
+    UserHistory,
+    build_context,
+)
+from features.recommend.enums import DEFAULT_WEIGHTS, FEATURE_KEYS, UNAVAILABLE_FEATURES
+from features.recommend.policy import RankingPolicy
+from features.recommend.stage import Candidate, RankedItem
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURE_DIR = ROOT / "tests" / "fixtures" / "recommend"
 GENERATOR = ROOT / "scripts" / "generate_mock_fixtures.py"
 TOP_N_FOR_TASTE = 5
-LATENCY_POOL_SIZE = 3000
+LATENCY_POOL = 3000
 LATENCY_RUNS = 30
 SPICY_THRESHOLD = 0.75
-REASON_KINDS = (
-    ("지금 있는 재료만으로", "match_ready"),
-    ("만 더 있으면", "match_missing"),
-    ("소비기한", "expiring"),
-    ("좋아하시는", "taste"),
-    ("강하지 않아", "taste_mild"),
-    ("많은 분들이", "quality"),
-    ("완성", "ctx"),
-    ("평소와 다른", "exploration"),
-)
+DEFAULT_TOP_K = 20
 
 
-def load_catalog() -> dict[str, object]:
+def load_catalog() -> dict[str, Any]:
     return json.loads((FIXTURE_DIR / "catalog.json").read_text(encoding="utf-8"))
 
 
-def load_personas() -> list[dict[str, object]]:
+def load_profiles() -> list[dict[str, Any]]:
     files = sorted((FIXTURE_DIR / "personas").glob("persona_*.json"))
-    return [json.loads(file.read_text(encoding="utf-8")) for file in files]
+    return [json.loads(f.read_text(encoding="utf-8")) for f in files]
 
 
-def build_corpus(catalog: dict[str, object], pool: Sequence[RecipeCandidate]) -> CorpusStats:
-    axes = zip(*(recipe.flavor_vec for recipe in pool), strict=True)
-    mean = [sum(axis) / len(pool) for axis in axes]
+def to_recipe(row: Mapping[str, Any]) -> RecipeFeature:
+    return RecipeFeature(
+        recipe_id=int(row["recipe_id"]),
+        title=str(row["title"]),
+        essential_ids=frozenset(row["essential_ids"]),
+        all_ids=frozenset(row["all_ids"]),
+        flavor_vec=taste.as_vector(row["flavor_vec"]),
+        popularity_score=row["popularity_score"],
+        quality_score=row["quality_score"],
+        cook_minutes=row["cook_minutes"],
+        cuisine=row["cuisine"],
+        product_ids=tuple(row["product_ids"]),
+    )
+
+
+def build_corpus(catalog: Mapping[str, Any], recipes: Mapping[int, RecipeFeature]) -> CorpusStats:
+    pool = list(recipes.values())
+    mean = [statistics.fmean([axis_of(r, i) for r in pool]) for i in range(taste.AXIS_COUNT)]
     frequency: dict[int, int] = {}
     for recipe in pool:
         for ingredient in recipe.all_ids:
             frequency[ingredient] = frequency.get(ingredient, 0) + 1
-    names = catalog["ingredients"]
-    if not isinstance(names, dict):
-        raise TypeError("catalog.ingredients must be a dict")
     return CorpusStats(
-        flavor_mean=(mean[0], mean[1], mean[2]),
-        ingredient_idf={i: math.log(len(pool) / count) for i, count in frequency.items()},
-        ingredient_names={int(key): str(name) for key, name in names.items()},
+        flavor_mean=taste.as_vector(mean),
+        ingredient_idf={i: math.log(len(pool) / c) for i, c in frequency.items()},
+        ingredient_names={int(k): str(v) for k, v in catalog["ingredients"].items()},
     )
 
 
-def resolve_allergy(catalog: dict[str, object], codes: Iterable[str]) -> frozenset[int]:
-    groups = catalog["allergen_groups"]
-    if not isinstance(groups, dict):
-        raise TypeError("catalog.allergen_groups must be a dict")
-    return frozenset(int(i) for code in codes for i in groups.get(code, []))
+def axis_of(recipe: RecipeFeature, index: int) -> float:
+    value = recipe.flavor_vec[index]
+    return 0.0 if value is None else value
+
+
+def retrieve(
+    recipes: Mapping[int, RecipeFeature],
+    clusters: Mapping[int, int],
+    pantry: Iterable[int],
+    *,
+    allergy: Iterable[int] = (),
+    max_missing: int = 2,
+    max_minutes: int | None = None,
+    limit: int = 500,
+    ignore_missing: bool = False,
+) -> list[Candidate]:
+    """A 트랙 `retrieve_candidates` 의 WHERE 와 ORDER BY 를 같은 순서로 흉내 냅니다."""
+    pantry_set, allergy_set = frozenset(pantry), frozenset(allergy)
+    rows: list[tuple[int, float, Candidate]] = []
+    for recipe in recipes.values():
+        if recipe.all_ids & allergy_set:
+            continue
+        if max_minutes is not None and (recipe.cook_minutes or 0) > max_minutes:
+            continue
+        missing = sorted(recipe.essential_ids - pantry_set)
+        if not ignore_missing:
+            if recipe.essential_ids and not (recipe.essential_ids & pantry_set):
+                continue
+            if len(missing) > max_missing:
+                continue
+        total = len(recipe.essential_ids)
+        rows.append(
+            (
+                len(missing),
+                -(recipe.popularity_score or 0.0),
+                Candidate(
+                    recipe_id=recipe.recipe_id,
+                    missing_count=len(missing),
+                    missing_ids=missing,
+                    coverage=1.0 if total == 0 else (total - len(missing)) / total,
+                    cluster_id=clusters.get(recipe.recipe_id),
+                ),
+            )
+        )
+    rows.sort(key=lambda row: (row[0], row[1], row[2].recipe_id))
+    return [row[2] for row in rows[:limit]]
+
+
+def retrieve_with_fallback(
+    recipes: Mapping[int, RecipeFeature],
+    clusters: Mapping[int, int],
+    ctx: UserContext,
+    policy: RankingPolicy,
+    top_k: int,
+    allergy: frozenset[int] = frozenset(),
+) -> tuple[list[Candidate], str, int]:
+    """`engine/candidate.py` 의 계획대로 다시 조회합니다. 운영에서는 repository 가 합니다."""
+    plan = plan_module.first_plan(policy)
+    rows = retrieve(
+        recipes,
+        clusters,
+        ctx.pantry_ids,
+        allergy=allergy,
+        max_missing=plan.max_missing,
+        max_minutes=ctx.max_cook_minutes,
+    )
+    while True:
+        nxt = plan_module.next_plan(plan, len(rows), policy, top_k)
+        if nxt is None:
+            return plan_module.dedupe(rows), plan.stage, plan.max_missing
+        plan = nxt
+        wider = retrieve(
+            recipes,
+            clusters,
+            ctx.pantry_ids,
+            allergy=allergy,
+            max_missing=plan.max_missing,
+            max_minutes=ctx.max_cook_minutes,
+            ignore_missing=plan.stage == plan_module.FALLBACK_POPULARITY,
+        )
+        rows = plan_module.dedupe([*rows, *wider])
+
+
+def context_of(profile: Mapping[str, Any], policy: RankingPolicy) -> UserContext:
+    """온보딩은 앞 3축만 채웁니다. 뒤 3축은 None 이라 계산에서 빠집니다."""
+    preference = profile.get("taste_preference", {})
+    onboarding = [
+        preference.get("spicy_level"),
+        preference.get("salty_level"),
+        preference.get("sweet_level"),
+    ]
+    return build_context(
+        user_id=int(profile["user_id"]),
+        pantry_ids=profile.get("pantry_ingredient_ids", []),
+        expiring_ids=profile.get("expiring_ingredient_ids", []),
+        onboarding_taste=[None if v is None else v / 4 for v in onboarding],
+        warm_event_count=policy.warm_event_count,
+        max_cook_minutes=profile.get("max_cook_minutes"),
+        preferred_cuisines=cuisines_of(profile.get("preferred_cuisines", [])),
+    )
+
+
+def cuisines_of(raw: object) -> list[str]:
+    if isinstance(raw, str):
+        return [p.strip() for p in raw.replace("/", ",").split(",") if p.strip()]
+    if isinstance(raw, list):
+        return [str(x).strip() for x in raw if x]
+    return []
 
 
 def jaccard(left: frozenset[int], right: frozenset[int]) -> float:
@@ -82,222 +202,197 @@ def jaccard(left: frozenset[int], right: frozenset[int]) -> float:
     return len(left & right) / len(union) if union else 0.0
 
 
-def intra_list_distance(recipes: Sequence[RecipeCandidate]) -> float:
-    """서빙 목록의 평균 쌍별 재료 거리(1 - 자카드). 클수록 다양합니다."""
-    pairs = [
-        1.0 - jaccard(a.all_ids, b.all_ids) for i, a in enumerate(recipes) for b in recipes[i + 1 :]
-    ]
+def intra_list_distance(items: Sequence[frozenset[int]]) -> float:
+    pairs = [1.0 - jaccard(a, b) for i, a in enumerate(items) for b in items[i + 1 :]]
     return statistics.fmean(pairs) if pairs else 0.0
 
 
-def reason_kind(reason: str) -> str:
-    return next((kind for needle, kind in REASON_KINDS if needle in reason), "default")
-
-
-def dominant_axis(taste_vec: tuple[float, float, float], mean: tuple[float, float, float]) -> int:
-    return max(range(3), key=lambda i: abs(taste_vec[i] - mean[i]))
-
-
-def fmt3(values: Iterable[float]) -> str:
-    return "(" + ", ".join(f"{v:.3f}" for v in values) + ")"
-
-
-def prepared(
-    persona: dict[str, object], catalog: dict[str, object]
-) -> tuple[RecommendRequest, frozenset[int]]:
-    request = RecommendRequest.model_validate(persona)
-    return request, resolve_allergy(catalog, request.allergy_group_codes)
-
-
-def evaluate_persona(
-    persona: dict[str, object],
-    pool: Sequence[RecipeCandidate],
-    corpus: CorpusStats,
-    catalog: dict[str, object],
-    cfg: RankConfig,
-    rng: random.Random,
-) -> dict[str, object]:
-    request, allergy = prepared(persona, catalog)
-    history = UserHistory(allergy_ingredient_ids=allergy)
-    ctx = context.build_context(request, history, cfg)
-    result = service.run_pipeline(ctx, pool, corpus, cfg, rng)
-    by_id = {recipe.recipe_id: recipe for recipe in pool}
-    served = result.response.recommendations
-    personal = [item for item in served if not item.is_exploration]
-    explored = [item for item in served if item.is_exploration]
-    served_recipes = [by_id[item.recipe_id] for item in served]
-    candidates = [scored.candidate for scored in result.log.candidates]
-    ranked = sorted(result.log.candidates, key=lambda s: (-s.score, s.candidate.recipe_id))
-    baseline = [scored.candidate for scored in ranked][: len(served)]
-    blocks_of = {s.candidate.recipe_id: s.blocks for s in result.log.candidates}
-
-    mean = corpus.flavor_mean or (0.0, 0.0, 0.0)
-    axis = dominant_axis(ctx.taste_vec, mean)
-    top_personal = [by_id[item.recipe_id] for item in personal[:TOP_N_FOR_TASTE]]
-    served_axis = (
-        statistics.fmean(r.flavor_vec[axis] for r in top_personal) if top_personal else 0.0
+def measured_features(items: Sequence[RankedItem]) -> list[str]:
+    """한 번이라도 값이 나온 피처. 나머지는 수단이 없거나 데이터가 없는 것입니다."""
+    return sorted(
+        key for key in FEATURE_KEYS if any(i.features.get(key) is not None for i in items)
     )
-    pool_axis = statistics.fmean(r.flavor_vec[axis] for r in candidates) if candidates else 0.0
-    expected_sign = 1.0 if ctx.taste_vec[axis] >= mean[axis] else -1.0
 
-    uses_expiring = [bool(by_id[i.recipe_id].essential_ids & ctx.expiring_ids) for i in personal]
-    pool_expiring = [bool(r.essential_ids & ctx.expiring_ids) for r in candidates]
-    scores = [item.match_score for item in served]
-    meta = result.response.meta
 
-    print(f"\n=== user {request.user_id} | pantry {len(ctx.pantry_ids)}", end="")
-    print(f" | expiring {sorted(ctx.expiring_ids)} | top_k {ctx.top_k}")
-    print(f"    taste {fmt3(request.taste_preference.as_vector())}", end="")
-    print(f" | cuisines {sorted(ctx.preferred_cuisines)} | max_min {ctx.max_cook_minutes}", end="")
-    print(f" | allergy {request.allergy_group_codes}")
-    print(f"    stage={meta.fallback_stage} degraded={meta.degraded}", end="")
-    print(f" candidates={meta.candidate_count} latency={meta.latency_ms}ms", end="")
-    print(f" served={len(served)} exploration={len(explored)}")
-    for item in served:
-        recipe = by_id[item.recipe_id]
-        compact = " ".join(
-            f"{name[0]}={'-' if value is None else f'{value:.2f}'}"
-            for name, value in blocks_of[item.recipe_id].items()
+def dominant_axis_index(user: tuple[float | None, ...], mean: tuple[float | None, ...]) -> int:
+    axes = taste.shared_axes(user, mean)
+    if not axes:
+        return 0
+    return max(axes, key=lambda i: abs(value_at(user, i) - value_at(mean, i)))
+
+
+def value_at(vector: tuple[float | None, ...], index: int) -> float:
+    value = vector[index]
+    return 0.0 if value is None else value
+
+
+def fmt(vector: tuple[float | None, ...]) -> str:
+    return "(" + ", ".join("-" if v is None else f"{v:.2f}" for v in vector) + ")"
+
+
+def evaluate(
+    profile: Mapping[str, Any],
+    recipes: Mapping[int, RecipeFeature],
+    clusters: Mapping[int, int],
+    corpus: CorpusStats,
+    allergen_groups: Mapping[str, list[int]],
+    policy: RankingPolicy,
+    rng: random.Random,
+) -> dict[str, Any]:
+    user_id = int(profile["user_id"])
+    top_k = int(profile.get("top_k", DEFAULT_TOP_K))
+    allergy = frozenset(
+        i for code in profile.get("allergy_group_codes", []) for i in allergen_groups.get(code, [])
+    )
+    ctx = context_of(profile, policy)
+    candidates, stage, max_missing = retrieve_with_fallback(
+        recipes, clusters, ctx, policy, top_k, allergy
+    )
+    result = service.rank_candidates(
+        candidates,
+        recipes,
+        ctx,
+        corpus,
+        policy,
+        rng,
+        top_k=top_k,
+        rng_seed=user_id,
+        max_missing_final=max_missing,
+    )
+    items = result.items
+    personal = [i for i in items if not i.is_exploration]
+    explored = [i for i in items if i.is_exploration]
+
+    print(f"\n=== user {user_id} | pantry {len(ctx.pantry_ids)}", end="")
+    print(f" | expiring {sorted(ctx.expiring_ids)} | top_k {top_k}")
+    print(f"    taste {fmt(ctx.taste_vec)} | cuisines {sorted(ctx.preferred_cuisines)}", end="")
+    print(f" | max_min {ctx.max_cook_minutes} | allergy {profile.get('allergy_group_codes', [])}")
+    print(f"    stage={stage} k={max_missing} candidates={len(candidates)}", end="")
+    print(f" latency={result.latency_ms}ms served={len(items)} exploration={len(explored)}")
+    for item in items:
+        recipe = recipes[item.recipe_id]
+        active = " ".join(
+            f"{key[2:6]}={item.features[key]:.2f}"
+            for key in FEATURE_KEYS
+            if item.features.get(key) is not None and DEFAULT_WEIGHTS.get(key, 0.0) > 0
         )
         flag = "X" if item.is_exploration else " "
-        print(f"    {item.rank:>2} {flag} {item.match_score:.3f} [{compact}]", end="")
-        print(f" miss={item.missing_count} {recipe.cuisine} {recipe.cook_minutes:>3}m", end="")
-        print(f" {item.recipe_title} | {item.reason}")
+        propensity = item.propensity or 0.0
+        print(f"    {item.final_rank:>2} {flag} {item.score:.3f} p={propensity:.3f}", end="")
+        print(f" [{active}] miss={item.missing_count} {recipe.cuisine}", end="")
+        print(f" {recipe.cook_minutes:>3}m {recipe.title} | {item.reason}")
 
-    cap = ctx.max_cook_minutes
-    checks: dict[str, object] = {
-        "allergy_clean": all(not (r.all_ids & allergy) for r in served_recipes),
-        "cook_cap_personal": cap is None
-        or all((by_id[i.recipe_id].cook_minutes or 0) <= cap for i in personal),
-        "missing_le_2_personal": all(i.missing_count <= cfg.max_missing for i in personal),
-        "exploration_count": len(explored),
-        "exploration_novel": all(
-            by_id[i.recipe_id].cuisine not in ctx.preferred_cuisines
-            or (blocks_of[i.recipe_id].get("taste") or 1.0) < cfg.novel_taste_max
-            for i in explored
-        ),
-        "taste_axis": FLAVOR_AXES[axis],
-        "taste_lift": (served_axis - pool_axis) * expected_sign,
-        "expiring_share_served": statistics.fmean(uses_expiring) if uses_expiring else 0.0,
-        "expiring_share_pool": statistics.fmean(pool_expiring) if pool_expiring else 0.0,
-        "ild_served": intra_list_distance(served_recipes),
-        "ild_baseline": intra_list_distance(baseline),
-        "score_min": min(scores) if scores else 0.0,
-        "score_max": max(scores) if scores else 0.0,
-        "score_std": statistics.pstdev(scores) if len(scores) > 1 else 0.0,
-        "reason_placeholder": any("None" in i.reason or "{" in i.reason for i in served),
-        "reason_kinds": sorted({reason_kind(i.reason) for i in served}),
-        "served_ids": [i.recipe_id for i in served],
-        "served_popularity": statistics.fmean(r.popularity_score or 0.0 for r in served_recipes),
-        "pool_popularity": statistics.fmean(r.popularity_score or 0.0 for r in candidates)
-        if candidates
-        else 0.0,
-        "stage": meta.fallback_stage,
-        "latency_ms": meta.latency_ms,
+    mean = corpus.flavor_mean or taste.as_vector(None)
+    axis = dominant_axis_index(ctx.taste_vec, mean)
+    top = [recipes[i.recipe_id] for i in personal[:TOP_N_FOR_TASTE]]
+    served_axis = statistics.fmean([axis_of(r, axis) for r in top]) if top else 0.0
+    pool_axis = statistics.fmean([axis_of(recipes[c.recipe_id], axis) for c in candidates])
+    sign = 1.0 if value_at(ctx.taste_vec, axis) >= value_at(mean, axis) else -1.0
+    uses_expiring = [bool(recipes[i.recipe_id].essential_ids & ctx.expiring_ids) for i in personal]
+    pool_expiring = [
+        bool(recipes[c.recipe_id].essential_ids & ctx.expiring_ids) for c in candidates
+    ]
+    checks: dict[str, Any] = {
+        "user_id": user_id,
+        "stage": stage,
+        "allergy_clean": all(not (recipes[i.recipe_id].all_ids & allergy) for i in items),
+        "cook_cap": ctx.max_cook_minutes is None
+        or all((recipes[i.recipe_id].cook_minutes or 0) <= ctx.max_cook_minutes for i in personal),
+        "propensity_ok": all(i.propensity is not None and 0 < i.propensity <= 1 for i in items),
+        "exploration": len(explored),
+        "explore_sources": sorted({str(i.explore_source) for i in explored}),
+        "taste_axis": taste.FLAVOR_AXES[axis],
+        "taste_lift": (served_axis - pool_axis) * sign,
+        "expiring_served": statistics.fmean(uses_expiring) if uses_expiring else 0.0,
+        "expiring_pool": statistics.fmean(pool_expiring) if pool_expiring else 0.0,
+        "ild": intra_list_distance([recipes[i.recipe_id].all_ids for i in items]),
+        "score_min": min(i.score for i in items),
+        "score_max": max(i.score for i in items),
+        "reason_ok": all(bool(i.reason) and "{" not in i.reason for i in items),
+        "measured": measured_features(items),
+        "served_ids": [i.recipe_id for i in items],
+        "latency_ms": result.latency_ms,
     }
-    print(f"    checks: allergy={checks['allergy_clean']}", end="")
-    print(f" cook_cap={checks['cook_cap_personal']}", end="")
-    print(f" miss<=2={checks['missing_le_2_personal']}", end="")
-    print(f" expl={checks['exploration_count']}/novel={checks['exploration_novel']}", end="")
-    print(f" taste[{checks['taste_axis']}]lift={float(str(checks['taste_lift'])):+.3f}")
-    print(f"            expiring served={float(str(checks['expiring_share_served'])):.2f}", end="")
-    print(f" pool={float(str(checks['expiring_share_pool'])):.2f}", end="")
-    print(f" | ILD served={float(str(checks['ild_served'])):.3f}", end="")
-    print(f" baseline={float(str(checks['ild_baseline'])):.3f}", end="")
-    print(f" | score {float(str(checks['score_min'])):.3f}", end="")
-    print(f"~{float(str(checks['score_max'])):.3f}", end="")
-    print(f" std={float(str(checks['score_std'])):.3f} | reasons={checks['reason_kinds']}")
+    print(f"    checks: allergy={checks['allergy_clean']} cook_cap={checks['cook_cap']}", end="")
+    print(f" propensity={checks['propensity_ok']} reason={checks['reason_ok']}", end="")
+    print(f" expl={checks['exploration']}{checks['explore_sources']}", end="")
+    print(f" taste[{checks['taste_axis']}]lift={checks['taste_lift']:+.3f}")
+    print(f"            expiring served={checks['expiring_served']:.2f}", end="")
+    print(f" pool={checks['expiring_pool']:.2f} | ILD {checks['ild']:.3f}", end="")
+    print(f" | score {checks['score_min']:.3f}~{checks['score_max']:.3f}", end="")
+    print(f" | measured {len(checks['measured'])}/17")
     return checks
 
 
 def penalty_scenario(
-    persona: dict[str, object],
-    pool: Sequence[RecipeCandidate],
+    profile: Mapping[str, Any],
+    recipes: Mapping[int, RecipeFeature],
+    clusters: Mapping[int, int],
     corpus: CorpusStats,
-    catalog: dict[str, object],
-    cfg: RankConfig,
+    policy: RankingPolicy,
     rng: random.Random,
 ) -> None:
-    """상위 1위 레시피를 '최근 조리'로 표시하면 점수가 절반이 되고 순위가 내려가는지."""
-    request, allergy = prepared(persona, catalog)
-    cold = UserHistory(allergy_ingredient_ids=allergy)
-    before = service.run_pipeline(context.build_context(request, cold, cfg), pool, corpus, cfg, rng)
-    top = next(i for i in before.response.recommendations if not i.is_exploration)
-    cooked = UserHistory(
-        allergy_ingredient_ids=allergy, cooked_recipe_ids=frozenset({top.recipe_id})
+    """1위 레시피를 최근 조리로 표시하면 점수가 절반이 되는지."""
+    ctx = context_of(profile, policy)
+    candidates, _, _ = retrieve_with_fallback(recipes, clusters, ctx, policy, DEFAULT_TOP_K)
+    before = service.rank_candidates(candidates, recipes, ctx, corpus, policy, rng)
+    top = next(i for i in before.items if not i.is_exploration)
+    warm = build_context(
+        user_id=ctx.user_id,
+        pantry_ids=ctx.pantry_ids,
+        expiring_ids=ctx.expiring_ids,
+        onboarding_taste=ctx.taste_vec,
+        history=UserHistory(cooked_recipe_ids=frozenset({top.recipe_id})),
+        max_cook_minutes=ctx.max_cook_minutes,
+        preferred_cuisines=ctx.preferred_cuisines,
     )
-    after = service.run_pipeline(
-        context.build_context(request, cooked, cfg), pool, corpus, cfg, rng
-    )
-    score_after = next(
-        s.score for s in after.log.candidates if s.candidate.recipe_id == top.recipe_id
-    )
-    rank_after = next(
-        (i.rank for i in after.response.recommendations if i.recipe_id == top.recipe_id), None
-    )
-    print(f"\n=== penalty scenario (user {request.user_id})", end="")
-    print(f" recipe {top.recipe_id} '{top.recipe_title}'")
-    print(f"    score {top.match_score:.3f} -> {score_after:.3f}", end="")
-    print(f" (ratio {score_after / top.match_score:.2f})")
-    print(f"    rank {top.rank} -> {rank_after if rank_after is not None else 'out of top-k'}")
+    after = service.rank_candidates(candidates, recipes, warm, corpus, policy, rng)
+    scored = next(s for s in after.scored if s.recipe_id == top.recipe_id)
+    rank_after = next((i.final_rank for i in after.items if i.recipe_id == top.recipe_id), None)
+    title = recipes[top.recipe_id].title
+    print(f"\n=== penalty (user {ctx.user_id}) recipe {top.recipe_id} {title}")
+    print(f"    score {top.score:.3f} -> {scored.score:.3f}", end="")
+    print(f" (penalty {scored.penalty:.2f})", end="")
+    print(f" rank {top.final_rank} -> {rank_after if rank_after else 'out of top-k'}")
 
 
 def feedback_scenario(
-    persona: dict[str, object],
-    pool: Sequence[RecipeCandidate],
+    profile: Mapping[str, Any],
+    recipes: Mapping[int, RecipeFeature],
+    clusters: Mapping[int, int],
     corpus: CorpusStats,
-    catalog: dict[str, object],
-    cfg: RankConfig,
+    policy: RankingPolicy,
     rng: random.Random,
 ) -> None:
-    """중립 취향 사용자가 매운 레시피를 20번 조리하면 상위 목록의 매운맛 평균이 오르는지."""
-    request, allergy = prepared(persona, catalog)
-    by_id = {recipe.recipe_id: recipe for recipe in pool}
+    """매운 레시피를 조리하면 상위 목록의 매운맛이 오르는지. 뒤 3축도 함께 배웁니다."""
+    base = context_of(profile, policy)
+    spicy = [r for r in recipes.values() if (r.flavor_vec[0] or 0.0) >= SPICY_THRESHOLD]
+    used = spicy[: policy.warm_event_count]
+    behavior: tuple[float | None, ...] | None = None
+    for recipe in used:
+        behavior = taste.update_behavior(behavior, recipe.flavor_vec, policy.ema_gamma)
 
-    def top_spicy(history: UserHistory) -> tuple[float, tuple[float, float, float]]:
-        ctx = context.build_context(request, history, cfg)
-        result = service.run_pipeline(ctx, pool, corpus, cfg, rng)
-        personal = [i for i in result.response.recommendations if not i.is_exploration]
-        top = personal[:TOP_N_FOR_TASTE]
-        return statistics.fmean(by_id[i.recipe_id].flavor_vec[0] for i in top), ctx.taste_vec
-
-    spicy_recipes = [r for r in pool if r.flavor_vec[0] >= SPICY_THRESHOLD][: cfg.warm_event_count]
-    behavior: tuple[float, float, float] | None = None
-    for recipe in spicy_recipes:
-        behavior = feedback.update_behavior_vector(behavior, recipe.flavor_vec, cfg)
-    cold = top_spicy(UserHistory(allergy_ingredient_ids=allergy))
-    warm = top_spicy(
-        UserHistory(
-            allergy_ingredient_ids=allergy,
-            behavior_taste_vec=behavior,
-            events_count=len(spicy_recipes),
+    def top_spicy(history: UserHistory) -> tuple[float, tuple[float | None, ...]]:
+        ctx = build_context(
+            user_id=base.user_id,
+            pantry_ids=base.pantry_ids,
+            expiring_ids=base.expiring_ids,
+            onboarding_taste=base.taste_vec,
+            history=history,
+            warm_event_count=policy.warm_event_count,
+            max_cook_minutes=base.max_cook_minutes,
+            preferred_cuisines=base.preferred_cuisines,
         )
-    )
-    print(f"\n=== feedback scenario (user {request.user_id})", end="")
-    print(f" after {len(spicy_recipes)} spicy cook events")
-    print(f"    effective taste {fmt3(cold[1])} -> {fmt3(warm[1])}")
+        candidates, _, _ = retrieve_with_fallback(recipes, clusters, ctx, policy, DEFAULT_TOP_K)
+        result = service.rank_candidates(candidates, recipes, ctx, corpus, policy, rng)
+        personal = [i for i in result.items if not i.is_exploration][:TOP_N_FOR_TASTE]
+        return statistics.fmean([axis_of(recipes[i.recipe_id], 0) for i in personal]), ctx.taste_vec
+
+    cold = top_spicy(UserHistory())
+    warm = top_spicy(UserHistory(behavior_taste_vec=behavior, events_count=len(used)))
+    print(f"\n=== feedback (user {base.user_id}) after {len(used)} spicy cooks")
+    print(f"    effective taste {fmt(cold[1])} -> {fmt(warm[1])}")
     print(f"    top-{TOP_N_FOR_TASTE} spicy mean {cold[0]:.3f} -> {warm[0]:.3f}")
-
-
-def determinism_check(
-    persona: dict[str, object],
-    pool: Sequence[RecipeCandidate],
-    corpus: CorpusStats,
-    catalog: dict[str, object],
-    cfg: RankConfig,
-    rng: random.Random,
-) -> bool:
-    request, allergy = prepared(persona, catalog)
-    ctx = context.build_context(request, UserHistory(allergy_ingredient_ids=allergy), cfg)
-    runs = [service.run_pipeline(ctx, pool, corpus, cfg, rng) for _ in range(3)]
-    score_maps = [{s.candidate.recipe_id: s.score for s in run.log.candidates} for run in runs]
-    personal = [
-        [i.recipe_id for i in run.response.recommendations if not i.is_exploration] for run in runs
-    ]
-    same = all(m == score_maps[0] for m in score_maps) and all(p == personal[0] for p in personal)
-    print(f"\n=== determinism (user {request.user_id}, 3 runs):", end="")
-    print(f" scores and personal slots identical = {same}")
-    return same
 
 
 def load_generator() -> ModuleType:
@@ -311,137 +406,81 @@ def load_generator() -> ModuleType:
     return module
 
 
-def percentile(sorted_values: Sequence[float], share: float) -> float:
-    return sorted_values[min(len(sorted_values) - 1, math.ceil(len(sorted_values) * share) - 1)]
-
-
-def latency_benchmark(corpus: CorpusStats, cfg: RankConfig, rng: random.Random) -> None:
-    """후보 500건(candidate_limit)에서 Stage 1~3 전체의 지연시간. DB 조회는 포함하지 않습니다.
-
-    운영에서는 Stage 1 을 SQL 이 맡으므로, 3,000건 풀을 파이썬으로 거르는 첫 단계는
-    따로 떼어 보여 줍니다. 엔진 몫은 scoring 이후입니다.
-    """
+def latency_benchmark(corpus: CorpusStats, policy: RankingPolicy, rng: random.Random) -> None:
+    """후보 500건에서 랭킹과 재정렬의 지연시간. DB 왕복은 포함하지 않습니다."""
     generator = load_generator()
-    big_pool = [
-        RecipeCandidate.model_validate(generator.build_recipe(i))
-        for i in range(1, LATENCY_POOL_SIZE + 1)
-    ]
-    request = RecommendRequest(
-        user_id=1, pantry_ingredient_ids=list(range(1, 61)), preferred_cuisines=["한식"], top_k=20
-    )
-    ctx = context.build_context(request, UserHistory(), cfg)
+    rows = [generator.build_recipe(i) for i in range(1, LATENCY_POOL + 1)]
+    recipes = {int(r["recipe_id"]): to_recipe(r) for r in rows}
+    clusters = {int(r["recipe_id"]): int(r["cluster_id"]) for r in rows}
+    ctx = build_context(user_id=1, pantry_ids=range(1, 61), preferred_cuisines=["한식"])
+    candidates = retrieve(recipes, clusters, ctx.pantry_ids, limit=policy.candidate_limit)
+
     timings: list[float] = []
-    candidates = 0
     for _ in range(LATENCY_RUNS):
         started = perf_counter()
-        result = service.run_pipeline(ctx, big_pool, corpus, cfg, rng)
+        service.rank_candidates(candidates, recipes, ctx, corpus, policy, rng, top_k=DEFAULT_TOP_K)
         timings.append((perf_counter() - started) * 1000)
-        candidates = result.response.meta.candidate_count
     timings.sort()
-    print(
-        f"\n=== latency: pool {LATENCY_POOL_SIZE} -> candidates {candidates}, {LATENCY_RUNS} runs"
-    )
-    print(f"    whole pipeline p50 {percentile(timings, 0.5):.1f}ms", end="")
-    print(f" p95 {percentile(timings, 0.95):.1f}ms max {timings[-1]:.1f}ms", end="")
-    print("  (target p95 < 58ms)")
+    print(f"\n=== latency: pool {LATENCY_POOL} -> candidates {len(candidates)}", end="")
+    print(f", {LATENCY_RUNS} runs")
+    print(f"    p50 {percentile(timings, 0.5):.1f}ms p95 {percentile(timings, 0.95):.1f}ms", end="")
+    print(f" max {timings[-1]:.1f}ms  (target p95 < 58ms)")
 
-    stage_ms: dict[str, list[float]] = {"stage1_py": [], "score": [], "rerank": [], "explain": []}
-    for _ in range(LATENCY_RUNS):
-        t0 = perf_counter()
-        selected = candidate.select_candidates(big_pool, ctx, cfg)
-        t1 = perf_counter()
-        scored = tuple(
-            penalty.apply_penalties(rank.score_candidate(r, ctx, corpus, cfg), ctx, cfg)
-            for r in selected.candidates
-        )
-        t2 = perf_counter()
-        served = rerank.rerank(scored, ctx, corpus, cfg, rng)
-        t3 = perf_counter()
-        stats = explain.block_stats(scored)
-        for entry in served:
-            explain.explain(
-                entry.scored, ctx, corpus, stats, cfg, is_exploration=entry.is_exploration
-            )
-        t4 = perf_counter()
-        parts = ((t1 - t0), (t2 - t1), (t3 - t2), (t4 - t3))
-        for name, seconds in zip(stage_ms, parts, strict=True):
-            stage_ms[name].append(seconds * 1000)
-    print("    stage median ms:", end="")
-    for name, values in stage_ms.items():
-        print(f" {name}={statistics.median(values):.1f}", end="")
-    print()
-    engine_only = sorted(
-        sum(parts)
-        for parts in zip(stage_ms["score"], stage_ms["rerank"], stage_ms["explain"], strict=True)
-    )
-    print(
-        f"    engine only (score+rerank+explain) p50 {percentile(engine_only, 0.5):.1f}ms", end=""
-    )
-    print(f" p95 {percentile(engine_only, 0.95):.1f}ms")
+
+def percentile(values: Sequence[float], share: float) -> float:
+    return values[min(len(values) - 1, math.ceil(len(values) * share) - 1)]
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--persona", type=int, default=None, help="run a single user_id")
-    parser.add_argument("--no-latency", action="store_true", help="skip the latency benchmark")
-    parser.add_argument("--only-latency", action="store_true", help="run only the benchmark")
+    parser.add_argument("--user", type=int, default=None, help="한 사람만 돌립니다")
+    parser.add_argument("--only-latency", action="store_true", help="지연시간만 잽니다")
     args = parser.parse_args()
 
     catalog = load_catalog()
-    recipes = catalog["recipes"]
-    if not isinstance(recipes, list):
-        raise TypeError("catalog.recipes must be a list")
-    pool = [RecipeCandidate.model_validate(row) for row in recipes]
-    corpus = build_corpus(catalog, pool)
-    cfg = RankConfig()
+    recipes = {int(r["recipe_id"]): to_recipe(r) for r in catalog["recipes"]}
+    clusters = {int(r["recipe_id"]): int(r["cluster_id"]) for r in catalog["recipes"]}
+    corpus = build_corpus(catalog, recipes)
+    policy = RankingPolicy()
     rng = random.SystemRandom()
+
     if args.only_latency:
-        latency_benchmark(corpus, cfg, rng)
+        latency_benchmark(corpus, policy, rng)
         return
 
-    personas = load_personas()
-    if args.persona is not None:
-        personas = [p for p in personas if p["user_id"] == args.persona]
+    profiles = load_profiles()
+    if args.user is not None:
+        profiles = [p for p in profiles if p["user_id"] == args.user]
 
-    print(f"pool={len(pool)} corpus_mean={fmt3(corpus.flavor_mean or ())}")
-    results = [evaluate_persona(p, pool, corpus, catalog, cfg, rng) for p in personas]
+    print(f"pool={len(recipes)} corpus_mean={fmt(corpus.flavor_mean or ())}")
+    print(f"active weights={sorted(k for k, w in DEFAULT_WEIGHTS.items() if w > 0)}")
+    print(f"unavailable={sorted(UNAVAILABLE_FEATURES)}")
+    results = [
+        evaluate(p, recipes, clusters, corpus, catalog["allergen_groups"], policy, rng)
+        for p in profiles
+    ]
 
-    served_ids: set[int] = set()
-    for r in results:
-        ids = r["served_ids"]
-        if isinstance(ids, list):
-            served_ids.update(int(i) for i in ids)
-    stages = [str(r["stage"]) for r in results]
-    lifts = [round(float(str(r["taste_lift"])), 3) for r in results]
-    ild_served = statistics.fmean(float(str(r["ild_served"])) for r in results)
-    ild_base = statistics.fmean(float(str(r["ild_baseline"])) for r in results)
-    pop_served = statistics.fmean(float(str(r["served_popularity"])) for r in results)
-    pop_pool = statistics.fmean(float(str(r["pool_popularity"])) for r in results)
+    served = {rid for r in results for rid in r["served_ids"]}
+    stages = [r["stage"] for r in results]
+    measured = sorted({k for r in results for k in r["measured"]})
+    print(f"\n=== aggregate over {len(results)} profiles")
+    print(f"    catalog coverage {len(served)}/{len(recipes)} = {len(served) / len(recipes):.2f}")
+    print(f"    stages { ({s: stages.count(s) for s in sorted(set(stages))}) }")
+    print(f"    allergy clean = {all(r['allergy_clean'] for r in results)}")
+    print(f"    cook cap (personal) = {all(r['cook_cap'] for r in results)}")
+    print(f"    propensity in (0,1] = {all(r['propensity_ok'] for r in results)}")
+    print(f"    reason filled = {all(r['reason_ok'] for r in results)}")
+    print(f"    exploration counts = {[r['exploration'] for r in results]}")
+    print(f"    taste lift = {[round(r['taste_lift'], 3) for r in results]}")
+    print(f"    ILD mean {statistics.fmean([r['ild'] for r in results]):.3f}")
+    print(f"    features measured anywhere {len(measured)}/17 = {measured}")
+    print(f"    latency ms = {[r['latency_ms'] for r in results]}")
 
-    print(f"\n=== aggregate over {len(results)} personas")
-    print(f"    catalog coverage {len(served_ids)}/{len(pool)} = {len(served_ids) / len(pool):.2f}")
-    print(f"    fallback stages {dict((s, stages.count(s)) for s in sorted(set(stages)))}")
-    print(f"    allergy clean all = {all(bool(r['allergy_clean']) for r in results)}")
-    print(f"    cook cap (personal) all = {all(bool(r['cook_cap_personal']) for r in results)}")
-    print(
-        f"    missing<=2 (personal) all = {all(bool(r['missing_le_2_personal']) for r in results)}"
-    )
-    print(f"    exploration counts = {[r['exploration_count'] for r in results]}")
-    print(f"    taste lift (expected > 0) = {lifts}")
-    print(f"    ILD served mean {ild_served:.3f} vs score-only baseline {ild_base:.3f}")
-    print(f"    served popularity mean {pop_served:.3f} vs candidate pool {pop_pool:.3f}")
-    print(
-        f"    reason placeholder anywhere = {any(bool(r['reason_placeholder']) for r in results)}"
-    )
-    print(f"    latency ms (120-recipe pool) = {[r['latency_ms'] for r in results]}")
-
-    if args.persona is None:
-        by_user = {p["user_id"]: p for p in personas}
-        determinism_check(by_user[1005], pool, corpus, catalog, cfg, rng)
-        penalty_scenario(by_user[1005], pool, corpus, catalog, cfg, rng)
-        feedback_scenario(by_user[1002], pool, corpus, catalog, cfg, rng)
-        if not args.no_latency:
-            latency_benchmark(corpus, cfg, rng)
+    if args.user is None:
+        by_id = {p["user_id"]: p for p in profiles}
+        penalty_scenario(by_id[1005], recipes, clusters, corpus, policy, rng)
+        feedback_scenario(by_id[1002], recipes, clusters, corpus, policy, rng)
+        latency_benchmark(corpus, policy, rng)
 
 
 if __name__ == "__main__":

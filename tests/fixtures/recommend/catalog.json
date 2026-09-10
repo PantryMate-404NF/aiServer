@@ -141,6 +141,7 @@
       "recipe_id": 1,
       "title": "햄 전",
       "cuisine": "한식",
+      "cluster_id": 3,
       "essential_ids": [
         9,
         28,
@@ -157,7 +158,10 @@
       "flavor_vec": [
         0.544,
         0.77,
-        0.38
+        0.38,
+        0.36,
+        0.747,
+        0.319
       ],
       "popularity_score": 0.332,
       "quality_score": 0.614,
@@ -168,6 +172,7 @@
       "recipe_id": 2,
       "title": "게맛살 샐러드",
       "cuisine": "양식",
+      "cluster_id": 7,
       "essential_ids": [
         27,
         42
@@ -182,7 +187,10 @@
       "flavor_vec": [
         0.14,
         0.426,
-        0.521
+        0.521,
+        0.273,
+        0.507,
+        0.612
       ],
       "popularity_score": 0.025,
       "quality_score": 0.758,
@@ -195,6 +203,7 @@
       "recipe_id": 3,
       "title": "당근 볶음밥",
       "cuisine": "중식",
+      "cluster_id": 7,
       "essential_ids": [
         1,
         5,
@@ -212,7 +221,10 @@
       "flavor_vec": [
         0.685,
         0.56,
-        0.568
+        0.568,
+        0.196,
+        0.593,
+        0.502
       ],
       "popularity_score": 0.494,
       "quality_score": 0.545,
@@ -226,6 +238,7 @@
       "recipe_id": 4,
       "title": "베이컨 스테이크",
       "cuisine": "양식",
+      "cluster_id": 6,
       "essential_ids": [
         6,
         29,
@@ -241,7 +254,10 @@
       "flavor_vec": [
         0.334,
         0.551,
-        0.268
+        0.268,
+        0.447,
+        0.399,
+        0.777
       ],
       "popularity_score": 0.386,
       "quality_score": 0.339,
@@ -252,6 +268,7 @@
       "recipe_id": 5,
       "title": "밀가루 스테이크",
       "cuisine": "양식",
+      "cluster_id": 5,
       "essential_ids": [
         6,
         13,
@@ -269,7 +286,10 @@
       "flavor_vec": [
         0.008,
         0.362,
-        0.397
+        0.397,
+        0.321,
+        0.596,
+        0.617
       ],
       "popularity_score": 0.001,
       "quality_score": 0.619,
@@ -283,6 +303,7 @@
       "recipe_id": 6,
       "title": "오이 구이",
       "cuisine": "일식",
+      "cluster_id": 4,
       "essential_ids": [
         7,
         28,
@@ -302,7 +323,10 @@
       "flavor_vec": [
         0.193,
         0.552,
-        0.387
+        0.387,
+        0.439,
+        0.821,
+        0.391
       ],
       "popularity_score": 0.536,
       "quality_score": 0.706,
@@ -313,6 +337,7 @@
       "recipe_id": 7,
       "title": "어묵 전골",
       "cuisine": "분식",
+      "cluster_id": 1,
       "essential_ids": [
         10,
         19,
@@ -334,7 +359,10 @@
       "flavor_vec": [
         0.636,
         0.54,
-        0.63
+        0.63,
+        0.17,
+        0.78,
+        0.64
       ],
       "popularity_score": 0.471,
       "quality_score": 0.906,
@@ -345,6 +373,7 @@
       "recipe_id": 8,
       "title": "복숭아 구이",
       "cuisine": "일식",
+      "cluster_id": 4,
       "essential_ids": [
         12,
         22,
@@ -365,7 +394,10 @@
       "flavor_vec": [
         0.334,
         0.567,
-        0.442
+        0.442,
+        0.307,
+        0.625,
+        0.486
       ],
       "popularity_score": 0.156,
       "quality_score": 0.764,
@@ -376,6 +408,7 @@
       "recipe_id": 9,
       "title": "새우 덮밥",
       "cuisine": "일식",
+      "cluster_id": 1,
       "essential_ids": [
         9,
         17,
@@ -393,7 +426,10 @@
       "flavor_vec": [
         0.141,
         0.529,
-        0.696
+        0.696,
+        0.463,
+        0.565,
+        0.121
       ],
       "popularity_score": 0.867,
       "quality_score": 0.536,
@@ -404,6 +440,7 @@
       "recipe_id": 10,
       "title": "계란 튀김",
       "cuisine": "중식",
+      "cluster_id": 1,
       "essential_ids": [
         11,
         25,
@@ -424,7 +461,10 @@
       "flavor_vec": [
         0.721,
         0.483,
-        0.487
+        0.487,
+        0.363,
+        0.745,
+        0.604
       ],
       "popularity_score": 0.188,
       "quality_score": 0.775,
@@ -435,6 +475,7 @@
       "recipe_id": 11,
       "title": "복숭아 덮밥",
       "cuisine": "일식",
+      "cluster_id": 2,
       "essential_ids": [
         29,
         39
@@ -450,7 +491,10 @@
       "flavor_vec": [
         0.273,
         0.529,
-        0.476
+        0.476,
+        0.421,
+        0.647,
+        0.289
       ],
       "popularity_score": 0.285,
       "quality_score": 0.492,
@@ -461,6 +505,7 @@
       "recipe_id": 12,
       "title": "파프리카 조림",
       "cuisine": "일식",
+      "cluster_id": 5,
       "essential_ids": [
         21,
         31,
@@ -478,7 +523,10 @@
       "flavor_vec": [
         0.072,
         0.651,
-        0.433
+        0.433,
+        0.385,
+        0.746,
+        0.441
       ],
       "popularity_score": 0.012,
       "quality_score": 0.915,
@@ -489,6 +537,7 @@
       "recipe_id": 13,
       "title": "대파 김밥",
       "cuisine": "분식",
+      "cluster_id": 7,
       "essential_ids": [
         2,
         14,
@@ -507,7 +556,10 @@
       "flavor_vec": [
         0.583,
         0.607,
-        0.521
+        0.521,
+        0.262,
+        0.5,
+        0.381
       ],
       "popularity_score": 0.255,
       "quality_score": 0.792,
@@ -521,6 +573,7 @@
       "recipe_id": 14,
       "title": "라면사리 조림",
       "cuisine": "일식",
+      "cluster_id": 6,
       "essential_ids": [
         25,
         28
@@ -537,7 +590,10 @@
       "flavor_vec": [
         0.174,
         0.645,
-        0.337
+        0.337,
+        0.217,
+        0.618,
+        0.448
       ],
       "popularity_score": 0.049,
       "quality_score": 0.609,
@@ -550,6 +606,7 @@
       "recipe_id": 15,
       "title": "애호박 볶음밥",
       "cuisine": "중식",
+      "cluster_id": 6,
       "essential_ids": [
         6,
         13
@@ -567,7 +624,10 @@
       "flavor_vec": [
         0.479,
         0.475,
-        0.642
+        0.642,
+        0.212,
+        0.841,
+        0.673
       ],
       "popularity_score": 0.367,
       "quality_score": 0.516,
@@ -578,6 +638,7 @@
       "recipe_id": 16,
       "title": "베이컨 조림",
       "cuisine": "한식",
+      "cluster_id": 6,
       "essential_ids": [
         9,
         29
@@ -595,7 +656,10 @@
       "flavor_vec": [
         0.681,
         0.763,
-        0.326
+        0.326,
+        0.21,
+        0.59,
+        0.342
       ],
       "popularity_score": 0.044,
       "quality_score": 0.749,
@@ -606,6 +670,7 @@
       "recipe_id": 17,
       "title": "토마토 김밥",
       "cuisine": "분식",
+      "cluster_id": 7,
       "essential_ids": [
         14,
         20,
@@ -623,7 +688,10 @@
       "flavor_vec": [
         0.652,
         0.597,
-        0.735
+        0.735,
+        0.379,
+        0.543,
+        0.418
       ],
       "popularity_score": 0.115,
       "quality_score": 0.938,
@@ -634,6 +702,7 @@
       "recipe_id": 18,
       "title": "고추 샐러드",
       "cuisine": "양식",
+      "cluster_id": 4,
       "essential_ids": [
         5,
         36
@@ -650,7 +719,10 @@
       "flavor_vec": [
         0.318,
         0.361,
-        0.558
+        0.558,
+        0.485,
+        0.714,
+        0.618
       ],
       "popularity_score": 0.642,
       "quality_score": 0.475,
@@ -661,6 +733,7 @@
       "recipe_id": 19,
       "title": "고등어 무침",
       "cuisine": "한식",
+      "cluster_id": 6,
       "essential_ids": [
         4,
         19
@@ -675,7 +748,10 @@
       "flavor_vec": [
         0.646,
         0.679,
-        0.25
+        0.25,
+        0.145,
+        0.749,
+        0.434
       ],
       "popularity_score": 0.644,
       "quality_score": 0.673,
@@ -686,6 +762,7 @@
       "recipe_id": 20,
       "title": "밀가루 전골",
       "cuisine": "분식",
+      "cluster_id": 6,
       "essential_ids": [
         1,
         5,
@@ -704,7 +781,10 @@
       "flavor_vec": [
         0.92,
         0.501,
-        0.626
+        0.626,
+        0.162,
+        0.595,
+        0.59
       ],
       "popularity_score": 0.427,
       "quality_score": null,
@@ -715,6 +795,7 @@
       "recipe_id": 21,
       "title": "두부 샐러드",
       "cuisine": "양식",
+      "cluster_id": 7,
       "essential_ids": [
         10,
         19
@@ -729,7 +810,10 @@
       "flavor_vec": [
         0.371,
         0.386,
-        0.231
+        0.231,
+        0.562,
+        0.388,
+        0.529
       ],
       "popularity_score": 0.449,
       "quality_score": 0.66,
@@ -740,6 +824,7 @@
       "recipe_id": 22,
       "title": "베이컨 무침",
       "cuisine": "한식",
+      "cluster_id": 7,
       "essential_ids": [
         8,
         29,
@@ -759,7 +844,10 @@
       "flavor_vec": [
         0.558,
         0.732,
-        0.485
+        0.485,
+        0.445,
+        0.626,
+        0.261
       ],
       "popularity_score": 0.449,
       "quality_score": 0.681,
@@ -770,6 +858,7 @@
       "recipe_id": 23,
       "title": "파프리카 그라탕",
       "cuisine": "양식",
+      "cluster_id": 4,
       "essential_ids": [
         28,
         31,
@@ -789,7 +878,10 @@
       "flavor_vec": [
         0.008,
         0.322,
-        0.477
+        0.477,
+        0.598,
+        0.452,
+        0.602
       ],
       "popularity_score": 0.578,
       "quality_score": 0.544,
@@ -802,6 +894,7 @@
       "recipe_id": 24,
       "title": "김치 샐러드",
       "cuisine": "양식",
+      "cluster_id": 3,
       "essential_ids": [
         7,
         18,
@@ -819,7 +912,10 @@
       "flavor_vec": [
         0.384,
         0.521,
-        0.284
+        0.284,
+        0.538,
+        0.535,
+        0.492
       ],
       "popularity_score": 0.285,
       "quality_score": 0.383,
@@ -830,6 +926,7 @@
       "recipe_id": 25,
       "title": "애호박 탕",
       "cuisine": "중식",
+      "cluster_id": 4,
       "essential_ids": [
         6,
         18,
@@ -849,7 +946,10 @@
       "flavor_vec": [
         0.724,
         0.751,
-        0.647
+        0.647,
+        0.349,
+        0.583,
+        0.739
       ],
       "popularity_score": 0.399,
       "quality_score": 0.924,
@@ -862,6 +962,7 @@
       "recipe_id": 26,
       "title": "김치 구이",
       "cuisine": "일식",
+      "cluster_id": 2,
       "essential_ids": [
         17,
         21,
@@ -880,7 +981,10 @@
       "flavor_vec": [
         0.086,
         0.58,
-        0.482
+        0.482,
+        0.124,
+        0.815,
+        0.358
       ],
       "popularity_score": 0.311,
       "quality_score": 0.32,
@@ -891,6 +995,7 @@
       "recipe_id": 27,
       "title": "오이 구이",
       "cuisine": "일식",
+      "cluster_id": 6,
       "essential_ids": [
         23,
         32,
@@ -910,7 +1015,10 @@
       "flavor_vec": [
         0.117,
         0.568,
-        0.663
+        0.663,
+        0.417,
+        0.793,
+        0.468
       ],
       "popularity_score": 0.63,
       "quality_score": 0.981,
@@ -924,6 +1032,7 @@
       "recipe_id": 28,
       "title": "양배추 리소토",
       "cuisine": "양식",
+      "cluster_id": 4,
       "essential_ids": [
         7,
         12,
@@ -943,7 +1052,10 @@
       "flavor_vec": [
         0.241,
         0.493,
-        0.527
+        0.527,
+        0.433,
+        0.529,
+        0.552
       ],
       "popularity_score": 0.665,
       "quality_score": 0.512,
@@ -956,6 +1068,7 @@
       "recipe_id": 29,
       "title": "당근 스테이크",
       "cuisine": "양식",
+      "cluster_id": 6,
       "essential_ids": [
         5,
         16,
@@ -977,7 +1090,10 @@
       "flavor_vec": [
         0.131,
         0.601,
-        0.535
+        0.535,
+        0.409,
+        0.659,
+        0.537
       ],
       "popularity_score": 0.43,
       "quality_score": 0.533,
@@ -988,6 +1104,7 @@
       "recipe_id": 30,
       "title": "애호박 덮밥",
       "cuisine": "중식",
+      "cluster_id": 6,
       "essential_ids": [
         6,
         24
@@ -1003,7 +1120,10 @@
       "flavor_vec": [
         0.672,
         0.593,
-        0.384
+        0.384,
+        0.386,
+        0.925,
+        0.643
       ],
       "popularity_score": 0.909,
       "quality_score": 0.818,
@@ -1014,6 +1134,7 @@
       "recipe_id": 31,
       "title": "감자 리소토",
       "cuisine": "양식",
+      "cluster_id": 2,
       "essential_ids": [
         4,
         39
@@ -1028,7 +1149,10 @@
       "flavor_vec": [
         0.264,
         0.397,
-        0.27
+        0.27,
+        0.448,
+        0.743,
+        0.436
       ],
       "popularity_score": 0.229,
       "quality_score": 0.997,
@@ -1041,6 +1165,7 @@
       "recipe_id": 32,
       "title": "콩나물 전",
       "cuisine": "한식",
+      "cluster_id": 1,
       "essential_ids": [
         1,
         9,
@@ -1058,7 +1183,10 @@
       "flavor_vec": [
         0.575,
         0.489,
-        0.213
+        0.213,
+        0.157,
+        0.832,
+        0.449
       ],
       "popularity_score": 0.164,
       "quality_score": 0.381,
@@ -1069,6 +1197,7 @@
       "recipe_id": 33,
       "title": "게맛살 덮밥",
       "cuisine": "일식",
+      "cluster_id": 6,
       "essential_ids": [
         4,
         42
@@ -1086,7 +1215,10 @@
       "flavor_vec": [
         0.126,
         0.512,
-        0.676
+        0.676,
+        0.336,
+        0.592,
+        0.471
       ],
       "popularity_score": 0.042,
       "quality_score": 0.948,
@@ -1100,6 +1232,7 @@
       "recipe_id": 34,
       "title": "어묵 볶음밥",
       "cuisine": "중식",
+      "cluster_id": 7,
       "essential_ids": [
         22,
         27,
@@ -1117,7 +1250,10 @@
       "flavor_vec": [
         0.64,
         0.566,
-        0.624
+        0.624,
+        0.447,
+        0.851,
+        0.899
       ],
       "popularity_score": 0.105,
       "quality_score": 0.879,
@@ -1131,6 +1267,7 @@
       "recipe_id": 35,
       "title": "고등어 샐러드",
       "cuisine": "양식",
+      "cluster_id": 5,
       "essential_ids": [
         4,
         15,
@@ -1152,7 +1289,10 @@
       "flavor_vec": [
         0.054,
         0.536,
-        0.502
+        0.502,
+        0.381,
+        0.557,
+        0.713
       ],
       "popularity_score": 0.713,
       "quality_score": 0.878,
@@ -1163,6 +1303,7 @@
       "recipe_id": 36,
       "title": "양파 김밥",
       "cuisine": "분식",
+      "cluster_id": 5,
       "essential_ids": [
         1,
         2,
@@ -1181,7 +1322,10 @@
       "flavor_vec": [
         0.705,
         0.495,
-        0.445
+        0.445,
+        0.18,
+        0.468,
+        0.6
       ],
       "popularity_score": 0.382,
       "quality_score": 0.773,
@@ -1195,6 +1339,7 @@
       "recipe_id": 37,
       "title": "스파게티면 튀김",
       "cuisine": "중식",
+      "cluster_id": 3,
       "essential_ids": [
         24,
         43
@@ -1210,7 +1355,10 @@
       "flavor_vec": [
         0.728,
         0.558,
-        0.443
+        0.443,
+        0.174,
+        0.789,
+        0.883
       ],
       "popularity_score": 0.188,
       "quality_score": 0.805,
@@ -1223,6 +1371,7 @@
       "recipe_id": 38,
       "title": "잣 우동",
       "cuisine": "일식",
+      "cluster_id": 7,
       "essential_ids": [
         26,
         44
@@ -1236,7 +1385,10 @@
       "flavor_vec": [
         0.152,
         0.618,
-        0.658
+        0.658,
+        0.145,
+        0.556,
+        0.441
       ],
       "popularity_score": 0.951,
       "quality_score": 0.749,
@@ -1247,6 +1399,7 @@
       "recipe_id": 39,
       "title": "파프리카 그라탕",
       "cuisine": "양식",
+      "cluster_id": 6,
       "essential_ids": [
         31,
         40
@@ -1262,7 +1415,10 @@
       "flavor_vec": [
         0.362,
         0.584,
-        0.207
+        0.207,
+        0.347,
+        0.396,
+        0.425
       ],
       "popularity_score": 0.788,
       "quality_score": 0.342,
@@ -1273,6 +1429,7 @@
       "recipe_id": 40,
       "title": "밀가루 떡볶이",
       "cuisine": "분식",
+      "cluster_id": 3,
       "essential_ids": [
         19,
         23
@@ -1286,7 +1443,10 @@
       "flavor_vec": [
         0.678,
         0.587,
-        0.699
+        0.699,
+        0.18,
+        0.488,
+        0.475
       ],
       "popularity_score": 0.54,
       "quality_score": null,
@@ -1297,6 +1457,7 @@
       "recipe_id": 41,
       "title": "메밀면 덮밥",
       "cuisine": "일식",
+      "cluster_id": 2,
       "essential_ids": [
         26,
         43
@@ -1311,7 +1472,10 @@
       "flavor_vec": [
         0.021,
         0.452,
-        0.38
+        0.38,
+        0.132,
+        0.827,
+        0.473
       ],
       "popularity_score": 0.106,
       "quality_score": 0.784,
@@ -1322,6 +1486,7 @@
       "recipe_id": 42,
       "title": "우유 우동",
       "cuisine": "일식",
+      "cluster_id": 3,
       "essential_ids": [
         3,
         12
@@ -1336,7 +1501,10 @@
       "flavor_vec": [
         0.176,
         0.36,
-        0.303
+        0.303,
+        0.186,
+        0.485,
+        0.213
       ],
       "popularity_score": 0.655,
       "quality_score": 0.865,
@@ -1347,6 +1515,7 @@
       "recipe_id": 43,
       "title": "오이 덮밥",
       "cuisine": "한식",
+      "cluster_id": 1,
       "essential_ids": [
         1,
         16,
@@ -1368,7 +1537,10 @@
       "flavor_vec": [
         0.584,
         0.782,
-        0.244
+        0.244,
+        0.307,
+        0.739,
+        0.541
       ],
       "popularity_score": 0.736,
       "quality_score": 0.88,
@@ -1379,6 +1551,7 @@
       "recipe_id": 44,
       "title": "고추 볶음밥",
       "cuisine": "중식",
+      "cluster_id": 6,
       "essential_ids": [
         3,
         4,
@@ -1397,7 +1570,10 @@
       "flavor_vec": [
         0.666,
         0.687,
-        0.482
+        0.482,
+        0.231,
+        0.818,
+        0.649
       ],
       "popularity_score": 0.795,
       "quality_score": 0.804,
@@ -1411,6 +1587,7 @@
       "recipe_id": 45,
       "title": "복숭아 떡볶이",
       "cuisine": "분식",
+      "cluster_id": 6,
       "essential_ids": [
         3,
         39
@@ -1424,7 +1601,10 @@
       "flavor_vec": [
         0.939,
         0.417,
-        0.723
+        0.723,
+        0.451,
+        0.794,
+        0.432
       ],
       "popularity_score": 0.268,
       "quality_score": 0.635,
@@ -1435,6 +1615,7 @@
       "recipe_id": 46,
       "title": "마늘 김밥",
       "cuisine": "분식",
+      "cluster_id": 0,
       "essential_ids": [
         3,
         33,
@@ -1451,7 +1632,10 @@
       "flavor_vec": [
         0.575,
         0.62,
-        0.506
+        0.506,
+        0.394,
+        0.655,
+        0.436
       ],
       "popularity_score": 0.23,
       "quality_score": 0.953,
@@ -1462,6 +1646,7 @@
       "recipe_id": 47,
       "title": "햄 조림",
       "cuisine": "일식",
+      "cluster_id": 5,
       "essential_ids": [
         4,
         7,
@@ -1480,7 +1665,10 @@
       "flavor_vec": [
         0.396,
         0.658,
-        0.427
+        0.427,
+        0.308,
+        0.676,
+        0.219
       ],
       "popularity_score": 0.873,
       "quality_score": 0.808,
@@ -1491,6 +1679,7 @@
       "recipe_id": 48,
       "title": "쌀 조림",
       "cuisine": "일식",
+      "cluster_id": 0,
       "essential_ids": [
         15,
         17,
@@ -1511,7 +1700,10 @@
       "flavor_vec": [
         0.301,
         0.531,
-        0.396
+        0.396,
+        0.158,
+        0.769,
+        0.475
       ],
       "popularity_score": 0.274,
       "quality_score": 0.8,
@@ -1522,6 +1714,7 @@
       "recipe_id": 49,
       "title": "감자 조림",
       "cuisine": "한식",
+      "cluster_id": 7,
       "essential_ids": [
         4,
         15
@@ -1538,6 +1731,9 @@
       "flavor_vec": [
         0.651,
         0.618,
+        0.261,
+        0.413,
+        0.509,
         0.261
       ],
       "popularity_score": 0.933,
@@ -1551,6 +1747,7 @@
       "recipe_id": 50,
       "title": "바지락 리소토",
       "cuisine": "양식",
+      "cluster_id": 6,
       "essential_ids": [
         16,
         32,
@@ -1572,7 +1769,10 @@
       "flavor_vec": [
         0.341,
         0.464,
-        0.298
+        0.298,
+        0.35,
+        0.388,
+        0.415
       ],
       "popularity_score": 0.088,
       "quality_score": 0.645,
@@ -1583,6 +1783,7 @@
       "recipe_id": 51,
       "title": "쌀 스테이크",
       "cuisine": "양식",
+      "cluster_id": 2,
       "essential_ids": [
         7,
         19,
@@ -1602,7 +1803,10 @@
       "flavor_vec": [
         0.349,
         0.411,
-        0.5
+        0.5,
+        0.391,
+        0.643,
+        0.65
       ],
       "popularity_score": 0.906,
       "quality_score": 0.96,
@@ -1616,6 +1820,7 @@
       "recipe_id": 52,
       "title": "잣 그라탕",
       "cuisine": "양식",
+      "cluster_id": 1,
       "essential_ids": [
         12,
         21,
@@ -1633,7 +1838,10 @@
       "flavor_vec": [
         0.191,
         0.506,
-        0.517
+        0.517,
+        0.44,
+        0.403,
+        0.505
       ],
       "popularity_score": 0.626,
       "quality_score": 0.526,
@@ -1647,6 +1855,7 @@
       "recipe_id": 53,
       "title": "버섯 국",
       "cuisine": "한식",
+      "cluster_id": 6,
       "essential_ids": [
         9,
         43
@@ -1662,7 +1871,10 @@
       "flavor_vec": [
         0.546,
         0.711,
-        0.517
+        0.517,
+        0.184,
+        0.715,
+        0.294
       ],
       "popularity_score": 0.657,
       "quality_score": 0.36,
@@ -1673,6 +1885,7 @@
       "recipe_id": 54,
       "title": "새우 조림",
       "cuisine": "일식",
+      "cluster_id": 0,
       "essential_ids": [
         17,
         24,
@@ -1692,7 +1905,10 @@
       "flavor_vec": [
         0.151,
         0.552,
-        0.562
+        0.562,
+        0.37,
+        0.478,
+        0.279
       ],
       "popularity_score": 0.082,
       "quality_score": 0.673,
@@ -1703,6 +1919,7 @@
       "recipe_id": 55,
       "title": "게맛살 우동",
       "cuisine": "일식",
+      "cluster_id": 2,
       "essential_ids": [
         8,
         21,
@@ -1724,7 +1941,10 @@
       "flavor_vec": [
         0.261,
         0.676,
-        0.501
+        0.501,
+        0.24,
+        0.528,
+        0.42
       ],
       "popularity_score": 0.115,
       "quality_score": 0.477,
@@ -1738,6 +1958,7 @@
       "recipe_id": 56,
       "title": "고추 스테이크",
       "cuisine": "양식",
+      "cluster_id": 0,
       "essential_ids": [
         7,
         26,
@@ -1755,7 +1976,10 @@
       "flavor_vec": [
         0.076,
         0.576,
-        0.48
+        0.48,
+        0.539,
+        0.394,
+        0.542
       ],
       "popularity_score": 0.722,
       "quality_score": 0.839,
@@ -1769,6 +1993,7 @@
       "recipe_id": 57,
       "title": "고등어 볶음",
       "cuisine": "한식",
+      "cluster_id": 7,
       "essential_ids": [
         17,
         19,
@@ -1787,7 +2012,10 @@
       "flavor_vec": [
         0.621,
         0.628,
-        0.389
+        0.389,
+        0.419,
+        0.885,
+        0.615
       ],
       "popularity_score": 0.24,
       "quality_score": 0.471,
@@ -1798,6 +2026,7 @@
       "recipe_id": 58,
       "title": "대파 리소토",
       "cuisine": "양식",
+      "cluster_id": 7,
       "essential_ids": [
         2,
         31,
@@ -1818,7 +2047,10 @@
       "flavor_vec": [
         0.023,
         0.506,
-        0.377
+        0.377,
+        0.291,
+        0.714,
+        0.688
       ],
       "popularity_score": 0.251,
       "quality_score": 0.938,
@@ -1832,6 +2064,7 @@
       "recipe_id": 59,
       "title": "복숭아 떡볶이",
       "cuisine": "분식",
+      "cluster_id": 0,
       "essential_ids": [
         2,
         18,
@@ -1851,7 +2084,10 @@
       "flavor_vec": [
         0.706,
         0.631,
-        0.425
+        0.425,
+        0.469,
+        0.758,
+        0.677
       ],
       "popularity_score": 0.856,
       "quality_score": 0.389,
@@ -1864,6 +2100,7 @@
       "recipe_id": 60,
       "title": "치즈 전",
       "cuisine": "한식",
+      "cluster_id": 0,
       "essential_ids": [
         13,
         27
@@ -1879,7 +2116,10 @@
       "flavor_vec": [
         0.846,
         0.522,
-        0.255
+        0.255,
+        0.123,
+        0.679,
+        0.385
       ],
       "popularity_score": 0.496,
       "quality_score": null,
@@ -1890,6 +2130,7 @@
       "recipe_id": 61,
       "title": "상추 튀김",
       "cuisine": "중식",
+      "cluster_id": 2,
       "essential_ids": [
         11,
         17,
@@ -1910,7 +2151,10 @@
       "flavor_vec": [
         0.686,
         0.49,
-        0.363
+        0.363,
+        0.158,
+        0.615,
+        0.704
       ],
       "popularity_score": 0.934,
       "quality_score": 0.303,
@@ -1923,6 +2167,7 @@
       "recipe_id": 62,
       "title": "양배추 볶음밥",
       "cuisine": "중식",
+      "cluster_id": 6,
       "essential_ids": [
         7,
         13
@@ -1937,7 +2182,10 @@
       "flavor_vec": [
         0.687,
         0.624,
-        0.293
+        0.293,
+        0.536,
+        0.822,
+        0.687
       ],
       "popularity_score": 0.094,
       "quality_score": 0.641,
@@ -1948,6 +2196,7 @@
       "recipe_id": 63,
       "title": "오징어 김밥",
       "cuisine": "분식",
+      "cluster_id": 2,
       "essential_ids": [
         6,
         18,
@@ -1966,7 +2215,10 @@
       "flavor_vec": [
         0.65,
         0.632,
-        0.48
+        0.48,
+        0.184,
+        0.769,
+        0.445
       ],
       "popularity_score": 0.916,
       "quality_score": 0.376,
@@ -1977,6 +2229,7 @@
       "recipe_id": 64,
       "title": "파프리카 김밥",
       "cuisine": "분식",
+      "cluster_id": 0,
       "essential_ids": [
         7,
         31
@@ -1991,7 +2244,10 @@
       "flavor_vec": [
         0.761,
         0.677,
-        0.496
+        0.496,
+        0.335,
+        0.614,
+        0.661
       ],
       "popularity_score": 0.155,
       "quality_score": 0.303,
@@ -2005,6 +2261,7 @@
       "recipe_id": 65,
       "title": "김치 덮밥",
       "cuisine": "중식",
+      "cluster_id": 1,
       "essential_ids": [
         2,
         8,
@@ -2024,7 +2281,10 @@
       "flavor_vec": [
         0.479,
         0.811,
-        0.495
+        0.495,
+        0.25,
+        0.694,
+        0.785
       ],
       "popularity_score": 0.499,
       "quality_score": 0.874,
@@ -2035,6 +2295,7 @@
       "recipe_id": 66,
       "title": "김치 탕",
       "cuisine": "중식",
+      "cluster_id": 1,
       "essential_ids": [
         4,
         13,
@@ -2054,7 +2315,10 @@
       "flavor_vec": [
         0.379,
         0.727,
-        0.572
+        0.572,
+        0.449,
+        0.835,
+        0.588
       ],
       "popularity_score": 0.015,
       "quality_score": 0.92,
@@ -2065,6 +2329,7 @@
       "recipe_id": 67,
       "title": "시금치 덮밥",
       "cuisine": "일식",
+      "cluster_id": 1,
       "essential_ids": [
         8,
         30
@@ -2078,7 +2343,10 @@
       "flavor_vec": [
         0.272,
         0.432,
-        0.445
+        0.445,
+        0.242,
+        0.598,
+        0.391
       ],
       "popularity_score": 0.702,
       "quality_score": 0.572,
@@ -2092,6 +2360,7 @@
       "recipe_id": 68,
       "title": "밀가루 찌개",
       "cuisine": "한식",
+      "cluster_id": 0,
       "essential_ids": [
         23,
         43
@@ -2106,7 +2375,10 @@
       "flavor_vec": [
         0.627,
         0.582,
-        0.229
+        0.229,
+        0.12,
+        0.591,
+        0.517
       ],
       "popularity_score": 0.095,
       "quality_score": 0.936,
@@ -2120,6 +2392,7 @@
       "recipe_id": 69,
       "title": "사과 볶음밥",
       "cuisine": "중식",
+      "cluster_id": 5,
       "essential_ids": [
         19,
         40
@@ -2135,7 +2408,10 @@
       "flavor_vec": [
         0.707,
         0.558,
-        0.531
+        0.531,
+        0.475,
+        0.627,
+        0.754
       ],
       "popularity_score": 0.265,
       "quality_score": 0.591,
@@ -2148,6 +2424,7 @@
       "recipe_id": 70,
       "title": "잣 김밥",
       "cuisine": "분식",
+      "cluster_id": 5,
       "essential_ids": [
         15,
         40,
@@ -2164,7 +2441,10 @@
       "flavor_vec": [
         0.845,
         0.77,
-        0.47
+        0.47,
+        0.275,
+        0.661,
+        0.384
       ],
       "popularity_score": 0.342,
       "quality_score": 0.545,
@@ -2175,6 +2455,7 @@
       "recipe_id": 71,
       "title": "잣 샐러드",
       "cuisine": "양식",
+      "cluster_id": 2,
       "essential_ids": [
         6,
         44
@@ -2191,7 +2472,10 @@
       "flavor_vec": [
         0.244,
         0.392,
-        0.398
+        0.398,
+        0.475,
+        0.696,
+        0.769
       ],
       "popularity_score": 0.01,
       "quality_score": 0.918,
@@ -2202,6 +2486,7 @@
       "recipe_id": 72,
       "title": "바지락 튀김",
       "cuisine": "중식",
+      "cluster_id": 1,
       "essential_ids": [
         19,
         41
@@ -2218,7 +2503,10 @@
       "flavor_vec": [
         0.484,
         0.614,
-        0.441
+        0.441,
+        0.452,
+        0.92,
+        0.847
       ],
       "popularity_score": 0.204,
       "quality_score": 0.832,
@@ -2229,6 +2517,7 @@
       "recipe_id": 73,
       "title": "고추 국",
       "cuisine": "한식",
+      "cluster_id": 2,
       "essential_ids": [
         35,
         36
@@ -2246,7 +2535,10 @@
       "flavor_vec": [
         0.78,
         0.602,
-        0.267
+        0.267,
+        0.323,
+        0.834,
+        0.285
       ],
       "popularity_score": 0.211,
       "quality_score": 0.993,
@@ -2257,6 +2549,7 @@
       "recipe_id": 74,
       "title": "땅콩 전골",
       "cuisine": "분식",
+      "cluster_id": 0,
       "essential_ids": [
         13,
         24,
@@ -2277,7 +2570,10 @@
       "flavor_vec": [
         0.652,
         0.415,
-        0.516
+        0.516,
+        0.24,
+        0.485,
+        0.429
       ],
       "popularity_score": 0.375,
       "quality_score": 0.979,
@@ -2288,6 +2584,7 @@
       "recipe_id": 75,
       "title": "마늘 우동",
       "cuisine": "일식",
+      "cluster_id": 4,
       "essential_ids": [
         3,
         10,
@@ -2306,7 +2603,10 @@
       "flavor_vec": [
         0.121,
         0.364,
-        0.432
+        0.432,
+        0.425,
+        0.573,
+        0.479
       ],
       "popularity_score": 0.397,
       "quality_score": 0.537,
@@ -2317,6 +2617,7 @@
       "recipe_id": 76,
       "title": "어묵 무침",
       "cuisine": "한식",
+      "cluster_id": 2,
       "essential_ids": [
         22,
         27,
@@ -2335,7 +2636,10 @@
       "flavor_vec": [
         0.466,
         0.569,
-        0.481
+        0.481,
+        0.376,
+        0.833,
+        0.305
       ],
       "popularity_score": 0.634,
       "quality_score": 0.385,
@@ -2346,6 +2650,7 @@
       "recipe_id": 77,
       "title": "밀가루 그라탕",
       "cuisine": "양식",
+      "cluster_id": 4,
       "essential_ids": [
         23,
         29
@@ -2361,7 +2666,10 @@
       "flavor_vec": [
         0.036,
         0.698,
-        0.369
+        0.369,
+        0.35,
+        0.625,
+        0.684
       ],
       "popularity_score": 0.686,
       "quality_score": 0.584,
@@ -2372,6 +2680,7 @@
       "recipe_id": 78,
       "title": "게맛살 탕",
       "cuisine": "중식",
+      "cluster_id": 3,
       "essential_ids": [
         12,
         42
@@ -2386,7 +2695,10 @@
       "flavor_vec": [
         0.495,
         0.617,
-        0.526
+        0.526,
+        0.214,
+        0.694,
+        0.743
       ],
       "popularity_score": 0.847,
       "quality_score": 0.647,
@@ -2397,6 +2709,7 @@
       "recipe_id": 79,
       "title": "햄 덮밥",
       "cuisine": "일식",
+      "cluster_id": 3,
       "essential_ids": [
         15,
         28
@@ -2412,7 +2725,10 @@
       "flavor_vec": [
         0.084,
         0.579,
-        0.698
+        0.698,
+        0.106,
+        0.692,
+        0.284
       ],
       "popularity_score": 0.91,
       "quality_score": 0.75,
@@ -2425,6 +2741,7 @@
       "recipe_id": 80,
       "title": "대파 탕",
       "cuisine": "중식",
+      "cluster_id": 1,
       "essential_ids": [
         2,
         9
@@ -2441,7 +2758,10 @@
       "flavor_vec": [
         0.459,
         0.653,
-        0.427
+        0.427,
+        0.492,
+        0.895,
+        0.819
       ],
       "popularity_score": 0.566,
       "quality_score": null,
@@ -2452,6 +2772,7 @@
       "recipe_id": 81,
       "title": "닭고기 볶음",
       "cuisine": "분식",
+      "cluster_id": 2,
       "essential_ids": [
         4,
         16,
@@ -2468,7 +2789,10 @@
       "flavor_vec": [
         0.719,
         0.791,
-        0.618
+        0.618,
+        0.406,
+        0.468,
+        0.551
       ],
       "popularity_score": 0.803,
       "quality_score": 0.64,
@@ -2479,6 +2803,7 @@
       "recipe_id": 82,
       "title": "메밀면 볶음",
       "cuisine": "분식",
+      "cluster_id": 1,
       "essential_ids": [
         38,
         43
@@ -2493,7 +2818,10 @@
       "flavor_vec": [
         0.687,
         0.631,
-        0.378
+        0.378,
+        0.189,
+        0.643,
+        0.507
       ],
       "popularity_score": 0.416,
       "quality_score": 0.509,
@@ -2504,6 +2832,7 @@
       "recipe_id": 83,
       "title": "닭고기 김밥",
       "cuisine": "분식",
+      "cluster_id": 4,
       "essential_ids": [
         9,
         16
@@ -2519,7 +2848,10 @@
       "flavor_vec": [
         0.746,
         0.673,
-        0.517
+        0.517,
+        0.399,
+        0.596,
+        0.438
       ],
       "popularity_score": 0.08,
       "quality_score": 0.342,
@@ -2533,6 +2865,7 @@
       "recipe_id": 84,
       "title": "오징어 국",
       "cuisine": "한식",
+      "cluster_id": 5,
       "essential_ids": [
         14,
         18,
@@ -2551,7 +2884,10 @@
       "flavor_vec": [
         0.467,
         0.739,
-        0.257
+        0.257,
+        0.412,
+        0.527,
+        0.465
       ],
       "popularity_score": 0.953,
       "quality_score": 0.486,
@@ -2562,6 +2898,7 @@
       "recipe_id": 85,
       "title": "양배추 덮밥",
       "cuisine": "일식",
+      "cluster_id": 6,
       "essential_ids": [
         7,
         14,
@@ -2580,7 +2917,10 @@
       "flavor_vec": [
         0.283,
         0.546,
-        0.603
+        0.603,
+        0.243,
+        0.628,
+        0.421
       ],
       "popularity_score": 0.642,
       "quality_score": 0.769,
@@ -2591,6 +2931,7 @@
       "recipe_id": 86,
       "title": "우유 우동",
       "cuisine": "일식",
+      "cluster_id": 2,
       "essential_ids": [
         12,
         28,
@@ -2607,7 +2948,10 @@
       "flavor_vec": [
         0.265,
         0.443,
-        0.567
+        0.567,
+        0.256,
+        0.744,
+        0.438
       ],
       "popularity_score": 0.277,
       "quality_score": 0.953,
@@ -2618,6 +2962,7 @@
       "recipe_id": 87,
       "title": "우유 조림",
       "cuisine": "한식",
+      "cluster_id": 6,
       "essential_ids": [
         12,
         42
@@ -2633,7 +2978,10 @@
       "flavor_vec": [
         0.803,
         0.555,
-        0.537
+        0.537,
+        0.249,
+        0.508,
+        0.65
       ],
       "popularity_score": 0.289,
       "quality_score": 0.74,
@@ -2644,6 +2992,7 @@
       "recipe_id": 88,
       "title": "햄 김밥",
       "cuisine": "분식",
+      "cluster_id": 2,
       "essential_ids": [
         12,
         23,
@@ -2662,7 +3011,10 @@
       "flavor_vec": [
         0.829,
         0.58,
-        0.572
+        0.572,
+        0.382,
+        0.557,
+        0.728
       ],
       "popularity_score": 0.16,
       "quality_score": 0.75,
@@ -2673,6 +3025,7 @@
       "recipe_id": 89,
       "title": "고등어 리소토",
       "cuisine": "양식",
+      "cluster_id": 5,
       "essential_ids": [
         5,
         12,
@@ -2691,7 +3044,10 @@
       "flavor_vec": [
         0.097,
         0.54,
-        0.378
+        0.378,
+        0.318,
+        0.651,
+        0.742
       ],
       "popularity_score": 0.068,
       "quality_score": 0.469,
@@ -2702,6 +3058,7 @@
       "recipe_id": 90,
       "title": "게맛살 조림",
       "cuisine": "한식",
+      "cluster_id": 1,
       "essential_ids": [
         7,
         42
@@ -2718,7 +3075,10 @@
       "flavor_vec": [
         0.529,
         0.73,
-        0.364
+        0.364,
+        0.339,
+        0.597,
+        0.444
       ],
       "popularity_score": 0.07,
       "quality_score": 0.963,
@@ -2729,6 +3089,7 @@
       "recipe_id": 91,
       "title": "베이컨 스테이크",
       "cuisine": "양식",
+      "cluster_id": 1,
       "essential_ids": [
         15,
         29,
@@ -2745,7 +3106,10 @@
       "flavor_vec": [
         0.154,
         0.684,
-        0.262
+        0.262,
+        0.317,
+        0.709,
+        0.616
       ],
       "popularity_score": 0.849,
       "quality_score": 0.461,
@@ -2756,6 +3120,7 @@
       "recipe_id": 92,
       "title": "감자 그라탕",
       "cuisine": "양식",
+      "cluster_id": 4,
       "essential_ids": [
         4,
         23,
@@ -2773,7 +3138,10 @@
       "flavor_vec": [
         0.105,
         0.584,
-        0.341
+        0.341,
+        0.406,
+        0.696,
+        0.671
       ],
       "popularity_score": 0.542,
       "quality_score": 0.545,
@@ -2784,6 +3152,7 @@
       "recipe_id": 93,
       "title": "우유 김밥",
       "cuisine": "분식",
+      "cluster_id": 2,
       "essential_ids": [
         12,
         26,
@@ -2799,7 +3168,10 @@
       "flavor_vec": [
         0.562,
         0.498,
-        0.462
+        0.462,
+        0.267,
+        0.634,
+        0.727
       ],
       "popularity_score": 0.759,
       "quality_score": 0.473,
@@ -2810,6 +3182,7 @@
       "recipe_id": 94,
       "title": "시금치 볶음밥",
       "cuisine": "중식",
+      "cluster_id": 4,
       "essential_ids": [
         8,
         13,
@@ -2829,7 +3202,10 @@
       "flavor_vec": [
         0.744,
         0.59,
-        0.28
+        0.28,
+        0.432,
+        0.595,
+        0.867
       ],
       "popularity_score": 0.122,
       "quality_score": 0.494,
@@ -2842,6 +3218,7 @@
       "recipe_id": 95,
       "title": "바지락 덮밥",
       "cuisine": "중식",
+      "cluster_id": 1,
       "essential_ids": [
         4,
         41
@@ -2857,7 +3234,10 @@
       "flavor_vec": [
         0.589,
         0.665,
-        0.275
+        0.275,
+        0.465,
+        0.883,
+        0.77
       ],
       "popularity_score": 0.208,
       "quality_score": 0.583,
@@ -2871,6 +3251,7 @@
       "recipe_id": 96,
       "title": "베이컨 튀김",
       "cuisine": "중식",
+      "cluster_id": 0,
       "essential_ids": [
         13,
         29,
@@ -2889,7 +3270,10 @@
       "flavor_vec": [
         0.661,
         0.598,
-        0.435
+        0.435,
+        0.393,
+        0.588,
+        0.513
       ],
       "popularity_score": 0.13,
       "quality_score": 0.354,
@@ -2902,6 +3286,7 @@
       "recipe_id": 97,
       "title": "잣 볶음",
       "cuisine": "분식",
+      "cluster_id": 1,
       "essential_ids": [
         21,
         39,
@@ -2919,7 +3304,10 @@
       "flavor_vec": [
         0.937,
         0.756,
-        0.483
+        0.483,
+        0.435,
+        0.45,
+        0.653
       ],
       "popularity_score": 0.39,
       "quality_score": 0.609,
@@ -2930,6 +3318,7 @@
       "recipe_id": 98,
       "title": "고추 전골",
       "cuisine": "분식",
+      "cluster_id": 0,
       "essential_ids": [
         19,
         29,
@@ -2948,7 +3337,10 @@
       "flavor_vec": [
         0.87,
         0.78,
-        0.485
+        0.485,
+        0.178,
+        0.521,
+        0.732
       ],
       "popularity_score": 0.045,
       "quality_score": 0.382,
@@ -2959,6 +3351,7 @@
       "recipe_id": 99,
       "title": "복숭아 전골",
       "cuisine": "분식",
+      "cluster_id": 5,
       "essential_ids": [
         9,
         39
@@ -2974,7 +3367,10 @@
       "flavor_vec": [
         0.942,
         0.658,
-        0.571
+        0.571,
+        0.448,
+        0.619,
+        0.475
       ],
       "popularity_score": 0.036,
       "quality_score": 0.791,
@@ -2985,6 +3381,7 @@
       "recipe_id": 100,
       "title": "감자 샐러드",
       "cuisine": "양식",
+      "cluster_id": 6,
       "essential_ids": [
         4,
         28
@@ -2999,7 +3396,10 @@
       "flavor_vec": [
         0.089,
         0.442,
-        0.384
+        0.384,
+        0.472,
+        0.724,
+        0.75
       ],
       "popularity_score": 0.022,
       "quality_score": null,
@@ -3012,6 +3412,7 @@
       "recipe_id": 101,
       "title": "땅콩 국",
       "cuisine": "한식",
+      "cluster_id": 7,
       "essential_ids": [
         30,
         37
@@ -3028,7 +3429,10 @@
       "flavor_vec": [
         0.516,
         0.563,
-        0.194
+        0.194,
+        0.193,
+        0.608,
+        0.322
       ],
       "popularity_score": 0.147,
       "quality_score": 0.78,
@@ -3039,6 +3443,7 @@
       "recipe_id": 102,
       "title": "메밀면 덮밥",
       "cuisine": "일식",
+      "cluster_id": 3,
       "essential_ids": [
         3,
         11,
@@ -3058,7 +3463,10 @@
       "flavor_vec": [
         0.21,
         0.705,
-        0.354
+        0.354,
+        0.291,
+        0.562,
+        0.377
       ],
       "popularity_score": 0.004,
       "quality_score": 0.579,
@@ -3069,6 +3477,7 @@
       "recipe_id": 103,
       "title": "두부 구이",
       "cuisine": "일식",
+      "cluster_id": 0,
       "essential_ids": [
         5,
         10
@@ -3084,7 +3493,10 @@
       "flavor_vec": [
         0.074,
         0.706,
-        0.424
+        0.424,
+        0.165,
+        0.642,
+        0.335
       ],
       "popularity_score": 0.091,
       "quality_score": 0.83,
@@ -3098,6 +3510,7 @@
       "recipe_id": 104,
       "title": "시금치 찌개",
       "cuisine": "한식",
+      "cluster_id": 4,
       "essential_ids": [
         8,
         14,
@@ -3116,7 +3529,10 @@
       "flavor_vec": [
         0.49,
         0.699,
-        0.232
+        0.232,
+        0.422,
+        0.859,
+        0.466
       ],
       "popularity_score": 0.088,
       "quality_score": 0.571,
@@ -3127,6 +3543,7 @@
       "recipe_id": 105,
       "title": "밀가루 조림",
       "cuisine": "일식",
+      "cluster_id": 6,
       "essential_ids": [
         7,
         9,
@@ -3148,7 +3565,10 @@
       "flavor_vec": [
         0.047,
         0.615,
-        0.405
+        0.405,
+        0.416,
+        0.578,
+        0.185
       ],
       "popularity_score": 0.804,
       "quality_score": 0.931,
@@ -3162,6 +3582,7 @@
       "recipe_id": 106,
       "title": "시금치 탕",
       "cuisine": "중식",
+      "cluster_id": 5,
       "essential_ids": [
         8,
         21
@@ -3176,7 +3597,10 @@
       "flavor_vec": [
         0.376,
         0.652,
-        0.314
+        0.314,
+        0.445,
+        0.725,
+        0.842
       ],
       "popularity_score": 0.475,
       "quality_score": 0.512,
@@ -3187,6 +3611,7 @@
       "recipe_id": 107,
       "title": "양배추 전골",
       "cuisine": "분식",
+      "cluster_id": 7,
       "essential_ids": [
         7,
         15,
@@ -3203,7 +3628,10 @@
       "flavor_vec": [
         0.555,
         0.784,
-        0.599
+        0.599,
+        0.416,
+        0.658,
+        0.467
       ],
       "popularity_score": 0.344,
       "quality_score": 0.666,
@@ -3217,6 +3645,7 @@
       "recipe_id": 108,
       "title": "시금치 전골",
       "cuisine": "분식",
+      "cluster_id": 1,
       "essential_ids": [
         6,
         8
@@ -3233,7 +3662,10 @@
       "flavor_vec": [
         0.893,
         0.602,
-        0.715
+        0.715,
+        0.417,
+        0.477,
+        0.351
       ],
       "popularity_score": 0.291,
       "quality_score": 0.499,
@@ -3244,6 +3676,7 @@
       "recipe_id": 109,
       "title": "잣 김밥",
       "cuisine": "분식",
+      "cluster_id": 0,
       "essential_ids": [
         6,
         44
@@ -3258,7 +3691,10 @@
       "flavor_vec": [
         0.788,
         0.788,
-        0.424
+        0.424,
+        0.238,
+        0.43,
+        0.576
       ],
       "popularity_score": 0.732,
       "quality_score": 0.937,
@@ -3269,6 +3705,7 @@
       "recipe_id": 110,
       "title": "사과 튀김",
       "cuisine": "중식",
+      "cluster_id": 6,
       "essential_ids": [
         16,
         19,
@@ -3286,7 +3723,10 @@
       "flavor_vec": [
         0.601,
         0.692,
-        0.622
+        0.622,
+        0.457,
+        0.672,
+        0.737
       ],
       "popularity_score": 0.015,
       "quality_score": 0.399,
@@ -3297,6 +3737,7 @@
       "recipe_id": 111,
       "title": "게맛살 우동",
       "cuisine": "일식",
+      "cluster_id": 3,
       "essential_ids": [
         4,
         12,
@@ -3316,7 +3757,10 @@
       "flavor_vec": [
         0.333,
         0.744,
-        0.351
+        0.351,
+        0.215,
+        0.793,
+        0.256
       ],
       "popularity_score": 0.753,
       "quality_score": 0.578,
@@ -3329,6 +3773,7 @@
       "recipe_id": 112,
       "title": "무 볶음",
       "cuisine": "한식",
+      "cluster_id": 4,
       "essential_ids": [
         9,
         35
@@ -3345,7 +3790,10 @@
       "flavor_vec": [
         0.808,
         0.692,
-        0.457
+        0.457,
+        0.484,
+        0.613,
+        0.438
       ],
       "popularity_score": 0.028,
       "quality_score": 0.5,
@@ -3359,6 +3807,7 @@
       "recipe_id": 113,
       "title": "베이컨 튀김",
       "cuisine": "중식",
+      "cluster_id": 3,
       "essential_ids": [
         24,
         29,
@@ -3379,7 +3828,10 @@
       "flavor_vec": [
         0.702,
         0.717,
-        0.428
+        0.428,
+        0.268,
+        0.668,
+        0.866
       ],
       "popularity_score": 0.299,
       "quality_score": 0.626,
@@ -3390,6 +3842,7 @@
       "recipe_id": 114,
       "title": "당근 볶음",
       "cuisine": "한식",
+      "cluster_id": 5,
       "essential_ids": [
         5,
         11,
@@ -3407,7 +3860,10 @@
       "flavor_vec": [
         0.799,
         0.573,
-        0.511
+        0.511,
+        0.217,
+        0.617,
+        0.507
       ],
       "popularity_score": 0.003,
       "quality_score": 0.374,
@@ -3418,6 +3874,7 @@
       "recipe_id": 115,
       "title": "두부 국",
       "cuisine": "한식",
+      "cluster_id": 2,
       "essential_ids": [
         4,
         10,
@@ -3437,7 +3894,10 @@
       "flavor_vec": [
         0.576,
         0.448,
-        0.508
+        0.508,
+        0.272,
+        0.762,
+        0.456
       ],
       "popularity_score": 0.778,
       "quality_score": 0.946,
@@ -3448,6 +3908,7 @@
       "recipe_id": 116,
       "title": "닭고기 볶음",
       "cuisine": "분식",
+      "cluster_id": 5,
       "essential_ids": [
         12,
         16
@@ -3464,7 +3925,10 @@
       "flavor_vec": [
         0.822,
         0.675,
-        0.473
+        0.473,
+        0.528,
+        0.518,
+        0.412
       ],
       "popularity_score": 0.314,
       "quality_score": 0.936,
@@ -3475,6 +3939,7 @@
       "recipe_id": 117,
       "title": "대파 튀김",
       "cuisine": "중식",
+      "cluster_id": 2,
       "essential_ids": [
         2,
         26,
@@ -3494,7 +3959,10 @@
       "flavor_vec": [
         0.692,
         0.551,
-        0.557
+        0.557,
+        0.479,
+        0.778,
+        0.589
       ],
       "popularity_score": 0.095,
       "quality_score": 0.456,
@@ -3505,6 +3973,7 @@
       "recipe_id": 118,
       "title": "호두 볶음밥",
       "cuisine": "중식",
+      "cluster_id": 3,
       "essential_ids": [
         20,
         38
@@ -3521,7 +3990,10 @@
       "flavor_vec": [
         0.364,
         0.623,
-        0.572
+        0.572,
+        0.207,
+        0.787,
+        0.891
       ],
       "popularity_score": 0.413,
       "quality_score": 0.451,
@@ -3532,6 +4004,7 @@
       "recipe_id": 119,
       "title": "애호박 떡볶이",
       "cuisine": "분식",
+      "cluster_id": 2,
       "essential_ids": [
         6,
         9,
@@ -3550,7 +4023,10 @@
       "flavor_vec": [
         0.589,
         0.726,
-        0.74
+        0.74,
+        0.494,
+        0.496,
+        0.703
       ],
       "popularity_score": 0.318,
       "quality_score": 0.604,
@@ -3564,6 +4040,7 @@
       "recipe_id": 120,
       "title": "파프리카 탕",
       "cuisine": "중식",
+      "cluster_id": 1,
       "essential_ids": [
         1,
         31
@@ -3581,7 +4058,10 @@
       "flavor_vec": [
         0.416,
         0.458,
-        0.439
+        0.439,
+        0.254,
+        0.666,
+        0.779
       ],
       "popularity_score": 0.653,
       "quality_score": null,
