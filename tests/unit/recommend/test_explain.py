@@ -138,6 +138,45 @@ def test_taste_reason_names_the_dominant_axis(
     assert "단맛이" in explain(item, ctx, CORPUS, FLAT_STATS, is_exploration=False)
 
 
+def test_taste_reason_on_the_low_side_says_mild(
+    make_recipe: Callable[..., RecipeCandidate], make_context: Callable[..., UserContext]
+) -> None:
+    """매운맛 0 인 사용자에게 순한 레시피를 골랐으면 '좋아하시는 매운맛' 이라고 말하면 안 됩니다."""
+    recipe = make_recipe(1, flavor_vec=(0.1, 0.5, 0.5))
+    ctx = make_context(taste=(0.0, 0.5, 0.5))
+    item = _scored(recipe, _dominated_by("taste"))
+
+    reason = explain(item, ctx, CORPUS, FLAT_STATS, is_exploration=False)
+
+    assert "매운맛이 강하지 않아" in reason
+    assert "좋아하시는" not in reason
+
+
+def test_missing_names_beyond_two_are_counted(
+    make_recipe: Callable[..., RecipeCandidate], make_context: Callable[..., UserContext]
+) -> None:
+    """이름을 두 개까지만 부르되 부족한 개수는 줄여 말하지 않습니다."""
+    item = _scored(
+        make_recipe(1, essential=[4, 11, 14]), _dominated_by("match"), missing=(4, 11, 14)
+    )
+
+    reason = explain(item, make_context(), CORPUS, FLAT_STATS, is_exploration=False)
+
+    assert reason == "감자, 계란 등 3가지만 더 있으면 완성돼요"
+
+
+def test_expiring_beyond_two_names_gets_etc_before_the_josa(
+    make_recipe: Callable[..., RecipeCandidate], make_context: Callable[..., UserContext]
+) -> None:
+    recipe = make_recipe(1, essential=[4, 11, 14])
+    ctx = make_context(pantry=[4, 11, 14], expiring=[4, 11, 14])
+    item = _scored(recipe, _dominated_by("expiring"))
+
+    reason = explain(item, ctx, CORPUS, FLAT_STATS, is_exploration=False)
+
+    assert reason.startswith("감자, 계란 등이 소비기한이")
+
+
 def test_context_reason_uses_cook_minutes(
     make_recipe: Callable[..., RecipeCandidate], make_context: Callable[..., UserContext]
 ) -> None:

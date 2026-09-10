@@ -120,36 +120,54 @@ def _explain_exploration(item: ScoredCandidate) -> str:
 def _explain_match(item: ScoredCandidate, corpus: CorpusStats) -> str:
     if not item.missing_ids:
         return "지금 있는 재료만으로 바로 만들 수 있어요"
-    names = _names(item.missing_ids, corpus)
-    if names:
-        return f"{names}만 더 있으면 완성돼요"
-    return f"재료 {len(item.missing_ids)}가지만 더 있으면 완성돼요"
+    known = _known_names(item.missing_ids, corpus)
+    total = len(item.missing_ids)
+    if not known:
+        return f"재료 {total}가지만 더 있으면 완성돼요"
+    if total > len(known):
+        return f"{', '.join(known)} 등 {total}가지만 더 있으면 완성돼요"
+    return f"{', '.join(known)}만 더 있으면 완성돼요"
 
 
 def _explain_expiring(item: ScoredCandidate, ctx: UserContext, corpus: CorpusStats) -> str:
     used = sorted(item.candidate.essential_ids & ctx.expiring_ids)
     if not used:
         return DEFAULT_REASON
-    names = _names(used, corpus)
-    if names:
-        return f"{attach_josa(names, '이/가')} 소비기한이 얼마 안 남아 먼저 쓰기 좋아요"
-    return f"곧 소비기한이 끝나는 재료 {len(used)}개를 쓸 수 있어요"
+    known = _known_names(used, corpus)
+    if not known:
+        return f"곧 소비기한이 끝나는 재료 {len(used)}개를 쓸 수 있어요"
+    subject = ", ".join(known) if len(used) == len(known) else f"{', '.join(known)} 등"
+    return f"{attach_josa(subject, '이/가')} 소비기한이 얼마 안 남아 먼저 쓰기 좋아요"
 
 
 def _explain_taste(item: ScoredCandidate, ctx: UserContext, corpus: CorpusStats) -> str:
-    label = AXIS_LABELS[_dominant_axis(item, ctx, corpus)]
-    return f"좋아하시는 {attach_josa(label, '이/가')} 잘 살아 있는 레시피예요"
+    """사용자가 그 맛을 평균보다 좋아하면 '살아 있다', 덜 좋아하면 '강하지 않다'고 말합니다.
+
+    둘 다 정합이지만 방향이 반대입니다. 한 문구로 쓰면 매운맛 0 인 사용자에게
+    "좋아하시는 매운맛" 이라고 말하게 됩니다.
+    """
+    axis, prefers_more = _dominant_axis(item, ctx, corpus)
+    label = attach_josa(AXIS_LABELS[axis], "이/가")
+    if prefers_more:
+        return f"좋아하시는 {label} 잘 살아 있는 레시피예요"
+    return f"{label} 강하지 않아 부담 없이 드실 수 있어요"
 
 
-def _dominant_axis(item: ScoredCandidate, ctx: UserContext, corpus: CorpusStats) -> str:
-    """중심화된 사용자·레시피 벡터의 곱이 가장 큰 축. 유사도에 가장 크게 기여한 맛입니다."""
+def _dominant_axis(
+    item: ScoredCandidate, ctx: UserContext, corpus: CorpusStats
+) -> tuple[str, bool]:
+    """유사도에 가장 크게 기여한 축과, 그 축에서 사용자가 평균보다 높은 쪽인지.
+
+    기여는 중심화된 사용자·레시피 벡터의 곱입니다. 둘 다 평균 아래여도 곱은
+    양수이므로 방향은 따로 돌려줍니다.
+    """
     mean = corpus.flavor_mean or (0.0, 0.0, 0.0)
     contributions = [
         (user - center) * (recipe - center)
         for user, recipe, center in zip(ctx.taste_vec, item.candidate.flavor_vec, mean, strict=True)
     ]
     index = max(range(len(FLAVOR_AXES)), key=lambda i: contributions[i])
-    return FLAVOR_AXES[index]
+    return FLAVOR_AXES[index], ctx.taste_vec[index] >= mean[index]
 
 
 def _explain_context(item: ScoredCandidate) -> str:
@@ -159,7 +177,7 @@ def _explain_context(item: ScoredCandidate) -> str:
     return f"{minutes}분이면 완성돼요"
 
 
-def _names(ids: Sequence[int], corpus: CorpusStats) -> str:
-    """알려진 이름만 최대 두 개를 쉼표로 잇습니다. 하나도 모르면 빈 문자열입니다."""
+def _known_names(ids: Sequence[int], corpus: CorpusStats) -> list[str]:
+    """알려진 이름만 최대 두 개. 하나도 모르면 빈 목록입니다."""
     known = [corpus.ingredient_names[i] for i in ids if i in corpus.ingredient_names]
-    return ", ".join(known[:MAX_NAMED_INGREDIENTS])
+    return known[:MAX_NAMED_INGREDIENTS]
