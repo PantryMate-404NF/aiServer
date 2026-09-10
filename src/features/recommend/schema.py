@@ -90,7 +90,7 @@ class RecommendRequest(BaseModel):
 class RecommendedItem(BaseModel):
     """추천 목록의 한 줄."""
 
-    rank: int = Field(ge=1)
+    rank: int = Field(ge=1, description="서빙 순서. match_score 순이 아니며 재정렬하지 않습니다")
     recipe_id: int
     recipe_title: str
     match_score: float = Field(ge=0.0, le=1.0)
@@ -113,7 +113,11 @@ class RecommendMeta(BaseModel):
 
 
 class RecommendResponse(BaseModel):
-    """성공 응답. 폴백이 걸려도 200 이며 meta.degraded 로만 알립니다."""
+    """성공 응답. 폴백이 걸려도 200 이며 meta.degraded 로만 알립니다.
+
+    recommendations 의 순서가 곧 서빙 순서입니다. MMR 다양성과 탐색 슬롯의 무작위 배치가
+    만든 순서라, 호출자가 match_score 로 다시 정렬하면 그 설계가 무효가 됩니다.
+    """
 
     request_id: UUID
     recommendations: list[RecommendedItem]
