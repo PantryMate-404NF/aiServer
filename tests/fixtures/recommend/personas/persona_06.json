@@ -1,0 +1,43 @@
+{
+  "user_id": 1006,
+  "pantry_ingredient_ids": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    9,
+    10,
+    14,
+    16,
+    22,
+    34,
+    35,
+    45,
+    47,
+    52
+  ],
+  "expiring_ingredient_ids": [
+    34,
+    35
+  ],
+  "taste_preference": {
+    "spicy_level": 2,
+    "sweet_level": 1,
+    "salty_level": 2
+  },
+  "household_size": 3,
+  "preferred_cuisines": [
+    "한식",
+    "중식"
+  ],
+  "max_cook_minutes": 40,
+  "allergy_group_codes": [
+    "SHRIMP",
+    "SQUID",
+    "SHELLFISH",
+    "CRAB",
+    "MACKEREL"
+  ],
+  "top_k": 20
+}

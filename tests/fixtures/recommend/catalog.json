@@ -1,0 +1,3592 @@
+{
+  "seed": "reco-mock-v1",
+  "ingredients": {
+    "1": "양파",
+    "2": "대파",
+    "3": "마늘",
+    "4": "감자",
+    "5": "당근",
+    "6": "애호박",
+    "7": "양배추",
+    "8": "시금치",
+    "9": "버섯",
+    "10": "두부",
+    "11": "계란",
+    "12": "우유",
+    "13": "치즈",
+    "14": "돼지고기",
+    "15": "소고기",
+    "16": "닭고기",
+    "17": "새우",
+    "18": "오징어",
+    "19": "고등어",
+    "20": "참치캔",
+    "21": "김치",
+    "22": "쌀",
+    "23": "밀가루",
+    "24": "스파게티면",
+    "25": "라면사리",
+    "26": "떡",
+    "27": "어묵",
+    "28": "햄",
+    "29": "베이컨",
+    "30": "토마토",
+    "31": "파프리카",
+    "32": "오이",
+    "33": "상추",
+    "34": "콩나물",
+    "35": "무",
+    "36": "고추",
+    "37": "땅콩",
+    "38": "호두",
+    "39": "복숭아",
+    "40": "사과",
+    "41": "바지락",
+    "42": "게맛살",
+    "43": "메밀면",
+    "44": "잣",
+    "45": "간장",
+    "46": "고추장",
+    "47": "된장",
+    "48": "설탕",
+    "49": "식용유",
+    "50": "참기름",
+    "51": "고춧가루",
+    "52": "소금",
+    "53": "후추",
+    "54": "케첩",
+    "55": "마요네즈",
+    "56": "카레가루",
+    "57": "버터",
+    "58": "생크림",
+    "59": "요거트",
+    "60": "꿀"
+  },
+  "allergen_groups": {
+    "EGG": [
+      11
+    ],
+    "MILK": [
+      12,
+      13,
+      57,
+      58,
+      59
+    ],
+    "WHEAT": [
+      23,
+      24,
+      25
+    ],
+    "PORK": [
+      14,
+      28,
+      29
+    ],
+    "BEEF": [
+      15
+    ],
+    "CHICKEN": [
+      16
+    ],
+    "SHRIMP": [
+      17
+    ],
+    "SQUID": [
+      18
+    ],
+    "MACKEREL": [
+      19
+    ],
+    "SOYBEAN": [
+      10,
+      45,
+      47
+    ],
+    "TOMATO": [
+      30,
+      54
+    ],
+    "PEANUT": [
+      37
+    ],
+    "WALNUT": [
+      38
+    ],
+    "PEACH": [
+      39
+    ],
+    "SHELLFISH": [
+      41
+    ],
+    "CRAB": [
+      42
+    ],
+    "BUCKWHEAT": [
+      43
+    ],
+    "PINE_NUT": [
+      44
+    ]
+  },
+  "cuisines": [
+    "한식",
+    "중식",
+    "일식",
+    "양식",
+    "분식"
+  ],
+  "recipes": [
+    {
+      "recipe_id": 1,
+      "title": "햄 전",
+      "cuisine": "한식",
+      "essential_ids": [
+        9,
+        28,
+        41
+      ],
+      "all_ids": [
+        9,
+        14,
+        28,
+        33,
+        41,
+        52
+      ],
+      "flavor_vec": [
+        0.544,
+        0.52,
+        0.63
+      ],
+      "popularity_score": 0.332,
+      "quality_score": 0.614,
+      "cook_minutes": 10,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 2,
+      "title": "게맛살 샐러드",
+      "cuisine": "양식",
+      "essential_ids": [
+        27,
+        42
+      ],
+      "all_ids": [
+        4,
+        25,
+        27,
+        42,
+        52
+      ],
+      "flavor_vec": [
+        0.14,
+        0.326,
+        0.621
+      ],
+      "popularity_score": 0.025,
+      "quality_score": 0.758,
+      "cook_minutes": 15,
+      "product_ids": [
+        201
+      ]
+    },
+    {
+      "recipe_id": 3,
+      "title": "당근 볶음밥",
+      "cuisine": "중식",
+      "essential_ids": [
+        1,
+        5,
+        35,
+        41
+      ],
+      "all_ids": [
+        1,
+        5,
+        32,
+        35,
+        41,
+        48
+      ],
+      "flavor_vec": [
+        0.685,
+        0.36,
+        0.768
+      ],
+      "popularity_score": 0.494,
+      "quality_score": 0.545,
+      "cook_minutes": 60,
+      "product_ids": [
+        301,
+        302
+      ]
+    },
+    {
+      "recipe_id": 4,
+      "title": "베이컨 스테이크",
+      "cuisine": "양식",
+      "essential_ids": [
+        6,
+        29,
+        42
+      ],
+      "all_ids": [
+        6,
+        29,
+        41,
+        42,
+        57
+      ],
+      "flavor_vec": [
+        0.334,
+        0.451,
+        0.368
+      ],
+      "popularity_score": 0.386,
+      "quality_score": 0.339,
+      "cook_minutes": 90,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 5,
+      "title": "밀가루 스테이크",
+      "cuisine": "양식",
+      "essential_ids": [
+        6,
+        13,
+        23,
+        30
+      ],
+      "all_ids": [
+        6,
+        13,
+        16,
+        23,
+        30,
+        53
+      ],
+      "flavor_vec": [
+        0.008,
+        0.262,
+        0.497
+      ],
+      "popularity_score": 0.001,
+      "quality_score": 0.619,
+      "cook_minutes": 40,
+      "product_ids": [
+        501,
+        502
+      ]
+    },
+    {
+      "recipe_id": 6,
+      "title": "오이 구이",
+      "cuisine": "일식",
+      "essential_ids": [
+        7,
+        28,
+        32,
+        35
+      ],
+      "all_ids": [
+        7,
+        25,
+        28,
+        32,
+        35,
+        37,
+        48,
+        52
+      ],
+      "flavor_vec": [
+        0.193,
+        0.502,
+        0.437
+      ],
+      "popularity_score": 0.536,
+      "quality_score": 0.706,
+      "cook_minutes": 30,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 7,
+      "title": "어묵 전골",
+      "cuisine": "분식",
+      "essential_ids": [
+        10,
+        19,
+        27,
+        42
+      ],
+      "all_ids": [
+        10,
+        17,
+        18,
+        19,
+        27,
+        32,
+        42,
+        46,
+        48,
+        51
+      ],
+      "flavor_vec": [
+        0.636,
+        0.49,
+        0.68
+      ],
+      "popularity_score": 0.471,
+      "quality_score": 0.906,
+      "cook_minutes": 45,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 8,
+      "title": "복숭아 구이",
+      "cuisine": "일식",
+      "essential_ids": [
+        12,
+        22,
+        26,
+        39
+      ],
+      "all_ids": [
+        4,
+        12,
+        22,
+        23,
+        26,
+        39,
+        45,
+        48,
+        52
+      ],
+      "flavor_vec": [
+        0.334,
+        0.517,
+        0.492
+      ],
+      "popularity_score": 0.156,
+      "quality_score": 0.764,
+      "cook_minutes": 10,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 9,
+      "title": "새우 덮밥",
+      "cuisine": "일식",
+      "essential_ids": [
+        9,
+        17,
+        39
+      ],
+      "all_ids": [
+        9,
+        13,
+        17,
+        24,
+        39,
+        43,
+        45
+      ],
+      "flavor_vec": [
+        0.141,
+        0.479,
+        0.746
+      ],
+      "popularity_score": 0.867,
+      "quality_score": 0.536,
+      "cook_minutes": 30,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 10,
+      "title": "계란 튀김",
+      "cuisine": "중식",
+      "essential_ids": [
+        11,
+        25,
+        33,
+        37
+      ],
+      "all_ids": [
+        11,
+        20,
+        21,
+        25,
+        33,
+        36,
+        37,
+        45,
+        49
+      ],
+      "flavor_vec": [
+        0.721,
+        0.283,
+        0.687
+      ],
+      "popularity_score": 0.188,
+      "quality_score": 0.775,
+      "cook_minutes": 20,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 11,
+      "title": "복숭아 덮밥",
+      "cuisine": "일식",
+      "essential_ids": [
+        29,
+        39
+      ],
+      "all_ids": [
+        8,
+        23,
+        29,
+        39,
+        45,
+        48
+      ],
+      "flavor_vec": [
+        0.273,
+        0.479,
+        0.526
+      ],
+      "popularity_score": 0.285,
+      "quality_score": 0.492,
+      "cook_minutes": 10,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 12,
+      "title": "파프리카 조림",
+      "cuisine": "일식",
+      "essential_ids": [
+        21,
+        31,
+        44
+      ],
+      "all_ids": [
+        9,
+        21,
+        31,
+        44,
+        45,
+        48,
+        52
+      ],
+      "flavor_vec": [
+        0.072,
+        0.601,
+        0.483
+      ],
+      "popularity_score": 0.012,
+      "quality_score": 0.915,
+      "cook_minutes": 15,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 13,
+      "title": "대파 김밥",
+      "cuisine": "분식",
+      "essential_ids": [
+        2,
+        14,
+        38
+      ],
+      "all_ids": [
+        2,
+        12,
+        14,
+        20,
+        24,
+        38,
+        48,
+        51
+      ],
+      "flavor_vec": [
+        0.583,
+        0.557,
+        0.571
+      ],
+      "popularity_score": 0.255,
+      "quality_score": 0.792,
+      "cook_minutes": 60,
+      "product_ids": [
+        1301,
+        1302
+      ]
+    },
+    {
+      "recipe_id": 14,
+      "title": "라면사리 조림",
+      "cuisine": "일식",
+      "essential_ids": [
+        25,
+        28
+      ],
+      "all_ids": [
+        14,
+        19,
+        25,
+        28,
+        45,
+        48,
+        52
+      ],
+      "flavor_vec": [
+        0.174,
+        0.595,
+        0.387
+      ],
+      "popularity_score": 0.049,
+      "quality_score": 0.609,
+      "cook_minutes": 10,
+      "product_ids": [
+        1401
+      ]
+    },
+    {
+      "recipe_id": 15,
+      "title": "애호박 볶음밥",
+      "cuisine": "중식",
+      "essential_ids": [
+        6,
+        13
+      ],
+      "all_ids": [
+        6,
+        13,
+        28,
+        30,
+        36,
+        45,
+        48,
+        53
+      ],
+      "flavor_vec": [
+        0.479,
+        0.275,
+        0.842
+      ],
+      "popularity_score": 0.367,
+      "quality_score": 0.516,
+      "cook_minutes": 30,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 16,
+      "title": "베이컨 조림",
+      "cuisine": "한식",
+      "essential_ids": [
+        9,
+        29
+      ],
+      "all_ids": [
+        5,
+        9,
+        16,
+        29,
+        34,
+        47,
+        51,
+        52
+      ],
+      "flavor_vec": [
+        0.681,
+        0.513,
+        0.576
+      ],
+      "popularity_score": 0.044,
+      "quality_score": 0.749,
+      "cook_minutes": 25,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 17,
+      "title": "토마토 김밥",
+      "cuisine": "분식",
+      "essential_ids": [
+        14,
+        20,
+        30
+      ],
+      "all_ids": [
+        9,
+        14,
+        20,
+        30,
+        45,
+        46,
+        48
+      ],
+      "flavor_vec": [
+        0.652,
+        0.547,
+        0.785
+      ],
+      "popularity_score": 0.115,
+      "quality_score": 0.938,
+      "cook_minutes": 40,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 18,
+      "title": "고추 샐러드",
+      "cuisine": "양식",
+      "essential_ids": [
+        5,
+        36
+      ],
+      "all_ids": [
+        1,
+        5,
+        36,
+        37,
+        49,
+        52,
+        53
+      ],
+      "flavor_vec": [
+        0.318,
+        0.261,
+        0.658
+      ],
+      "popularity_score": 0.642,
+      "quality_score": 0.475,
+      "cook_minutes": 30,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 19,
+      "title": "고등어 무침",
+      "cuisine": "한식",
+      "essential_ids": [
+        4,
+        19
+      ],
+      "all_ids": [
+        4,
+        19,
+        37,
+        46,
+        52
+      ],
+      "flavor_vec": [
+        0.646,
+        0.429,
+        0.5
+      ],
+      "popularity_score": 0.644,
+      "quality_score": 0.673,
+      "cook_minutes": 40,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 20,
+      "title": "밀가루 전골",
+      "cuisine": "분식",
+      "essential_ids": [
+        1,
+        5,
+        23,
+        30
+      ],
+      "all_ids": [
+        1,
+        5,
+        9,
+        23,
+        30,
+        46,
+        51
+      ],
+      "flavor_vec": [
+        0.92,
+        0.451,
+        0.676
+      ],
+      "popularity_score": 0.427,
+      "quality_score": null,
+      "cook_minutes": 40,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 21,
+      "title": "두부 샐러드",
+      "cuisine": "양식",
+      "essential_ids": [
+        10,
+        19
+      ],
+      "all_ids": [
+        3,
+        9,
+        10,
+        19,
+        49
+      ],
+      "flavor_vec": [
+        0.371,
+        0.286,
+        0.331
+      ],
+      "popularity_score": 0.449,
+      "quality_score": 0.66,
+      "cook_minutes": 90,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 22,
+      "title": "베이컨 무침",
+      "cuisine": "한식",
+      "essential_ids": [
+        8,
+        29,
+        39
+      ],
+      "all_ids": [
+        8,
+        11,
+        18,
+        23,
+        29,
+        39,
+        45,
+        51,
+        52
+      ],
+      "flavor_vec": [
+        0.558,
+        0.482,
+        0.735
+      ],
+      "popularity_score": 0.449,
+      "quality_score": 0.681,
+      "cook_minutes": 20,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 23,
+      "title": "파프리카 그라탕",
+      "cuisine": "양식",
+      "essential_ids": [
+        28,
+        31,
+        32,
+        44
+      ],
+      "all_ids": [
+        23,
+        24,
+        28,
+        31,
+        32,
+        42,
+        44,
+        52
+      ],
+      "flavor_vec": [
+        0.008,
+        0.222,
+        0.577
+      ],
+      "popularity_score": 0.578,
+      "quality_score": 0.544,
+      "cook_minutes": 60,
+      "product_ids": [
+        2301
+      ]
+    },
+    {
+      "recipe_id": 24,
+      "title": "김치 샐러드",
+      "cuisine": "양식",
+      "essential_ids": [
+        7,
+        18,
+        21
+      ],
+      "all_ids": [
+        7,
+        13,
+        18,
+        21,
+        34,
+        49,
+        57
+      ],
+      "flavor_vec": [
+        0.384,
+        0.421,
+        0.384
+      ],
+      "popularity_score": 0.285,
+      "quality_score": 0.383,
+      "cook_minutes": 40,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 25,
+      "title": "애호박 탕",
+      "cuisine": "중식",
+      "essential_ids": [
+        6,
+        18,
+        26,
+        28
+      ],
+      "all_ids": [
+        6,
+        10,
+        15,
+        18,
+        26,
+        28,
+        44,
+        48
+      ],
+      "flavor_vec": [
+        0.724,
+        0.551,
+        0.847
+      ],
+      "popularity_score": 0.399,
+      "quality_score": 0.924,
+      "cook_minutes": 25,
+      "product_ids": [
+        2501
+      ]
+    },
+    {
+      "recipe_id": 26,
+      "title": "김치 구이",
+      "cuisine": "일식",
+      "essential_ids": [
+        17,
+        21,
+        23
+      ],
+      "all_ids": [
+        7,
+        9,
+        14,
+        17,
+        21,
+        23,
+        45,
+        48
+      ],
+      "flavor_vec": [
+        0.086,
+        0.53,
+        0.532
+      ],
+      "popularity_score": 0.311,
+      "quality_score": 0.32,
+      "cook_minutes": 25,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 27,
+      "title": "오이 구이",
+      "cuisine": "일식",
+      "essential_ids": [
+        23,
+        32,
+        38
+      ],
+      "all_ids": [
+        2,
+        4,
+        23,
+        32,
+        38,
+        42,
+        45,
+        48,
+        52
+      ],
+      "flavor_vec": [
+        0.117,
+        0.518,
+        0.713
+      ],
+      "popularity_score": 0.63,
+      "quality_score": 0.981,
+      "cook_minutes": 15,
+      "product_ids": [
+        2701,
+        2702
+      ]
+    },
+    {
+      "recipe_id": 28,
+      "title": "양배추 리소토",
+      "cuisine": "양식",
+      "essential_ids": [
+        7,
+        12,
+        16,
+        38
+      ],
+      "all_ids": [
+        7,
+        12,
+        16,
+        31,
+        38,
+        49,
+        52,
+        53
+      ],
+      "flavor_vec": [
+        0.241,
+        0.393,
+        0.627
+      ],
+      "popularity_score": 0.665,
+      "quality_score": 0.512,
+      "cook_minutes": 15,
+      "product_ids": [
+        2801
+      ]
+    },
+    {
+      "recipe_id": 29,
+      "title": "당근 스테이크",
+      "cuisine": "양식",
+      "essential_ids": [
+        5,
+        16,
+        24,
+        32
+      ],
+      "all_ids": [
+        1,
+        5,
+        11,
+        16,
+        24,
+        25,
+        32,
+        49,
+        52,
+        57
+      ],
+      "flavor_vec": [
+        0.131,
+        0.501,
+        0.635
+      ],
+      "popularity_score": 0.43,
+      "quality_score": 0.533,
+      "cook_minutes": 30,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 30,
+      "title": "애호박 덮밥",
+      "cuisine": "중식",
+      "essential_ids": [
+        6,
+        24
+      ],
+      "all_ids": [
+        1,
+        6,
+        24,
+        31,
+        42,
+        48
+      ],
+      "flavor_vec": [
+        0.672,
+        0.393,
+        0.584
+      ],
+      "popularity_score": 0.909,
+      "quality_score": 0.818,
+      "cook_minutes": 15,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 31,
+      "title": "감자 리소토",
+      "cuisine": "양식",
+      "essential_ids": [
+        4,
+        39
+      ],
+      "all_ids": [
+        1,
+        4,
+        39,
+        44,
+        57
+      ],
+      "flavor_vec": [
+        0.264,
+        0.297,
+        0.37
+      ],
+      "popularity_score": 0.229,
+      "quality_score": 0.997,
+      "cook_minutes": 90,
+      "product_ids": [
+        3101
+      ]
+    },
+    {
+      "recipe_id": 32,
+      "title": "콩나물 전",
+      "cuisine": "한식",
+      "essential_ids": [
+        1,
+        9,
+        34
+      ],
+      "all_ids": [
+        1,
+        5,
+        9,
+        34,
+        47,
+        50,
+        52
+      ],
+      "flavor_vec": [
+        0.575,
+        0.239,
+        0.463
+      ],
+      "popularity_score": 0.164,
+      "quality_score": 0.381,
+      "cook_minutes": 10,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 33,
+      "title": "게맛살 덮밥",
+      "cuisine": "일식",
+      "essential_ids": [
+        4,
+        42
+      ],
+      "all_ids": [
+        4,
+        14,
+        24,
+        33,
+        42,
+        45,
+        48,
+        52
+      ],
+      "flavor_vec": [
+        0.126,
+        0.462,
+        0.726
+      ],
+      "popularity_score": 0.042,
+      "quality_score": 0.948,
+      "cook_minutes": 90,
+      "product_ids": [
+        3301,
+        3302
+      ]
+    },
+    {
+      "recipe_id": 34,
+      "title": "어묵 볶음밥",
+      "cuisine": "중식",
+      "essential_ids": [
+        22,
+        27,
+        36
+      ],
+      "all_ids": [
+        22,
+        24,
+        27,
+        36,
+        37,
+        45,
+        48
+      ],
+      "flavor_vec": [
+        0.64,
+        0.366,
+        0.824
+      ],
+      "popularity_score": 0.105,
+      "quality_score": 0.879,
+      "cook_minutes": 90,
+      "product_ids": [
+        3401,
+        3402
+      ]
+    },
+    {
+      "recipe_id": 35,
+      "title": "고등어 샐러드",
+      "cuisine": "양식",
+      "essential_ids": [
+        4,
+        15,
+        19,
+        22
+      ],
+      "all_ids": [
+        4,
+        15,
+        19,
+        22,
+        27,
+        29,
+        40,
+        49,
+        53,
+        57
+      ],
+      "flavor_vec": [
+        0.054,
+        0.436,
+        0.602
+      ],
+      "popularity_score": 0.713,
+      "quality_score": 0.878,
+      "cook_minutes": 45,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 36,
+      "title": "양파 김밥",
+      "cuisine": "분식",
+      "essential_ids": [
+        1,
+        2,
+        36
+      ],
+      "all_ids": [
+        1,
+        2,
+        9,
+        11,
+        36,
+        45,
+        48,
+        51
+      ],
+      "flavor_vec": [
+        0.705,
+        0.445,
+        0.495
+      ],
+      "popularity_score": 0.382,
+      "quality_score": 0.773,
+      "cook_minutes": 45,
+      "product_ids": [
+        3601,
+        3602
+      ]
+    },
+    {
+      "recipe_id": 37,
+      "title": "스파게티면 튀김",
+      "cuisine": "중식",
+      "essential_ids": [
+        24,
+        43
+      ],
+      "all_ids": [
+        18,
+        24,
+        36,
+        43,
+        45,
+        53
+      ],
+      "flavor_vec": [
+        0.728,
+        0.358,
+        0.643
+      ],
+      "popularity_score": 0.188,
+      "quality_score": 0.805,
+      "cook_minutes": 20,
+      "product_ids": [
+        3701
+      ]
+    },
+    {
+      "recipe_id": 38,
+      "title": "잣 우동",
+      "cuisine": "일식",
+      "essential_ids": [
+        26,
+        44
+      ],
+      "all_ids": [
+        26,
+        43,
+        44,
+        52
+      ],
+      "flavor_vec": [
+        0.152,
+        0.568,
+        0.708
+      ],
+      "popularity_score": 0.951,
+      "quality_score": 0.749,
+      "cook_minutes": 30,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 39,
+      "title": "파프리카 그라탕",
+      "cuisine": "양식",
+      "essential_ids": [
+        31,
+        40
+      ],
+      "all_ids": [
+        21,
+        31,
+        39,
+        40,
+        49,
+        53
+      ],
+      "flavor_vec": [
+        0.362,
+        0.484,
+        0.307
+      ],
+      "popularity_score": 0.788,
+      "quality_score": 0.342,
+      "cook_minutes": 10,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 40,
+      "title": "밀가루 떡볶이",
+      "cuisine": "분식",
+      "essential_ids": [
+        19,
+        23
+      ],
+      "all_ids": [
+        19,
+        23,
+        39,
+        45
+      ],
+      "flavor_vec": [
+        0.678,
+        0.537,
+        0.749
+      ],
+      "popularity_score": 0.54,
+      "quality_score": null,
+      "cook_minutes": 60,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 41,
+      "title": "메밀면 덮밥",
+      "cuisine": "일식",
+      "essential_ids": [
+        26,
+        43
+      ],
+      "all_ids": [
+        26,
+        32,
+        35,
+        43,
+        45
+      ],
+      "flavor_vec": [
+        0.021,
+        0.402,
+        0.43
+      ],
+      "popularity_score": 0.106,
+      "quality_score": 0.784,
+      "cook_minutes": 40,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 42,
+      "title": "우유 우동",
+      "cuisine": "일식",
+      "essential_ids": [
+        3,
+        12
+      ],
+      "all_ids": [
+        3,
+        9,
+        12,
+        20,
+        52
+      ],
+      "flavor_vec": [
+        0.176,
+        0.31,
+        0.353
+      ],
+      "popularity_score": 0.655,
+      "quality_score": 0.865,
+      "cook_minutes": 60,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 43,
+      "title": "오이 덮밥",
+      "cuisine": "한식",
+      "essential_ids": [
+        1,
+        16,
+        30,
+        32
+      ],
+      "all_ids": [
+        1,
+        4,
+        8,
+        9,
+        16,
+        30,
+        32,
+        45,
+        47,
+        51
+      ],
+      "flavor_vec": [
+        0.584,
+        0.532,
+        0.494
+      ],
+      "popularity_score": 0.736,
+      "quality_score": 0.88,
+      "cook_minutes": 25,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 44,
+      "title": "고추 볶음밥",
+      "cuisine": "중식",
+      "essential_ids": [
+        3,
+        4,
+        36
+      ],
+      "all_ids": [
+        1,
+        3,
+        4,
+        36,
+        39,
+        45,
+        48,
+        53
+      ],
+      "flavor_vec": [
+        0.666,
+        0.487,
+        0.682
+      ],
+      "popularity_score": 0.795,
+      "quality_score": 0.804,
+      "cook_minutes": 10,
+      "product_ids": [
+        4401,
+        4402
+      ]
+    },
+    {
+      "recipe_id": 45,
+      "title": "복숭아 떡볶이",
+      "cuisine": "분식",
+      "essential_ids": [
+        3,
+        39
+      ],
+      "all_ids": [
+        3,
+        39,
+        42,
+        48
+      ],
+      "flavor_vec": [
+        0.939,
+        0.367,
+        0.773
+      ],
+      "popularity_score": 0.268,
+      "quality_score": 0.635,
+      "cook_minutes": 25,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 46,
+      "title": "마늘 김밥",
+      "cuisine": "분식",
+      "essential_ids": [
+        3,
+        33,
+        44
+      ],
+      "all_ids": [
+        2,
+        3,
+        33,
+        44,
+        46,
+        51
+      ],
+      "flavor_vec": [
+        0.575,
+        0.57,
+        0.556
+      ],
+      "popularity_score": 0.23,
+      "quality_score": 0.953,
+      "cook_minutes": 40,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 47,
+      "title": "햄 조림",
+      "cuisine": "일식",
+      "essential_ids": [
+        4,
+        7,
+        28,
+        39
+      ],
+      "all_ids": [
+        4,
+        7,
+        20,
+        28,
+        39,
+        48,
+        52
+      ],
+      "flavor_vec": [
+        0.396,
+        0.608,
+        0.477
+      ],
+      "popularity_score": 0.873,
+      "quality_score": 0.808,
+      "cook_minutes": 30,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 48,
+      "title": "쌀 조림",
+      "cuisine": "일식",
+      "essential_ids": [
+        15,
+        17,
+        22,
+        32
+      ],
+      "all_ids": [
+        5,
+        11,
+        15,
+        17,
+        20,
+        22,
+        32,
+        48,
+        52
+      ],
+      "flavor_vec": [
+        0.301,
+        0.481,
+        0.446
+      ],
+      "popularity_score": 0.274,
+      "quality_score": 0.8,
+      "cook_minutes": 60,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 49,
+      "title": "감자 조림",
+      "cuisine": "한식",
+      "essential_ids": [
+        4,
+        15
+      ],
+      "all_ids": [
+        4,
+        15,
+        18,
+        43,
+        45,
+        50,
+        51
+      ],
+      "flavor_vec": [
+        0.651,
+        0.368,
+        0.511
+      ],
+      "popularity_score": 0.933,
+      "quality_score": 0.466,
+      "cook_minutes": 25,
+      "product_ids": [
+        4901
+      ]
+    },
+    {
+      "recipe_id": 50,
+      "title": "바지락 리소토",
+      "cuisine": "양식",
+      "essential_ids": [
+        16,
+        32,
+        40,
+        41
+      ],
+      "all_ids": [
+        11,
+        13,
+        16,
+        20,
+        25,
+        32,
+        40,
+        41,
+        52,
+        57
+      ],
+      "flavor_vec": [
+        0.341,
+        0.364,
+        0.398
+      ],
+      "popularity_score": 0.088,
+      "quality_score": 0.645,
+      "cook_minutes": 25,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 51,
+      "title": "쌀 스테이크",
+      "cuisine": "양식",
+      "essential_ids": [
+        7,
+        19,
+        22
+      ],
+      "all_ids": [
+        3,
+        7,
+        14,
+        19,
+        22,
+        41,
+        49,
+        53,
+        57
+      ],
+      "flavor_vec": [
+        0.349,
+        0.311,
+        0.6
+      ],
+      "popularity_score": 0.906,
+      "quality_score": 0.96,
+      "cook_minutes": 90,
+      "product_ids": [
+        5101,
+        5102
+      ]
+    },
+    {
+      "recipe_id": 52,
+      "title": "잣 그라탕",
+      "cuisine": "양식",
+      "essential_ids": [
+        12,
+        21,
+        44
+      ],
+      "all_ids": [
+        1,
+        12,
+        21,
+        23,
+        43,
+        44,
+        52
+      ],
+      "flavor_vec": [
+        0.191,
+        0.406,
+        0.617
+      ],
+      "popularity_score": 0.626,
+      "quality_score": 0.526,
+      "cook_minutes": 20,
+      "product_ids": [
+        5201,
+        5202
+      ]
+    },
+    {
+      "recipe_id": 53,
+      "title": "버섯 국",
+      "cuisine": "한식",
+      "essential_ids": [
+        9,
+        43
+      ],
+      "all_ids": [
+        8,
+        9,
+        43,
+        45,
+        51,
+        52
+      ],
+      "flavor_vec": [
+        0.546,
+        0.461,
+        0.767
+      ],
+      "popularity_score": 0.657,
+      "quality_score": 0.36,
+      "cook_minutes": 10,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 54,
+      "title": "새우 조림",
+      "cuisine": "일식",
+      "essential_ids": [
+        17,
+        24,
+        40
+      ],
+      "all_ids": [
+        13,
+        17,
+        24,
+        25,
+        33,
+        40,
+        45,
+        48,
+        52
+      ],
+      "flavor_vec": [
+        0.151,
+        0.502,
+        0.612
+      ],
+      "popularity_score": 0.082,
+      "quality_score": 0.673,
+      "cook_minutes": 90,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 55,
+      "title": "게맛살 우동",
+      "cuisine": "일식",
+      "essential_ids": [
+        8,
+        21,
+        41,
+        42
+      ],
+      "all_ids": [
+        8,
+        11,
+        21,
+        31,
+        37,
+        41,
+        42,
+        45,
+        48,
+        52
+      ],
+      "flavor_vec": [
+        0.261,
+        0.626,
+        0.551
+      ],
+      "popularity_score": 0.115,
+      "quality_score": 0.477,
+      "cook_minutes": 15,
+      "product_ids": [
+        5501,
+        5502
+      ]
+    },
+    {
+      "recipe_id": 56,
+      "title": "고추 스테이크",
+      "cuisine": "양식",
+      "essential_ids": [
+        7,
+        26,
+        36
+      ],
+      "all_ids": [
+        3,
+        7,
+        24,
+        26,
+        28,
+        36,
+        57
+      ],
+      "flavor_vec": [
+        0.076,
+        0.476,
+        0.58
+      ],
+      "popularity_score": 0.722,
+      "quality_score": 0.839,
+      "cook_minutes": 20,
+      "product_ids": [
+        5601,
+        5602
+      ]
+    },
+    {
+      "recipe_id": 57,
+      "title": "고등어 볶음",
+      "cuisine": "한식",
+      "essential_ids": [
+        17,
+        19,
+        22
+      ],
+      "all_ids": [
+        2,
+        6,
+        17,
+        19,
+        22,
+        46,
+        47,
+        51
+      ],
+      "flavor_vec": [
+        0.621,
+        0.378,
+        0.639
+      ],
+      "popularity_score": 0.24,
+      "quality_score": 0.471,
+      "cook_minutes": 30,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 58,
+      "title": "대파 리소토",
+      "cuisine": "양식",
+      "essential_ids": [
+        2,
+        31,
+        33,
+        38
+      ],
+      "all_ids": [
+        2,
+        13,
+        22,
+        31,
+        33,
+        35,
+        38,
+        52,
+        57
+      ],
+      "flavor_vec": [
+        0.023,
+        0.406,
+        0.477
+      ],
+      "popularity_score": 0.251,
+      "quality_score": 0.938,
+      "cook_minutes": 20,
+      "product_ids": [
+        5801,
+        5802
+      ]
+    },
+    {
+      "recipe_id": 59,
+      "title": "복숭아 떡볶이",
+      "cuisine": "분식",
+      "essential_ids": [
+        2,
+        18,
+        39
+      ],
+      "all_ids": [
+        2,
+        4,
+        18,
+        35,
+        39,
+        43,
+        45,
+        46,
+        51
+      ],
+      "flavor_vec": [
+        0.706,
+        0.581,
+        0.475
+      ],
+      "popularity_score": 0.856,
+      "quality_score": 0.389,
+      "cook_minutes": 45,
+      "product_ids": [
+        5901
+      ]
+    },
+    {
+      "recipe_id": 60,
+      "title": "치즈 전",
+      "cuisine": "한식",
+      "essential_ids": [
+        13,
+        27
+      ],
+      "all_ids": [
+        13,
+        24,
+        25,
+        27,
+        50,
+        52
+      ],
+      "flavor_vec": [
+        0.846,
+        0.272,
+        0.505
+      ],
+      "popularity_score": 0.496,
+      "quality_score": null,
+      "cook_minutes": 15,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 61,
+      "title": "상추 튀김",
+      "cuisine": "중식",
+      "essential_ids": [
+        11,
+        17,
+        27,
+        33
+      ],
+      "all_ids": [
+        10,
+        11,
+        17,
+        27,
+        33,
+        36,
+        38,
+        49,
+        53
+      ],
+      "flavor_vec": [
+        0.686,
+        0.29,
+        0.563
+      ],
+      "popularity_score": 0.934,
+      "quality_score": 0.303,
+      "cook_minutes": 25,
+      "product_ids": [
+        6101
+      ]
+    },
+    {
+      "recipe_id": 62,
+      "title": "양배추 볶음밥",
+      "cuisine": "중식",
+      "essential_ids": [
+        7,
+        13
+      ],
+      "all_ids": [
+        7,
+        13,
+        34,
+        44,
+        48
+      ],
+      "flavor_vec": [
+        0.687,
+        0.424,
+        0.493
+      ],
+      "popularity_score": 0.094,
+      "quality_score": 0.641,
+      "cook_minutes": 30,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 63,
+      "title": "오징어 김밥",
+      "cuisine": "분식",
+      "essential_ids": [
+        6,
+        18,
+        30,
+        35
+      ],
+      "all_ids": [
+        6,
+        16,
+        18,
+        30,
+        35,
+        48,
+        51
+      ],
+      "flavor_vec": [
+        0.65,
+        0.582,
+        0.53
+      ],
+      "popularity_score": 0.916,
+      "quality_score": 0.376,
+      "cook_minutes": 40,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 64,
+      "title": "파프리카 김밥",
+      "cuisine": "분식",
+      "essential_ids": [
+        7,
+        31
+      ],
+      "all_ids": [
+        2,
+        7,
+        31,
+        38,
+        48
+      ],
+      "flavor_vec": [
+        0.761,
+        0.627,
+        0.546
+      ],
+      "popularity_score": 0.155,
+      "quality_score": 0.303,
+      "cook_minutes": 90,
+      "product_ids": [
+        6401,
+        6402
+      ]
+    },
+    {
+      "recipe_id": 65,
+      "title": "김치 덮밥",
+      "cuisine": "중식",
+      "essential_ids": [
+        2,
+        8,
+        21,
+        24
+      ],
+      "all_ids": [
+        2,
+        8,
+        11,
+        15,
+        21,
+        24,
+        28,
+        48
+      ],
+      "flavor_vec": [
+        0.479,
+        0.611,
+        0.695
+      ],
+      "popularity_score": 0.499,
+      "quality_score": 0.874,
+      "cook_minutes": 40,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 66,
+      "title": "김치 탕",
+      "cuisine": "중식",
+      "essential_ids": [
+        4,
+        13,
+        18,
+        21
+      ],
+      "all_ids": [
+        3,
+        4,
+        13,
+        18,
+        21,
+        42,
+        48,
+        53
+      ],
+      "flavor_vec": [
+        0.379,
+        0.527,
+        0.772
+      ],
+      "popularity_score": 0.015,
+      "quality_score": 0.92,
+      "cook_minutes": 60,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 67,
+      "title": "시금치 덮밥",
+      "cuisine": "일식",
+      "essential_ids": [
+        8,
+        30
+      ],
+      "all_ids": [
+        8,
+        26,
+        30,
+        52
+      ],
+      "flavor_vec": [
+        0.272,
+        0.382,
+        0.495
+      ],
+      "popularity_score": 0.702,
+      "quality_score": 0.572,
+      "cook_minutes": 20,
+      "product_ids": [
+        6701,
+        6702
+      ]
+    },
+    {
+      "recipe_id": 68,
+      "title": "밀가루 찌개",
+      "cuisine": "한식",
+      "essential_ids": [
+        23,
+        43
+      ],
+      "all_ids": [
+        23,
+        37,
+        43,
+        44,
+        51
+      ],
+      "flavor_vec": [
+        0.627,
+        0.332,
+        0.479
+      ],
+      "popularity_score": 0.095,
+      "quality_score": 0.936,
+      "cook_minutes": 25,
+      "product_ids": [
+        6801,
+        6802
+      ]
+    },
+    {
+      "recipe_id": 69,
+      "title": "사과 볶음밥",
+      "cuisine": "중식",
+      "essential_ids": [
+        19,
+        40
+      ],
+      "all_ids": [
+        4,
+        7,
+        19,
+        40,
+        45,
+        49
+      ],
+      "flavor_vec": [
+        0.707,
+        0.358,
+        0.731
+      ],
+      "popularity_score": 0.265,
+      "quality_score": 0.591,
+      "cook_minutes": 30,
+      "product_ids": [
+        6901
+      ]
+    },
+    {
+      "recipe_id": 70,
+      "title": "잣 김밥",
+      "cuisine": "분식",
+      "essential_ids": [
+        15,
+        40,
+        44
+      ],
+      "all_ids": [
+        15,
+        19,
+        40,
+        44,
+        48,
+        51
+      ],
+      "flavor_vec": [
+        0.845,
+        0.72,
+        0.52
+      ],
+      "popularity_score": 0.342,
+      "quality_score": 0.545,
+      "cook_minutes": 15,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 71,
+      "title": "잣 샐러드",
+      "cuisine": "양식",
+      "essential_ids": [
+        6,
+        44
+      ],
+      "all_ids": [
+        6,
+        26,
+        41,
+        42,
+        44,
+        53,
+        57
+      ],
+      "flavor_vec": [
+        0.244,
+        0.292,
+        0.498
+      ],
+      "popularity_score": 0.01,
+      "quality_score": 0.918,
+      "cook_minutes": 20,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 72,
+      "title": "바지락 튀김",
+      "cuisine": "중식",
+      "essential_ids": [
+        19,
+        41
+      ],
+      "all_ids": [
+        13,
+        19,
+        26,
+        36,
+        41,
+        48,
+        49
+      ],
+      "flavor_vec": [
+        0.484,
+        0.414,
+        0.641
+      ],
+      "popularity_score": 0.204,
+      "quality_score": 0.832,
+      "cook_minutes": 45,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 73,
+      "title": "고추 국",
+      "cuisine": "한식",
+      "essential_ids": [
+        35,
+        36
+      ],
+      "all_ids": [
+        4,
+        7,
+        32,
+        35,
+        36,
+        45,
+        50,
+        52
+      ],
+      "flavor_vec": [
+        0.78,
+        0.352,
+        0.517
+      ],
+      "popularity_score": 0.211,
+      "quality_score": 0.993,
+      "cook_minutes": 15,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 74,
+      "title": "땅콩 전골",
+      "cuisine": "분식",
+      "essential_ids": [
+        13,
+        24,
+        32,
+        37
+      ],
+      "all_ids": [
+        5,
+        13,
+        14,
+        21,
+        24,
+        32,
+        37,
+        45,
+        46
+      ],
+      "flavor_vec": [
+        0.652,
+        0.365,
+        0.566
+      ],
+      "popularity_score": 0.375,
+      "quality_score": 0.979,
+      "cook_minutes": 25,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 75,
+      "title": "마늘 우동",
+      "cuisine": "일식",
+      "essential_ids": [
+        3,
+        10,
+        33
+      ],
+      "all_ids": [
+        3,
+        7,
+        10,
+        22,
+        33,
+        45,
+        48,
+        52
+      ],
+      "flavor_vec": [
+        0.121,
+        0.314,
+        0.482
+      ],
+      "popularity_score": 0.397,
+      "quality_score": 0.537,
+      "cook_minutes": 45,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 76,
+      "title": "어묵 무침",
+      "cuisine": "한식",
+      "essential_ids": [
+        22,
+        27,
+        42
+      ],
+      "all_ids": [
+        4,
+        6,
+        22,
+        27,
+        42,
+        45,
+        50,
+        51
+      ],
+      "flavor_vec": [
+        0.466,
+        0.319,
+        0.731
+      ],
+      "popularity_score": 0.634,
+      "quality_score": 0.385,
+      "cook_minutes": 25,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 77,
+      "title": "밀가루 그라탕",
+      "cuisine": "양식",
+      "essential_ids": [
+        23,
+        29
+      ],
+      "all_ids": [
+        7,
+        13,
+        23,
+        29,
+        34,
+        57
+      ],
+      "flavor_vec": [
+        0.036,
+        0.598,
+        0.469
+      ],
+      "popularity_score": 0.686,
+      "quality_score": 0.584,
+      "cook_minutes": 30,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 78,
+      "title": "게맛살 탕",
+      "cuisine": "중식",
+      "essential_ids": [
+        12,
+        42
+      ],
+      "all_ids": [
+        12,
+        39,
+        42,
+        45,
+        48
+      ],
+      "flavor_vec": [
+        0.495,
+        0.417,
+        0.726
+      ],
+      "popularity_score": 0.847,
+      "quality_score": 0.647,
+      "cook_minutes": 10,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 79,
+      "title": "햄 덮밥",
+      "cuisine": "일식",
+      "essential_ids": [
+        15,
+        28
+      ],
+      "all_ids": [
+        15,
+        19,
+        21,
+        28,
+        44,
+        52
+      ],
+      "flavor_vec": [
+        0.084,
+        0.529,
+        0.748
+      ],
+      "popularity_score": 0.91,
+      "quality_score": 0.75,
+      "cook_minutes": 10,
+      "product_ids": [
+        7901
+      ]
+    },
+    {
+      "recipe_id": 80,
+      "title": "대파 탕",
+      "cuisine": "중식",
+      "essential_ids": [
+        2,
+        9
+      ],
+      "all_ids": [
+        2,
+        4,
+        9,
+        25,
+        36,
+        48,
+        49
+      ],
+      "flavor_vec": [
+        0.459,
+        0.453,
+        0.627
+      ],
+      "popularity_score": 0.566,
+      "quality_score": null,
+      "cook_minutes": 25,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 81,
+      "title": "닭고기 볶음",
+      "cuisine": "분식",
+      "essential_ids": [
+        4,
+        16,
+        21
+      ],
+      "all_ids": [
+        4,
+        6,
+        16,
+        21,
+        25,
+        46
+      ],
+      "flavor_vec": [
+        0.719,
+        0.741,
+        0.668
+      ],
+      "popularity_score": 0.803,
+      "quality_score": 0.64,
+      "cook_minutes": 60,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 82,
+      "title": "메밀면 볶음",
+      "cuisine": "분식",
+      "essential_ids": [
+        38,
+        43
+      ],
+      "all_ids": [
+        25,
+        38,
+        43,
+        48,
+        51
+      ],
+      "flavor_vec": [
+        0.687,
+        0.581,
+        0.428
+      ],
+      "popularity_score": 0.416,
+      "quality_score": 0.509,
+      "cook_minutes": 45,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 83,
+      "title": "닭고기 김밥",
+      "cuisine": "분식",
+      "essential_ids": [
+        9,
+        16
+      ],
+      "all_ids": [
+        7,
+        9,
+        16,
+        32,
+        40,
+        51
+      ],
+      "flavor_vec": [
+        0.746,
+        0.623,
+        0.567
+      ],
+      "popularity_score": 0.08,
+      "quality_score": 0.342,
+      "cook_minutes": 40,
+      "product_ids": [
+        8301,
+        8302
+      ]
+    },
+    {
+      "recipe_id": 84,
+      "title": "오징어 국",
+      "cuisine": "한식",
+      "essential_ids": [
+        14,
+        18,
+        20
+      ],
+      "all_ids": [
+        4,
+        14,
+        18,
+        20,
+        36,
+        45,
+        50,
+        52
+      ],
+      "flavor_vec": [
+        0.467,
+        0.489,
+        0.507
+      ],
+      "popularity_score": 0.953,
+      "quality_score": 0.486,
+      "cook_minutes": 60,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 85,
+      "title": "양배추 덮밥",
+      "cuisine": "일식",
+      "essential_ids": [
+        7,
+        14,
+        30,
+        40
+      ],
+      "all_ids": [
+        7,
+        14,
+        27,
+        30,
+        40,
+        41,
+        45
+      ],
+      "flavor_vec": [
+        0.283,
+        0.496,
+        0.653
+      ],
+      "popularity_score": 0.642,
+      "quality_score": 0.769,
+      "cook_minutes": 40,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 86,
+      "title": "우유 우동",
+      "cuisine": "일식",
+      "essential_ids": [
+        12,
+        28,
+        37
+      ],
+      "all_ids": [
+        2,
+        12,
+        28,
+        37,
+        45,
+        48
+      ],
+      "flavor_vec": [
+        0.265,
+        0.393,
+        0.617
+      ],
+      "popularity_score": 0.277,
+      "quality_score": 0.953,
+      "cook_minutes": 90,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 87,
+      "title": "우유 조림",
+      "cuisine": "한식",
+      "essential_ids": [
+        12,
+        42
+      ],
+      "all_ids": [
+        12,
+        13,
+        31,
+        35,
+        42,
+        46
+      ],
+      "flavor_vec": [
+        0.803,
+        0.305,
+        0.787
+      ],
+      "popularity_score": 0.289,
+      "quality_score": 0.74,
+      "cook_minutes": 90,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 88,
+      "title": "햄 김밥",
+      "cuisine": "분식",
+      "essential_ids": [
+        12,
+        23,
+        28,
+        30
+      ],
+      "all_ids": [
+        12,
+        13,
+        23,
+        28,
+        30,
+        46,
+        51
+      ],
+      "flavor_vec": [
+        0.829,
+        0.53,
+        0.622
+      ],
+      "popularity_score": 0.16,
+      "quality_score": 0.75,
+      "cook_minutes": 40,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 89,
+      "title": "고등어 리소토",
+      "cuisine": "양식",
+      "essential_ids": [
+        5,
+        12,
+        19,
+        29
+      ],
+      "all_ids": [
+        5,
+        12,
+        16,
+        19,
+        29,
+        52,
+        57
+      ],
+      "flavor_vec": [
+        0.097,
+        0.44,
+        0.478
+      ],
+      "popularity_score": 0.068,
+      "quality_score": 0.469,
+      "cook_minutes": 60,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 90,
+      "title": "게맛살 조림",
+      "cuisine": "한식",
+      "essential_ids": [
+        7,
+        42
+      ],
+      "all_ids": [
+        3,
+        7,
+        42,
+        44,
+        46,
+        51,
+        52
+      ],
+      "flavor_vec": [
+        0.529,
+        0.48,
+        0.614
+      ],
+      "popularity_score": 0.07,
+      "quality_score": 0.963,
+      "cook_minutes": 40,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 91,
+      "title": "베이컨 스테이크",
+      "cuisine": "양식",
+      "essential_ids": [
+        15,
+        29,
+        33
+      ],
+      "all_ids": [
+        15,
+        29,
+        30,
+        33,
+        37,
+        49
+      ],
+      "flavor_vec": [
+        0.154,
+        0.584,
+        0.362
+      ],
+      "popularity_score": 0.849,
+      "quality_score": 0.461,
+      "cook_minutes": 25,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 92,
+      "title": "감자 그라탕",
+      "cuisine": "양식",
+      "essential_ids": [
+        4,
+        23,
+        32,
+        40
+      ],
+      "all_ids": [
+        4,
+        23,
+        32,
+        38,
+        40,
+        52
+      ],
+      "flavor_vec": [
+        0.105,
+        0.484,
+        0.441
+      ],
+      "popularity_score": 0.542,
+      "quality_score": 0.545,
+      "cook_minutes": 15,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 93,
+      "title": "우유 김밥",
+      "cuisine": "분식",
+      "essential_ids": [
+        12,
+        26,
+        38
+      ],
+      "all_ids": [
+        12,
+        26,
+        38,
+        41,
+        51
+      ],
+      "flavor_vec": [
+        0.562,
+        0.448,
+        0.512
+      ],
+      "popularity_score": 0.759,
+      "quality_score": 0.473,
+      "cook_minutes": 90,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 94,
+      "title": "시금치 볶음밥",
+      "cuisine": "중식",
+      "essential_ids": [
+        8,
+        13,
+        27,
+        29
+      ],
+      "all_ids": [
+        8,
+        13,
+        18,
+        27,
+        29,
+        36,
+        48,
+        49
+      ],
+      "flavor_vec": [
+        0.744,
+        0.39,
+        0.48
+      ],
+      "popularity_score": 0.122,
+      "quality_score": 0.494,
+      "cook_minutes": 90,
+      "product_ids": [
+        9401
+      ]
+    },
+    {
+      "recipe_id": 95,
+      "title": "바지락 덮밥",
+      "cuisine": "중식",
+      "essential_ids": [
+        4,
+        41
+      ],
+      "all_ids": [
+        1,
+        4,
+        25,
+        28,
+        41,
+        48
+      ],
+      "flavor_vec": [
+        0.589,
+        0.465,
+        0.475
+      ],
+      "popularity_score": 0.208,
+      "quality_score": 0.583,
+      "cook_minutes": 90,
+      "product_ids": [
+        9501,
+        9502
+      ]
+    },
+    {
+      "recipe_id": 96,
+      "title": "베이컨 튀김",
+      "cuisine": "중식",
+      "essential_ids": [
+        13,
+        29,
+        33,
+        38
+      ],
+      "all_ids": [
+        13,
+        28,
+        29,
+        33,
+        36,
+        38,
+        49
+      ],
+      "flavor_vec": [
+        0.661,
+        0.398,
+        0.635
+      ],
+      "popularity_score": 0.13,
+      "quality_score": 0.354,
+      "cook_minutes": 45,
+      "product_ids": [
+        9601
+      ]
+    },
+    {
+      "recipe_id": 97,
+      "title": "잣 볶음",
+      "cuisine": "분식",
+      "essential_ids": [
+        21,
+        39,
+        44
+      ],
+      "all_ids": [
+        21,
+        33,
+        39,
+        44,
+        46,
+        48,
+        51
+      ],
+      "flavor_vec": [
+        0.937,
+        0.706,
+        0.533
+      ],
+      "popularity_score": 0.39,
+      "quality_score": 0.609,
+      "cook_minutes": 10,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 98,
+      "title": "고추 전골",
+      "cuisine": "분식",
+      "essential_ids": [
+        19,
+        29,
+        36
+      ],
+      "all_ids": [
+        12,
+        19,
+        29,
+        36,
+        41,
+        45,
+        46,
+        48
+      ],
+      "flavor_vec": [
+        0.87,
+        0.73,
+        0.535
+      ],
+      "popularity_score": 0.045,
+      "quality_score": 0.382,
+      "cook_minutes": 60,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 99,
+      "title": "복숭아 전골",
+      "cuisine": "분식",
+      "essential_ids": [
+        9,
+        39
+      ],
+      "all_ids": [
+        9,
+        39,
+        41,
+        46,
+        48,
+        51
+      ],
+      "flavor_vec": [
+        0.942,
+        0.608,
+        0.621
+      ],
+      "popularity_score": 0.036,
+      "quality_score": 0.791,
+      "cook_minutes": 45,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 100,
+      "title": "감자 샐러드",
+      "cuisine": "양식",
+      "essential_ids": [
+        4,
+        28
+      ],
+      "all_ids": [
+        4,
+        5,
+        13,
+        28,
+        30
+      ],
+      "flavor_vec": [
+        0.089,
+        0.342,
+        0.484
+      ],
+      "popularity_score": 0.022,
+      "quality_score": null,
+      "cook_minutes": 60,
+      "product_ids": [
+        10001
+      ]
+    },
+    {
+      "recipe_id": 101,
+      "title": "땅콩 국",
+      "cuisine": "한식",
+      "essential_ids": [
+        30,
+        37
+      ],
+      "all_ids": [
+        8,
+        27,
+        30,
+        34,
+        37,
+        45,
+        50
+      ],
+      "flavor_vec": [
+        0.516,
+        0.313,
+        0.444
+      ],
+      "popularity_score": 0.147,
+      "quality_score": 0.78,
+      "cook_minutes": 90,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 102,
+      "title": "메밀면 덮밥",
+      "cuisine": "일식",
+      "essential_ids": [
+        3,
+        11,
+        24,
+        43
+      ],
+      "all_ids": [
+        2,
+        3,
+        10,
+        11,
+        24,
+        39,
+        43,
+        48
+      ],
+      "flavor_vec": [
+        0.21,
+        0.655,
+        0.404
+      ],
+      "popularity_score": 0.004,
+      "quality_score": 0.579,
+      "cook_minutes": 40,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 103,
+      "title": "두부 구이",
+      "cuisine": "일식",
+      "essential_ids": [
+        5,
+        10
+      ],
+      "all_ids": [
+        5,
+        8,
+        10,
+        26,
+        48,
+        52
+      ],
+      "flavor_vec": [
+        0.074,
+        0.656,
+        0.474
+      ],
+      "popularity_score": 0.091,
+      "quality_score": 0.83,
+      "cook_minutes": 40,
+      "product_ids": [
+        10301,
+        10302
+      ]
+    },
+    {
+      "recipe_id": 104,
+      "title": "시금치 찌개",
+      "cuisine": "한식",
+      "essential_ids": [
+        8,
+        14,
+        32,
+        41
+      ],
+      "all_ids": [
+        5,
+        8,
+        14,
+        16,
+        32,
+        41,
+        45
+      ],
+      "flavor_vec": [
+        0.49,
+        0.449,
+        0.482
+      ],
+      "popularity_score": 0.088,
+      "quality_score": 0.571,
+      "cook_minutes": 10,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 105,
+      "title": "밀가루 조림",
+      "cuisine": "일식",
+      "essential_ids": [
+        7,
+        9,
+        23,
+        39
+      ],
+      "all_ids": [
+        4,
+        7,
+        9,
+        14,
+        16,
+        23,
+        39,
+        45,
+        48,
+        52
+      ],
+      "flavor_vec": [
+        0.047,
+        0.565,
+        0.455
+      ],
+      "popularity_score": 0.804,
+      "quality_score": 0.931,
+      "cook_minutes": 10,
+      "product_ids": [
+        10501,
+        10502
+      ]
+    },
+    {
+      "recipe_id": 106,
+      "title": "시금치 탕",
+      "cuisine": "중식",
+      "essential_ids": [
+        8,
+        21
+      ],
+      "all_ids": [
+        1,
+        8,
+        21,
+        23,
+        53
+      ],
+      "flavor_vec": [
+        0.376,
+        0.452,
+        0.514
+      ],
+      "popularity_score": 0.475,
+      "quality_score": 0.512,
+      "cook_minutes": 20,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 107,
+      "title": "양배추 전골",
+      "cuisine": "분식",
+      "essential_ids": [
+        7,
+        15,
+        41
+      ],
+      "all_ids": [
+        1,
+        7,
+        15,
+        32,
+        41,
+        45
+      ],
+      "flavor_vec": [
+        0.555,
+        0.734,
+        0.649
+      ],
+      "popularity_score": 0.344,
+      "quality_score": 0.666,
+      "cook_minutes": 25,
+      "product_ids": [
+        10701,
+        10702
+      ]
+    },
+    {
+      "recipe_id": 108,
+      "title": "시금치 전골",
+      "cuisine": "분식",
+      "essential_ids": [
+        6,
+        8
+      ],
+      "all_ids": [
+        6,
+        8,
+        9,
+        17,
+        46,
+        48,
+        51
+      ],
+      "flavor_vec": [
+        0.893,
+        0.552,
+        0.765
+      ],
+      "popularity_score": 0.291,
+      "quality_score": 0.499,
+      "cook_minutes": 10,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 109,
+      "title": "잣 김밥",
+      "cuisine": "분식",
+      "essential_ids": [
+        6,
+        44
+      ],
+      "all_ids": [
+        6,
+        14,
+        44,
+        45,
+        48
+      ],
+      "flavor_vec": [
+        0.788,
+        0.738,
+        0.474
+      ],
+      "popularity_score": 0.732,
+      "quality_score": 0.937,
+      "cook_minutes": 60,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 110,
+      "title": "사과 튀김",
+      "cuisine": "중식",
+      "essential_ids": [
+        16,
+        19,
+        39,
+        40
+      ],
+      "all_ids": [
+        10,
+        16,
+        19,
+        39,
+        40,
+        48
+      ],
+      "flavor_vec": [
+        0.601,
+        0.492,
+        0.822
+      ],
+      "popularity_score": 0.015,
+      "quality_score": 0.399,
+      "cook_minutes": 10,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 111,
+      "title": "게맛살 우동",
+      "cuisine": "일식",
+      "essential_ids": [
+        4,
+        12,
+        15,
+        42
+      ],
+      "all_ids": [
+        4,
+        12,
+        15,
+        21,
+        42,
+        45,
+        48,
+        52
+      ],
+      "flavor_vec": [
+        0.333,
+        0.694,
+        0.401
+      ],
+      "popularity_score": 0.753,
+      "quality_score": 0.578,
+      "cook_minutes": 15,
+      "product_ids": [
+        11101
+      ]
+    },
+    {
+      "recipe_id": 112,
+      "title": "무 볶음",
+      "cuisine": "한식",
+      "essential_ids": [
+        9,
+        35
+      ],
+      "all_ids": [
+        7,
+        9,
+        27,
+        35,
+        50,
+        51,
+        52
+      ],
+      "flavor_vec": [
+        0.808,
+        0.442,
+        0.707
+      ],
+      "popularity_score": 0.028,
+      "quality_score": 0.5,
+      "cook_minutes": 60,
+      "product_ids": [
+        11201,
+        11202
+      ]
+    },
+    {
+      "recipe_id": 113,
+      "title": "베이컨 튀김",
+      "cuisine": "중식",
+      "essential_ids": [
+        24,
+        29,
+        32,
+        41
+      ],
+      "all_ids": [
+        9,
+        23,
+        24,
+        29,
+        32,
+        36,
+        38,
+        41,
+        45
+      ],
+      "flavor_vec": [
+        0.702,
+        0.517,
+        0.628
+      ],
+      "popularity_score": 0.299,
+      "quality_score": 0.626,
+      "cook_minutes": 60,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 114,
+      "title": "당근 볶음",
+      "cuisine": "한식",
+      "essential_ids": [
+        5,
+        11,
+        33
+      ],
+      "all_ids": [
+        5,
+        7,
+        11,
+        33,
+        39,
+        43,
+        50
+      ],
+      "flavor_vec": [
+        0.799,
+        0.323,
+        0.761
+      ],
+      "popularity_score": 0.003,
+      "quality_score": 0.374,
+      "cook_minutes": 60,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 115,
+      "title": "두부 국",
+      "cuisine": "한식",
+      "essential_ids": [
+        4,
+        10,
+        17,
+        24
+      ],
+      "all_ids": [
+        4,
+        10,
+        17,
+        24,
+        39,
+        46,
+        47,
+        52
+      ],
+      "flavor_vec": [
+        0.576,
+        0.198,
+        0.758
+      ],
+      "popularity_score": 0.778,
+      "quality_score": 0.946,
+      "cook_minutes": 15,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 116,
+      "title": "닭고기 볶음",
+      "cuisine": "분식",
+      "essential_ids": [
+        12,
+        16
+      ],
+      "all_ids": [
+        12,
+        16,
+        21,
+        37,
+        45,
+        46,
+        51
+      ],
+      "flavor_vec": [
+        0.822,
+        0.625,
+        0.523
+      ],
+      "popularity_score": 0.314,
+      "quality_score": 0.936,
+      "cook_minutes": 15,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 117,
+      "title": "대파 튀김",
+      "cuisine": "중식",
+      "essential_ids": [
+        2,
+        26,
+        34,
+        37
+      ],
+      "all_ids": [
+        2,
+        7,
+        12,
+        26,
+        34,
+        37,
+        45,
+        48
+      ],
+      "flavor_vec": [
+        0.692,
+        0.351,
+        0.757
+      ],
+      "popularity_score": 0.095,
+      "quality_score": 0.456,
+      "cook_minutes": 10,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 118,
+      "title": "호두 볶음밥",
+      "cuisine": "중식",
+      "essential_ids": [
+        20,
+        38
+      ],
+      "all_ids": [
+        15,
+        19,
+        20,
+        36,
+        38,
+        45,
+        53
+      ],
+      "flavor_vec": [
+        0.364,
+        0.423,
+        0.772
+      ],
+      "popularity_score": 0.413,
+      "quality_score": 0.451,
+      "cook_minutes": 30,
+      "product_ids": []
+    },
+    {
+      "recipe_id": 119,
+      "title": "애호박 떡볶이",
+      "cuisine": "분식",
+      "essential_ids": [
+        6,
+        9,
+        26,
+        27
+      ],
+      "all_ids": [
+        6,
+        9,
+        21,
+        26,
+        27,
+        35,
+        48
+      ],
+      "flavor_vec": [
+        0.589,
+        0.676,
+        0.79
+      ],
+      "popularity_score": 0.318,
+      "quality_score": 0.604,
+      "cook_minutes": 45,
+      "product_ids": [
+        11901,
+        11902
+      ]
+    },
+    {
+      "recipe_id": 120,
+      "title": "파프리카 탕",
+      "cuisine": "중식",
+      "essential_ids": [
+        1,
+        31
+      ],
+      "all_ids": [
+        1,
+        15,
+        30,
+        31,
+        36,
+        44,
+        48,
+        53
+      ],
+      "flavor_vec": [
+        0.416,
+        0.258,
+        0.639
+      ],
+      "popularity_score": 0.653,
+      "quality_score": null,
+      "cook_minutes": 30,
+      "product_ids": []
+    }
+  ]
+}
