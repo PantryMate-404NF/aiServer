@@ -86,3 +86,7 @@ deploy/.env
 # flavor_vec 산출은 src/features/recommend/ingest/flavor.py 다.
 # ─────────────────────────────────────────────────────────────
 /docs/reco/
+
+# ── 영수증 파트 ──────────────────────────────────────────────
+# 단계별 출력 결과. 실제 영수증의 OCR 원문이라 실명·카드번호가 들어 있습니다. 커밋하지 않습니다.
+tests/integration/result.json

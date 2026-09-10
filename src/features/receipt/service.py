@@ -48,6 +48,7 @@ async def parse_receipt_image(receipt_id: str, data: bytes) -> ReceiptResponse:
         raise LlmUnavailableError(receipt_id) from error
     llm_ms = (perf_counter() - llm_started) * MILLISECONDS_PER_SECOND
 
+    # 이름이 비거나 글자가 없는 항목은 스키마 검증이 이미 뺐습니다. 여기서는 식재료만 고릅니다.
     foods = [item for item in parsed.items if item.is_food]
     logger.info(
         "receipt parsed receipt_id=%s ocr_ms=%.0f llm_ms=%.0f cells=%d items=%d dropped=%d "

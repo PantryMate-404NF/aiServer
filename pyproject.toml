@@ -110,9 +110,15 @@ select = ["E", "W", "F", "I", "N", "UP", "B", "S", "T20", "ANN", "RUF"]
 ignore = ["RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.lint.per-file-ignores]
-# 테스트는 assert 를 쓰고(S101), 결과를 print 로 보고합니다(T20).
-"tests/**" = ["S101", "T20"]
-# 평가·백필·벤치 스크립트는 사람이 터미널에서 읽는 도구라 print 로 결과를 냅니다.
+# 테스트는 assert 를 씁니다(S101).
+"tests/**" = ["S101"]
+# 통합 테스트는 각 단계의 중간 결과를 눈으로 확인하는 용도를 겸합니다. 그 출력은
+# 로그가 아니라 사람이 터미널에서 읽는 것이라 print 를 씁니다.
+"tests/integration/**" = ["S101", "T20"]
+# 추천 파트의 검사도 같습니다 — pytest 함수가 아니라 단독 실행 스크립트라
+# 결과를 print 로 보고합니다 (make normalize-test · contract · log-test 가 돌립니다).
+"tests/unit/recommend/**" = ["S101", "T20"]
+# 평가·백필 스크립트는 사람이 터미널에서 읽는 도구라 print 로 결과를 냅니다.
 "scripts/**" = ["T20"]
 # 🔴 `scripts/reco/bench/` 는 설계 근거를 재는 **일회용 시뮬레이션**이다.
 #    한 번 돌려 숫자를 얻고 문서가 그 숫자를 인용하면 역할이 끝난다.
