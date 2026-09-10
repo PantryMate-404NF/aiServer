@@ -12,9 +12,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import os
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from concurrent.futures import BrokenExecutor, ProcessPoolExecutor
 from contextlib import asynccontextmanager
 from multiprocessing import get_context
@@ -32,6 +33,10 @@ OCR_LANG = "korean"
 OCR_VERSION = "PP-OCRv5"
 # 예열을 다시 돌리는 최대 횟수. 한 바퀴에 워커가 다 뜨지 않는 경우를 위한 여유입니다.
 WARMUP_ROUNDS = 2
+# 상자 윗변 기울기를 믿으려면 폭이 높이의 이 배수는 되어야 합니다. 한두 글자짜리 상자는
+# 검출 오차 몇 픽셀이 각도를 크게 흔듭니다.
+MIN_ASPECT_FOR_SLOPE = 3.0
+QUAD_POINTS = 4
 
 # 워커 프로세스의 전역입니다. 메인 프로세스에서는 끝까지 None 입니다.
 _engine: Any = None
@@ -173,6 +178,24 @@ def _extract_cells(image: Image) -> list[OcrCell]:
                     y_center=float((min(ys) + max(ys)) / 2),
                     height=float(max(ys) - min(ys)),
                     score=float(score),
+                    slope=_top_edge_slope(poly),
                 )
             )
     return cells
+
+
+def _top_edge_slope(poly: Sequence[Sequence[float]]) -> float | None:
+    """상자 윗변의 dy/dx. PaddleOCR 폴리곤은 좌상·우상·우하·좌하 순서로 옵니다.
+
+    폭과 높이는 축에 정렬된 외접 사각형이 아니라 실제 변으로 잽니다. 기울어진 상자는
+    외접 사각형의 높이가 부풀어, 그것으로 거르면 정작 기울기를 알려줄 긴 상자가 전부
+    빠집니다.
+    """
+    if len(poly) != QUAD_POINTS:
+        return None
+    (x0, y0), (x1, y1), _, (x3, y3) = ((float(p[0]), float(p[1])) for p in poly)
+    width = math.hypot(x1 - x0, y1 - y0)
+    height = math.hypot(x3 - x0, y3 - y0)
+    if x1 == x0 or height <= 0 or width < MIN_ASPECT_FOR_SLOPE * height:
+        return None
+    return (y1 - y0) / (x1 - x0)
