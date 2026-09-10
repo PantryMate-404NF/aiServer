@@ -849,3 +849,50 @@ def load_recent_batch_runs(limit: int = 10) -> list[tuple]:
     with cursor() as cur:
         cur.execute(_RUN_RECENT_SQL, (limit,))
         return cur.fetchall()
+
+
+# ─────────────────────────────────────────────────────────────────
+# 회귀 게이트 — ingest/feature_test.py 가 읽는다 (A-8)
+# ─────────────────────────────────────────────────────────────────
+#: 체크 8개 중 SQL 로 재는 7개를 한 번에 가져온다. 게이트는 자주 돌려야 의미가
+#: 있어서, 왕복을 7번 하지 않고 한 문장으로 끝낸다.
+_GATE_SQL = """
+SELECT
+  (SELECT count(*) FROM recipe)                                          AS n_recipe,
+  (SELECT count(*) FROM recipe_feature)                                  AS n_feature,
+  (SELECT count(*) FROM recipe_feature rf WHERE EXISTS (
+       SELECT 1 FROM ingredient i
+       WHERE i.is_staple AND i.id = ANY(rf.essential_ids)))              AS staple_in_ess,
+  (SELECT count(*) FROM recipe_feature
+       WHERE n_total <> cardinality(all_ids))                            AS n_total_mismatch,
+  (SELECT count(*) FROM recipe_feature
+       WHERE n_essential <> cardinality(essential_ids))                  AS n_ess_mismatch,
+  (SELECT count(*) FROM recipe_feature
+       WHERE NOT (essential_ids <@ all_ids))                             AS ess_not_subset,
+  (SELECT count(*) FROM recipe_feature
+       WHERE array_length(flavor_vec, 1) IS DISTINCT FROM 6)             AS bad_flavor_len,
+  (SELECT count(*) FROM recipe_feature
+       WHERE popularity_score < 0 OR popularity_score > 1)               AS pop_out_of_range,
+  (SELECT count(*) FROM recipe_feature WHERE feature_version LIKE 'test-%')
+                                                                          AS test_rows,
+  (SELECT count(*) FROM recipe_feature WHERE quality_score <> 0)         AS quality_nonzero
+"""
+
+_GATE_STATS_SQL = """
+SELECT stats_version, array_length(flavor_mu, 1), n_recipes
+FROM feature_stats ORDER BY stats_version DESC LIMIT 1
+"""
+
+
+def load_gate_counts() -> tuple[int, ...]:
+    """회귀 게이트가 보는 수치 10개를 한 번에."""
+    with cursor() as cur:
+        cur.execute(_GATE_SQL)
+        return cur.fetchone()
+
+
+def load_gate_stats() -> tuple[int, int | None, int] | None:
+    """최신 feature_stats 한 행. 없으면 None."""
+    with cursor() as cur:
+        cur.execute(_GATE_STATS_SQL)
+        return cur.fetchone()

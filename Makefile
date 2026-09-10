@@ -140,6 +140,9 @@ flavor-check:  ## 중심화가 실제로 낫다는 검증 — 판별력 게이�
 popularity-build:  ## popularity_score 백분위 순위 + quality_score 0 (A-6). 1초
 	$(PY) -m features.recommend.ingest.popularity_build
 
+feature-test:  ## 회귀 게이트 — 피처 체크 8개. 스키마·배치를 건드렸으면 이것부터 (A-8)
+	$(PY) -m features.recommend.ingest.feature_test
+
 batch-log:  ## 배치 실행 기록 — status·건수·실패 사유 (A-7)
 	@$(PSQL) -c "SET search_path=reco,public; \
 	  SELECT id, job_name, status, input_count, output_count, \
@@ -206,6 +209,13 @@ ddl-test:  ## DDL 개정분 검증 — 소급 불가 컬럼 왕복 (07 E-3)
 
 post-index:  ## HNSW 인덱스 생성 (대량 적재 후 1회)
 	$(PSQL) -f /post/post_index.sql
+
+data-gate:  ## 데이터 파트 게이트 전부 — 커밋 전에 이것 하나만 돌리면 됩니다
+	@$(MAKE) --no-print-directory validate
+	@$(MAKE) --no-print-directory contract
+	@$(MAKE) --no-print-directory normalize-test
+	@$(MAKE) --no-print-directory feature-test
+	@echo "  ✓ 데이터 파트 게이트 전부 통과"
 
 # ── 한 번에 ─────────────────────────────────────────────────────
 bootstrap: up seed smoke  ## 기동 → 시드 → 검증 (핵심만)
