@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 B 를 구현하는 AI 코딩 에이전트. 원본과 어긋나면 **원본이 이깁니다**. 원본이 바뀌면 이 파일을 같은 커밋에서 갱신합니다
 
-**버전**: 1.0.2 · **최종 수정**: 2026-09-10 · **작성자**: 유재현
+**버전**: 2.0.0 · **최종 수정**: 2026-09-10 · **작성자**: 유재현
 
 ---
 
@@ -97,7 +97,18 @@ src/features/recommend/
 └── evaluation/feature_report.py
 ```
 
-구현은 A 트랙과 맞추기 위해 `stage.py` 를 더 두었습니다(작업 기록 D-17). 스테이지 사이의 모델은 거기 있고 `schema.py` 는 HTTP 계약만 갖습니다. 맛 축 순서는 (매움, 짠맛, 단맛)입니다(D-16).
+1차 통합 회의가 계약을 데이터 파트에 맞추기로 정해 구현이 이 명세와 여러 곳에서 달라졌습니다.
+근거는 `../decisions/2026-09-10_recommend_engine_follows_data_track_contract.md` 이고 상세는
+작업 기록 D-16~D-22 입니다. 코드를 고칠 때는 아래를 기준으로 삼습니다.
+
+| 이 명세 | 실제 구현 |
+|---|---|
+| 3축 맛 벡터 (매움, 단맛, 짠맛) | **6축** (매움, 짠맛, 단맛, 신맛, 감칠맛, 기름짐). 값이 없는 축은 분자·분모에서 함께 빠집니다 |
+| 5블록 가중합 | `enums.FEATURE_KEYS` 의 **17 피처**. 못 재는 것은 None |
+| `schema.RecommendRequest`/`Response` 를 B 가 정의 | A 의 `schema.py`. B 엔진은 요청 모델을 보지 않고 `engine/context.UserContext` 를 받습니다 |
+| `RecommendedItem` | A 의 `stage.RankedItem`. `propensity` 는 **확률**(0 < p <= 1) |
+| `engine/{candidate,rank,penalty,rerank,explain}.py` | A 의 `enums`·`stage`·`rank`·`reason`·`explore`·`serendipity` + B 의 `policy`·`taste`·`context`·`feature`·`score`·`rerank`·`candidate` |
+| 가중치 w_match 0.29 등 | A 의 `enums.DEFAULT_WEIGHTS`. 절차 손잡이는 `policy.RankingPolicy` |
 
 ---
 

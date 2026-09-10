@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 B 추천 엔진을 이어서 작업하는 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 0.6.0 · **최종 수정**: 2026-09-10 · **작성자**: 유재현
+**버전**: 0.7.0 · **최종 수정**: 2026-09-10 · **작성자**: 유재현
 
 ---
 
@@ -14,10 +14,10 @@
 |---|---|
 | 정본 | 이 파일. 사람용 서술본 `human/recommend_engine_work_log.md` 는 식별자로 대응하는 파생본 |
 | 계획서 | `recommend_engine_design.md` (사람용, 정본) · `recommend_engine_design_digest.md` (요약, 어긋나면 원본이 이김) |
-| 브랜치 | `feat/recommend-engine-core` = `origin/feat/recommend-engine-core`. 코드 HEAD `7d72324` (9.3). 그 뒤 `origin/main` 병합과 문서 커밋 (9.4) |
-| 단계 | Layer 1 완료 = Step 0 · Step 2~4 의 순수 함수 · Step 5 의 조립·피드백 수식. Step 1, Step 6 미착수. DB·라우터 미연결 |
-| 검증 (2026-09-10) | ruff check OK · ruff format OK · mypy 36 files OK · `pytest tests/unit/recommend` 111 passed · 전체 191 passed / 1 failed (P-02, 기존) / coverage 95.16% · 기획서 정합·Mock 동작·2차 재검증은 `recommend_engine_verification.md` (X-01~X-10 반영 완료) |
-| 다음 행동 | 3자 회의 (`recommend_engine_meeting_agenda.md`, G-02·G-04 먼저) → P-01 → 회의 결과대로 T-05·T-09·T-01 |
+| 브랜치 | `feat/recommend-engine-core`. `origin/main`(8aab6bf) 병합 완료. A 계약 채택과 엔진 재작성은 9.5 |
+| 단계 | ② Ranking 과 ③ Re-ranking 을 A 계약 위에서 구현 완료. ① Retrieval 은 A `repository.retrieve` 가 하고 B 는 완화 계획만 냅니다. 로그 적재·라우터·DB 미연결 |
+| 검증 (2026-09-10) | ruff check OK · ruff format OK · mypy 40 files OK · `pytest tests/unit` **190 passed / 0 failed** / coverage 92.21%. `main` 의 conftest 가 `env_file` 을 막아 P-02 가 풀렸고 전체 게이트가 처음으로 완전히 통과합니다. Mock 검증은 `recommend_engine_verification.md` 8절 |
+| 다음 행동 | G-09·G-10 규약 개정 신청 → N-01(.env) → N-03(라우터 연결)·T-03(로그 적재). 남은 회의 안건 G-06, G-08~G-12 |
 | 병합 정책 | PR 없음. 브랜치 커밋·push 만. `main` 병합은 A·B 파트 완료 후 논의 (P-10). `origin/main` 은 merge 로 따라감 (A 가 브랜치를 본 뒤라 rebase 금지, 01의 2.1) |
 | 갱신 규칙 | 세션마다 1절·3절·9절 갱신. 새 항목은 다음 번호, 번호 재사용 금지. 사람용 서술본 동시 갱신 (2절) |
 
@@ -70,7 +70,11 @@
 | D-15 | Input Adapter 는 2절 그림에만 | `build_context` 를 `service.py` 아닌 `engine/context.py` 에. engine 파일 7개 | 02의 3.2 service 는 흐름만. 픽스처가 service 없이 문맥 생성 가능해야 커밋 단위 검증 가능 | 없음 |
 | D-16 | 맛 축 순서 미명시 (구현은 매움·단맛·짠맛) | `(spicy, salty, sweet)` = A 트랙 D-11 의 (매움, 짠맛, 단맛). `RecipeCandidate` 는 6축 입력의 앞 3축만 | A 의 `recipe_feature.flavor_vec` 6축 앞 3축과 같은 순서여야 함. 값·길이가 같아 검사에 안 걸리는 오류 (A 공유 문서 1절) | 없음. `ba3e0f1` |
 | D-17 | 5절 파일 배치: 도메인 루트 6개 | `stage.py` 추가. `RecipeCandidate`, `UserHistory`, `UserContext`, `CorpusStats`, `RankConfig`, `ScoredCandidate`, `ServedItem` 이동. `schema.py` 는 HTTP 계약만 | A 가 같은 배치를 쓰고 병합 충돌을 줄이기 위해 요청 (A 공유 문서 2절). 저장소 02 규약은 아직 미개정 (P-11) | 02 규약이 `stage.py` 를 거부하면. `e2fc72d` |
-| D-18 | 3.2 수식·3.3 탐색 규칙 | 검증 기록 X-02(맛 신뢰도), X-05(탐색 축소), X-06(요리군 항), X-07(맛 거리 novelty) 로 확장 | Mock 검증 F-02·F-04·F-06·F-07. 상세는 `recommend_engine_verification.md` 7.1 | W3 가중치 학습 또는 명세 소유자 결정 |
+| D-18 | 3.2 수식·3.3 탐색 규칙 | 검증 기록 X-02(맛 신뢰도), X-05(탐색 축소), X-06(요리군 항), X-07(맛 거리 novelty) 로 확장 | Mock 검증 F-02·F-04·F-06·F-07. 상세는 `recommend_engine_verification.md` 7.1 | 일부 폐기 (D-20). X-02·X-05 는 유지, X-06·X-07 은 17 피처의 `f_cuisine` 으로 흡수 |
+| D-19 | 3축 맛 벡터 | **6축**. 사용자에게 받는 것은 앞 3축뿐이고 뒤 3축은 None 으로 들어와 계산에서 빠짐 | 회의 결정 G-01. A DDL 이 `flavor_vec`·`flavor_mu`·`taste_vec` 을 6축으로 두고, 뒤 3축 데이터가 오면 코드 변경 없이 켜져야 함 | 없음. `256c702` |
+| D-20 | 5블록 가중합, `RecommendRequest` 를 B 가 정의 | A 의 **17 피처**(`enums.FEATURE_KEYS`)와 `stage.ScoredCandidate`·`RankedItem`. B `schema.py` 폐기 | 회의 결정 G-02·G-03·G-07. A 가 먼저 구현했고 계약 98건과 DDL 이 그 위에서 돎 | 없음. D-04·D-07·D-08·D-13 이 이 결정으로 대체됨 |
+| D-21 | propensity 는 노출확률의 **역수** | **확률** (0 < p <= 1). `enums.PROPENSITY_SEMANTICS` = "item" | 회의 결정 G-05. A DDL 과 C 의 IPS 계산이 확률을 전제 | 없음. C-07 대체 |
+| D-22 | 엔진 순수 함수를 B 가 전부 구현 | A 의 `rank`(z-salience·로그 헬퍼), `reason`(템플릿), `explore`(슬롯·interleaving), `serendipity`(Thompson)를 그대로 쓰고 B 는 **점수 계산만** 채움 | 회의 결정 G-04. 두 벌이 되면 propensity 정의가 갈려 off-policy 평가가 못 쓰게 됨. B 의 `explain`·`penalty`·`feedback` 폐기 | 없음. `c459c2f` |
 
 ### 3.3 검증 출력 (2026-09-10, 커밋된 트리)
 
@@ -98,28 +102,29 @@ uv run pytest tests/unit (유효한 .env 를 둔 별도 cwd, E-03)
 | T-02 | Step 1 | `tables.py` (`recommendation_log`, `event_log`, `user_vector`) + `infra/metadata.py` 등록 | 미착수 | P-01. 운영 반영·되돌리기 방법 커밋 body (03의 5절) |
 | T-03 | Step 1 | `repository.log_serving_result` 비동기 예외 격리 (TC-1-1, TC-1-2) | 미착수 | `service.ServingLog` → JSONB. I-05 |
 | T-04 | Step 1 | `/health` 카운터 `reco_served_total`, `reco_failed_total`, `reco_degraded_total` (TC-1-3) | 미착수 | `main.py` 공용 파일. 카운터 저장 위치 |
-| T-05 | Step 2 | `repository.fetch_candidates` intarray (TC-2-3 p95 < 15ms) | 미착수 | Track A `recipe_feature`, `intarray`, GIN. 컬럼 확장 D-13. 조회 범위 A-10 |
+| T-05 | Step 2 | A `repository.retrieve` 호출과 완화 재조회 연결 | 미착수 | A 브랜치 병합. 조회 범위 A-10(회의 G-06) |
 | T-06 | Step 2 | 알레르기 코드군(19종) → 재료 ID 조회 | 미착수 | P-07. 픽스처 `allergen_groups` 는 대역 |
 | T-07 | Step 3 | `feature_stats` → `CorpusStats` | 미착수 | Track A `feature_stats` 계약. I-03 |
 | T-08 | Step 4 | 요리군별 `cuisine_priors` Beta(α, β) 집계 | 미착수 | `event_log` 누적. 그전엔 (1, 1) |
 | T-09 | Step 5 | `service.recommend()` DB 조립, `RankConfig` ← `Settings` (`config.py` + `.env.example`) | 미착수 | T-02, T-05. D-04 이행 |
 | T-10 | Step 5 | `POST /v1/events` → `feedback.update_behavior_vector` → `user_vector` | 미착수 | T-02 |
-| T-11 | Step 5 | `evaluation/feature_report.py` (TC-5-3) | 미착수 | 17개 특성 목록 확정 (현재 5블록 입력만) |
+| T-11 | Step 5 | `evaluation/feature_report.py` (TC-5-3) | 미착수 | 17개 목록 확정됨(`enums.FEATURE_KEYS`). 지금 재는 것은 9종 |
 | T-12 | Step 6 | 계약 검증 42건 (TC-6-1) | 미착수 | 42건 정의 문서, P-05 |
 | T-13 | Step 6 | Locust p95 < 58ms (TC-6-3) | 미착수 | P-06 |
 | T-14 | 7절 | NDCG@10, Recall@20, 커버리지, ILD 실측 · Bradley-Terry 가중치 | 미착수 | 600쌍 라벨, Track C 하네스 |
 | T-15 | 문서 | `docs/recommend/` 커밋과 `docs/README.md` 등록 | 완료 (`60f1d40`) | P-09 |
 | T-16 | 검증 | `recommend_engine_verification.md` 6절 수정 제안 9건의 채택 여부 결정과 반영 | 완료 (X-01~X-10, 9.3) | 2차 재검증 `recommend_engine_verification.md` 7절 |
-| T-17 | 통합 | A 트랙과 3자 회의 안건 정리와 병합 계획: P-11~P-16 | 안건 작성 완료 (`recommend_engine_meeting_agenda.md`), 회의 대기 | A 공유 문서 2026-09-10, `origin/develop-data-part` 실체 확인 (9.3) |
+| T-17 | 통합 | A 트랙과 3자 회의 안건 정리와 병합 계획: P-11~P-16 | 1차 회의 완료(G-01~G-05, G-07 반영). 남은 안건 G-06, G-08~G-12 | 9.5 |
+| T-18 | 통합 | `UserHistory` 를 채우는 repository 함수 (선호·기피 재료, 조리 이력, 클러스터 관측) | 미착수 | A 의 `user_ingredient_pref`·`event_log`·`user_cluster_stat`. 회의 안건 N-11 |
 
 ### 4.2 선행 조건 (P)
 
 | ID | 항목 | 왜 | 담당 / 승인 |
 |---|---|---|---|
 | P-01 | `.env`: 필수 6개(`DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `INTERNAL_API_KEY`, `GEMINI_API_KEY`)만 채우고 기본값 있는 15줄 삭제 | `KEY=` 빈 값을 pydantic-settings 가 값으로 취급 → 숫자 13필드 실패 → 단위 테스트 56건 실패. 추천 테스트는 무관 | 유재현 |
-| P-02 | `tests/conftest.py` 에서 `Settings.env_file` 끄기 | `test_missing_required_key_fails_at_startup` 가 실제 `.env` 를 읽어 `DB_HOST` 있으면 항상 실패 | 김민경 (공용) |
+| P-02 | 해결됨. `main`(c504fdc 계열)의 conftest 가 `env_file` 을 막습니다 | | |
 | P-03 | `config.py` `env_ignore_empty=True` 제안 | `.env.example` 복사만으로 기본값 동작. 검증 완료 | 김민경 |
-| P-04 | `--import-mode=importlib` 승인 (D-12) | 적용·검증 완료. 공용 파일 | Tech Lead |
+| P-04 | `--import-mode=importlib` 승인 (D-12) | 적용·검증 완료. 공용 파일. A 도 `pyproject.toml` 을 고쳤으므로 병합 때 함께 봅니다 (회의 안건 G-11) | Tech Lead |
 | P-05 | `Makefile` (`make contract`, `smoke`, `log-test`, `feature-test`) | 계획서 검증 명령이 참조하나 저장소에 없음. 신규 도구 승인(01의 1절) | Tech Lead |
 | P-06 | `locust` 의존성 (`uv add`, body 에 사유) | TC-6-3 | Tech Lead |
 | P-07 | 기피 재료(`avoid_ingredient_ids`) 출처 | 요청 스키마에 없음. `UserHistory` 에 자리만 | BE 계약 협의 |
@@ -129,8 +134,8 @@ uv run pytest tests/unit (유효한 .env 를 둔 별도 cwd, E-03)
 | P-11 | 02 규약에 `stage.py` 추가 | D-17 로 도메인 루트 파일이 7개. 원격 `develop-data-part` 의 02 문서에도 `stage.py` 없음. 01의 9절 개정 절차 | A, 김민경 |
 | P-12 | A 브랜치와의 파일·이름 충돌 조정 | `engine/rank.py`, `service.py`, `router.py`, `repository.py`, `__init__.py` 가 양쪽에 별개 구현. `stage.ScoredCandidate` 형태 상이(A 17 피처 dict, B 5 블록). `RecommendRequest/Response` 는 A `make contract` 98건이 의존 | 3자 회의 |
 | P-13 | A `tests/conftest.py` 의 `collect_ignore_glob = ["unit/recommend/*.py"]` | B 테스트 전체가 수집에서 빠짐. A 가 파일명 명시로 수정 예정. 병합 전 확인 | A |
-| P-14 | propensity 의미 통일 | A `RankedItem.propensity` 는 확률(≤1), B `ServedItem.propensity` 는 역수(≥1). 로그 스키마 하나로 | 3자 회의 |
-| P-15 | `user_vector.taste_vec` 6축 (A DDL) vs B EMA 3축 | 갱신 시 앞 3축만 쓰고 뒤 3축을 보존할지, 6축 EMA 로 갈지. 회의 안건 G-01 | A, 유재현 |
+| P-14 | 폐기 (D-21). propensity 는 확률로 통일했습니다 | 회의 결정 G-05 | |
+| P-15 | 폐기 (D-19). 6축으로 맞췄고 값이 없는 축은 갱신에서도 건드리지 않습니다 | | |
 | P-16 | 04의 1.1 트리에 `docs/recommend/`(설계 명세·기록·회의 안건) 추가 | 기록을 저장소에 두기로 한 결정(`../decisions/2026-09-10_recommend_record_dual_format.md`)의 배치 근거가 규칙에 없음. 01의 9절 절차. 회의 안건 G-09 | 유재현 → 팀 전원 |
 
 ---
@@ -276,3 +281,16 @@ uv run ruff check . && uv run python -m mypy src
 | 형식 | 계획서를 04 형식으로 재작성(표준 헤더, `####` 제거, `~합니다`체, 체크박스 결과 열 제거, 예시값 표기). 에이전트용 문서의 글머리 문장을 `~합니다`체로. `02의 2.5` 참조를 `04의 2.2` 로 |
 | 신규 | `recommend_engine_meeting_agenda.md` + 서술본. G-01~G-12, N-01~N-10 |
 | 넘긴 것 | G 전부(회의), P-16(04 개정 신청), N-01 |
+
+### 9.5 2026-09-10 - A 계약 채택과 엔진 재작성
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 1차 3자 회의 결정(G-01~G-05, G-07). `origin/main`(8aab6bf) 병합, `origin/develop-data-part`(658d79a) 참조 |
+| 확인한 사실 | A 는 **아직 main 에 병합되지 않았습니다.** `develop-data-part` 가 main 을 자기 쪽으로 받아 PR 준비를 마친 상태이며 main 대비 21 커밋 앞섭니다. main 의 `src/features/recommend/` 에는 여전히 빈 골격과 `router.py` 뿐입니다 |
+| 가져온 것 | `enums.py`, `stage.py`, `engine/{rank,reason,explore,serendipity}.py` 6개. 26곳만 고쳤습니다 - 수학 기호 21(전역 ignore 는 01의 3.3상 승인 필요), import 순서 2, 코드 3(S311 noqa, 항상 참인 멤버십 검사, 인자 타입) |
+| 지운 것 | B 의 `schema.py`, `engine/{explain,penalty,feedback}.py`. A 가 같은 일을 이미 하고 있어 두 벌이 되면 propensity 정의가 갈립니다 |
+| 새로 쓴 것 | `policy.py`(손잡이·지문·trace 파라미터), `engine/taste.py`(6축 None-aware), `engine/context.py`(RecipeFeature·UserHistory·UserContext), `engine/feature.py`(17 피처), `engine/score.py`(가중합·감점), `engine/rerank.py`(MMR·탐색), `engine/candidate.py`(완화 계획), `service.py`(A 카운터 + `rank_candidates`) |
+| 커밋 | `3929ee9` merge main · `c459c2f` A 계약·엔진 채택 · `256c702` 17 피처·6축 점수 계산 · `9896fbc` 픽스처·테스트 |
+| 검증 | `pytest tests/unit` **190 passed / 0 failed**, coverage 92.21%. ruff·mypy 통과. Mock 재검증은 검증 기록 8절 |
+| 넘긴 것 | G-06·G-08~G-12(회의), N-01, N-03, N-11 |

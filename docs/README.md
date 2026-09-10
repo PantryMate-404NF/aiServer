@@ -4,7 +4,7 @@
 
 **적용 대상**: 이 저장소에 기여하는 모든 인원 및 AI 코딩 에이전트
 
-**버전**: 1.2.0 · **최종 수정**: 2026-09-10 · **작성자**: 김민경
+**버전**: 1.3.0 · **최종 수정**: 2026-09-10 · **작성자**: 김민경
 
 ---
 
@@ -22,7 +22,7 @@
 충돌 시 번호가 작은 문서가 이깁니다. 규칙을 바꾸려면 01의 9절 개정 절차를 따릅니다.
 설계 결정 기록은 [decisions/](decisions/) 에 날짜별로 있습니다.
 
-파트별 설계 명세와 진행 기록은 아래에 있습니다. 규칙이 아니라 진행 상태를 담습니다. 에이전트용 정본과 사람용 서술본을 함께 두는 이유는 [decisions/2026-09-10_recommend_record_dual_format.md](decisions/2026-09-10_recommend_record_dual_format.md) 에 있습니다. `recommend/` 폴더는 04의 1.1 트리에 아직 없으며 개정 신청 대상입니다.
+파트별 설계 명세와 진행 기록은 아래에 있습니다. 규칙이 아니라 진행 상태를 담습니다. 에이전트용 정본과 사람용 서술본을 함께 두는 이유는 [decisions/2026-09-10_recommend_record_dual_format.md](decisions/2026-09-10_recommend_record_dual_format.md) 에, 추천 엔진이 데이터 파트의 계약을 따르는 이유는 [decisions/2026-09-10_recommend_engine_follows_data_track_contract.md](decisions/2026-09-10_recommend_engine_follows_data_track_contract.md) 에 있습니다. `recommend/` 폴더는 04의 1.1 트리에 아직 없으며 개정 신청 대상입니다.
 
 | 폴더 | 문서 | 담는 것 |
 |---|---|---|
