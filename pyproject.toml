@@ -46,6 +46,9 @@ select = ["E", "W", "F", "I", "N", "UP", "B", "S", "T20", "ANN", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101"]
+# 통합 테스트는 각 단계의 중간 결과를 눈으로 확인하는 용도를 겸합니다. 그 출력은
+# 로그가 아니라 사람이 터미널에서 읽는 것이라 print 를 씁니다.
+"tests/integration/**" = ["S101", "T20"]
 # 평가·백필 스크립트는 사람이 터미널에서 읽는 도구라 print 로 결과를 냅니다.
 "scripts/**" = ["T20"]
 
