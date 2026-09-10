@@ -49,8 +49,7 @@ def is_eligible(
         return False
     if len(recipe.essential_ids - pantry) > max_missing:
         return False
-    limit = ctx.max_cook_minutes
-    return limit is None or recipe.cook_minutes is None or recipe.cook_minutes <= limit
+    return _within_time(recipe, ctx.max_cook_minutes)
 
 
 def retrieve(
@@ -74,7 +73,8 @@ def select_candidates(
 ) -> CandidateSet:
     """후보가 부족하면 부족수 완화, 대체재 확장, 인기순 순으로 넓힙니다.
 
-    어느 단계에서도 알레르기 재료가 든 레시피는 돌아오지 않습니다.
+    어느 단계에서도 알레르기 재료가 든 레시피는 돌아오지 않습니다. 인기순 폴백도
+    조리시간 상한을 먼저 지키고, 그래도 부족할 때만 상한을 풉니다.
     """
     # min_candidates 는 Top-20 을 전제한 값입니다. 더 달라면 그만큼은 있어야 합니다.
     needed = max(cfg.min_candidates, ctx.top_k)
@@ -98,8 +98,24 @@ def select_candidates(
         if len(found) >= needed:
             return CandidateSet(tuple(found), FALLBACK_SUBSTITUTE, cfg.max_missing_relaxed)
 
-    popular = [r for r in pool if not (r.all_ids & ctx.history.allergy_ingredient_ids)]
-    popular.sort(key=lambda r: (-(r.popularity_score or 0.0), r.recipe_id))
+    allergy = ctx.history.allergy_ingredient_ids
+    popular = _popular(pool, allergy, ctx.max_cook_minutes)
+    if len(popular) < needed:
+        # 상한을 지켜서는 채울 수 없을 때만 풉니다. 20분 요청에 90분 레시피는 마지막 수단입니다.
+        popular = _popular(pool, allergy, None)
     return CandidateSet(
         tuple(popular[: cfg.candidate_limit]), FALLBACK_POPULARITY, cfg.max_missing_relaxed
     )
+
+
+def _within_time(recipe: RecipeCandidate, max_minutes: int | None) -> bool:
+    return max_minutes is None or recipe.cook_minutes is None or recipe.cook_minutes <= max_minutes
+
+
+def _popular(
+    pool: Iterable[RecipeCandidate], allergy: frozenset[int], max_minutes: int | None
+) -> list[RecipeCandidate]:
+    """알레르기 재료가 없고 조리시간 상한 안인 레시피를 인기 내림차순으로."""
+    kept = [r for r in pool if not (r.all_ids & allergy) and _within_time(r, max_minutes)]
+    kept.sort(key=lambda r: (-(r.popularity_score or 0.0), r.recipe_id))
+    return kept

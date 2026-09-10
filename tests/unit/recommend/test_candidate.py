@@ -179,3 +179,36 @@ def test_recipe_sharing_no_pantry_item_is_not_eligible(
     recipe = make_recipe(1, essential=[7, 8])
 
     assert not is_eligible(recipe, make_context(pantry=[1]), pantry=frozenset({1}), max_missing=2)
+
+
+def test_popularity_fallback_keeps_the_cook_time_cap_when_it_can(
+    make_recipe: Callable[..., RecipeCandidate],
+    make_context: Callable[..., UserContext],
+    cfg: RankConfig,
+) -> None:
+    """20분 요청에 90분 레시피가 가는 것은 마지막 수단입니다. 인기가 높아도 상한이 먼저입니다."""
+    short = [make_recipe(i, essential=[99], cook_minutes=10) for i in range(25)]
+    long = [
+        make_recipe(100 + i, essential=[99], cook_minutes=90, popularity_score=0.9)
+        for i in range(25)
+    ]
+
+    selected = select_candidates(short + long, make_context(pantry=[1], max_cook_minutes=20), cfg)
+
+    assert selected.fallback_stage == FALLBACK_POPULARITY
+    assert len(selected.candidates) == 25
+    assert all(recipe.cook_minutes == 10 for recipe in selected.candidates)
+
+
+def test_popularity_fallback_drops_the_cap_only_when_too_few(
+    make_recipe: Callable[..., RecipeCandidate],
+    make_context: Callable[..., UserContext],
+    cfg: RankConfig,
+) -> None:
+    short = [make_recipe(i, essential=[99], cook_minutes=10) for i in range(5)]
+    long = [make_recipe(100 + i, essential=[99], cook_minutes=90) for i in range(25)]
+
+    selected = select_candidates(short + long, make_context(pantry=[1], max_cook_minutes=20), cfg)
+
+    assert selected.fallback_stage == FALLBACK_POPULARITY
+    assert len(selected.candidates) == 30
