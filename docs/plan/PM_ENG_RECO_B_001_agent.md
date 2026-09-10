@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 B 를 구현하는 AI 코딩 에이전트. 원본과 어긋나면 **원본이 이깁니다**. 원본이 바뀌면 이 파일을 같은 커밋에서 갱신합니다
 
-**버전**: 1.0.0 · **최종 수정**: 2026-09-10 · **작성자**: 유재현
+**버전**: 1.0.1 · **최종 수정**: 2026-09-10 · **작성자**: 유재현
 
 ---
 
@@ -96,6 +96,8 @@ src/features/recommend/
 ├── engine/   candidate.py  rank.py  penalty.py  rerank.py  explain.py   (구현 추가: context.py, feedback.py)
 └── evaluation/feature_report.py
 ```
+
+구현은 A 트랙과 맞추기 위해 `stage.py` 를 더 두었습니다(작업 기록 D-17). 스테이지 사이의 모델은 거기 있고 `schema.py` 는 HTTP 계약만 갖습니다. 맛 축 순서는 (매움, 짠맛, 단맛)입니다(D-16).
 
 ---
 
