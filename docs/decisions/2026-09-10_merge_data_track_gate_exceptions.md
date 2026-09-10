@@ -45,7 +45,7 @@
 
 | 뺀 것 | 실제 검사 | 진수 |
 |---|---|---|
-| `src/features/recommend/ingest/*` | `make normalize-test`, `make contract`, `make feature-test`, `make flavor-check`, `make probe-all` | 병합 시점 실측 — `run` 74건, `test_match` 23건, `test_role` 23건, `test_batch` 5건 통과 |
+| `src/features/recommend/ingest/*` | `make normalize-test`, `make contract`, `make feature-test`, `make flavor-check`, `make probe-all` | 병합 시점 실측 — `run` 74건, `test_match` 23건, `test_role` 23건, `test_batch` 5건 통과. `contract` 는 98건 전부 통과이나 `.env` 가 비어 있으면 중간에 멈춥니다(검증 기록 F-30) |
 | `src/features/recommend/repository.py` | `make smoke-py`, `make log-test`, `make ddl-test` | 실 DB 가 필요합니다. 01의 6.2 가 단위 테스트에서 실 DB 사용을 금지합니다 |
 | `src/features/recommend/engine/mock.py` | `make contract`, `make api-docs` | 대시보드가 엔진을 기다리지 않게 하는 목업입니다 |
 

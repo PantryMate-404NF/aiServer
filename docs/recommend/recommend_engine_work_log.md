@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 B 추천 엔진을 이어서 작업하는 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 0.8.0 · **최종 수정**: 2026-09-10 · **작성자**: 유재현
+**버전**: 0.9.0 · **최종 수정**: 2026-09-11 · **작성자**: 유재현
 
 ---
 
@@ -16,8 +16,8 @@
 | 계획서 | `recommend_engine_design.md` (사람용, 정본) · `recommend_engine_design_digest.md` (요약, 어긋나면 원본이 이김) |
 | 브랜치 | `feat/recommend-engine-core`. `origin/main`(6b7c7b7)·`origin/develop-data-part`(658d79a) 병합 완료. A 전량 병합은 9.6 |
 | 단계 | ② Ranking 과 ③ Re-ranking 을 A 계약 위에서 구현 완료. ① Retrieval·로그 적재·DDL·배치는 A 것이 브랜치에 들어와 있습니다(9.6). 라우터에 `rank_candidates` 를 끼우는 것(N-03)과 DB 연결이 남았습니다 |
-| 검증 (2026-09-10, A 병합 후) | ruff check OK · ruff format 129 files OK · mypy **58 files** OK · `pytest tests/unit` **190 passed / 0 failed** / coverage **88.12%**. A 자체 게이트(`validate`·`contract`·`normalize-test`)도 통과. 출력은 `recommend_engine_verification.md` 9절 |
-| 다음 행동 | A 개발자와 병합 순서 합의(B → main → A) → 게이트 예외 4건 Tech Lead 승인(G-16) → G-09·G-10 규약 개정 신청 → N-03(라우터 연결). 남은 회의 안건 G-06, G-12~G-17 |
+| 검증 (2026-09-11) | ruff check OK · ruff format 130 files OK · mypy **58 files** OK · `pytest tests/unit` **196 passed / 0 failed** / coverage **88.18%**. A 자체 게이트도 통과 — `contract` 98건은 설정값을 채운 환경에서만 끝까지 돕니다(E-13). 출력은 `recommend_engine_verification.md` 9절과 10절 |
+| 다음 행동 | A 개발자와 병합 순서 합의(B → main → A) → 게이트 예외 4건 Tech Lead 승인(G-16) → N-01(.env 정리, F-30 의 전제) → G-09·G-10 규약 개정 신청 → N-03(라우터 실연결, F-29 의 해소). 남은 회의 안건 G-06, G-12~G-19 |
 | 병합 정책 | PR 없음. 브랜치 커밋·push 만. `main` 병합은 A·B 파트 완료 후 논의 (P-10). `origin/main` 은 merge 로 따라감 (A 가 브랜치를 본 뒤라 rebase 금지, 01의 2.1) |
 | 갱신 규칙 | 세션마다 1절·3절·9절 갱신. 새 항목은 다음 번호, 번호 재사용 금지. 사람용 서술본 동시 갱신 (2절) |
 
@@ -75,10 +75,11 @@
 | D-20 | 5블록 가중합, `RecommendRequest` 를 B 가 정의 | A 의 **17 피처**(`enums.FEATURE_KEYS`)와 `stage.ScoredCandidate`·`RankedItem`. B `schema.py` 폐기 | 회의 결정 G-02·G-03·G-07. A 가 먼저 구현했고 계약 98건과 DDL 이 그 위에서 돎 | 없음. D-04·D-07·D-08·D-13 이 이 결정으로 대체됨 |
 | D-21 | propensity 는 노출확률의 **역수** | **확률** (0 < p <= 1). `enums.PROPENSITY_SEMANTICS` = "item" | 회의 결정 G-05. A DDL 과 C 의 IPS 계산이 확률을 전제 | 없음. C-07 대체 |
 | D-22 | 엔진 순수 함수를 B 가 전부 구현 | A 의 `rank`(z-salience·로그 헬퍼), `reason`(템플릿), `explore`(슬롯·interleaving), `serendipity`(Thompson)를 그대로 쓰고 B 는 **점수 계산만** 채움 | 회의 결정 G-04. 두 벌이 되면 propensity 정의가 갈려 off-policy 평가가 못 쓰게 됨. B 의 `explain`·`penalty`·`feedback` 폐기 | 없음. `c459c2f` |
-| D-23 | A 가 가져온 파일은 그대로 둔다 | `src/**` 의 ruff 45건·mypy 31건을 손으로 고침. 의미를 바꾸지 않는 표기·타입·구조 수정만 | 서빙 경로에 예외를 두면 그 예외가 요청 처리 코드에 남습니다. A 자체 게이트(`validate`·`contract`·`normalize-test`)로 의미 불변을 확인했습니다 | A 가 거부하면 해당 파일만 되돌림 |
+| D-23 | A 가 가져온 파일은 그대로 둔다 | `src/**` 의 ruff 45건·mypy 31건을 손으로 고침. 의미를 바꾸지 않는 표기·타입·구조 수정만 | 서빙 경로에 예외를 두면 그 예외가 요청 처리 코드에 남습니다. A 자체 게이트(`validate`·`contract` 98건·`normalize-test` 125건)로 의미 불변을 확인했습니다 | A 가 거부하면 해당 파일만 되돌림 |
 | D-24 | 게이트는 예외 없이 통과시킨다 | 도구 파일에 한해 범위를 좁힌 예외. `adapter.py` ANN401, `scripts/reco/bench` 검사 제외, 도구 9개 파일별 규칙 코드, 커버리지 `omit` 3항목 | 규칙이 막으려는 것이 자리마다 다릅니다. 근거와 해소 조건은 `../decisions/2026-09-10_merge_data_track_gate_exceptions.md` | Tech Lead 가 거부하면 해당 항목을 손으로 고침 (01의 3.3, 6.1) |
 | D-25 | 공유 파일은 A 것을 받는다 | `uv.lock` 의 `pillow-heif` 만 `main` 값 1.6.0 으로 되돌림 | 이 병합과 무관한 버전 올림이고, 1.7.0 의 DLL 이 Windows 앱 제어 정책에 걸려 영수증 파이프라인 검사 8건이 수집 단계에서 죽습니다 | 1.7.0 이 필요한 이유가 나오면 (G-13) |
 | D-26 | A 의 `tests/conftest.py` 를 그대로 받는다 | `collect_ignore_glob` 두 줄을 파일 8개 명시로 | 글로브가 B 의 pytest 검사 63건과 `integration/test_receipt_pipeline.py` 를 함께 뺍니다. 통과 건수가 줄어드는 것이 아니라 **세어지지 않아** 알아챌 수 없습니다 | 없음. G-08 의 (a)안이고 (b)안으로 가면 이 줄들이 사라집니다 |
+| D-27 | 설정 기본값을 편한 곳에 둔다 | 같은 값을 두 곳에 두지 않습니다. `health_payload(db_ok)`·`build_context(warm_event_count)` 에서 기본값을 없애고 `mixed_exploration(mc=)` 로 정책값을 넘깁니다 | 기본값이 있으면 호출자가 빠뜨려도 **에러가 안 납니다.** 확인 없이 참으로 나가거나(F-24), 로그와 계산이 갈라지거나(F-25), 손잡이가 안 먹습니다(F-26) | 없음. 회귀 검사 `tests/unit/recommend/test_wiring.py` 6건 |
 
 ### 3.3 검증 출력 (2026-09-10, A 브랜치 병합 후)
 
@@ -93,7 +94,7 @@ A 자체 게이트(`Makefile`, DB 불필요분). Windows 는 `PYTHONIOENCODING=u
 
 ```text
 python seeds/validate.py                    → 통과 (경고 13건)
-python -m tests.unit.recommend.test_contract → 통과
+python -m tests.unit.recommend.test_contract → 98건 전부 통과 (설정값을 채운 환경. E-13)
 python -m tests.unit.recommend.run           → 74건 전부 통과
 python -m tests.unit.recommend.test_match    → 전부 통과 (23건)
 python -m tests.unit.recommend.test_role     → 전부 통과 (23건)
@@ -203,6 +204,7 @@ uv run ruff check . && uv run python -m mypy src
 | E-08 | Bash heredoc 10KB 초과 → 명령 잘림 | 큰 파일은 편집기 도구(Write) |
 | E-09 | addopts 에 `-q` 있음. `-q` 추가 시 요약 줄 사라짐 | 명령줄에 `-q` 안 붙임 |
 | E-11 | A 의 `make` 검사가 통과 표시(U+2713)를 찍다가 `UnicodeEncodeError` (cp949). 검사 실패가 아니라 콘솔 인코딩 | `PYTHONIOENCODING=utf-8` 을 세우고 실행. 항구 대책은 G-14 |
+| E-13 | `make contract` 가 `.env` 의 빈 값으로 `create_app()` 에서 죽습니다. `try` 가 `ImportError` 만 잡아 `ValidationError` 가 그대로 올라오고, **마지막으로 보이는 줄이 통과 표시(U+2713)라 눈으로는 통과처럼 읽힙니다**(F-30) | 설정값 20종을 환경변수로 채우고 실행하면 98건 전부 통과·종료코드 0. 항구 대책은 N-01(.env 정리)과 G-18 |
 | E-12 | A `uv.lock` 의 `pillow-heif` 1.7.0 → `_pillow_heif` DLL 이 앱 제어 정책에 차단. 영수증 검사 8건이 수집에서 죽음 | `uv.lock` 항목만 `main` 값 1.6.0 으로 되돌림 (D-25). 1.6.0 은 같은 머신에서 정상 import |
 | E-10 | git 사용자 설정 전무 | 저장소 로컬 `user.name=유재현`, `user.email=yjhorion@gmail.com`. 변경은 `git config --local` 후 push 전 `git rebase --exec 'git commit --amend --no-edit --reset-author' main` |
 
@@ -325,6 +327,20 @@ uv run ruff check . && uv run python -m mypy src
 | 고친 것 (D-26) | A `tests/conftest.py` 의 `collect_ignore_glob = ["unit/recommend/*.py", "integration/*.py"]` 를 파일 8개 명시로. 그대로 두면 B 의 pytest 검사 63건과 `integration/test_receipt_pipeline.py` 가 **세어지지 않은 채** 사라집니다 (G-08 의 (a)안) |
 | 추가한 것 | `types-PyYAML`(dev). A 의 `src/` 3개 파일이 `yaml` 을 import 하는데 스텁이 없어 mypy 가 막혔습니다 |
 | A 파일에 남은 차이 | 37 파일. 대부분 `ruff format` 출력이고 의미 변경은 위 D-23 뿐입니다 |
-| 검증 | ruff `All checks passed!` · `ruff format --check` 129 files · mypy 58 files · `pytest tests/unit` 190 passed / coverage 88.12%. A 자체 게이트 — `validate` 통과(경고 13), `contract` 통과, `normalize-test` 74+23+23+5건 통과 |
+| 검증 | ruff `All checks passed!` · `ruff format --check` 129 files · mypy 58 files · `pytest tests/unit` 190 passed / coverage 88.12%. A 자체 게이트 — `validate` 통과(경고 13), `normalize-test` 74+23+23+5건 통과. `contract` 는 이때 통과로 적었으나 **오기입니다** — `.env` 의 빈 값 때문에 59번째 체크에서 죽고 있었습니다. 바로잡은 값은 10절 |
 | 새 안건 | G-13~G-17, N-12 |
 | 넘긴 것 | `main` 병합(A 개발자와), G-06, G-09~G-17, N-01, N-03, N-11 |
+
+### 9.7 2026-09-11 - 조용한 실패 점검
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 질문: 규칙 적합성과 동작 재확인, 그리고 "에러는 안 나는데 기능을 못 하는 것" 이 있는지 |
+| 방법 | 게이트가 전부 통과하는 상태에서 세 축으로 측정 — 설정값이 계산에 닿는가(정책 손잡이 18종 역참조), 피처가 실제로 변하는가(12 페르소나 260 노출의 분포), 응답이 근거 있는 값인가(HTTP 실호출) |
+| 찾은 것 | 8건. 상세는 검증 기록 10절 F-24~F-31 |
+| 고친 것 (D-27) | F-24 `/health` 가 DB 확인 없이 `db: true` · F-25 로그의 `propensity_mc` 가 실계산과 다를 수 있음 · F-26 `warm_event_count` 이중 정의. 회귀 검사 6건 추가 |
+| 남긴 것 | F-27 `f_time_fit` 구조적 상수(N-13) · F-28 가중치 0.26 무효 · F-29 라우터가 목업(N-03) · F-30 `make contract` 가 조용히 중단(G-18) · F-31 `redis: true` 근거 없음(G-19) |
+| 바로잡은 기록 | 9.6 의 `contract 통과` 는 오기였습니다. 종료 코드를 보지 않고 tail 의 통과 표시만 읽었고, 실제로는 `.env` 빈 값 때문에 59번째 체크에서 죽고 있었습니다. 설정값을 채우면 98건 전부 통과입니다 |
+| 문서 정정 | `ruff format` 128→129, 변경 규모 193→194, 통과 표시 문자 3곳, G-08·G-10 수치, 계획서 두 편의 "회의 이전" 표시, 결정 기록의 실측 범위 |
+| 검증 | ruff·format·mypy 통과, `pytest tests/unit` **196 passed** / coverage **88.18%**. A 자체 게이트 — `validate` 통과, `contract` **98건 전부 통과**(설정값을 채운 환경), `normalize-test` 125건 통과 |
+| 넘긴 것 | N-13, G-18, G-19, N-01, N-03 |
