@@ -145,8 +145,8 @@ uv run pytest tests/unit (유효한 .env 를 둔 별도 cwd, E-03)
 | C-04 | `household_size` 는 문맥에 있으나 어떤 블록도 사용 안 함 | `UserContext` |
 | C-05 | 품질 블록 부분 결측: 한쪽만 있으면 그쪽, 둘 다 없으면 None. 픽스처 20건에 1건 품질 결측 | `rank.quality_score` |
 | C-06 | `config_fingerprint` = `RankConfig` 전 필드 MD5(`usedforsecurity=False`). 비가중치 값도 포함 | `RankConfig.fingerprint` |
-| C-07 | propensity: 개인화 1.0 · 균등 = 풀 크기 / 뽑는 수 · Thompson = MC 64회 추정 역수(라플라스). 표본 수 `propensity_samples` | `rerank._win_probability` |
-| C-08 | MMR 비용 = 후보 수 × 슬롯 수 (500×16=8,000 자카드), 최대 유사도 증분 갱신. 지연시간 실측 없음 | `rerank.mmr_select` |
+| C-07 | propensity: 개인화 1.0 · 균등 = 풀 크기 / 뽑는 수 · Thompson = MC 32회 추정 역수(라플라스, X-08 로 64→32). 표본 수 `propensity_samples` | `rerank._win_probability` |
+| C-08 | MMR 은 점수 상위 200건 × 슬롯 수, IDF 합 사전 계산, 최대 유사도 증분 갱신 (X-08). 후보 500 기준 rerank 중앙값 8.5 ms, 엔진 p95 22 ms (`_eval.md` 7.2) | `rerank.mmr_select` |
 | C-09 | 알레르기 코드군 픽스처 18종. 19종 중 SULFITE 는 대응 재료 없어 제외 | `generate_mock_fixtures.ALLERGEN_GROUPS` |
 | C-10 | 픽스처 JSON 은 생성 산출물이나 커밋 대상(02의 2.3). 개인정보 없음 | `tests/fixtures/recommend/` |
 | C-11 | engine 파일 7개(`candidate`, `context`, `explain`, `feedback`, `penalty`, `rank`, `rerank`). 02의 5.1 디렉토리당 8개 기준 안 | `engine/` |
