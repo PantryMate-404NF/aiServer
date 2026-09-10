@@ -15,11 +15,18 @@ from features.recommend.engine.explain import (
     salient_block,
 )
 from features.recommend.engine.rank import BLOCKS
-from features.recommend.schema import CorpusStats, RecipeCandidate, ScoredCandidate, UserContext
+from features.recommend.schema import (
+    CorpusStats,
+    RankConfig,
+    RecipeCandidate,
+    ScoredCandidate,
+    UserContext,
+)
 
 NAMES = {4: "감자", 11: "계란", 14: "돼지고기"}
 CORPUS = CorpusStats(flavor_mean=(0.5, 0.5, 0.5), ingredient_names=NAMES)
 FLAT_STATS = {name: BlockStats(mean=0.5, std=0.1) for name in BLOCKS}
+CFG = RankConfig()
 
 
 def _scored(
@@ -63,7 +70,7 @@ def test_each_block_yields_a_complete_sentence(
     ctx = make_context(pantry=[4], expiring=[11], taste=(0.9, 0.5, 0.5), max_cook_minutes=30)
     item = _scored(recipe, _dominated_by(block), missing=(11,))
 
-    reason = explain(item, ctx, CORPUS, FLAT_STATS, is_exploration=False)
+    reason = explain(item, ctx, CORPUS, FLAT_STATS, CFG, is_exploration=False)
 
     assert reason
     assert "None" not in reason
@@ -75,7 +82,7 @@ def test_exploration_reason_mentions_the_cuisine(
 ) -> None:
     item = _scored(make_recipe(1, cuisine="양식"), _dominated_by("match"))
 
-    reason = explain(item, make_context(), CORPUS, FLAT_STATS, is_exploration=True)
+    reason = explain(item, make_context(), CORPUS, FLAT_STATS, CFG, is_exploration=True)
 
     assert "양식" in reason
 
@@ -85,7 +92,7 @@ def test_missing_ingredient_names_are_bound(
 ) -> None:
     item = _scored(make_recipe(1, essential=[4, 11]), _dominated_by("match"), missing=(4,))
 
-    assert explain(item, make_context(), CORPUS, FLAT_STATS, is_exploration=False) == (
+    assert explain(item, make_context(), CORPUS, FLAT_STATS, CFG, is_exploration=False) == (
         "감자만 더 있으면 완성돼요"
     )
 
@@ -95,7 +102,7 @@ def test_nothing_missing_says_ready_to_cook(
 ) -> None:
     item = _scored(make_recipe(1, essential=[4]), _dominated_by("match"))
 
-    reason = explain(item, make_context(), CORPUS, FLAT_STATS, is_exploration=False)
+    reason = explain(item, make_context(), CORPUS, FLAT_STATS, CFG, is_exploration=False)
 
     assert reason == "지금 있는 재료만으로 바로 만들 수 있어요"
 
@@ -107,7 +114,7 @@ def test_expiring_names_get_the_right_josa(
     ctx = make_context(pantry=[11, 14], expiring=[11, 14])
     item = _scored(recipe, _dominated_by("expiring"))
 
-    reason = explain(item, ctx, CORPUS, FLAT_STATS, is_exploration=False)
+    reason = explain(item, ctx, CORPUS, FLAT_STATS, CFG, is_exploration=False)
 
     assert reason.startswith("계란, 돼지고기가 ")
 
@@ -120,10 +127,10 @@ def test_unknown_ingredient_names_fall_back_to_counts(
     missing = _scored(make_recipe(1, essential=[7, 8, 9]), _dominated_by("match"), missing=(8, 9))
     expiring = _scored(make_recipe(2, essential=[7, 8]), _dominated_by("expiring"))
 
-    assert explain(missing, ctx, nameless, FLAT_STATS, is_exploration=False) == (
+    assert explain(missing, ctx, nameless, FLAT_STATS, CFG, is_exploration=False) == (
         "재료 2가지만 더 있으면 완성돼요"
     )
-    assert explain(expiring, ctx, nameless, FLAT_STATS, is_exploration=False) == (
+    assert explain(expiring, ctx, nameless, FLAT_STATS, CFG, is_exploration=False) == (
         "곧 소비기한이 끝나는 재료 2개를 쓸 수 있어요"
     )
 
@@ -135,7 +142,7 @@ def test_taste_reason_names_the_dominant_axis(
     ctx = make_context(taste=(0.5, 0.5, 1.0))
     item = _scored(recipe, _dominated_by("taste"))
 
-    assert "단맛이" in explain(item, ctx, CORPUS, FLAT_STATS, is_exploration=False)
+    assert "단맛이" in explain(item, ctx, CORPUS, FLAT_STATS, CFG, is_exploration=False)
 
 
 def test_taste_reason_on_the_low_side_says_mild(
@@ -146,7 +153,7 @@ def test_taste_reason_on_the_low_side_says_mild(
     ctx = make_context(taste=(0.0, 0.5, 0.5))
     item = _scored(recipe, _dominated_by("taste"))
 
-    reason = explain(item, ctx, CORPUS, FLAT_STATS, is_exploration=False)
+    reason = explain(item, ctx, CORPUS, FLAT_STATS, CFG, is_exploration=False)
 
     assert "매운맛이 강하지 않아" in reason
     assert "좋아하시는" not in reason
@@ -160,7 +167,7 @@ def test_missing_names_beyond_two_are_counted(
         make_recipe(1, essential=[4, 11, 14]), _dominated_by("match"), missing=(4, 11, 14)
     )
 
-    reason = explain(item, make_context(), CORPUS, FLAT_STATS, is_exploration=False)
+    reason = explain(item, make_context(), CORPUS, FLAT_STATS, CFG, is_exploration=False)
 
     assert reason == "감자, 계란 등 3가지만 더 있으면 완성돼요"
 
@@ -172,7 +179,7 @@ def test_expiring_beyond_two_names_gets_etc_before_the_josa(
     ctx = make_context(pantry=[4, 11, 14], expiring=[4, 11, 14])
     item = _scored(recipe, _dominated_by("expiring"))
 
-    reason = explain(item, ctx, CORPUS, FLAT_STATS, is_exploration=False)
+    reason = explain(item, ctx, CORPUS, FLAT_STATS, CFG, is_exploration=False)
 
     assert reason.startswith("감자, 계란 등이 소비기한이")
 
@@ -184,10 +191,12 @@ def test_context_reason_uses_cook_minutes(
     untimed = _scored(make_recipe(2, cook_minutes=None), _dominated_by("ctx"))
 
     assert (
-        explain(timed, make_context(), CORPUS, FLAT_STATS, is_exploration=False)
+        explain(timed, make_context(), CORPUS, FLAT_STATS, CFG, is_exploration=False)
         == "15분이면 완성돼요"
     )
-    assert "None" not in explain(untimed, make_context(), CORPUS, FLAT_STATS, is_exploration=False)
+    assert "None" not in explain(
+        untimed, make_context(), CORPUS, FLAT_STATS, CFG, is_exploration=False
+    )
 
 
 def test_salient_block_prefers_the_highest_z_score(
@@ -218,4 +227,18 @@ def test_no_measurable_block_gives_the_default_reason(
 ) -> None:
     item = _scored(make_recipe(1), dict.fromkeys(BLOCKS))
 
-    assert explain(item, make_context(), CORPUS, {}, is_exploration=False) == DEFAULT_REASON
+    assert explain(item, make_context(), CORPUS, {}, CFG, is_exploration=False) == DEFAULT_REASON
+
+
+def test_neutral_user_gets_no_taste_reason(
+    make_recipe: Callable[..., RecipeCandidate], make_context: Callable[..., UserContext]
+) -> None:
+    """취향이 코퍼스 평균과 다를 바 없으면 맛을 근거로 대지 않습니다."""
+    item = _scored(make_recipe(1, essential=[4]), _dominated_by("taste"))
+    ctx = make_context(pantry=[4], taste=(0.5, 0.5, 0.5))
+
+    reason = explain(item, ctx, CORPUS, FLAT_STATS, CFG, is_exploration=False)
+
+    assert "좋아하시는" not in reason
+    assert "강하지 않아" not in reason
+    assert reason == "지금 있는 재료만으로 바로 만들 수 있어요"

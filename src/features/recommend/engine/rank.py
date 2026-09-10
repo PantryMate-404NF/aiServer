@@ -47,7 +47,9 @@ def block_scores(
     return {
         BLOCK_MATCH: match_score(recipe, ctx.pantry_ids),
         BLOCK_EXPIRING: expiring_score(recipe, ctx.expiring_ids),
-        BLOCK_TASTE: taste_score(ctx.taste_vec, recipe.flavor_vec, corpus.flavor_mean),
+        BLOCK_TASTE: taste_score(
+            ctx.taste_vec, recipe.flavor_vec, corpus.flavor_mean, cfg.taste_min_norm
+        ),
         BLOCK_QUALITY: quality_score(recipe, cfg),
         BLOCK_CTX: context_score(recipe, ctx.max_cook_minutes),
     }
@@ -82,12 +84,18 @@ def expiring_score(recipe: RecipeCandidate, expiring: frozenset[int]) -> float |
 
 
 def taste_score(
-    user_vec: FlavorVector, recipe_vec: FlavorVector, corpus_mean: FlavorVector | None
+    user_vec: FlavorVector,
+    recipe_vec: FlavorVector,
+    corpus_mean: FlavorVector | None,
+    min_norm: float = 0.0,
 ) -> float | None:
     """코퍼스 평균을 양쪽에서 뺀 뒤의 코사인 유사도를 0~1 로 옮깁니다.
 
     빼지 않으면 모든 벡터가 양수라 무엇을 넣어도 0.77 근처로 몰립니다. 평균이 없으면
     계산하지 않고 측정 불가로 둡니다. 어느 한쪽이 평균과 같으면 방향이 없어 역시 측정 불가입니다.
+
+    코사인은 크기를 버리므로 평균에서 0.03 떨어진 사용자도 방향만으로 전폭 반영됩니다.
+    사용자 벡터의 거리가 min_norm 에 못 미치면 그 비율만큼 0.5 쪽으로 눌러 잡음을 줄입니다.
     """
     if corpus_mean is None:
         return None
@@ -98,7 +106,9 @@ def taste_score(
     if user_norm < EPSILON or recipe_norm < EPSILON:
         return None
     cosine = sum(a * b for a, b in zip(user, recipe, strict=True)) / (user_norm * recipe_norm)
-    return _clamp((cosine + 1.0) / 2.0)
+    similarity = (cosine + 1.0) / 2.0
+    confidence = 1.0 if min_norm <= 0.0 else min(1.0, user_norm / min_norm)
+    return _clamp(0.5 + (similarity - 0.5) * confidence)
 
 
 def quality_score(recipe: RecipeCandidate, cfg: RankConfig) -> float | None:

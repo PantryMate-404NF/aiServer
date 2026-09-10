@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from typing import Any
 
@@ -129,3 +130,26 @@ def test_scores_stay_within_unit_interval(
             scored = score_candidate(recipe, ctx, corpus, cfg)
             assert 0.0 <= scored.base_score <= 1.0
             assert all(value is None or 0.0 <= value <= 1.0 for value in scored.blocks.values())
+
+
+def test_near_neutral_user_taste_is_damped_toward_half() -> None:
+    """전부 '보통' 인 사용자의 평균 대비 잡음이 방향으로 전폭 반영되면 안 됩니다."""
+    mean = (0.47, 0.46, 0.58)
+    user = (0.5, 0.5, 0.5)
+    recipe = (0.9, 0.1, 0.1)
+
+    full = taste_score(user, recipe, mean)
+    damped = taste_score(user, recipe, mean, min_norm=0.25)
+
+    norm = math.sqrt(sum((u - m) ** 2 for u, m in zip(user, mean, strict=True)))
+    assert full is not None and damped is not None
+    assert damped - 0.5 == pytest.approx((full - 0.5) * norm / 0.25)
+    assert abs(damped - 0.5) < abs(full - 0.5)
+
+
+def test_one_step_preference_keeps_full_taste_strength() -> None:
+    """온보딩 한 단계(0.25) 차이면 신뢰 100% 입니다."""
+    user = (0.75, 0.5, 0.5)
+    recipe = (0.9, 0.5, 0.5)
+
+    assert taste_score(user, recipe, CENTER, min_norm=0.25) == taste_score(user, recipe, CENTER)

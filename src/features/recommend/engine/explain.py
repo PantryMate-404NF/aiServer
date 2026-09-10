@@ -17,7 +17,13 @@ from features.recommend.engine.rank import (
     BLOCK_TASTE,
     BLOCKS,
 )
-from features.recommend.schema import FLAVOR_AXES, CorpusStats, ScoredCandidate, UserContext
+from features.recommend.schema import (
+    FLAVOR_AXES,
+    CorpusStats,
+    RankConfig,
+    ScoredCandidate,
+    UserContext,
+)
 
 AXIS_LABELS = {"spicy": "매운맛", "sweet": "단맛", "salty": "짠맛"}
 JOSA_PAIRS = {
@@ -54,13 +60,17 @@ def block_stats(scored: Sequence[ScoredCandidate]) -> dict[str, BlockStats]:
     return stats
 
 
-def salient_block(item: ScoredCandidate, stats: Mapping[str, BlockStats]) -> str | None:
+def salient_block(
+    item: ScoredCandidate,
+    stats: Mapping[str, BlockStats],
+    exclude: frozenset[str] = frozenset(),
+) -> str | None:
     """후보군 평균에서 가장 멀리 위로 벗어난 블록. 편차가 0 이면 원점수로 가립니다."""
     best: str | None = None
     best_key = (-math.inf, -math.inf)
     for name in BLOCKS:
         value = item.blocks.get(name)
-        if value is None:
+        if value is None or name in exclude:
             continue
         stat = stats.get(name)
         z = (value - stat.mean) / stat.std if stat is not None and stat.std > 0 else 0.0
@@ -74,13 +84,20 @@ def explain(
     ctx: UserContext,
     corpus: CorpusStats,
     stats: Mapping[str, BlockStats],
+    cfg: RankConfig,
     *,
     is_exploration: bool,
 ) -> str:
-    """사람이 읽는 한 문장. 값이 비어도 자리표시자가 남지 않게 각 갈래가 완결된 문장을 냅니다."""
+    """사람이 읽는 한 문장. 값이 비어도 자리표시자가 남지 않게 각 갈래가 완결된 문장을 냅니다.
+
+    맛 블록이 가장 두드러져도 사용자 취향이 코퍼스 평균과 다를 바 없으면 맛을 근거로
+    대지 않습니다. 전부 "보통" 인 사용자에게 "좋아하시는 짠맛" 은 근거 없는 말입니다.
+    """
     if is_exploration:
         return _explain_exploration(item)
     block = salient_block(item, stats)
+    if block == BLOCK_TASTE and not _taste_is_meaningful(ctx, corpus, cfg):
+        block = salient_block(item, stats, exclude=frozenset({BLOCK_TASTE}))
     if block == BLOCK_MATCH:
         return _explain_match(item, corpus)
     if block == BLOCK_EXPIRING:
@@ -151,6 +168,14 @@ def _explain_taste(item: ScoredCandidate, ctx: UserContext, corpus: CorpusStats)
     if prefers_more:
         return f"좋아하시는 {label} 잘 살아 있는 레시피예요"
     return f"{label} 강하지 않아 부담 없이 드실 수 있어요"
+
+
+def _taste_is_meaningful(ctx: UserContext, corpus: CorpusStats, cfg: RankConfig) -> bool:
+    """어느 축이든 사용자 취향이 코퍼스 평균에서 반 단계 이상 떨어져 있는지."""
+    if corpus.flavor_mean is None:
+        return False
+    deviation = max(abs(u - m) for u, m in zip(ctx.taste_vec, corpus.flavor_mean, strict=True))
+    return deviation >= cfg.taste_reason_min_deviation
 
 
 def _dominant_axis(

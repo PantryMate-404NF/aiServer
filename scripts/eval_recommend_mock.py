@@ -362,7 +362,9 @@ def latency_benchmark(corpus: CorpusStats, cfg: RankConfig, rng: random.Random) 
         t3 = perf_counter()
         stats = explain.block_stats(scored)
         for entry in served:
-            explain.explain(entry.scored, ctx, corpus, stats, is_exploration=entry.is_exploration)
+            explain.explain(
+                entry.scored, ctx, corpus, stats, cfg, is_exploration=entry.is_exploration
+            )
         t4 = perf_counter()
         parts = ((t1 - t0), (t2 - t1), (t3 - t2), (t4 - t3))
         for name, seconds in zip(stage_ms, parts, strict=True):

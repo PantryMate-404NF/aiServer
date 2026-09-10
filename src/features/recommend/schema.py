@@ -226,6 +226,12 @@ class RankConfig:
     w_quality: float = 0.15
     w_ctx: float = 0.10
     quality_popularity_share: float = 0.6
+    # 맛 블록 신뢰도. 사용자 취향이 코퍼스 평균에서 이 거리(온보딩 한 단계 = 0.25)만큼은
+    # 떨어져 있어야 맛 유사도를 전폭 반영합니다. 그 안이면 거리에 비례해 0.5 쪽으로 눌러,
+    # 전부 "보통" 을 고른 사용자의 잡음이 순위를 흔들지 않게 합니다.
+    taste_min_norm: float = 0.25
+    # 맛 사유 문구를 쓰려면 어느 축이든 평균과 이만큼(온보딩 반 단계)은 달라야 합니다.
+    taste_reason_min_deviation: float = 0.125
     # 곱연산 감점
     penalty_recent: float = 0.7
     penalty_cooked: float = 0.5

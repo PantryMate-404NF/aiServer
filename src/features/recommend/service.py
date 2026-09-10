@@ -70,7 +70,7 @@ def run_pipeline(
     )
     served = rerank.rerank(scored, ctx, corpus, cfg, rng)
     stats = explain.block_stats(scored)
-    items = [_to_item(entry, ctx, corpus, stats) for entry in served]
+    items = [_to_item(entry, ctx, corpus, stats, cfg) for entry in served]
     latency_ms = int((perf_counter() - started) * MILLISECONDS_PER_SECOND)
 
     if selected.degraded:
@@ -111,6 +111,7 @@ def _to_item(
     ctx: UserContext,
     corpus: CorpusStats,
     stats: dict[str, explain.BlockStats],
+    cfg: RankConfig,
 ) -> RecommendedItem:
     scored = entry.scored
     recipe = scored.candidate
@@ -122,7 +123,9 @@ def _to_item(
         cook_minutes=recipe.cook_minutes,
         missing_ingredient_ids=list(scored.missing_ids),
         missing_count=len(scored.missing_ids),
-        reason=explain.explain(scored, ctx, corpus, stats, is_exploration=entry.is_exploration),
+        reason=explain.explain(
+            scored, ctx, corpus, stats, cfg, is_exploration=entry.is_exploration
+        ),
         matched_product_ids=list(recipe.product_ids),
         is_exploration=entry.is_exploration,
     )
