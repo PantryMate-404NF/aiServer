@@ -37,6 +37,7 @@ REASON_KINDS = (
     ("만 더 있으면", "match_missing"),
     ("소비기한", "expiring"),
     ("좋아하시는", "taste"),
+    ("강하지 않아", "taste_mild"),
     ("많은 분들이", "quality"),
     ("완성", "ctx"),
     ("평소와 다른", "exploration"),
@@ -171,7 +172,9 @@ def evaluate_persona(
         "missing_le_2_personal": all(i.missing_count <= cfg.max_missing for i in personal),
         "exploration_count": len(explored),
         "exploration_novel": all(
-            by_id[i.recipe_id].cuisine not in ctx.preferred_cuisines for i in explored
+            by_id[i.recipe_id].cuisine not in ctx.preferred_cuisines
+            or (blocks_of[i.recipe_id].get("taste") or 1.0) < cfg.novel_taste_max
+            for i in explored
         ),
         "taste_axis": FLAVOR_AXES[axis],
         "taste_lift": (served_axis - pool_axis) * expected_sign,
