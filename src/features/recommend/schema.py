@@ -244,6 +244,9 @@ class RankConfig:
     candidate_limit: int = 500
     # Stage 3 재정렬
     mmr_lambda: float = 0.7
+    # MMR 은 점수 상위 이만큼만 봅니다. 후보 500건 전부를 보면 재정렬이 지연시간의 70% 였고,
+    # λ=0.7 에서 200위 밖 후보가 뽑히는 일은 없었습니다.
+    mmr_pool_size: int = 200
     exploration_ratio: float = 0.2
     exploration_pool_size: int = 20
     # 탐색에 쓸 잔여 풀이 슬롯 수의 이 배수보다 작으면 슬롯을 줄입니다. 억지로 채우면
@@ -252,7 +255,8 @@ class RankConfig:
     # 맛 블록 점수가 이 아래면 미경험 맛 영역으로 보고 탐색 대상에 넣습니다.
     # 0.4 는 중심화 코사인 -0.2 에 해당합니다.
     novel_taste_max: float = 0.4
-    propensity_samples: int = 64
+    # Thompson 슬롯의 노출 확률을 추정하는 몬테카를로 표본 수. 요리군 5개면 32 로도 ±0.09 안입니다.
+    propensity_samples: int = 32
     # 피드백 루프
     ema_gamma: float = 0.2
     warm_event_count: int = 20

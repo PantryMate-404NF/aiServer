@@ -38,7 +38,8 @@ def rerank(
     total = min(ctx.top_k, len(ranked))
     if total == 0:
         return ()
-    personal_full = mmr_select(ranked, total, corpus.ingredient_idf, cfg.mmr_lambda)
+    mmr_pool = ranked[: max(cfg.mmr_pool_size, total)]
+    personal_full = mmr_select(mmr_pool, total, corpus.ingredient_idf, cfg.mmr_lambda)
     shown = {item.candidate.recipe_id for item in personal_full}
     rest = [item for item in ranked if item.candidate.recipe_id not in shown]
     exploration = pick_exploration(
@@ -59,8 +60,10 @@ def mmr_select(
     """점수와 이미 뽑은 것과의 최대 유사도를 맞바꾸며 하나씩 고릅니다.
 
     뽑을 때마다 남은 후보의 최대 유사도만 갱신하므로 유사도 계산은 후보 수 곱하기 count 번입니다.
+    후보별 IDF 합을 미리 두면 자카드 분모는 합집합 없이 두 합에서 교집합만 빼서 나옵니다.
     """
     selected: list[ScoredCandidate] = []
+    totals = [sum(idf.get(i, DEFAULT_IDF) for i in item.candidate.all_ids) for item in pool]
     max_sim = [0.0] * len(pool)
     remaining = list(range(len(pool)))
     while remaining and len(selected) < count:
@@ -71,8 +74,12 @@ def mmr_select(
         selected.append(pool[best])
         remaining.remove(best)
         chosen_ids = pool[best].candidate.all_ids
+        chosen_total = totals[best]
         for i in remaining:
-            max_sim[i] = max(max_sim[i], jaccard_idf(pool[i].candidate.all_ids, chosen_ids, idf))
+            shared = sum(idf.get(x, DEFAULT_IDF) for x in pool[i].candidate.all_ids & chosen_ids)
+            union = totals[i] + chosen_total - shared
+            if union > 0.0:
+                max_sim[i] = max(max_sim[i], shared / union)
     return selected
 
 
