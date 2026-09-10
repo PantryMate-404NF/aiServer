@@ -295,9 +295,13 @@ def evaluate(
     checks: dict[str, Any] = {
         "user_id": user_id,
         "stage": stage,
+        # 알레르기가 없는 사람은 이 판정의 대상이 아닙니다. 대상 수를 함께 내지 않으면
+        # "12명 전원 통과" 가 실은 4명만 검사한 결과라는 것이 숨습니다.
         "allergy_clean": all(not (recipes[i.recipe_id].all_ids & allergy) for i in items),
+        "allergy_tested": bool(allergy),
         "cook_cap": ctx.max_cook_minutes is None
         or all((recipes[i.recipe_id].cook_minutes or 0) <= ctx.max_cook_minutes for i in personal),
+        "cook_cap_tested": ctx.max_cook_minutes is not None,
         "propensity_ok": all(i.propensity is not None and 0 < i.propensity <= 1 for i in items),
         "exploration": len(explored),
         "explore_sources": sorted({str(i.explore_source) for i in explored}),
@@ -310,6 +314,7 @@ def evaluate(
         "score_max": max(i.score for i in items),
         "reason_ok": all(bool(i.reason) and "{" not in i.reason for i in items),
         "measured": measured_features(items),
+        "features": [dict(i.features) for i in items],
         "served_ids": [i.recipe_id for i in items],
         "latency_ms": result.latency_ms,
     }
@@ -343,6 +348,7 @@ def penalty_scenario(
         expiring_ids=ctx.expiring_ids,
         onboarding_taste=ctx.taste_vec,
         history=UserHistory(cooked_recipe_ids=frozenset({top.recipe_id})),
+        warm_event_count=policy.warm_event_count,
         max_cook_minutes=ctx.max_cook_minutes,
         preferred_cuisines=ctx.preferred_cuisines,
     )
@@ -412,7 +418,12 @@ def latency_benchmark(corpus: CorpusStats, policy: RankingPolicy, rng: random.Ra
     rows = [generator.build_recipe(i) for i in range(1, LATENCY_POOL + 1)]
     recipes = {int(r["recipe_id"]): to_recipe(r) for r in rows}
     clusters = {int(r["recipe_id"]): int(r["cluster_id"]) for r in rows}
-    ctx = build_context(user_id=1, pantry_ids=range(1, 61), preferred_cuisines=["한식"])
+    ctx = build_context(
+        user_id=1,
+        pantry_ids=range(1, 61),
+        warm_event_count=policy.warm_event_count,
+        preferred_cuisines=["한식"],
+    )
     candidates = retrieve(recipes, clusters, ctx.pantry_ids, limit=policy.candidate_limit)
 
     timings: list[float] = []
@@ -425,6 +436,28 @@ def latency_benchmark(corpus: CorpusStats, policy: RankingPolicy, rng: random.Ra
     print(f", {LATENCY_RUNS} runs")
     print(f"    p50 {percentile(timings, 0.5):.1f}ms p95 {percentile(timings, 0.95):.1f}ms", end="")
     print(f" max {timings[-1]:.1f}ms  (target p95 < 58ms)")
+
+
+def report_dead_weight(results: Sequence[Mapping[str, Any]]) -> None:
+    """순위를 바꾸지 못하는 가중치를 냅니다.
+
+    전건 None 이거나 값이 하나뿐인 피처는 가중치가 아무리 커도 순서를 못 바꿉니다.
+    에러가 나지 않으므로 이 줄이 없으면 아무도 알아채지 못합니다 (검증 기록 F-28).
+    """
+    seen: dict[str, set[float]] = {key: set() for key in FEATURE_KEYS}
+    for row in results:
+        for item in row["features"]:
+            for key, value in item.items():
+                if value is not None:
+                    seen[key].add(round(float(value), 6))
+    dead = {
+        key: DEFAULT_WEIGHTS.get(key, 0.0)
+        for key in FEATURE_KEYS
+        if DEFAULT_WEIGHTS.get(key, 0.0) > 0 and len(seen[key]) <= 1
+    }
+    live = {key: len(values) for key, values in seen.items() if len(values) > 1}
+    print(f"    값이 변하는 피처 {len(live)}/17 = {dict(sorted(live.items()))}")
+    print(f"    순위를 못 바꾸는 가중치 {sum(dead.values()):.2f}/1.00 = {dead}")
 
 
 def percentile(values: Sequence[float], share: float) -> float:
@@ -466,8 +499,16 @@ def main() -> None:
     print(f"\n=== aggregate over {len(results)} profiles")
     print(f"    catalog coverage {len(served)}/{len(recipes)} = {len(served) / len(recipes):.2f}")
     print(f"    stages { ({s: stages.count(s) for s in sorted(set(stages))}) }")
-    print(f"    allergy clean = {all(r['allergy_clean'] for r in results)}")
-    print(f"    cook cap (personal) = {all(r['cook_cap'] for r in results)}")
+    n_allergy = sum(r["allergy_tested"] for r in results)
+    n_cap = sum(r["cook_cap_tested"] for r in results)
+    print(
+        f"    allergy clean = {all(r['allergy_clean'] for r in results)}"
+        f"  (실효 {n_allergy}/{len(results)}명 — 나머지는 대상이 아니라 자동 참)"
+    )
+    print(
+        f"    cook cap (personal) = {all(r['cook_cap'] for r in results)}"
+        f"  (실효 {n_cap}/{len(results)}명)"
+    )
     print(f"    propensity in (0,1] = {all(r['propensity_ok'] for r in results)}")
     print(f"    reason filled = {all(r['reason_ok'] for r in results)}")
     print(f"    exploration counts = {[r['exploration'] for r in results]}")
@@ -475,6 +516,7 @@ def main() -> None:
     print(f"    ILD mean {statistics.fmean([r['ild'] for r in results]):.3f}")
     print(f"    features measured anywhere {len(measured)}/17 = {measured}")
     print(f"    latency ms = {[r['latency_ms'] for r in results]}")
+    report_dead_weight(results)
 
     if args.user is None:
         by_id = {p["user_id"]: p for p in profiles}

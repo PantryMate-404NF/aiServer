@@ -419,6 +419,11 @@ try:
             )
 except ImportError:
     check("mock 종단 검증 (httpx 미설치 — 건너뜀)", True)
+except Exception as _e:  # 무엇이 막았는지 세어야 조용히 멈추지 않습니다
+    # 🔴 `ImportError` 만 잡으면 설정 오류가 그대로 올라와 **스크립트가 여기서 죽습니다.**
+    #    뒤쪽 계약이 실행되지 않는데 마지막으로 보인 줄이 통과 표시라 눈으로는
+    #    통과처럼 읽힙니다 (파트 B 검증 기록 F-30).
+    check(f"mock 종단 검증이 실행됐다 ({type(_e).__name__}: {_e})"[:160], False)
 
 # ── S1. DB 액세스 레이어 (04 3-1) ────────────────────────────────
 print("\n[S1 · DB 액세스 계약]")
@@ -584,6 +589,8 @@ try:
     check("온보딩 응답이 6축 taste_vec 을 준다", len(_r3.json()["taste_vec"]) == 6)
 except ImportError:
     check("탐색·온보딩 종단 (httpx 미설치 — 건너뜀)", True)
+except Exception as _e2:  # 무엇이 막았는지 세어야 조용히 멈추지 않습니다
+    check(f"탐색·온보딩 종단이 실행됐다 ({type(_e2).__name__}: {_e2})"[:160], False)
 
 
 # ── session_id 접두어 — DDL 과 계약이 같아야 한다 (09-03) ─────────
