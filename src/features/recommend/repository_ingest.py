@@ -568,3 +568,62 @@ def load_gate_stats() -> tuple[int, int | None, int] | None:
     with cursor() as cur:
         cur.execute(_GATE_STATS_SQL)
         return cur.fetchone()
+
+
+# ─────────────────────────────────────────────────────────────────
+# ingredient.freq_count — ingest/freq_build.py 가 쓴다 (A-14)
+# ─────────────────────────────────────────────────────────────────
+#: 재료가 몇 개의 *레시피*에 나오는가. 언급 수가 아니라 레시피 수다.
+#:
+#: 주의: count(DISTINCT recipe_id) 다. recipe_ingredient 의 기본키가
+#:    (recipe_id, ingredient_id) 라 한 레시피에 같은 재료가 두 번 들어갈 수
+#:    없으므로 지금은 count(*) 와 결과가 같다. 그래도 DISTINCT 를 쓴다 —
+#:    기본키가 바뀌면 조용히 부풀기 때문이다.
+#:
+#: 주의: 안 나오는 재료를 0 으로 되돌린다. 사전이 좋아져 어떤 재료가 더는
+#:    안 잡히면 옛 값이 남아 IDF 분모를 잘못 만든다. 흔한 재료로 오해된
+#:    희귀 재료는 f_cooccur 에서 가중치를 못 받는다.
+_FREQ_SQL = """
+UPDATE ingredient i
+SET    freq_count = COALESCE(c.n, 0)
+FROM   (SELECT id FROM ingredient) all_ing
+LEFT JOIN (SELECT ingredient_id, count(DISTINCT recipe_id) AS n
+           FROM recipe_ingredient GROUP BY 1) c ON c.ingredient_id = all_ing.id
+WHERE  i.id = all_ing.id AND i.freq_count IS DISTINCT FROM COALESCE(c.n, 0)
+"""
+
+_FREQ_STATS_SQL = """
+SELECT count(*), count(*) FILTER (WHERE freq_count > 0), max(freq_count),
+       round(avg(freq_count)::numeric, 1)
+FROM ingredient
+"""
+
+_FREQ_TOP_SQL = """
+SELECT i.name, i.freq_count, c.path::text
+FROM ingredient i LEFT JOIN ingredient_category c ON c.id = i.category_id
+ORDER BY i.freq_count DESC, i.id LIMIT %s
+"""
+
+
+def rebuild_freq_count() -> int:
+    """재료별 등장 레시피 수를 다시 센다. 멱등이다."""
+    with cursor(commit=True) as cur:
+        cur.execute(_FREQ_SQL)
+        return max(cur.rowcount, 0)
+
+
+def load_freq_stats() -> tuple[int, int, int, float]:
+    """(재료 수, freq_count > 0 인 수, 최댓값, 평균)."""
+    with cursor() as cur:
+        cur.execute(_FREQ_STATS_SQL)
+        row = cur.fetchone()
+        if row is None:
+            raise RuntimeError("ingredient 가 비어 있습니다")
+        return (int(row[0]), int(row[1]), int(row[2]), float(row[3]))
+
+
+def load_freq_top(limit: int = 10) -> list[tuple[str, int, str | None]]:
+    """상위 재료. 상식과 맞는지 눈으로 확인하는 용도다."""
+    with cursor() as cur:
+        cur.execute(_FREQ_TOP_SQL, (limit,))
+        return cur.fetchall()
