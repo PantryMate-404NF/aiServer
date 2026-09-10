@@ -10,7 +10,7 @@ from features.recommend.engine.feedback import (
     moves_taste,
     update_behavior_vector,
 )
-from features.recommend.schema import RankConfig
+from features.recommend.stage import RankConfig
 
 ONBOARDING = (1.0, 0.0, 0.0)
 BEHAVIOR = (0.0, 1.0, 1.0)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from features.recommend.schema import RankConfig, RecipeCandidate, ScoredCandidate, UserContext
+from features.recommend.stage import RankConfig, RecipeCandidate, ScoredCandidate, UserContext
 
 
 def apply_penalties(scored: ScoredCandidate, ctx: UserContext, cfg: RankConfig) -> ScoredCandidate:

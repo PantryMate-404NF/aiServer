@@ -7,7 +7,7 @@ import statistics
 from collections.abc import Mapping, Sequence
 
 from features.recommend.engine.rank import BLOCK_TASTE
-from features.recommend.schema import (
+from features.recommend.stage import (
     CorpusStats,
     RankConfig,
     ScoredCandidate,

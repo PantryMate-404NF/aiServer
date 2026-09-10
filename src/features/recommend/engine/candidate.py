@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
-from features.recommend.schema import RankConfig, RecipeCandidate, UserContext
+from features.recommend.stage import RankConfig, RecipeCandidate, UserContext
 
 FALLBACK_NONE = "none"
 FALLBACK_RELAX_MISSING = "relax_missing"

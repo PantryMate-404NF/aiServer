@@ -6,9 +6,9 @@ import math
 from collections.abc import Mapping
 
 from features.recommend.engine.candidate import missing_ids
-from features.recommend.schema import (
+from features.recommend.schema import FlavorVector
+from features.recommend.stage import (
     CorpusStats,
-    FlavorVector,
     RankConfig,
     RecipeCandidate,
     ScoredCandidate,

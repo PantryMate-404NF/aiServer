@@ -8,7 +8,7 @@ from collections.abc import Callable
 import pytest
 
 from features.recommend.engine.rerank import jaccard_idf, mmr_select, pick_exploration, rerank
-from features.recommend.schema import (
+from features.recommend.stage import (
     CorpusStats,
     RankConfig,
     RecipeCandidate,

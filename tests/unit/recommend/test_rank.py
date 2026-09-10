@@ -19,7 +19,7 @@ from features.recommend.engine.rank import (
     time_fit,
     weighted_sum,
 )
-from features.recommend.schema import CorpusStats, RankConfig, RecipeCandidate, UserContext
+from features.recommend.stage import CorpusStats, RankConfig, RecipeCandidate, UserContext
 
 CENTER = (0.5, 0.5, 0.5)
 CENTERED = CorpusStats(flavor_mean=CENTER)

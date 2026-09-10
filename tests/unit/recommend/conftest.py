@@ -13,11 +13,11 @@ from typing import Any
 import pytest
 
 from features.recommend.engine import context
-from features.recommend.schema import (
+from features.recommend.schema import RecommendRequest
+from features.recommend.stage import (
     CorpusStats,
     RankConfig,
     RecipeCandidate,
-    RecommendRequest,
     UserContext,
     UserHistory,
 )

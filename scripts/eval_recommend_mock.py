@@ -22,14 +22,8 @@ from types import ModuleType
 
 from features.recommend import service
 from features.recommend.engine import candidate, context, explain, feedback, penalty, rank, rerank
-from features.recommend.schema import (
-    FLAVOR_AXES,
-    CorpusStats,
-    RankConfig,
-    RecipeCandidate,
-    RecommendRequest,
-    UserHistory,
-)
+from features.recommend.schema import FLAVOR_AXES, RecommendRequest
+from features.recommend.stage import CorpusStats, RankConfig, RecipeCandidate, UserHistory
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURE_DIR = ROOT / "tests" / "fixtures" / "recommend"

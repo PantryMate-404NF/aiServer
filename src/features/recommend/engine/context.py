@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from features.recommend.engine import feedback
-from features.recommend.schema import RankConfig, RecommendRequest, UserContext, UserHistory
+from features.recommend.schema import RecommendRequest
+from features.recommend.stage import RankConfig, UserContext, UserHistory
 
 
 def build_context(request: RecommendRequest, history: UserHistory, cfg: RankConfig) -> UserContext:

@@ -17,13 +17,8 @@ from features.recommend.engine.rank import (
     BLOCK_TASTE,
     BLOCKS,
 )
-from features.recommend.schema import (
-    FLAVOR_AXES,
-    CorpusStats,
-    RankConfig,
-    ScoredCandidate,
-    UserContext,
-)
+from features.recommend.schema import FLAVOR_AXES
+from features.recommend.stage import CorpusStats, RankConfig, ScoredCandidate, UserContext
 
 AXIS_LABELS = {"spicy": "매운맛", "sweet": "단맛", "salty": "짠맛"}
 JOSA_PAIRS = {

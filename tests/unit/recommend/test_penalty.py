@@ -7,7 +7,7 @@ from collections.abc import Callable
 import pytest
 
 from features.recommend.engine.penalty import apply_penalties, avoid_penalty
-from features.recommend.schema import (
+from features.recommend.stage import (
     RankConfig,
     RecipeCandidate,
     ScoredCandidate,

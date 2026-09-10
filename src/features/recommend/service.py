@@ -10,13 +10,11 @@ from time import perf_counter
 from uuid import UUID, uuid4
 
 from features.recommend.engine import candidate, explain, penalty, rank, rerank
-from features.recommend.schema import (
+from features.recommend.schema import RecommendedItem, RecommendMeta, RecommendResponse
+from features.recommend.stage import (
     CorpusStats,
     RankConfig,
     RecipeCandidate,
-    RecommendedItem,
-    RecommendMeta,
-    RecommendResponse,
     ScoredCandidate,
     ServedItem,
     UserContext,

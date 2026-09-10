@@ -15,7 +15,7 @@ from features.recommend.engine.candidate import (
     retrieve,
     select_candidates,
 )
-from features.recommend.schema import RankConfig, RecipeCandidate, UserContext, UserHistory
+from features.recommend.stage import RankConfig, RecipeCandidate, UserContext, UserHistory
 
 
 def _persona(personas: list[dict[str, Any]], user_id: int) -> dict[str, Any]:

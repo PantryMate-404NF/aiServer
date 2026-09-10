@@ -11,13 +11,8 @@ from uuid import UUID
 import pytest
 
 from features.recommend import service
-from features.recommend.schema import (
-    CorpusStats,
-    RankConfig,
-    RecipeCandidate,
-    RecommendRequest,
-    UserContext,
-)
+from features.recommend.schema import RecommendRequest
+from features.recommend.stage import CorpusStats, RankConfig, RecipeCandidate, UserContext
 
 
 def _persona(personas: list[dict[str, Any]], user_id: int) -> dict[str, Any]:

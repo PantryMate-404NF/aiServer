@@ -15,7 +15,7 @@ from features.recommend.engine.explain import (
     salient_block,
 )
 from features.recommend.engine.rank import BLOCKS
-from features.recommend.schema import (
+from features.recommend.stage import (
     CorpusStats,
     RankConfig,
     RecipeCandidate,

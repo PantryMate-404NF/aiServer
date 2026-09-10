@@ -5,7 +5,8 @@ from __future__ import annotations
 import pytest
 
 from features.recommend.engine.context import build_context
-from features.recommend.schema import RankConfig, RecommendRequest, UserHistory
+from features.recommend.schema import RecommendRequest
+from features.recommend.stage import RankConfig, UserHistory
 
 
 def test_build_context_blends_history_into_taste(cfg: RankConfig) -> None:

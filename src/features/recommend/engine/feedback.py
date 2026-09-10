@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from features.recommend.schema import EventType, FlavorVector, RankConfig
+from features.recommend.schema import EventType, FlavorVector
+from features.recommend.stage import RankConfig
 
 # 취향 벡터를 움직이는 이벤트. dismiss 는 어느 맛이 싫은지 말해 주지 않으므로 반영하지 않습니다.
 TASTE_EVENTS: frozenset[str] = frozenset({"click", "cook"})
