@@ -199,6 +199,16 @@ def test_context_reason_uses_cook_minutes(
     )
 
 
+def test_zero_valued_block_is_never_the_reason(
+    make_recipe: Callable[..., RecipeCandidate],
+) -> None:
+    """z 로는 임박 블록이 덜 나빠도 값이 0 이면 근거가 아닙니다. 그다음 블록으로 넘어갑니다."""
+    stats = {"expiring": BlockStats(0.05, 0.02), "match": BlockStats(0.9, 0.1)}
+    item = _scored(make_recipe(1), {"expiring": 0.0, "match": 0.3, "taste": None})
+
+    assert salient_block(item, stats) == "match"
+
+
 def test_salient_block_prefers_the_highest_z_score(
     make_recipe: Callable[..., RecipeCandidate],
 ) -> None:

@@ -60,12 +60,16 @@ def salient_block(
     stats: Mapping[str, BlockStats],
     exclude: frozenset[str] = frozenset(),
 ) -> str | None:
-    """후보군 평균에서 가장 멀리 위로 벗어난 블록. 편차가 0 이면 원점수로 가립니다."""
+    """후보군 평균에서 가장 멀리 위로 벗어난 블록. 편차가 0 이면 원점수로 가립니다.
+
+    값이 0 인 블록은 근거가 될 수 없습니다. 임박 재료를 하나도 안 쓰는 레시피에 임박
+    사유를 붙이거나, 그래서 기본 문구로 떨어지는 일을 막습니다.
+    """
     best: str | None = None
     best_key = (-math.inf, -math.inf)
     for name in BLOCKS:
         value = item.blocks.get(name)
-        if value is None or name in exclude:
+        if value is None or value <= 0.0 or name in exclude:
             continue
         stat = stats.get(name)
         z = (value - stat.mean) / stat.std if stat is not None and stat.std > 0 else 0.0
