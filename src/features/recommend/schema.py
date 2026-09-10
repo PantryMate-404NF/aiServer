@@ -246,6 +246,12 @@ class RankConfig:
     mmr_lambda: float = 0.7
     exploration_ratio: float = 0.2
     exploration_pool_size: int = 20
+    # 탐색에 쓸 잔여 풀이 슬롯 수의 이 배수보다 작으면 슬롯을 줄입니다. 억지로 채우면
+    # 후보 24건인 사용자에게 점수 0.19 짜리 잔여물이 3위에 섭니다.
+    exploration_min_pool_ratio: int = 2
+    # 맛 블록 점수가 이 아래면 미경험 맛 영역으로 보고 탐색 대상에 넣습니다.
+    # 0.4 는 중심화 코사인 -0.2 에 해당합니다.
+    novel_taste_max: float = 0.4
     propensity_samples: int = 64
     # 피드백 루프
     ema_gamma: float = 0.2

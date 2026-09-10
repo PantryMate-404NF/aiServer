@@ -21,9 +21,11 @@ CUISINES = ("한식", "양식", "중식", "일식")
 RUNS = 100
 
 
-def _scored(recipe: RecipeCandidate, score: float) -> ScoredCandidate:
+def _scored(
+    recipe: RecipeCandidate, score: float, blocks: dict[str, float | None] | None = None
+) -> ScoredCandidate:
     return ScoredCandidate(
-        candidate=recipe, missing_ids=(), blocks={}, base_score=score, score=score
+        candidate=recipe, missing_ids=(), blocks=blocks or {}, base_score=score, score=score
     )
 
 
@@ -161,3 +163,75 @@ def test_thompson_follows_a_strong_prior(
     )
 
     assert wins >= RUNS * 0.9
+
+
+def _thin_pool(
+    make_recipe: Callable[..., RecipeCandidate], leftover_quality: float
+) -> list[ScoredCandidate]:
+    """개인화 20건이 다 가져가고 비선호 요리군 2건만 남는 후보군."""
+    liked = [
+        _scored(make_recipe(i, essential=[i * 3, i * 3 + 1], cuisine="한식"), 0.9 - i / 100)
+        for i in range(20)
+    ]
+    leftovers = [
+        _scored(
+            make_recipe(
+                100 + i, essential=[900 + i], cuisine="양식", quality_score=leftover_quality
+            ),
+            0.1,
+        )
+        for i in range(2)
+    ]
+    return liked + leftovers
+
+
+def test_exploration_shrinks_when_the_novel_pool_is_thin(
+    make_recipe: Callable[..., RecipeCandidate],
+    make_context: Callable[..., UserContext],
+    cfg: RankConfig,
+    rng: random.Random,
+) -> None:
+    """남은 낯선 후보가 2건이면 탐색은 최대 1건입니다. 억지로 4건을 채우지 않습니다."""
+    ctx = make_context(preferred_cuisines=frozenset({"한식"}), top_k=20)
+
+    served = rerank(_thin_pool(make_recipe, 1.0), ctx, CorpusStats(), cfg, rng)
+
+    assert len(served) == 20
+    assert sum(item.is_exploration for item in served) <= 1
+
+
+def test_exploration_skips_leftovers_below_median_quality(
+    make_recipe: Callable[..., RecipeCandidate],
+    make_context: Callable[..., UserContext],
+    cfg: RankConfig,
+    rng: random.Random,
+) -> None:
+    ctx = make_context(preferred_cuisines=frozenset({"한식"}), top_k=20)
+
+    served = rerank(_thin_pool(make_recipe, 0.0), ctx, CorpusStats(), cfg, rng)
+
+    assert len(served) == 20
+    assert not any(item.is_exploration for item in served)
+
+
+def test_unfamiliar_taste_counts_as_novel_even_in_a_preferred_cuisine(
+    make_recipe: Callable[..., RecipeCandidate],
+    make_context: Callable[..., UserContext],
+    cfg: RankConfig,
+    rng: random.Random,
+) -> None:
+    """명세 3.3 의 '미경험 맛 영역'. 요리군은 익숙해도 맛이 멀면 탐색 대상입니다."""
+    ctx = make_context(preferred_cuisines=frozenset({"한식"}))
+    far = [
+        _scored(make_recipe(i, essential=[i], cuisine="한식"), 0.5, {"taste": 0.1})
+        for i in range(6)
+    ]
+    near = [
+        _scored(make_recipe(10 + i, essential=[10 + i], cuisine="한식"), 0.5, {"taste": 0.9})
+        for i in range(6)
+    ]
+
+    picks = pick_exploration(far + near, ctx, cfg, rng, 2)
+
+    assert len(picks) == 2
+    assert all(item.candidate.recipe_id < 6 for item, _ in picks)

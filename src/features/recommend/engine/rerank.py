@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import random
+import statistics
 from collections.abc import Mapping, Sequence
 
+from features.recommend.engine.rank import BLOCK_TASTE
 from features.recommend.schema import (
     CorpusStats,
     RankConfig,
@@ -39,7 +41,14 @@ def rerank(
     personal_full = mmr_select(ranked, total, corpus.ingredient_idf, cfg.mmr_lambda)
     shown = {item.candidate.recipe_id for item in personal_full}
     rest = [item for item in ranked if item.candidate.recipe_id not in shown]
-    exploration = pick_exploration(rest, ctx, cfg, rng, round(total * cfg.exploration_ratio))
+    exploration = pick_exploration(
+        rest,
+        ctx,
+        cfg,
+        rng,
+        round(total * cfg.exploration_ratio),
+        quality_floor=_median_quality(ranked),
+    )
     personal = personal_full[: total - len(exploration)]
     return _mix(personal, exploration, rng)
 
@@ -82,16 +91,26 @@ def pick_exploration(
     cfg: RankConfig,
     rng: random.Random,
     count: int,
+    quality_floor: float = 0.0,
 ) -> list[tuple[ScoredCandidate, float]]:
-    """비선호 요리군에서 품질 상위 풀을 만들고 절반은 Thompson, 절반은 균등으로 뽑습니다.
+    """낯선 후보(비선호 요리군 또는 미경험 맛)의 품질 상위 풀에서 Thompson 절반, 균등 절반.
 
+    풀이 슬롯 수의 배수에 못 미치면 슬롯을 줄입니다. 후보가 24건뿐인 사용자에게 개인화 20건을
+    채운 뒤 남은 4건을 억지로 탐색으로 내보내면 점수 0.19 짜리가 3위에 섭니다(검증 기록 F-04).
     함께 돌려주는 값은 노출 확률의 역수입니다. 오프라인 학습이 탐색 슬롯의 편향을 되돌릴 때 씁니다.
     """
     if count <= 0:
         return []
-    pool = [item for item in ranked if _is_novel(item, ctx)]
+    pool = [
+        item
+        for item in ranked
+        if _is_novel(item, ctx, cfg) and (item.candidate.quality_score or 0.0) >= quality_floor
+    ]
     pool.sort(key=lambda item: (-(item.candidate.quality_score or 0.0), item.candidate.recipe_id))
     remaining = pool[: cfg.exploration_pool_size]
+    count = min(count, len(remaining) // cfg.exploration_min_pool_ratio)
+    if count <= 0:
+        return []
     priors = ctx.history.cuisine_priors
     picks: list[tuple[ScoredCandidate, float]] = []
 
@@ -113,9 +132,19 @@ def pick_exploration(
     return picks
 
 
-def _is_novel(item: ScoredCandidate, ctx: UserContext) -> bool:
+def _is_novel(item: ScoredCandidate, ctx: UserContext, cfg: RankConfig) -> bool:
+    """비선호 요리군이거나, 맛 블록이 낮아 사용자 취향과 먼 영역이면 낯선 후보입니다(명세 3.3)."""
     cuisine = item.candidate.cuisine
-    return cuisine is not None and cuisine not in ctx.preferred_cuisines
+    unfamiliar_cuisine = cuisine is not None and cuisine not in ctx.preferred_cuisines
+    taste = item.blocks.get(BLOCK_TASTE)
+    unfamiliar_taste = taste is not None and taste < cfg.novel_taste_max
+    return unfamiliar_cuisine or unfamiliar_taste
+
+
+def _median_quality(items: Sequence[ScoredCandidate]) -> float:
+    """후보군 품질의 중위수. 탐색 슬롯은 이 아래의 잔여물을 내보내지 않습니다."""
+    values = [q for item in items if (q := item.candidate.quality_score) is not None]
+    return statistics.median(values) if values else 0.0
 
 
 def _group_by_cuisine(items: Sequence[ScoredCandidate]) -> dict[str, list[ScoredCandidate]]:
