@@ -48,7 +48,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from features.recommend.ingest.flavor import N_AXIS
-from features.recommend.repository import load_flavor_with_titles
+from features.recommend.repository_ingest import load_flavor_with_titles
 
 logger = logging.getLogger(__name__)
 

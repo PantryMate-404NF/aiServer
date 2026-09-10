@@ -41,7 +41,7 @@ from features.recommend.enums import IngredientRole
 from features.recommend.ingest.flavor import N_AXIS, FlavorTable, aggregate, intensity
 from features.recommend.ingest.parse import _units
 from features.recommend.ingest.run_log import batch_run
-from features.recommend.repository import (
+from features.recommend.repository_ingest import (
     insert_feature_stats,
     load_all_flavor_vectors,
     load_flavor_source,

@@ -42,7 +42,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
-from features.recommend.repository import finish_batch_run, start_batch_run
+from features.recommend.repository_ingest import finish_batch_run, start_batch_run
 
 logger = logging.getLogger(__name__)
 

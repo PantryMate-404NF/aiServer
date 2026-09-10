@@ -159,7 +159,7 @@ class Dictionary:
         """
         import yaml
 
-        from features.recommend.repository import load_dictionary_rows
+        from features.recommend.repository_ingest import load_dictionary_rows
 
         rows, alias_rows = load_dictionary_rows()
         names = {r[1]: r[0] for r in rows}
