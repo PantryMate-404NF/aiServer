@@ -7,6 +7,10 @@
 
 평가 대상은 기본적으로 PoC 의 OCR 캐시에 들어 있는 24장입니다. 그 24장이 기준선을
 잰 셋이고, 정답 셋은 그 뒤로 48장까지 늘어나 있어 전체를 돌리면 비교가 깨집니다.
+
+`--all` 로 48장을 돌릴 때는 블라인드 10장을 뺍니다. 튜닝하면서 그 10장의 점수를 보면
+거기에 맞춰 고치게 되고, 최종 리포트가 남은 유일한 미지의 셋을 잃습니다. 최종 측정에서만
+`--include-blind` 를 붙입니다.
 """
 
 from __future__ import annotations
@@ -38,16 +42,26 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--out", type=Path, default=Path("data/eval/predictions.json"))
     parser.add_argument("--rpm", type=int, default=DEFAULT_RPM, help="분당 LLM 호출 상한")
     parser.add_argument("--all", action="store_true", help="정답 셋 전체를 돌립니다")
+    parser.add_argument(
+        "--include-blind",
+        action="store_true",
+        help="블라인드 셋까지 포함합니다. 최종 리포트에서만 씁니다",
+    )
     return parser.parse_args()
 
 
-def pick_images(poc: Path, use_all: bool) -> list[str]:
+def pick_images(poc: Path, use_all: bool, include_blind: bool) -> list[str]:
     ground = json.loads((poc / "eval/ground_truth.json").read_text(encoding="utf-8"))
     names = [receipt["image"] for receipt in ground["receipts"]]
-    if use_all:
+    if not use_all:
+        baseline = set(json.loads((poc / BASELINE_CACHE).read_text(encoding="utf-8")))
+        return [name for name in names if name in baseline]
+    if include_blind:
         return names
-    baseline = set(json.loads((poc / BASELINE_CACHE).read_text(encoding="utf-8")))
-    return [name for name in names if name in baseline]
+    blind = set(ground["_meta"].get("blind", []))
+    kept = [name for name in names if name not in blind]
+    print(f"블라인드 {len(names) - len(kept)}장을 뺍니다. 최종 측정에는 --include-blind 를 씁니다.")
+    return kept
 
 
 async def run_ocr(poc: Path, names: list[str]) -> dict[str, str]:
@@ -115,7 +129,7 @@ async def _parse_with_retry(name: str, text: str) -> ParsedReceipt | None:
 
 async def main() -> int:
     args = parse_args()
-    names = pick_images(args.poc, args.all)
+    names = pick_images(args.poc, args.all, args.include_blind)
     print(f"평가 셋 {len(names)}장\n\nOCR")
     texts = await run_ocr(args.poc, names)
 

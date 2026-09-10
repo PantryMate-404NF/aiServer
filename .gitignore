@@ -35,3 +35,6 @@ coverage.xml
 htmlcov/
 
 # uv.lock 은 반드시 커밋합니다. 여기에 추가하지 않습니다.
+
+# 단계별 출력 결과. 실제 영수증의 OCR 원문이라 실명·카드번호가 들어 있습니다. 커밋하지 않습니다.
+tests/integration/result.json

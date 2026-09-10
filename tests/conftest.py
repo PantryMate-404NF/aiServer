@@ -26,6 +26,9 @@ def _env(monkeypatch: pytest.MonkeyPatch) -> None:
     정리는 하지 않습니다. 테스트가 캐시 함수 자체를 monkeypatch 하면
     teardown 에서 cache_clear 를 부를 수 없기 때문입니다.
     """
+    # 개발자 머신의 .env 를 읽지 않게 막습니다. README 대로 .env 를 만들어 둔 사람은
+    # 이 줄이 없으면 필수 키 누락 테스트가 그 파일의 값을 읽어 통과해 버립니다.
+    monkeypatch.setitem(config.Settings.model_config, "env_file", None)
     for key, value in ENV.items():
         monkeypatch.setenv(key, value)
     config.get_settings.cache_clear()
