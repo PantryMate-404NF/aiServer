@@ -50,8 +50,14 @@ class Settings(BaseSettings):
     llm_timeout_sec: int = 10
     llm_max_retries: int = 1
     llm_backoff_base_sec: float = 0.5
-    # v2 는 v1 에서 주류를 비식재료로 옮긴 것입니다. 출력 스키마는 v1 과 같습니다.
-    receipt_prompt_version: int = 2
+    # v2 는 v1 에서 주류를 비식재료로 옮긴 것이고, v3 은 이름 교정을 금지해 OCR 원문을
+    # 그대로 내보냅니다. 오타를 LLM 이 짐작해 고치면 원문이 사라져 사전 매칭이 손댈 것이
+    # 없어집니다. v4 는 판정 기준을 정답 셋(ocr_poc/eval/ground_truth.json)에 맞춘
+    # 것입니다. 담배와 그 자리에서 먹는 완제품을 비식재료로 옮기고, 품목이 없는 카드
+    # 매출전표를 빈 목록으로 처리합니다. v5 는 구매일 규칙만 손봤습니다. 발급일시를
+    # 구매일로 쓰지 않게 하고, 날짜 자리의 깨진 글자는 숫자로 복원하게 했습니다.
+    # 출력 스키마는 다섯 버전이 같습니다.
+    receipt_prompt_version: int = 5
 
     @property
     def database_dsn(self) -> str:

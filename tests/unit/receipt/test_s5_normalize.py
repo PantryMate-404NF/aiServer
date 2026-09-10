@@ -116,6 +116,44 @@ def test_prompt_version_comes_from_settings(monkeypatch: pytest.MonkeyPatch) -> 
     config.get_settings.cache_clear()
     assert "주류는 false입니다" in normalize.build_prompt(OCR_TEXT)
 
+    monkeypatch.setenv("RECEIPT_PROMPT_VERSION", "3")
+    config.get_settings.cache_clear()
+    assert "그대로 옮깁니다" in normalize.build_prompt(OCR_TEXT)
+
+    monkeypatch.setenv("RECEIPT_PROMPT_VERSION", "4")
+    config.get_settings.cache_clear()
+    assert "주류와 담배는 false입니다" in normalize.build_prompt(OCR_TEXT)
+
+    monkeypatch.setenv("RECEIPT_PROMPT_VERSION", "5")
+    config.get_settings.cache_clear()
+    assert "발급일시" in normalize.build_prompt(OCR_TEXT)
+
+
+def test_default_prompt_matches_the_ground_truth_rules() -> None:
+    """기본 경로가 정답 셋(ocr_poc/eval/ground_truth.json)의 판정 기준과 같아야 합니다.
+
+    이 셋 중 하나라도 빠지면 식재료 판정이 정답 셋과 어긋나 채점이 의미를 잃습니다.
+    """
+    prompt = normalize.build_prompt(OCR_TEXT)
+
+    assert "주류와 담배는 false입니다" in prompt
+    assert "그 자리에서 먹는 완제품은 false입니다" in prompt
+    assert "items를 빈 배열로 둡니다" in prompt
+    # 전자영수증은 발급일시가 구매일보다 나중입니다. 그걸 쓰면 소비기한 기준일이 밀립니다.
+    assert "발급일시" in prompt
+
+
+def test_default_prompt_forbids_rewriting_item_names() -> None:
+    """설정을 건드리지 않은 기본 경로가 교정 금지 버전이어야 합니다.
+
+    LLM 이 이름을 고치면 원문이 사라져 뒷단 사전 매칭이 손댈 것이 없어집니다.
+    "챗잎" 이 "깻잎" 으로 바뀌어 오면 어느 쪽이 OCR 이 읽은 값인지 알 수 없습니다.
+    """
+    prompt = normalize.build_prompt(OCR_TEXT)
+
+    assert "그대로 옮깁니다" in prompt
+    assert "고치지 마세요" in prompt
+
 
 def test_long_item_name_is_trimmed_to_the_form_limit(monkeypatch: pytest.MonkeyPatch) -> None:
     """프롬프트가 20자를 요청하지만 LLM 이 지킨다는 보장이 없습니다."""
@@ -133,3 +171,89 @@ def test_short_item_name_is_left_alone_but_stripped(monkeypatch: pytest.MonkeyPa
     fake = _FakeGemini({"purchased_at": None, "items": [{"name": "  깐마늘 ", "is_food": True}]})
 
     assert _run(fake, monkeypatch).items[0].name == "깐마늘"
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("01델몬트 스파게티먼500g", "델몬트 스파게티먼500g"),
+        ("02*베로나 엑스트라버진", "베로나 엑스트라버진"),
+        ("005P하선정바로먹기좋은장아찌", "하선정바로먹기좋은장아찌"),
+        ("(G)피코크'티라미수", "피코크'티라미수"),
+        ("(6)피코크 레이디핑", "피코크 레이디핑"),
+        ("*레쉬센터 990까대", "레쉬센터 990까대"),
+        # 감열지에서 0 이 O 로, 8 이 B 로 바뀌어 읽히는 경우입니다.
+        ("0B*호박고구마 1ly", "호박고구마 1ly"),
+        ("13* 이마트 각얼음", "이마트 각얼음"),
+        ("P고소한검은콩&고칼슘두유", "고소한검은콩&고칼슘두유"),
+    ],
+)
+def test_row_number_prefix_is_stripped(
+    raw: str, expected: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """행 번호는 OCR 이 품목명에 붙여서 읽어 옵니다. 이름이 아니므로 떼어냅니다.
+
+    프롬프트에 맡겼더니 교정 금지 지시와 부딪혀 열 건 넘게 새어 나왔습니다. 규칙이
+    분명한 잘라내기는 코드에서 확정합니다.
+    """
+    fake = _FakeGemini({"purchased_at": None, "items": [{"name": raw, "is_food": True}]})
+
+    assert _run(fake, monkeypatch).items[0].name == expected
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["가농 1등급란 24개입", "100% 오렌지주스", "2%우유", "500ml 생수", "양파", "챗잎"],
+)
+def test_ordinary_names_survive_the_prefix_rule(name: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """숫자로 시작하는 멀쩡한 이름을 잘라 먹으면 안 됩니다. 오탐이 미탐보다 나쁩니다."""
+    fake = _FakeGemini({"purchased_at": None, "items": [{"name": name, "is_food": True}]})
+
+    assert _run(fake, monkeypatch).items[0].name == name
+
+
+def test_cell_separator_inside_a_name_is_joined(monkeypatch: pytest.MonkeyPatch) -> None:
+    """전자영수증에서 두 줄로 꺾인 이름을 LLM 이 구분자째 이어 붙이는 경우입니다.
+
+    프롬프트가 지우라고 해도 지켜지지 않아 검증기가 확정합니다. 꺾인 자리는 단어
+    중간이라 공백 없이 이어야 원래 이름이 됩니다. "(50 | g)" 는 "(50g)" 이지 "(50 g)" 가
+    아닙니다.
+    """
+    fake = _FakeGemini(
+        {"purchased_at": None, "items": [{"name": "카스텔크림레몬캔디(50 | g)", "is_food": True}]}
+    )
+
+    assert _run(fake, monkeypatch).items[0].name == "카스텔크림레몬캔디(50g)"
+
+
+def test_truncation_does_not_leave_a_trailing_space(monkeypatch: pytest.MonkeyPatch) -> None:
+    """20자째가 띄어쓰기면 자른 뒤 꼬리 공백이 남습니다. 공백 정리는 자른 뒤에도 해야 합니다."""
+    name = "서울우유 [서울우유] 비요뜨 초코링 미니컵"  # 20번째 글자가 공백입니다
+    assert name[MAX_ITEM_NAME_LENGTH - 1] == " "
+    fake = _FakeGemini({"purchased_at": None, "items": [{"name": name, "is_food": True}]})
+
+    result = _run(fake, monkeypatch).items[0].name
+
+    assert result == name[:MAX_ITEM_NAME_LENGTH].rstrip()
+    assert not result.endswith(" ")
+
+
+@pytest.mark.parametrize("junk", ["10", "()", "", "   ", "12,000", "***"])
+def test_names_without_a_letter_are_dropped(junk: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """글자가 없으면 품목명이 아닙니다. 저해상도 사진에서 LLM 이 이런 조각을 품목으로 냅니다."""
+    fake = _FakeGemini(
+        {
+            "purchased_at": None,
+            "items": [{"name": junk, "is_food": True}, {"name": "깐마늘", "is_food": True}],
+        }
+    )
+
+    assert [item.name for item in _run(fake, monkeypatch).items] == ["깐마늘"]
+
+
+@pytest.mark.parametrize("name", ["무", "0누21", "HERB THYME", "2%우유"])
+def test_names_with_any_letter_survive(name: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """한 글자 품목(무)과 OCR 이 뭉갠 이름은 남깁니다. 지우면 사용자가 고칠 기회도 사라집니다."""
+    fake = _FakeGemini({"purchased_at": None, "items": [{"name": name, "is_food": True}]})
+
+    assert _run(fake, monkeypatch).items[0].name == name

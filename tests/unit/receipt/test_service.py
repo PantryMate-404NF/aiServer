@@ -167,3 +167,22 @@ def test_decoding_happens_inside_the_capacity_slot(monkeypatch: pytest.MonkeyPat
     _run()
 
     assert events == ["enter", "decode", "read", "exit"]
+
+
+def test_items_without_a_name_are_dropped(monkeypatch: pytest.MonkeyPatch) -> None:
+    """이름이 빈 항목은 등록 폼에 채울 것이 없습니다. 빈 줄만 보이면 검수가 어렵습니다.
+
+    이미지를 키워서 넣기 시작한 뒤 LLM 이 빈 문자열을 돌려주는 경우가 나왔습니다.
+    """
+    _wire(
+        monkeypatch,
+        parsed=ParsedReceipt(
+            purchased_at=date(2026, 1, 30),
+            items=[
+                ParsedItem(name="깐마늘", is_food=True),
+                ParsedItem(name="   ", is_food=True),
+            ],
+        ),
+    )
+
+    assert [item.name for item in _run().items] == ["깐마늘"]
