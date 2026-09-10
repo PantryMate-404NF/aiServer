@@ -12,7 +12,7 @@
 
 ## 이 검사가 깨졌을 때 할 일
 
-1. 위 문서에서 해당 항목(C-NN)을 엽니다.
+1. 위 문서에서 해당 항목(M-NN)을 엽니다.
 2. 그 항목의 "확인 근거" 를 실제로 돌려 통과시킵니다.
 3. 문서의 상태를 바꾸고, 여기 있는 못을 그 항목의 완료 조건을 재는 검사로 바꿉니다.
 
@@ -33,7 +33,7 @@ from features.recommend.engine import rerank
 from features.recommend.policy import RankingPolicy
 
 #: 점검표에 있는 항목 전부. 문서와 이 목록이 어긋나면 아래 검사가 잡습니다.
-CUTOVER_IDS = tuple(f"C-{n:02d}" for n in range(1, 14))
+CUTOVER_IDS = tuple(f"M-{n:02d}" for n in range(1, 14))
 
 CHECKLIST = Path(__file__).resolve().parents[3] / "docs/recommend/recommend_engine_db_cutover.md"
 
@@ -48,28 +48,28 @@ def test_the_checklist_lists_every_item() -> None:
 
 
 def test_router_still_serves_the_mock() -> None:
-    """C-01. 라우터가 아직 `engine/mock.py` 를 부릅니다.
+    """M-01. 라우터가 아직 `engine/mock.py` 를 부릅니다.
 
     실엔진에 연결하면 이 검사가 깨집니다. 그때 함께 처리해야 하는 것이
-    C-02(후보 조회) · C-05(로그 적재) · C-06(난수 시드)입니다. 셋 중 하나라도
+    M-02(후보 조회) · M-05(로그 적재) · M-06(난수 시드)입니다. 셋 중 하나라도
     빠지면 응답은 200 인데 로그가 비거나 재현이 안 됩니다.
     """
     router_module = importlib.import_module("features.recommend.router")
-    assert "mock." in inspect.getsource(router_module), HOWTO.format(item="C-01")
+    assert "mock." in inspect.getsource(router_module), HOWTO.format(item="M-01")
 
 
 def test_the_engine_does_not_write_logs_yet() -> None:
-    """C-05. `service` 가 아직 `write_recommendation` 을 부르지 않습니다.
+    """M-05. `service` 가 아직 `write_recommendation` 을 부르지 않습니다.
 
     부르기 시작하면 `config_hash`·`warm_alpha`·`stats_version` 을 함께 넘겨야
     합니다. 안 넘겨도 행은 저장되고 `not_reproducible` 플래그만 붙습니다 —
     에러가 나지 않으므로 그 요청의 점수는 영영 재현되지 않습니다.
     """
-    assert "write_recommendation" not in inspect.getsource(service), HOWTO.format(item="C-05")
+    assert "write_recommendation" not in inspect.getsource(service), HOWTO.format(item="M-05")
 
 
 def test_no_repository_function_fills_the_user_history() -> None:
-    """C-03. 사용자 이력을 읽어 오는 저장소 함수가 아직 없습니다.
+    """M-03. 사용자 이력을 읽어 오는 저장소 함수가 아직 없습니다.
 
     없는 동안 `f_ing_pref`·`f_cooccur` 는 전건 None 이고 가중치 0.21 이 순위에
     관여하지 않습니다. 붙는 순간 추천 결과가 바뀌므로 그때 Mock 판정을 다시
@@ -81,21 +81,21 @@ def test_no_repository_function_fills_the_user_history() -> None:
         for name in dir(repository)
         if not name.startswith("_") and ("history" in name.lower() or "user_pref" in name.lower())
     ]
-    assert not loaders, HOWTO.format(item="C-03") + f" (발견: {loaders})"
+    assert not loaders, HOWTO.format(item="M-03") + f" (발견: {loaders})"
 
 
 def test_rng_seed_is_recorded_but_not_used() -> None:
-    """C-06. `rng_seed` 는 추적에만 실리고 난수를 만들지 않습니다.
+    """M-06. `rng_seed` 는 추적에만 실리고 난수를 만들지 않습니다.
 
     `rank_candidates` 는 `rng` 와 `rng_seed` 를 따로 받고, 재정렬은 `rng` 만
     씁니다. 호출부가 `SystemRandom` 을 넘기면 로그의 시드로는 재현이 안 됩니다.
     """
     assert "rng_seed" in inspect.signature(service.rank_candidates).parameters
-    assert "rng_seed" not in inspect.signature(rerank.rerank).parameters, HOWTO.format(item="C-06")
+    assert "rng_seed" not in inspect.signature(rerank.rerank).parameters, HOWTO.format(item="M-06")
 
 
 def test_settings_and_policy_hold_the_same_numbers() -> None:
-    """C-08. 같은 손잡이가 `Settings` 와 `RankingPolicy` 두 곳에 있습니다.
+    """M-08. 같은 손잡이가 `Settings` 와 `RankingPolicy` 두 곳에 있습니다.
 
     엔진은 `RankingPolicy` 만 읽습니다. `.env` 로 `RECO_CANDIDATE_LIMIT` 을 바꿔도
     **아무 일도 일어나지 않고 에러도 나지 않습니다.** 정본을 하나로 합칠 때까지는
@@ -104,12 +104,12 @@ def test_settings_and_policy_hold_the_same_numbers() -> None:
     settings, policy = get_settings(), RankingPolicy()
     for name in ("candidate_limit", "explore_pool_size", "propensity_mc"):
         assert getattr(settings, name) == getattr(policy, name), (
-            f"{name} 이 Settings 와 RankingPolicy 에서 다릅니다. " + HOWTO.format(item="C-08")
+            f"{name} 이 Settings 와 RankingPolicy 에서 다릅니다. " + HOWTO.format(item="M-08")
         )
 
 
 def test_the_failure_counters_are_not_exposed_yet() -> None:
-    """C-07. 로그 쓰기 실패 카운터를 읽는 곳이 없습니다.
+    """M-07. 로그 쓰기 실패 카운터를 읽는 곳이 없습니다.
 
     `write_recommendation` 은 모든 예외를 삼키고 카운터만 올립니다. 그 카운터가
     어디로도 나가지 않으므로, DB 를 붙인 뒤 적재가 전부 실패해도 API 는 200 을
@@ -117,14 +117,14 @@ def test_the_failure_counters_are_not_exposed_yet() -> None:
     """
     from features.recommend.schema import HealthOut
 
-    assert "log_counters" not in HealthOut.model_fields, HOWTO.format(item="C-07")
+    assert "log_counters" not in HealthOut.model_fields, HOWTO.format(item="M-07")
     router_module = importlib.import_module("features.recommend.router")
-    assert "counters" not in inspect.getsource(router_module), HOWTO.format(item="C-07")
+    assert "counters" not in inspect.getsource(router_module), HOWTO.format(item="M-07")
 
 
 @pytest.mark.parametrize("name", ["f_ing_pref", "f_cooccur", "f_season"])
 def test_features_without_a_data_source_stay_weighted(name: str) -> None:
-    """C-03·C-04. 데이터가 없는 피처의 가중치를 0 으로 내리지 않습니다.
+    """M-03·M-04. 데이터가 없는 피처의 가중치를 0 으로 내리지 않습니다.
 
     Zero-Drop 이 분자와 분모에서 함께 빼므로 남은 가중치가 비례 재분배됩니다.
     0 으로 내리면 데이터가 와도 켜지지 않습니다 — 그때 코드를 고쳐야 하는데,
@@ -132,4 +132,4 @@ def test_features_without_a_data_source_stay_weighted(name: str) -> None:
     """
     from features.recommend.enums import DEFAULT_WEIGHTS
 
-    assert DEFAULT_WEIGHTS[name] > 0, HOWTO.format(item="C-03")
+    assert DEFAULT_WEIGHTS[name] > 0, HOWTO.format(item="M-03")

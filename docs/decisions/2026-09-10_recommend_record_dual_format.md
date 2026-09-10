@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 B 기록을 쓰고 읽는 인원과 AI 코딩 에이전트. 다른 파트가 같은 방식을 쓰기로 하면 그대로 적용합니다
 
-**버전**: 1.1.0 · **최종 수정**: 2026-09-10 · **작성자**: 유재현
+**버전**: 1.2.0 · **최종 수정**: 2026-09-10 · **작성자**: 유재현
 
 ---
 
@@ -18,14 +18,17 @@
 | 정본 | 작업 기록·검증 기록·회의 안건은 에이전트용이 정본 | 설계 명세는 사람이 쓴 원본이 정본이고 에이전트용은 압축본 |
 | 형식 | 표, 키-값, 식별자 위주. 문장은 04의 2.2 를 따르되 최소로 | 문장과 단락. 식별자를 괄호로 함께 적어 대응 |
 | 기준 | 사람이 확인만 가능하면 충분 | 배경을 모르는 팀원이 읽고 이해할 수 있어야 함 |
-| 식별자 | D 결정 · A 가정 · I 접점 · T 계획 항목 · P 선행 조건 · C 고려사항 · E 환경 · S 명세 조항 · V 검증 항목 · F 발견 · X 수정 제안 · G 타 파트 안건 · N 내부 안건. 번호는 재사용하지 않고 폐기는 표기로 남김 | 에이전트용의 식별자를 그대로 참조 |
+| 식별자 | D 결정 · A 가정 · I 접점 · T 계획 항목 · P 선행 조건 · C 고려사항 · E 환경 · S 명세 조항 · V 검증 항목 · F 발견 · X 수정 제안 · G 타 파트 안건 · N 내부 안건 · M DB 전환 항목. 번호는 재사용하지 않고 폐기는 표기로 남김 | 에이전트용의 식별자를 그대로 참조 |
 
 두 파일의 식별자 집합이 같은지 명령 한 줄로 확인합니다. 출력이 없으면 일치합니다.
 
+대조는 **그 문서가 소유한 접두어**로 합니다. 다른 문서의 항목을 참조로 인용한 것은 대상이 아닙니다 — 그 항목은 자기 문서의 쌍에서 이미 대조되기 때문입니다. 기록 세 편은 소유 접두어가 여럿이고, DB 전환 점검표는 `M` 하나입니다.
+
 ```bash
-for stem in recommend_engine_work_log recommend_engine_verification recommend_engine_meeting_agenda \n            recommend_engine_db_cutover; do
-  diff <(grep -oE '\b[DAITPCESVFXGN]-[0-9]{2}\b' "docs/recommend/$stem.md" | sort -u) \
-       <(grep -oE '\b[DAITPCESVFXGN]-[0-9]{2}\b' "docs/recommend/human/$stem.md" | sort -u)
+for stem in recommend_engine_work_log recommend_engine_verification recommend_engine_meeting_agenda             recommend_engine_db_cutover; do
+  own='[DAITPCESVFXGN]'
+  [ "$stem" = recommend_engine_db_cutover ] && own='M'
+  diff <(grep -oE "$own-[0-9]{2}" "docs/recommend/$stem.md" | sort -u)        <(grep -oE "$own-[0-9]{2}" "docs/recommend/human/$stem.md" | sort -u)
 done
 ```
 

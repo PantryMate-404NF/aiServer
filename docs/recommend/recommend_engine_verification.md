@@ -376,8 +376,8 @@ A 개발자와 함께 확인할 항목입니다.
 
 | ID | 발견 | 판단 |
 |---|---|---|
-| F-32 | `Settings` 의 `candidate_limit`·`explore_pool_size`·`propensity_mc` 가 `RankingPolicy` 와 **같은 값을 두 벌** 갖고, 엔진은 `RankingPolicy` 만 읽습니다. `config.py` 서두는 `get_settings().candidate_limit` 을 사용 예로 들지만 서빙 경로에서 그 호출이 한 곳도 없습니다. `.env` 로 값을 바꿔도 **아무 일도 일어나지 않고 에러도 없습니다** | 정본을 하나로 합치는 것은 N-02 입니다. 그때까지 두 값이 갈라지지 않게 `test_db_cutover.py` 가 상시로 붙잡습니다 (C-08) |
-| F-33 | `write_recommendation` 이 모든 예외를 삼키고 `bump()` 만 하는데 **그 카운터를 읽는 곳이 없습니다.** `/health` 도 대시보드도 싣지 않고 `QualityExtra.log_counters` 는 계약만 있고 채우는 코드가 없습니다. `service.py` 서두는 "`counters()` 가 대시보드와 `/health` 로 나갑니다" 라고 적고 있었습니다 | 지금은 로그를 쓰지 않아 드러나지 않습니다. DB 를 붙이면 적재가 전부 실패해도 API 가 200 을 돌려줍니다. 문서를 사실대로 고치고 C-07 로 넘겼습니다 |
+| F-32 | `Settings` 의 `candidate_limit`·`explore_pool_size`·`propensity_mc` 가 `RankingPolicy` 와 **같은 값을 두 벌** 갖고, 엔진은 `RankingPolicy` 만 읽습니다. `config.py` 서두는 `get_settings().candidate_limit` 을 사용 예로 들지만 서빙 경로에서 그 호출이 한 곳도 없습니다. `.env` 로 값을 바꿔도 **아무 일도 일어나지 않고 에러도 없습니다** | 정본을 하나로 합치는 것은 N-02 입니다. 그때까지 두 값이 갈라지지 않게 `test_db_cutover.py` 가 상시로 붙잡습니다 (M-08) |
+| F-33 | `write_recommendation` 이 모든 예외를 삼키고 `bump()` 만 하는데 **그 카운터를 읽는 곳이 없습니다.** `/health` 도 대시보드도 싣지 않고 `QualityExtra.log_counters` 는 계약만 있고 채우는 코드가 없습니다. `service.py` 서두는 "`counters()` 가 대시보드와 `/health` 로 나갑니다" 라고 적고 있었습니다 | 지금은 로그를 쓰지 않아 드러나지 않습니다. DB 를 붙이면 적재가 전부 실패해도 API 가 200 을 돌려줍니다. 문서를 사실대로 고치고 M-07 로 넘겼습니다 |
 
 ### 11.2 보이게 고친 것
 
@@ -389,7 +389,7 @@ A 개발자와 함께 확인할 항목입니다.
 
 ### 11.3 전환 점검표와 못
 
-`recommend_engine_db_cutover.md` 에 C-01~C-13 을 정리했습니다. 전부 **에러를 내지 않는
+`recommend_engine_db_cutover.md` 에 M-01~M-13 을 정리했습니다. 전부 **에러를 내지 않는
 자리**라서 목록만으로는 빠뜨립니다. 그래서 `tests/unit/recommend/test_db_cutover.py` 가
 각 항목이 아직 전환 전 상태임을 못 박습니다. 하나를 건드리면 검사가 깨지고 실패
 메시지가 항목 번호를 가리킵니다.
