@@ -66,6 +66,7 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 # 통합 테스트는 실제 OCR 모델을 올려 느리므로 기본 실행에서 뺍니다.
 # 돌릴 때는 uv run pytest -m integration --no-cov 를 씁니다.
-addopts = "-q --strict-markers -m 'not integration' --cov=src --cov-report=term-missing --cov-fail-under=80"
+# 도메인마다 test_service.py 처럼 같은 이름의 테스트 파일이 있어 importlib 모드가 필요합니다.
+addopts = "-q --strict-markers --import-mode=importlib -m 'not integration' --cov=src --cov-report=term-missing --cov-fail-under=80"
 testpaths = ["tests"]
 markers = ["integration: 실제 OCR 엔진을 올려 도는 느린 테스트"]
