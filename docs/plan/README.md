@@ -16,6 +16,8 @@
 | [PM_ENG_RECO_B_001_agent.md](PM_ENG_RECO_B_001_agent.md) | 에이전트 | 명세의 압축본. 계약·수식·상수·검증 항목만 | 파생. 원본과 어긋나면 원본이 이깁니다 |
 | [PM_ENG_RECO_B_001_worklog.md](PM_ENG_RECO_B_001_worklog.md) | 에이전트 | 작업 기록. 상태, 결정(D), 가정(A), 접점(I), 계획 항목(T), 선행 조건(P), 고려사항(C), 환경(E) | **정본** |
 | [human/PM_ENG_RECO_B_001_worklog.md](human/PM_ENG_RECO_B_001_worklog.md) | 사람 | 작업 기록의 서술본. 식별자로 에이전트용과 대응 | 파생 |
+| [PM_ENG_RECO_B_001_eval.md](PM_ENG_RECO_B_001_eval.md) | 에이전트 | 검증 기록. 기획서 정합(S), Mock 동작 검증(V), 발견(F), 수정 제안(X). 수정은 결정 대기 | **정본** |
+| [human/PM_ENG_RECO_B_001_eval.md](human/PM_ENG_RECO_B_001_eval.md) | 사람 | 검증 기록의 서술본 | 파생 |
 
 파일을 추가하거나 빼면 이 표만 고칩니다. `docs/README.md` 는 이 폴더를 한 줄로만 가리킵니다.
 
@@ -32,13 +34,15 @@
 | 형식 | 표, 키-값, 식별자. 문장은 최소. 경로·심볼·명령은 그대로 | 문장과 단락. 식별자를 괄호로 함께 적어 대응 |
 | 기준 | 사람이 **확인만 가능**하면 충분 | 배경을 모르는 팀원이 읽고 이해할 수 있어야 함 |
 | 헤더·본문 형식 | `02_DIRECTORY_STRUCTURE.md` 2.5 를 따름 | 같음 |
-| 식별자 | D 결정 · A 가정 · I 접점 · T 계획 항목 · P 선행 조건 · C 고려사항 · E 환경. 번호는 재사용하지 않고 폐기는 표기로 남김 | 에이전트용의 식별자를 그대로 참조 |
+| 식별자 | 작업 기록: D 결정 · A 가정 · I 접점 · T 계획 항목 · P 선행 조건 · C 고려사항 · E 환경. 검증 기록: S 명세 조항 · V 검증 항목 · F 발견 · X 수정 제안. 번호는 재사용하지 않고 폐기는 표기로 남김 | 에이전트용의 식별자를 그대로 참조. 다른 기록의 식별자를 인용하면 서술본에도 같은 식별자를 적음 |
 
 갱신 순서는 **작업 → 에이전트용 갱신 → 사람용 갱신 → 같은 커밋(`docs(plan): ...`)** 입니다. 두 파일의 식별자 집합이 같은지 아래 명령으로 확인합니다. 출력이 없으면 일치합니다.
 
 ```bash
-diff <(grep -oE '\b[DAITPCE]-[0-9]{2}\b' docs/plan/PM_ENG_RECO_B_001_worklog.md | sort -u) \
-     <(grep -oE '\b[DAITPCE]-[0-9]{2}\b' docs/plan/human/PM_ENG_RECO_B_001_worklog.md | sort -u)
+for stem in PM_ENG_RECO_B_001_worklog PM_ENG_RECO_B_001_eval; do
+  diff <(grep -oE '\b[DAITPCESVFX]-[0-9]{2}\b' "docs/plan/$stem.md" | sort -u) \
+       <(grep -oE '\b[DAITPCESVFX]-[0-9]{2}\b' "docs/plan/human/$stem.md" | sort -u)
+done
 ```
 
 에이전트용에만 있는 식별자는 사람용에 문장을 더해 채우고, 사람용에만 있는 식별자는 오타입니다.

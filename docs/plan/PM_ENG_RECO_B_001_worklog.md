@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 B 추천 엔진을 이어서 작업하는 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 0.3.0 · **최종 수정**: 2026-09-10 · **작성자**: 유재현
+**버전**: 0.4.0 · **최종 수정**: 2026-09-10 · **작성자**: 유재현
 
 ---
 
@@ -16,8 +16,8 @@
 | 계획서 | `PM_ENG_RECO_B_001.md` (사람용, 정본) · `PM_ENG_RECO_B_001_agent.md` (요약, 어긋나면 원본이 이김) |
 | 브랜치 | `feat/recommend-engine-core` = `origin/feat/recommend-engine-core`. 코드 HEAD `cbdf312`, 문서 커밋은 그 뒤 |
 | 단계 | Layer 1 완료 = Step 0 · Step 2~4 의 순수 함수 · Step 5 의 조립·피드백 수식. Step 1, Step 6 미착수. DB·라우터 미연결 |
-| 검증 (2026-09-10) | ruff check OK · ruff format OK · mypy 35 files OK · `pytest tests/unit/recommend` 96 passed · 전체 177 passed / 1 failed (P-02, 기존) / coverage 95.04% |
-| 다음 행동 | P-01 → T-02·T-03 (Step 1) 또는 T-05 (Step 2, A-10 결정 선행) |
+| 검증 (2026-09-10) | ruff check OK · ruff format OK · mypy 35 files OK · `pytest tests/unit/recommend` 96 passed · 전체 177 passed / 1 failed (P-02, 기존) / coverage 95.04% · 기획서 정합과 Mock 동작 검증은 `PM_ENG_RECO_B_001_eval.md` (수정 제안 9건 결정 대기) |
+| 다음 행동 | T-16 (검증 기록의 수정 제안 결정) → P-01 → T-02·T-03 (Step 1) 또는 T-05 (Step 2, A-10 결정 선행) |
 | 병합 정책 | PR 없음. 브랜치 커밋·push 만. `main` 병합은 A·B 파트 완료 후 논의 (P-10) |
 | 갱신 규칙 | 세션마다 1절·3절·9절 갱신. 새 항목은 다음 번호, 번호 재사용 금지. 사람용 서술본 동시 갱신 (`README.md` 2절) |
 
@@ -104,7 +104,8 @@ uv run pytest tests/unit (유효한 .env 를 둔 별도 cwd, E-03)
 | T-12 | Step 6 | 계약 검증 42건 (TC-6-1) | 미착수 | 42건 정의 문서, P-05 |
 | T-13 | Step 6 | Locust p95 < 58ms (TC-6-3) | 미착수 | P-06 |
 | T-14 | 7절 | NDCG@10, Recall@20, 커버리지, ILD 실측 · Bradley-Terry 가중치 | 미착수 | 600쌍 라벨, Track C 하네스 |
-| T-15 | 문서 | `docs/plan/` 커밋과 `docs/README.md` 등록 | 진행 중 | P-09 |
+| T-15 | 문서 | `docs/plan/` 커밋과 `docs/README.md` 등록 | 완료 (`60f1d40`) | P-09 |
+| T-16 | 검증 | `PM_ENG_RECO_B_001_eval.md` 6절 수정 제안 9건의 채택 여부 결정과 반영 | 결정 대기 | 유재현 판단. 채택분은 모듈별 커밋 + 테스트 |
 
 ### 4.2 선행 조건 (P)
 
@@ -233,3 +234,12 @@ uv run ruff check . && uv run python -m mypy src
 | 공용 파일 변경 | `pyproject.toml` addopts (D-12) |
 | 문서 | 작업기록 두 형식 규칙 도입(`README.md`). 파일명 언더바. `docs/README.md` 에 `plan/` 등록 |
 | 넘긴 것 | 4절 전체. 특히 P-01, P-04, A-10 |
+
+### 9.2 2026-09-10 — Mock 검증
+
+| 항목 | 내용 |
+|---|---|
+| 산출물 | `scripts/eval_recommend_mock.py`. 12 페르소나 실행, 판정 지표, 감점·피드백·결정론 시나리오, 후보 500건 지연시간과 단계 분해 |
+| 기록 | `PM_ENG_RECO_B_001_eval.md` + `human/` 서술본. 기획서 조항 23건 대조, 검증 항목 16건, 발견 12건, 수정 제안 9건 |
+| 코드 변경 | 없음. 수정은 결과를 보고 결정 (T-16) |
+| 커밋 | `chore(recommend): add the mock evaluation script` · `docs(plan): record the mock evaluation and fix proposals` |
