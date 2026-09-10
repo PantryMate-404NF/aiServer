@@ -603,3 +603,114 @@ def load_feature_quality() -> list[tuple[int, int, int, int]]:
     with cursor() as cur:
         cur.execute(_QUALITY_SQL)
         return cur.fetchall()
+
+
+# ─────────────────────────────────────────────────────────────────
+# flavor_vec 빌더 — ingest/flavor_build.py 가 쓴다 (A-5)
+# ─────────────────────────────────────────────────────────────────
+#: 강도 계산에 필요한 것을 한 번에 가져온다.
+#:
+#: 주의: n_total 은 *원문* 행 수다. 매칭된 행 수가 아니다. intensity 의 위치
+#:    보정이 "재료 목록의 앞 1/3" 을 보는데, 못 붙은 재료도 목록에는 있었다.
+#:    매칭분으로 세면 미매칭이 많은 레시피일수록 앞쪽 판정이 헐거워진다.
+_FLAVOR_SRC_SQL = """
+SELECT ri.recipe_id, r.title, i.name, c.path::text, ri.role, ri.unit,
+       COALESCE(rr.position, 0), nt.n
+FROM recipe_ingredient ri
+JOIN recipe r      ON r.id = ri.recipe_id
+JOIN ingredient i  ON i.id = ri.ingredient_id
+LEFT JOIN ingredient_category c ON c.id = i.category_id
+LEFT JOIN recipe_ingredient_raw rr ON rr.id = ri.raw_id
+JOIN LATERAL (SELECT count(*) AS n FROM recipe_ingredient_raw x
+              WHERE x.recipe_id = ri.recipe_id) nt ON TRUE
+WHERE ri.recipe_id = ANY(%s)
+ORDER BY ri.recipe_id, rr.position
+"""
+
+_FLAVOR_UPD_SQL = """
+UPDATE recipe_feature rf
+SET    flavor_vec = u.v
+FROM   (SELECT unnest(%s::BIGINT[]) AS rid, unnest(%s::REAL[][]) AS v) u
+WHERE  rf.recipe_id = u.rid
+"""
+
+_FLAVOR_ONE_SQL = "UPDATE recipe_feature SET flavor_vec = %s WHERE recipe_id = %s"
+
+_MU_SQL = """
+INSERT INTO feature_stats (flavor_mu, n_recipes, note)
+VALUES (%s, %s, %s)
+RETURNING stats_version
+"""
+
+_FLAVOR_ALL_SQL = "SELECT recipe_id, flavor_vec FROM recipe_feature"
+
+
+def load_flavor_source(recipe_ids: Sequence[int]) -> list[tuple]:
+    """(recipe_id, title, 재료명, 분류경로, role, unit, position, 원문행수)."""
+    with cursor() as cur:
+        cur.execute(_FLAVOR_SRC_SQL, (list(recipe_ids),))
+        return cur.fetchall()
+
+
+def set_flavor_vectors(vectors: Mapping[int, Sequence[float]]) -> int:
+    """레시피별 6축을 쓴다.
+
+    주의: 원값을 그대로 넣는다. 코퍼스 평균을 미리 빼면 CHECK(길이 6)는 통과하고
+       값도 그럴듯하지만, 유저 taste_vec 은 원좌표계라 f_taste 가 좌표계가
+       어긋난 채 조용히 돈다. 게다가 스코어러가 규약대로 한 번 더 빼면 두 번
+       빠진다. 빼기는 읽는 쪽이 양쪽에 같은 μ 로 한다 (A-5 규약).
+    """
+    if not vectors:
+        return 0
+    with cursor(commit=True) as cur:
+        n = 0
+        for rid, vec in vectors.items():
+            cur.execute(_FLAVOR_ONE_SQL, (list(vec), rid))
+            n += max(cur.rowcount, 0)
+        return n
+
+
+def load_all_flavor_vectors() -> list[tuple[int, list[float]]]:
+    """μ 계산과 검증기가 읽는다. 46,353행이라 한 번에 올려도 된다."""
+    with cursor() as cur:
+        cur.execute(_FLAVOR_ALL_SQL)
+        return cur.fetchall()
+
+
+def insert_feature_stats(mu: Sequence[float], n_recipes: int, note: str) -> int:
+    """새 stats_version 을 만든다. 기존 행은 지우지 않는다.
+
+    주의: 덮어쓰지 않는다. recommendation_log 가 stats_version 을 싣기 때문에,
+       옛 μ 를 지우면 과거 요청의 점수를 재현할 수 없다 — 소급이 안 된다.
+    """
+    with cursor(commit=True) as cur:
+        cur.execute(_MU_SQL, (list(mu), n_recipes, note))
+        row = cur.fetchone()
+        return int(row[0])
+
+
+_FLAVOR_LABEL_SQL = """
+SELECT rf.recipe_id, r.title, rf.flavor_vec
+FROM recipe_feature rf JOIN recipe r ON r.id = rf.recipe_id
+WHERE rf.n_total > 0
+"""
+
+
+def load_flavor_with_titles() -> list[tuple[int, str, list[float]]]:
+    """검증기(A-5)가 제목 라벨로 판별력을 잴 때 읽는다."""
+    with cursor() as cur:
+        cur.execute(_FLAVOR_LABEL_SQL)
+        return cur.fetchall()
+
+
+_LATEST_MU_SQL = """
+SELECT stats_version, flavor_mu, n_recipes
+FROM feature_stats ORDER BY stats_version DESC LIMIT 1
+"""
+
+
+def load_latest_mu() -> tuple[int, list[float], int] | None:
+    """가장 최근 stats_version 의 μ. 없으면 None."""
+    with cursor() as cur:
+        cur.execute(_LATEST_MU_SQL)
+        return cur.fetchone()

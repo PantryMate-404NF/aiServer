@@ -131,6 +131,12 @@ normalize-dry:  ## 쓰지 않고 커버리지만 확인  (make normalize-dry LIM
 feature-build:  ## recipe_feature 만 다시 만든다 (배치 재실행 없이. n_unmatched 는 유지)
 	$(PY) -m features.recommend.ingest.feature_build
 
+flavor-build:  ## flavor_vec 6축 + 코퍼스 평균 μ (A-5). 약 10초
+	$(PY) -m features.recommend.ingest.flavor_build $(if $(LIMIT),--limit $(LIMIT))
+
+flavor-check:  ## 중심화가 실제로 낫다는 검증 — 판별력 게이트 (A-5)
+	$(PY) -m features.recommend.ingest.flavor_check
+
 normalize-verify:  ## 배치 결과 검증 — 행 수·match_method·role·재료 수 분포
 	@$(PSQL) -f - < scripts/reco/batch_verify.sql
 
