@@ -6,12 +6,21 @@ import json
 import math
 import random
 from collections.abc import Callable, Iterable
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from features.recommend.schema import CorpusStats, RankConfig, RecipeCandidate, UserContext
+from features.recommend.engine import context
+from features.recommend.schema import (
+    CorpusStats,
+    RankConfig,
+    RecipeCandidate,
+    RecommendRequest,
+    UserContext,
+    UserHistory,
+)
 
 FIXTURE_DIR = Path(__file__).resolve().parents[2] / "fixtures" / "recommend"
 
@@ -67,6 +76,23 @@ def allergy_ids(catalog: dict[str, Any]) -> Callable[[Iterable[str]], frozenset[
         return frozenset(i for code in codes for i in groups.get(code, []))
 
     return resolve
+
+
+@pytest.fixture
+def context_for(
+    allergy_ids: Callable[[Iterable[str]], frozenset[int]], cfg: RankConfig
+) -> Callable[..., UserContext]:
+    """페르소나 JSON 을 엔진 문맥으로 바꿉니다."""
+
+    def build(persona: dict[str, Any], history: UserHistory | None = None) -> UserContext:
+        request = RecommendRequest.model_validate(persona)
+        merged = replace(
+            history or UserHistory(),
+            allergy_ingredient_ids=allergy_ids(request.allergy_group_codes),
+        )
+        return context.build_context(request, merged, cfg)
+
+    return build
 
 
 @pytest.fixture(scope="session")
