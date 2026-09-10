@@ -46,6 +46,6 @@ def test_build_context_without_history_uses_onboarding_taste(cfg: RankConfig) ->
 
     ctx = build_context(request, UserHistory(), cfg)
 
-    assert ctx.taste_vec == (1.0, 0.0, 0.5)
+    assert ctx.taste_vec == (1.0, 0.5, 0.0)
     assert ctx.top_k == 20
     assert ctx.max_cook_minutes is None

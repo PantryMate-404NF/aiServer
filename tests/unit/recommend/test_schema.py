@@ -72,11 +72,25 @@ def test_taste_level_out_of_range_is_rejected() -> None:
 
 
 def test_taste_vector_is_scaled_to_unit_interval() -> None:
+    """축 순서는 (매움, 짠맛, 단맛). A 트랙 D-11 과 flavor_vec 앞 3축의 순서입니다."""
     assert TastePreference(spicy_level=4, sweet_level=2, salty_level=0).as_vector() == (
         1.0,
-        0.5,
         0.0,
+        0.5,
     )
+
+
+def test_six_axis_flavor_vector_is_cut_to_the_leading_three() -> None:
+    """A 트랙의 6축 flavor_vec 을 그대로 받아도 앞 3축만 씁니다."""
+    recipe = RecipeCandidate(
+        recipe_id=1,
+        title="감자 볶음",
+        essential_ids=[4],
+        all_ids=[4],
+        flavor_vec=[0.7, 0.6, 0.2, 0.1, 0.5, 0.3],
+    )
+
+    assert recipe.flavor_vec == (0.7, 0.6, 0.2)
 
 
 def test_top_k_upper_bound() -> None:

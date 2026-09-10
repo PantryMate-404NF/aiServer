@@ -131,8 +131,8 @@ def test_unknown_ingredient_names_fall_back_to_counts(
 def test_taste_reason_names_the_dominant_axis(
     make_recipe: Callable[..., RecipeCandidate], make_context: Callable[..., UserContext]
 ) -> None:
-    recipe = make_recipe(1, flavor_vec=(0.5, 0.9, 0.5))
-    ctx = make_context(taste=(0.5, 1.0, 0.5))
+    recipe = make_recipe(1, flavor_vec=(0.5, 0.5, 0.9))
+    ctx = make_context(taste=(0.5, 0.5, 1.0))
     item = _scored(recipe, _dominated_by("taste"))
 
     assert "단맛이" in explain(item, ctx, CORPUS, FLAT_STATS, is_exploration=False)

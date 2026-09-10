@@ -13,8 +13,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-# 맛 벡터의 축 순서. 요청의 선호도, 레시피 flavor_vec, user_vector 테이블이 전부 이 순서입니다.
-FLAVOR_AXES = ("spicy", "sweet", "salty")
+# 맛 벡터의 축 순서 (매움, 짠맛, 단맛). A 트랙 설계 결정 D-11 의 온보딩 척도 순서이며
+# recipe_feature.flavor_vec 6축(매움·짠맛·단맛·신맛·감칠맛·기름짐)의 앞 3축과 같습니다.
+# 요청의 선호도, 레시피 flavor_vec, user_vector 테이블이 전부 이 순서입니다.
+FLAVOR_AXES = ("spicy", "salty", "sweet")
 TASTE_LEVEL_MAX = 4
 FlavorVector = tuple[float, float, float]
 EventType = Literal["click", "cook", "dismiss"]
@@ -33,8 +35,8 @@ class TastePreference(BaseModel):
         """레시피 flavor_vec 과 같은 0~1 척도로 바꿉니다."""
         return (
             self.spicy_level / TASTE_LEVEL_MAX,
-            self.sweet_level / TASTE_LEVEL_MAX,
             self.salty_level / TASTE_LEVEL_MAX,
+            self.sweet_level / TASTE_LEVEL_MAX,
         )
 
 
@@ -154,6 +156,18 @@ class RecipeCandidate(BaseModel):
     cook_minutes: int | None = None
     cuisine: str | None = None
     product_ids: tuple[int, ...] = ()
+
+    @field_validator("flavor_vec", mode="before")
+    @classmethod
+    def _take_leading_axes(cls, value: object) -> object:
+        """A 트랙의 flavor_vec 은 6축입니다. 엔진은 앞 3축(매움, 짠맛, 단맛)만 씁니다.
+
+        6축 전부를 쓸지는 W3 쌍대비교 학습 뒤에 정합니다(A 트랙 D-11). 그때까지는
+        저장은 6축, 계산은 3축입니다.
+        """
+        if isinstance(value, list | tuple) and len(value) > len(FLAVOR_AXES):
+            return tuple(value[: len(FLAVOR_AXES)])
+        return value
 
 
 @dataclass(frozen=True)

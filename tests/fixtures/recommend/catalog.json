@@ -156,8 +156,8 @@
       ],
       "flavor_vec": [
         0.544,
-        0.52,
-        0.63
+        0.77,
+        0.38
       ],
       "popularity_score": 0.332,
       "quality_score": 0.614,
@@ -181,8 +181,8 @@
       ],
       "flavor_vec": [
         0.14,
-        0.326,
-        0.621
+        0.426,
+        0.521
       ],
       "popularity_score": 0.025,
       "quality_score": 0.758,
@@ -211,8 +211,8 @@
       ],
       "flavor_vec": [
         0.685,
-        0.36,
-        0.768
+        0.56,
+        0.568
       ],
       "popularity_score": 0.494,
       "quality_score": 0.545,
@@ -240,8 +240,8 @@
       ],
       "flavor_vec": [
         0.334,
-        0.451,
-        0.368
+        0.551,
+        0.268
       ],
       "popularity_score": 0.386,
       "quality_score": 0.339,
@@ -268,8 +268,8 @@
       ],
       "flavor_vec": [
         0.008,
-        0.262,
-        0.497
+        0.362,
+        0.397
       ],
       "popularity_score": 0.001,
       "quality_score": 0.619,
@@ -301,8 +301,8 @@
       ],
       "flavor_vec": [
         0.193,
-        0.502,
-        0.437
+        0.552,
+        0.387
       ],
       "popularity_score": 0.536,
       "quality_score": 0.706,
@@ -333,8 +333,8 @@
       ],
       "flavor_vec": [
         0.636,
-        0.49,
-        0.68
+        0.54,
+        0.63
       ],
       "popularity_score": 0.471,
       "quality_score": 0.906,
@@ -364,8 +364,8 @@
       ],
       "flavor_vec": [
         0.334,
-        0.517,
-        0.492
+        0.567,
+        0.442
       ],
       "popularity_score": 0.156,
       "quality_score": 0.764,
@@ -392,8 +392,8 @@
       ],
       "flavor_vec": [
         0.141,
-        0.479,
-        0.746
+        0.529,
+        0.696
       ],
       "popularity_score": 0.867,
       "quality_score": 0.536,
@@ -423,8 +423,8 @@
       ],
       "flavor_vec": [
         0.721,
-        0.283,
-        0.687
+        0.483,
+        0.487
       ],
       "popularity_score": 0.188,
       "quality_score": 0.775,
@@ -449,8 +449,8 @@
       ],
       "flavor_vec": [
         0.273,
-        0.479,
-        0.526
+        0.529,
+        0.476
       ],
       "popularity_score": 0.285,
       "quality_score": 0.492,
@@ -477,8 +477,8 @@
       ],
       "flavor_vec": [
         0.072,
-        0.601,
-        0.483
+        0.651,
+        0.433
       ],
       "popularity_score": 0.012,
       "quality_score": 0.915,
@@ -506,8 +506,8 @@
       ],
       "flavor_vec": [
         0.583,
-        0.557,
-        0.571
+        0.607,
+        0.521
       ],
       "popularity_score": 0.255,
       "quality_score": 0.792,
@@ -536,8 +536,8 @@
       ],
       "flavor_vec": [
         0.174,
-        0.595,
-        0.387
+        0.645,
+        0.337
       ],
       "popularity_score": 0.049,
       "quality_score": 0.609,
@@ -566,8 +566,8 @@
       ],
       "flavor_vec": [
         0.479,
-        0.275,
-        0.842
+        0.475,
+        0.642
       ],
       "popularity_score": 0.367,
       "quality_score": 0.516,
@@ -594,8 +594,8 @@
       ],
       "flavor_vec": [
         0.681,
-        0.513,
-        0.576
+        0.763,
+        0.326
       ],
       "popularity_score": 0.044,
       "quality_score": 0.749,
@@ -622,8 +622,8 @@
       ],
       "flavor_vec": [
         0.652,
-        0.547,
-        0.785
+        0.597,
+        0.735
       ],
       "popularity_score": 0.115,
       "quality_score": 0.938,
@@ -649,8 +649,8 @@
       ],
       "flavor_vec": [
         0.318,
-        0.261,
-        0.658
+        0.361,
+        0.558
       ],
       "popularity_score": 0.642,
       "quality_score": 0.475,
@@ -674,8 +674,8 @@
       ],
       "flavor_vec": [
         0.646,
-        0.429,
-        0.5
+        0.679,
+        0.25
       ],
       "popularity_score": 0.644,
       "quality_score": 0.673,
@@ -703,8 +703,8 @@
       ],
       "flavor_vec": [
         0.92,
-        0.451,
-        0.676
+        0.501,
+        0.626
       ],
       "popularity_score": 0.427,
       "quality_score": null,
@@ -728,8 +728,8 @@
       ],
       "flavor_vec": [
         0.371,
-        0.286,
-        0.331
+        0.386,
+        0.231
       ],
       "popularity_score": 0.449,
       "quality_score": 0.66,
@@ -758,8 +758,8 @@
       ],
       "flavor_vec": [
         0.558,
-        0.482,
-        0.735
+        0.732,
+        0.485
       ],
       "popularity_score": 0.449,
       "quality_score": 0.681,
@@ -788,8 +788,8 @@
       ],
       "flavor_vec": [
         0.008,
-        0.222,
-        0.577
+        0.322,
+        0.477
       ],
       "popularity_score": 0.578,
       "quality_score": 0.544,
@@ -818,8 +818,8 @@
       ],
       "flavor_vec": [
         0.384,
-        0.421,
-        0.384
+        0.521,
+        0.284
       ],
       "popularity_score": 0.285,
       "quality_score": 0.383,
@@ -848,8 +848,8 @@
       ],
       "flavor_vec": [
         0.724,
-        0.551,
-        0.847
+        0.751,
+        0.647
       ],
       "popularity_score": 0.399,
       "quality_score": 0.924,
@@ -879,8 +879,8 @@
       ],
       "flavor_vec": [
         0.086,
-        0.53,
-        0.532
+        0.58,
+        0.482
       ],
       "popularity_score": 0.311,
       "quality_score": 0.32,
@@ -909,8 +909,8 @@
       ],
       "flavor_vec": [
         0.117,
-        0.518,
-        0.713
+        0.568,
+        0.663
       ],
       "popularity_score": 0.63,
       "quality_score": 0.981,
@@ -942,8 +942,8 @@
       ],
       "flavor_vec": [
         0.241,
-        0.393,
-        0.627
+        0.493,
+        0.527
       ],
       "popularity_score": 0.665,
       "quality_score": 0.512,
@@ -976,8 +976,8 @@
       ],
       "flavor_vec": [
         0.131,
-        0.501,
-        0.635
+        0.601,
+        0.535
       ],
       "popularity_score": 0.43,
       "quality_score": 0.533,
@@ -1002,8 +1002,8 @@
       ],
       "flavor_vec": [
         0.672,
-        0.393,
-        0.584
+        0.593,
+        0.384
       ],
       "popularity_score": 0.909,
       "quality_score": 0.818,
@@ -1027,8 +1027,8 @@
       ],
       "flavor_vec": [
         0.264,
-        0.297,
-        0.37
+        0.397,
+        0.27
       ],
       "popularity_score": 0.229,
       "quality_score": 0.997,
@@ -1057,8 +1057,8 @@
       ],
       "flavor_vec": [
         0.575,
-        0.239,
-        0.463
+        0.489,
+        0.213
       ],
       "popularity_score": 0.164,
       "quality_score": 0.381,
@@ -1085,8 +1085,8 @@
       ],
       "flavor_vec": [
         0.126,
-        0.462,
-        0.726
+        0.512,
+        0.676
       ],
       "popularity_score": 0.042,
       "quality_score": 0.948,
@@ -1116,8 +1116,8 @@
       ],
       "flavor_vec": [
         0.64,
-        0.366,
-        0.824
+        0.566,
+        0.624
       ],
       "popularity_score": 0.105,
       "quality_score": 0.879,
@@ -1151,8 +1151,8 @@
       ],
       "flavor_vec": [
         0.054,
-        0.436,
-        0.602
+        0.536,
+        0.502
       ],
       "popularity_score": 0.713,
       "quality_score": 0.878,
@@ -1180,8 +1180,8 @@
       ],
       "flavor_vec": [
         0.705,
-        0.445,
-        0.495
+        0.495,
+        0.445
       ],
       "popularity_score": 0.382,
       "quality_score": 0.773,
@@ -1209,8 +1209,8 @@
       ],
       "flavor_vec": [
         0.728,
-        0.358,
-        0.643
+        0.558,
+        0.443
       ],
       "popularity_score": 0.188,
       "quality_score": 0.805,
@@ -1235,8 +1235,8 @@
       ],
       "flavor_vec": [
         0.152,
-        0.568,
-        0.708
+        0.618,
+        0.658
       ],
       "popularity_score": 0.951,
       "quality_score": 0.749,
@@ -1261,8 +1261,8 @@
       ],
       "flavor_vec": [
         0.362,
-        0.484,
-        0.307
+        0.584,
+        0.207
       ],
       "popularity_score": 0.788,
       "quality_score": 0.342,
@@ -1285,8 +1285,8 @@
       ],
       "flavor_vec": [
         0.678,
-        0.537,
-        0.749
+        0.587,
+        0.699
       ],
       "popularity_score": 0.54,
       "quality_score": null,
@@ -1310,8 +1310,8 @@
       ],
       "flavor_vec": [
         0.021,
-        0.402,
-        0.43
+        0.452,
+        0.38
       ],
       "popularity_score": 0.106,
       "quality_score": 0.784,
@@ -1335,8 +1335,8 @@
       ],
       "flavor_vec": [
         0.176,
-        0.31,
-        0.353
+        0.36,
+        0.303
       ],
       "popularity_score": 0.655,
       "quality_score": 0.865,
@@ -1367,8 +1367,8 @@
       ],
       "flavor_vec": [
         0.584,
-        0.532,
-        0.494
+        0.782,
+        0.244
       ],
       "popularity_score": 0.736,
       "quality_score": 0.88,
@@ -1396,8 +1396,8 @@
       ],
       "flavor_vec": [
         0.666,
-        0.487,
-        0.682
+        0.687,
+        0.482
       ],
       "popularity_score": 0.795,
       "quality_score": 0.804,
@@ -1423,8 +1423,8 @@
       ],
       "flavor_vec": [
         0.939,
-        0.367,
-        0.773
+        0.417,
+        0.723
       ],
       "popularity_score": 0.268,
       "quality_score": 0.635,
@@ -1450,8 +1450,8 @@
       ],
       "flavor_vec": [
         0.575,
-        0.57,
-        0.556
+        0.62,
+        0.506
       ],
       "popularity_score": 0.23,
       "quality_score": 0.953,
@@ -1479,8 +1479,8 @@
       ],
       "flavor_vec": [
         0.396,
-        0.608,
-        0.477
+        0.658,
+        0.427
       ],
       "popularity_score": 0.873,
       "quality_score": 0.808,
@@ -1510,8 +1510,8 @@
       ],
       "flavor_vec": [
         0.301,
-        0.481,
-        0.446
+        0.531,
+        0.396
       ],
       "popularity_score": 0.274,
       "quality_score": 0.8,
@@ -1537,8 +1537,8 @@
       ],
       "flavor_vec": [
         0.651,
-        0.368,
-        0.511
+        0.618,
+        0.261
       ],
       "popularity_score": 0.933,
       "quality_score": 0.466,
@@ -1571,8 +1571,8 @@
       ],
       "flavor_vec": [
         0.341,
-        0.364,
-        0.398
+        0.464,
+        0.298
       ],
       "popularity_score": 0.088,
       "quality_score": 0.645,
@@ -1601,8 +1601,8 @@
       ],
       "flavor_vec": [
         0.349,
-        0.311,
-        0.6
+        0.411,
+        0.5
       ],
       "popularity_score": 0.906,
       "quality_score": 0.96,
@@ -1632,8 +1632,8 @@
       ],
       "flavor_vec": [
         0.191,
-        0.406,
-        0.617
+        0.506,
+        0.517
       ],
       "popularity_score": 0.626,
       "quality_score": 0.526,
@@ -1661,8 +1661,8 @@
       ],
       "flavor_vec": [
         0.546,
-        0.461,
-        0.767
+        0.711,
+        0.517
       ],
       "popularity_score": 0.657,
       "quality_score": 0.36,
@@ -1691,8 +1691,8 @@
       ],
       "flavor_vec": [
         0.151,
-        0.502,
-        0.612
+        0.552,
+        0.562
       ],
       "popularity_score": 0.082,
       "quality_score": 0.673,
@@ -1723,8 +1723,8 @@
       ],
       "flavor_vec": [
         0.261,
-        0.626,
-        0.551
+        0.676,
+        0.501
       ],
       "popularity_score": 0.115,
       "quality_score": 0.477,
@@ -1754,8 +1754,8 @@
       ],
       "flavor_vec": [
         0.076,
-        0.476,
-        0.58
+        0.576,
+        0.48
       ],
       "popularity_score": 0.722,
       "quality_score": 0.839,
@@ -1786,8 +1786,8 @@
       ],
       "flavor_vec": [
         0.621,
-        0.378,
-        0.639
+        0.628,
+        0.389
       ],
       "popularity_score": 0.24,
       "quality_score": 0.471,
@@ -1817,8 +1817,8 @@
       ],
       "flavor_vec": [
         0.023,
-        0.406,
-        0.477
+        0.506,
+        0.377
       ],
       "popularity_score": 0.251,
       "quality_score": 0.938,
@@ -1850,8 +1850,8 @@
       ],
       "flavor_vec": [
         0.706,
-        0.581,
-        0.475
+        0.631,
+        0.425
       ],
       "popularity_score": 0.856,
       "quality_score": 0.389,
@@ -1878,8 +1878,8 @@
       ],
       "flavor_vec": [
         0.846,
-        0.272,
-        0.505
+        0.522,
+        0.255
       ],
       "popularity_score": 0.496,
       "quality_score": null,
@@ -1909,8 +1909,8 @@
       ],
       "flavor_vec": [
         0.686,
-        0.29,
-        0.563
+        0.49,
+        0.363
       ],
       "popularity_score": 0.934,
       "quality_score": 0.303,
@@ -1936,8 +1936,8 @@
       ],
       "flavor_vec": [
         0.687,
-        0.424,
-        0.493
+        0.624,
+        0.293
       ],
       "popularity_score": 0.094,
       "quality_score": 0.641,
@@ -1965,8 +1965,8 @@
       ],
       "flavor_vec": [
         0.65,
-        0.582,
-        0.53
+        0.632,
+        0.48
       ],
       "popularity_score": 0.916,
       "quality_score": 0.376,
@@ -1990,8 +1990,8 @@
       ],
       "flavor_vec": [
         0.761,
-        0.627,
-        0.546
+        0.677,
+        0.496
       ],
       "popularity_score": 0.155,
       "quality_score": 0.303,
@@ -2023,8 +2023,8 @@
       ],
       "flavor_vec": [
         0.479,
-        0.611,
-        0.695
+        0.811,
+        0.495
       ],
       "popularity_score": 0.499,
       "quality_score": 0.874,
@@ -2053,8 +2053,8 @@
       ],
       "flavor_vec": [
         0.379,
-        0.527,
-        0.772
+        0.727,
+        0.572
       ],
       "popularity_score": 0.015,
       "quality_score": 0.92,
@@ -2077,8 +2077,8 @@
       ],
       "flavor_vec": [
         0.272,
-        0.382,
-        0.495
+        0.432,
+        0.445
       ],
       "popularity_score": 0.702,
       "quality_score": 0.572,
@@ -2105,8 +2105,8 @@
       ],
       "flavor_vec": [
         0.627,
-        0.332,
-        0.479
+        0.582,
+        0.229
       ],
       "popularity_score": 0.095,
       "quality_score": 0.936,
@@ -2134,8 +2134,8 @@
       ],
       "flavor_vec": [
         0.707,
-        0.358,
-        0.731
+        0.558,
+        0.531
       ],
       "popularity_score": 0.265,
       "quality_score": 0.591,
@@ -2163,8 +2163,8 @@
       ],
       "flavor_vec": [
         0.845,
-        0.72,
-        0.52
+        0.77,
+        0.47
       ],
       "popularity_score": 0.342,
       "quality_score": 0.545,
@@ -2190,8 +2190,8 @@
       ],
       "flavor_vec": [
         0.244,
-        0.292,
-        0.498
+        0.392,
+        0.398
       ],
       "popularity_score": 0.01,
       "quality_score": 0.918,
@@ -2217,8 +2217,8 @@
       ],
       "flavor_vec": [
         0.484,
-        0.414,
-        0.641
+        0.614,
+        0.441
       ],
       "popularity_score": 0.204,
       "quality_score": 0.832,
@@ -2245,8 +2245,8 @@
       ],
       "flavor_vec": [
         0.78,
-        0.352,
-        0.517
+        0.602,
+        0.267
       ],
       "popularity_score": 0.211,
       "quality_score": 0.993,
@@ -2276,8 +2276,8 @@
       ],
       "flavor_vec": [
         0.652,
-        0.365,
-        0.566
+        0.415,
+        0.516
       ],
       "popularity_score": 0.375,
       "quality_score": 0.979,
@@ -2305,8 +2305,8 @@
       ],
       "flavor_vec": [
         0.121,
-        0.314,
-        0.482
+        0.364,
+        0.432
       ],
       "popularity_score": 0.397,
       "quality_score": 0.537,
@@ -2334,8 +2334,8 @@
       ],
       "flavor_vec": [
         0.466,
-        0.319,
-        0.731
+        0.569,
+        0.481
       ],
       "popularity_score": 0.634,
       "quality_score": 0.385,
@@ -2360,8 +2360,8 @@
       ],
       "flavor_vec": [
         0.036,
-        0.598,
-        0.469
+        0.698,
+        0.369
       ],
       "popularity_score": 0.686,
       "quality_score": 0.584,
@@ -2385,8 +2385,8 @@
       ],
       "flavor_vec": [
         0.495,
-        0.417,
-        0.726
+        0.617,
+        0.526
       ],
       "popularity_score": 0.847,
       "quality_score": 0.647,
@@ -2411,8 +2411,8 @@
       ],
       "flavor_vec": [
         0.084,
-        0.529,
-        0.748
+        0.579,
+        0.698
       ],
       "popularity_score": 0.91,
       "quality_score": 0.75,
@@ -2440,8 +2440,8 @@
       ],
       "flavor_vec": [
         0.459,
-        0.453,
-        0.627
+        0.653,
+        0.427
       ],
       "popularity_score": 0.566,
       "quality_score": null,
@@ -2467,8 +2467,8 @@
       ],
       "flavor_vec": [
         0.719,
-        0.741,
-        0.668
+        0.791,
+        0.618
       ],
       "popularity_score": 0.803,
       "quality_score": 0.64,
@@ -2492,8 +2492,8 @@
       ],
       "flavor_vec": [
         0.687,
-        0.581,
-        0.428
+        0.631,
+        0.378
       ],
       "popularity_score": 0.416,
       "quality_score": 0.509,
@@ -2518,8 +2518,8 @@
       ],
       "flavor_vec": [
         0.746,
-        0.623,
-        0.567
+        0.673,
+        0.517
       ],
       "popularity_score": 0.08,
       "quality_score": 0.342,
@@ -2550,8 +2550,8 @@
       ],
       "flavor_vec": [
         0.467,
-        0.489,
-        0.507
+        0.739,
+        0.257
       ],
       "popularity_score": 0.953,
       "quality_score": 0.486,
@@ -2579,8 +2579,8 @@
       ],
       "flavor_vec": [
         0.283,
-        0.496,
-        0.653
+        0.546,
+        0.603
       ],
       "popularity_score": 0.642,
       "quality_score": 0.769,
@@ -2606,8 +2606,8 @@
       ],
       "flavor_vec": [
         0.265,
-        0.393,
-        0.617
+        0.443,
+        0.567
       ],
       "popularity_score": 0.277,
       "quality_score": 0.953,
@@ -2632,8 +2632,8 @@
       ],
       "flavor_vec": [
         0.803,
-        0.305,
-        0.787
+        0.555,
+        0.537
       ],
       "popularity_score": 0.289,
       "quality_score": 0.74,
@@ -2661,8 +2661,8 @@
       ],
       "flavor_vec": [
         0.829,
-        0.53,
-        0.622
+        0.58,
+        0.572
       ],
       "popularity_score": 0.16,
       "quality_score": 0.75,
@@ -2690,8 +2690,8 @@
       ],
       "flavor_vec": [
         0.097,
-        0.44,
-        0.478
+        0.54,
+        0.378
       ],
       "popularity_score": 0.068,
       "quality_score": 0.469,
@@ -2717,8 +2717,8 @@
       ],
       "flavor_vec": [
         0.529,
-        0.48,
-        0.614
+        0.73,
+        0.364
       ],
       "popularity_score": 0.07,
       "quality_score": 0.963,
@@ -2744,8 +2744,8 @@
       ],
       "flavor_vec": [
         0.154,
-        0.584,
-        0.362
+        0.684,
+        0.262
       ],
       "popularity_score": 0.849,
       "quality_score": 0.461,
@@ -2772,8 +2772,8 @@
       ],
       "flavor_vec": [
         0.105,
-        0.484,
-        0.441
+        0.584,
+        0.341
       ],
       "popularity_score": 0.542,
       "quality_score": 0.545,
@@ -2798,8 +2798,8 @@
       ],
       "flavor_vec": [
         0.562,
-        0.448,
-        0.512
+        0.498,
+        0.462
       ],
       "popularity_score": 0.759,
       "quality_score": 0.473,
@@ -2828,8 +2828,8 @@
       ],
       "flavor_vec": [
         0.744,
-        0.39,
-        0.48
+        0.59,
+        0.28
       ],
       "popularity_score": 0.122,
       "quality_score": 0.494,
@@ -2856,8 +2856,8 @@
       ],
       "flavor_vec": [
         0.589,
-        0.465,
-        0.475
+        0.665,
+        0.275
       ],
       "popularity_score": 0.208,
       "quality_score": 0.583,
@@ -2888,8 +2888,8 @@
       ],
       "flavor_vec": [
         0.661,
-        0.398,
-        0.635
+        0.598,
+        0.435
       ],
       "popularity_score": 0.13,
       "quality_score": 0.354,
@@ -2918,8 +2918,8 @@
       ],
       "flavor_vec": [
         0.937,
-        0.706,
-        0.533
+        0.756,
+        0.483
       ],
       "popularity_score": 0.39,
       "quality_score": 0.609,
@@ -2947,8 +2947,8 @@
       ],
       "flavor_vec": [
         0.87,
-        0.73,
-        0.535
+        0.78,
+        0.485
       ],
       "popularity_score": 0.045,
       "quality_score": 0.382,
@@ -2973,8 +2973,8 @@
       ],
       "flavor_vec": [
         0.942,
-        0.608,
-        0.621
+        0.658,
+        0.571
       ],
       "popularity_score": 0.036,
       "quality_score": 0.791,
@@ -2998,8 +2998,8 @@
       ],
       "flavor_vec": [
         0.089,
-        0.342,
-        0.484
+        0.442,
+        0.384
       ],
       "popularity_score": 0.022,
       "quality_score": null,
@@ -3027,8 +3027,8 @@
       ],
       "flavor_vec": [
         0.516,
-        0.313,
-        0.444
+        0.563,
+        0.194
       ],
       "popularity_score": 0.147,
       "quality_score": 0.78,
@@ -3057,8 +3057,8 @@
       ],
       "flavor_vec": [
         0.21,
-        0.655,
-        0.404
+        0.705,
+        0.354
       ],
       "popularity_score": 0.004,
       "quality_score": 0.579,
@@ -3083,8 +3083,8 @@
       ],
       "flavor_vec": [
         0.074,
-        0.656,
-        0.474
+        0.706,
+        0.424
       ],
       "popularity_score": 0.091,
       "quality_score": 0.83,
@@ -3115,8 +3115,8 @@
       ],
       "flavor_vec": [
         0.49,
-        0.449,
-        0.482
+        0.699,
+        0.232
       ],
       "popularity_score": 0.088,
       "quality_score": 0.571,
@@ -3147,8 +3147,8 @@
       ],
       "flavor_vec": [
         0.047,
-        0.565,
-        0.455
+        0.615,
+        0.405
       ],
       "popularity_score": 0.804,
       "quality_score": 0.931,
@@ -3175,8 +3175,8 @@
       ],
       "flavor_vec": [
         0.376,
-        0.452,
-        0.514
+        0.652,
+        0.314
       ],
       "popularity_score": 0.475,
       "quality_score": 0.512,
@@ -3202,8 +3202,8 @@
       ],
       "flavor_vec": [
         0.555,
-        0.734,
-        0.649
+        0.784,
+        0.599
       ],
       "popularity_score": 0.344,
       "quality_score": 0.666,
@@ -3232,8 +3232,8 @@
       ],
       "flavor_vec": [
         0.893,
-        0.552,
-        0.765
+        0.602,
+        0.715
       ],
       "popularity_score": 0.291,
       "quality_score": 0.499,
@@ -3257,8 +3257,8 @@
       ],
       "flavor_vec": [
         0.788,
-        0.738,
-        0.474
+        0.788,
+        0.424
       ],
       "popularity_score": 0.732,
       "quality_score": 0.937,
@@ -3285,8 +3285,8 @@
       ],
       "flavor_vec": [
         0.601,
-        0.492,
-        0.822
+        0.692,
+        0.622
       ],
       "popularity_score": 0.015,
       "quality_score": 0.399,
@@ -3315,8 +3315,8 @@
       ],
       "flavor_vec": [
         0.333,
-        0.694,
-        0.401
+        0.744,
+        0.351
       ],
       "popularity_score": 0.753,
       "quality_score": 0.578,
@@ -3344,8 +3344,8 @@
       ],
       "flavor_vec": [
         0.808,
-        0.442,
-        0.707
+        0.692,
+        0.457
       ],
       "popularity_score": 0.028,
       "quality_score": 0.5,
@@ -3378,8 +3378,8 @@
       ],
       "flavor_vec": [
         0.702,
-        0.517,
-        0.628
+        0.717,
+        0.428
       ],
       "popularity_score": 0.299,
       "quality_score": 0.626,
@@ -3406,8 +3406,8 @@
       ],
       "flavor_vec": [
         0.799,
-        0.323,
-        0.761
+        0.573,
+        0.511
       ],
       "popularity_score": 0.003,
       "quality_score": 0.374,
@@ -3436,8 +3436,8 @@
       ],
       "flavor_vec": [
         0.576,
-        0.198,
-        0.758
+        0.448,
+        0.508
       ],
       "popularity_score": 0.778,
       "quality_score": 0.946,
@@ -3463,8 +3463,8 @@
       ],
       "flavor_vec": [
         0.822,
-        0.625,
-        0.523
+        0.675,
+        0.473
       ],
       "popularity_score": 0.314,
       "quality_score": 0.936,
@@ -3493,8 +3493,8 @@
       ],
       "flavor_vec": [
         0.692,
-        0.351,
-        0.757
+        0.551,
+        0.557
       ],
       "popularity_score": 0.095,
       "quality_score": 0.456,
@@ -3520,8 +3520,8 @@
       ],
       "flavor_vec": [
         0.364,
-        0.423,
-        0.772
+        0.623,
+        0.572
       ],
       "popularity_score": 0.413,
       "quality_score": 0.451,
@@ -3549,8 +3549,8 @@
       ],
       "flavor_vec": [
         0.589,
-        0.676,
-        0.79
+        0.726,
+        0.74
       ],
       "popularity_score": 0.318,
       "quality_score": 0.604,
@@ -3580,8 +3580,8 @@
       ],
       "flavor_vec": [
         0.416,
-        0.258,
-        0.639
+        0.458,
+        0.439
       ],
       "popularity_score": 0.653,
       "quality_score": null,
