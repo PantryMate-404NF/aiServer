@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 B 추천 엔진을 이어서 작업하는 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 0.9.0 · **최종 수정**: 2026-09-11 · **작성자**: 유재현
+**버전**: 1.0.0 · **최종 수정**: 2026-09-11 · **작성자**: 유재현
 
 ---
 
@@ -16,9 +16,10 @@
 | 계획서 | `recommend_engine_design.md` (사람용, 정본) · `recommend_engine_design_digest.md` (요약, 어긋나면 원본이 이김) |
 | 브랜치 | `feat/recommend-engine-core`. `origin/main`(6b7c7b7)·`origin/develop-data-part`(658d79a) 병합 완료. A 전량 병합은 9.6 |
 | 단계 | ② Ranking 과 ③ Re-ranking 을 A 계약 위에서 구현 완료. ① Retrieval·로그 적재·DDL·배치는 A 것이 브랜치에 들어와 있습니다(9.6). 라우터에 `rank_candidates` 를 끼우는 것(N-03)과 DB 연결이 남았습니다 |
-| 검증 (2026-09-11) | ruff check OK · ruff format 130 files OK · mypy **58 files** OK · `pytest tests/unit` **196 passed / 0 failed** / coverage **88.18%**. A 자체 게이트도 통과 — `contract` 98건은 설정값을 채운 환경에서만 끝까지 돕니다(E-13). 출력은 `recommend_engine_verification.md` 9절과 10절 |
+| 검증 (2026-09-11) | ruff check OK · ruff format 132 files OK · mypy **58 files** OK · `pytest tests/unit` **206 passed / 0 failed** / coverage **88.18%**. A 자체 게이트도 통과 — `contract` 98건은 설정값을 채운 환경에서만 끝까지 돕니다(E-13). 출력은 `recommend_engine_verification.md` 9~11절 |
 | 다음 행동 | A 개발자와 병합 순서 합의(B → main → A) → 게이트 예외 4건 Tech Lead 승인(G-16) → N-01(.env 정리, F-30 의 전제) → G-09·G-10 규약 개정 신청 → N-03(라우터 실연결, F-29 의 해소). 남은 회의 안건 G-06, G-12~G-19 |
 | 병합 정책 | PR 없음. 브랜치 커밋·push 만. `main` 병합은 A·B 파트 완료 후 논의 (P-10). `origin/main` 은 merge 로 따라감 (A 가 브랜치를 본 뒤라 rebase 금지, 01의 2.1) |
+| DB 전환 | `recommend_engine_db_cutover.md` 의 C-01~C-13. DB 와 닿는 변경을 시작할 때 먼저 엽니다. `tests/unit/recommend/test_db_cutover.py` 가 못을 박아 두어 건너뛰면 검사가 깨집니다 |
 | 갱신 규칙 | 세션마다 1절·3절·9절 갱신. 새 항목은 다음 번호, 번호 재사용 금지. 사람용 서술본 동시 갱신 (2절) |
 
 ---
@@ -80,21 +81,23 @@
 | D-25 | 공유 파일은 A 것을 받는다 | `uv.lock` 의 `pillow-heif` 만 `main` 값 1.6.0 으로 되돌림 | 이 병합과 무관한 버전 올림이고, 1.7.0 의 DLL 이 Windows 앱 제어 정책에 걸려 영수증 파이프라인 검사 8건이 수집 단계에서 죽습니다 | 1.7.0 이 필요한 이유가 나오면 (G-13) |
 | D-26 | A 의 `tests/conftest.py` 를 그대로 받는다 | `collect_ignore_glob` 두 줄을 파일 8개 명시로 | 글로브가 B 의 pytest 검사 63건과 `integration/test_receipt_pipeline.py` 를 함께 뺍니다. 통과 건수가 줄어드는 것이 아니라 **세어지지 않아** 알아챌 수 없습니다 | 없음. G-08 의 (a)안이고 (b)안으로 가면 이 줄들이 사라집니다 |
 | D-27 | 설정 기본값을 편한 곳에 둔다 | 같은 값을 두 곳에 두지 않습니다. `health_payload(db_ok)`·`build_context(warm_event_count)` 에서 기본값을 없애고 `mixed_exploration(mc=)` 로 정책값을 넘깁니다 | 기본값이 있으면 호출자가 빠뜨려도 **에러가 안 납니다.** 확인 없이 참으로 나가거나(F-24), 로그와 계산이 갈라지거나(F-25), 손잡이가 안 먹습니다(F-26) | 없음. 회귀 검사 `tests/unit/recommend/test_wiring.py` 6건 |
+| D-28 | 통과 여부를 화면 출력으로 판단 | **종료 코드로 판정합니다.** 안 돌린 명령의 결과를 적지 않고, 남이 적어 둔 건수를 자기가 잰 것처럼 인용하지 않습니다 | 실제로 오보가 세 건 났습니다 — `make contract` 를 tail 로 통과로 읽었고(F-30), 안 돌린 242건을 통과로 적었고, 앞선 실행의 128·193 을 그대로 옮겼습니다. 01의 3.4 로 규칙에 넣었고 사례는 `../decisions/2026-09-11_report_only_verified_output.md` | 없음. 확인 비용이 `echo $?` 한 줄입니다 |
 
 ### 3.3 검증 출력 (2026-09-10, A 브랜치 병합 후)
 
 ```text
 uv run ruff check .                   → All checks passed!
-uv run ruff format --check .          → 129 files already formatted
+uv run ruff format --check .          → 132 files already formatted
 uv run python -m mypy src             → Success: no issues found in 58 source files   (E-01)
-uv run pytest tests/unit              → 190 passed, coverage 88.12% (기준 80%)
+uv run pytest tests/unit              → 206 passed, coverage 88.18% (기준 80%)
 ```
 
 A 자체 게이트(`Makefile`, DB 불필요분). Windows 는 `PYTHONIOENCODING=utf-8` 이 필요합니다 (E-11, G-14).
 
 ```text
 python seeds/validate.py                    → 통과 (경고 13건)
-python -m tests.unit.recommend.test_contract → 98건 전부 통과 (설정값을 채운 환경. E-13)
+python -m tests.unit.recommend.test_contract → 98건 전부 통과, 종료코드 0 (설정값을 채운 환경. E-13)
+                                              빈 .env 에서는 92통과 2실패 종료코드 1 로 끝까지 돕니다
 python -m tests.unit.recommend.run           → 74건 전부 통과
 python -m tests.unit.recommend.test_match    → 전부 통과 (23건)
 python -m tests.unit.recommend.test_role     → 전부 통과 (23건)
@@ -153,6 +156,32 @@ python -m tests.unit.recommend.test_batch    → 5건 중 5건 통과
 | P-16 | 04의 1.1 트리에 `docs/recommend/`(설계 명세·기록·회의 안건) 추가 | 기록을 저장소에 두기로 한 결정(`../decisions/2026-09-10_recommend_record_dual_format.md`)의 배치 근거가 규칙에 없음. 01의 9절 절차. 회의 안건 G-09 | 유재현 → 팀 전원 |
 
 ---
+
+### 4.3 MUST TODO — 지금은 할 수 없는 것
+
+여기 있는 것은 **하기 싫어서 미룬 것이 아니라 선행 조건이 없어서 못 하는 것**입니다.
+각 줄의 "언제 가능한가" 가 채워지는 순간 바로 착수합니다. 새 정보를 만들지 않고 이미
+있는 추적 번호를 가리킵니다 — 같은 사실을 두 곳에 적으면 한쪽이 낡습니다.
+
+| 무엇 | 왜 지금 못 하는가 | 언제 가능한가 | 추적 |
+|---|---|---|---|
+| 라우터를 실엔진에 연결 | 후보를 줄 DB 가 없습니다. 지금 연결하면 빈 후보로 200 을 돌려줍니다 | DB 기동 후 | C-01, N-03, F-29 |
+| 서빙 로그 적재 | 쓸 테이블이 없습니다. 로그는 소급이 안 되므로 켜는 순간 재현 인자 셋을 함께 넘겨야 합니다 | DB 기동 후. C-01 과 같은 변경에서 | C-05, T-03 |
+| 사용자 이력 피처 4종 | `user_ingredient_pref`·`event_log`·`user_cluster_stat` 이 비어 있습니다. 가중치 0.21 이 순위에 관여하지 않습니다 | A 의 배치가 채운 뒤 | C-03, N-11, F-15 |
+| 로그 실패 카운터 노출 | 로그를 아직 쓰지 않아 셀 것이 없습니다 | C-05 와 같은 변경에서 | C-07, F-33 |
+| 손잡이 정본 통일 | `Settings` 와 `RankingPolicy` 중 어느 쪽인지 정해야 합니다. 지문에 들어갈 값 집합이 바뀝니다 | N-02 결정 후 | C-08, F-32 |
+| `f_time_fit` 재정의 | 값을 바꾸는 결정이라 혼자 정할 수 없습니다. 실데이터 분포도 필요합니다 | W3 가중치 학습에서 | C-10, N-13, F-27 |
+| 죽은 가중치 0.26 재배분 | 같은 이유입니다. 이력이 붙으면 0.23 이 저절로 살아납니다 | C-03 이후 재측정 → W3 | F-28, N-04, N-05 |
+| `/health` 의 `redis` | 저장소에 redis 클라이언트가 없어 찔러 볼 대상이 없습니다 | A 가 붙이거나 필드를 뺄 때 | C-11, G-19, F-31 |
+| DB 가 필요한 A 게이트 4종 | `make smoke`·`log-test`·`ddl-test`·`feature-test` 는 실 DB 를 씁니다. 병합 시 못 돌렸습니다 | DB 기동 후 | C-12 |
+| 커버리지 `omit` 되돌리기 | A 의 단독 스크립트를 pytest 로 옮겨야 합니다. A 의 파일이라 단독 결정 불가 | G-08 결정 후 | C-13, D-24 |
+| 게이트 예외 4건 승인 | 01의 3.3·6.1 이 Tech Lead 승인을 요구합니다 | 회의에서 | G-16 |
+| 01의 3.4 개정 승인 | 01의 9절이 팀 전원 승인을 요구합니다 | 회의에서 | D-28 |
+| 규약 개정 2건 | `docs/recommend/` 배치와 `stage.py`·`enums.py`·`policy.py` 가 규약에 없습니다 | 회의에서 | G-09, G-10 |
+| `.env` 채우기 | 값이 팀 비밀 저장소에 있고 유재현이 직접 넣습니다. 비면 서버도 `make contract` 도 못 돕니다 | 유재현 | N-01, E-13 |
+| `repository.py` 904줄 분리 | 02의 5.1 이 500줄 초과를 필수 분리로 둡니다. A 의 파일이라 단독 결정 불가 | A 와 합의 후 | G-10 묶음 |
+| B 함수 인자 5개 초과 6곳 | 02의 5.1 의 확정 기준입니다. 요청·문맥 dataclass 로 묶는 것이 N-02 와 겹칩니다 | N-02 와 함께 | N-02 |
+| 상대 import 차단이 꺼져 있음 | `ban-relative-imports` 가 설정돼 있으나 `select` 에 `TID` 가 없습니다. `main` 의 설정이라 단독 수정 불가 | 회의에서 | G-16 묶음 |
 
 ## 5. 고려사항 (C)
 
@@ -344,3 +373,17 @@ uv run ruff check . && uv run python -m mypy src
 | 문서 정정 | `ruff format` 128→129, 변경 규모 193→194, 통과 표시 문자 3곳, G-08·G-10 수치, 계획서 두 편의 "회의 이전" 표시, 결정 기록의 실측 범위 |
 | 검증 | ruff·format·mypy 통과, `pytest tests/unit` **196 passed** / coverage **88.18%**. A 자체 게이트 — `validate` 통과, `contract` **98건 전부 통과**(설정값을 채운 환경), `normalize-test` 125건 통과 |
 | 넘긴 것 | N-13, G-18, G-19, N-01, N-03 |
+
+### 9.8 2026-09-11 - DB 전환 준비와 보고 규칙
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 지시 네 가지 — DB 구축 시점의 수정 내역을 기록하고 건너뛰지 못하게 할 것, 오보가 재발하지 않게 룰셋에 넣을 것, 지금 개선 가능한 것은 개선하고 불가능한 것은 MUST TODO 로 남길 것, 전부 `main` 병합 가능한 형태일 것 |
+| DB 전환 점검표 | `recommend_engine_db_cutover.md` + 사람용. C-01~C-13. 항목마다 지금 상태·전환할 때 하는 일·확인 근거를 적고, 함께 처리해야 하는 묶음 셋을 따로 표시 |
+| 건너뛰지 못하게 하는 장치 | `tests/unit/recommend/test_db_cutover.py` 10건. 각 항목이 아직 전환 전 상태임을 못 박습니다. 건드리면 검사가 깨지고 실패 메시지가 항목 번호를 가리킵니다. `Settings` 와 `RankingPolicy` 의 값 3종은 갈라지지 않게 상시로 붙잡습니다 |
+| 보고 규칙 (D-28) | 01에 3.4 를 추가했습니다 — 종료 코드로 판정, 안 돌린 명령의 결과를 적지 않음, 남의 건수를 자기 측정처럼 인용하지 않음, 앞선 실행의 수치를 옮기지 않음, 검사 스크립트는 실패가 종료 코드로 드러나게. 기존 절 번호는 바꾸지 않았습니다(참조 12곳이 깨집니다). `CLAUDE.md` 4절에 요약을 반영했습니다 |
+| 개선한 것 | F-30 계약 검증이 조용히 멈추던 것을 실패로 세게 · F-33 `service.py` 서두의 사실과 다른 문장 · F-28 평가 출력에 죽은 가중치와 실효 분모 표시 |
+| 새로 찾은 것 | F-32 `Settings` 와 `RankingPolicy` 의 값이 두 벌이고 엔진은 후자만 읽음 · F-33 로그 실패 카운터를 읽는 곳이 없음 |
+| MUST TODO | 4.3 에 17줄. 전부 선행 조건이 없어 못 하는 것이고 이미 있는 추적 번호를 가리킵니다 |
+| 검증 | ruff·format(132)·mypy(58) 통과, `pytest tests/unit` **206 passed** / coverage 88.18%. `make contract` 98건 전부 통과·종료코드 0(설정 채움), 빈 `.env` 에서는 92통과 2실패로 끝까지 돎. `validate`·`normalize-test` 통과. Mock 종단 정상 |
+| 넘긴 것 | C-01~C-13 전부, D-28 승인, MUST TODO 17줄 |

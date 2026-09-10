@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 B 기록을 쓰고 읽는 인원과 AI 코딩 에이전트. 다른 파트가 같은 방식을 쓰기로 하면 그대로 적용합니다
 
-**버전**: 1.0.0 · **최종 수정**: 2026-09-10 · **작성자**: 유재현
+**버전**: 1.1.0 · **최종 수정**: 2026-09-10 · **작성자**: 유재현
 
 ---
 
@@ -23,7 +23,7 @@
 두 파일의 식별자 집합이 같은지 명령 한 줄로 확인합니다. 출력이 없으면 일치합니다.
 
 ```bash
-for stem in recommend_engine_work_log recommend_engine_verification recommend_engine_meeting_agenda; do
+for stem in recommend_engine_work_log recommend_engine_verification recommend_engine_meeting_agenda \n            recommend_engine_db_cutover; do
   diff <(grep -oE '\b[DAITPCESVFXGN]-[0-9]{2}\b' "docs/recommend/$stem.md" | sort -u) \
        <(grep -oE '\b[DAITPCESVFXGN]-[0-9]{2}\b' "docs/recommend/human/$stem.md" | sort -u)
 done
@@ -54,7 +54,7 @@ done
 
 ## 4. 결과와 되돌릴 조건
 
-- 첫 적용은 `docs/recommend/` 의 작업 기록, 검증 기록, 회의 안건 세 쌍입니다.
+- 첫 적용은 `docs/recommend/` 의 작업 기록, 검증 기록, 회의 안건 세 쌍입니다. 2026-09-11 에 DB 전환 점검표가 네 번째 쌍으로 들어왔습니다.
 - 식별자 집합 대조를 첫 실행에서 바로 걸었습니다. 사람용 초안이 범위 표기(`T-01~T-15`)로 넘어가 열두 항목에 문장이 없던 것을 잡았습니다.
 - `docs/recommend/` 폴더는 04의 1.1 트리에 없습니다. 이 결정은 형식에 대한 것이고, 배치는 01의 9절 절차로 04 를 개정해 확정합니다. 개정이 거부되면 기록은 저장소 밖으로 옮기고 이 결정은 폐기합니다.
 - 두 형식의 유지 비용이 세션당 기록 시간의 절반을 넘으면 사람용을 요약 한 장으로 줄이는 쪽으로 다시 결정합니다.
