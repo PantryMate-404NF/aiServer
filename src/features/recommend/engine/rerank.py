@@ -137,6 +137,9 @@ def pick_exploration(
         k=count,
         uniform_share=policy.uniform_share,
         pool_size=policy.explore_pool_size,
+        # 추적에 싣는 값과 실제로 쓰는 값이 같아야 합니다. 안 넘기면 함수 기본값이
+        # 쓰이고, 손잡이를 바꾼 순간 로그와 계산이 조용히 갈라집니다.
+        mc=policy.propensity_mc,
     )
     by_id = {item.recipe_id: item for item in pool}
     uniform_slots = _uniform_count(count, policy)

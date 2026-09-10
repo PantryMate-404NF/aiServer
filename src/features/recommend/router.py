@@ -32,13 +32,15 @@ from features.recommend.schema import (
     RecommendRequest,
     RecommendResponse,
 )
+from infra import db
 
 router = APIRouter()
 
 
 @router.get("/health", response_model=HealthOut, tags=["health"])
 def health() -> HealthOut:
-    return mock.health_payload()
+    # `db.healthy()` 는 실패를 예외로 올리지 않고 False 를 돌려줍니다.
+    return mock.health_payload(db_ok=db.healthy())
 
 
 @router.post("/v1/recommend", response_model=RecommendResponse, tags=["recommend"])

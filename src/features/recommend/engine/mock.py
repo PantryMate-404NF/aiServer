@@ -189,8 +189,14 @@ def _trace(
     )
 
 
-def health_payload() -> HealthOut:
-    return HealthOut(model_version="mock-linear-v0")
+def health_payload(db_ok: bool) -> HealthOut:
+    """`/health` 응답. `db_ok` 에 기본값을 두지 않습니다.
+
+    🔴 `HealthOut.db` 의 기본값이 True 라, 확인하지 않은 채 만들면 DB 가 죽어
+       있어도 초록으로 답합니다. 에러가 나지 않으므로 모니터링이 장애를
+       못 봅니다. 기본값을 없애 호출자가 근거를 대게 합니다.
+    """
+    return HealthOut(model_version="mock-linear-v0", db=db_ok)
 
 
 def build_recommendation(req: RecommendRequest) -> RecommendResponse:

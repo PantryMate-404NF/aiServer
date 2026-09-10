@@ -145,6 +145,7 @@ def mixed_exploration(
     quality_key: str = "score",
     cluster_key: str = "cluster_id",
     id_key: str = "recipe_id",
+    mc: int = 200,
 ) -> tuple[list[dict[str, Any]], dict[int, float]]:
     """🔑 혼합 정책 — 균등 절반 + Thompson 절반.
 
@@ -202,7 +203,9 @@ def mixed_exploration(
     #     같은 아이템이 양쪽에서 뽑힐 수 있으므로 더한다.
     p_uniform = (n_uniform / len(pool)) if (pool and n_uniform) else 0.0
     p_cluster = (
-        thompson_propensity(clusters, stats, n_thompson) if (n_thompson > 0 and clusters) else {}
+        thompson_propensity(clusters, stats, n_thompson, mc=mc)
+        if (n_thompson > 0 and clusters)
+        else {}
     )
     # 클러스터 확률을 그 클러스터의 '최고 품질 1건' 에 전가한다 —
     # Thompson 은 클러스터를 고른 뒤 결정적으로 최고 품질을 고르기 때문이다.

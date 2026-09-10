@@ -92,7 +92,9 @@ def build_context(
     expiring_ids: Sequence[int] = (),
     onboarding_taste: Sequence[float | None] | None = None,
     history: UserHistory | None = None,
-    warm_event_count: int = 20,
+    #: 기본값을 두지 않습니다. `policy.RankingPolicy` 에 같은 값이 있어서,
+    #: 여기 기본값을 두면 손잡이를 바꿔도 안 넘긴 호출자는 옛 값을 씁니다.
+    warm_event_count: int,
     max_cook_minutes: int | None = None,
     preferred_cuisines: Sequence[str] = (),
     preferred_dish_types: Sequence[str] = (),
