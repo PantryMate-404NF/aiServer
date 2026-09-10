@@ -46,7 +46,7 @@ def test_labelled_pii_cells_are_removed() -> None:
 
 def test_two_column_layout_drops_the_value_next_to_the_label() -> None:
     """전자영수증은 레이블 칸과 값 칸이 좌우로 나뉘어 값 칸에 단서가 없습니다."""
-    assert mask("공급받는자 | 김민경(kmk9259)") == ""
+    assert mask("공급받는자 | 홍길동(hgd0001)") == ""
     assert mask("다이소멤버십 | 2002516687") == ""
     assert mask("회원번호 | 2010190034") == ""
     # 레이블 다음 칸이 구매일이면 살립니다.
@@ -64,3 +64,73 @@ def test_numbers_inside_business_ids_are_not_read_as_dates() -> None:
     assert mask("사업자:425-11-01320") == ""
     assert mask("대표:김기호 213-81-52063") == ""
     assert "04-21" not in mask("국민은행 | 075602-04-21****")
+
+
+def test_english_cashier_label_is_masked() -> None:
+    """탑텐 영수증은 계산원 레이블이 영문입니다. 한글 레이블만 보면 실명이 새어 나갑니다."""
+    assert "홍길동" not in mask("CASHIER:홍길동 | 12,900")
+
+
+def test_truncated_owner_label_is_masked() -> None:
+    """OCR 이 '대표:' 의 앞 글자를 잘라 '표:' 만 남겨도 뒤의 이름은 지워야 합니다."""
+    assert "홍길동" not in mask("표:홍길동")
+
+
+def test_two_column_owner_value_is_masked() -> None:
+    """레이블 칸과 값 칸이 나뉜 배치. '대표' 를 만나면 다음 칸까지 지웁니다."""
+    assert "이영희" not in mask("대표 | 이영희")
+
+
+def test_standalone_name_above_item_header_is_masked() -> None:
+    """레이블 없이 고객명이 줄 앞에 홀로 오는 농협 영수증. 같은 셀의 날짜는 살아야 합니다."""
+    text = "김철수 | 2015-11-03 16:31\n상품(코드) | 단가 | 수량 | 금액\n양파 | 3,300"
+
+    masked = mask(text)
+
+    assert "김철수" not in masked
+    assert "2015-11-03" in masked
+    assert "양파" in masked
+
+
+def test_standalone_name_below_total_is_masked() -> None:
+    """계산원명이 합계 아래 홀로 오는 홈플러스 영수증."""
+    text = "상품명 | 단가\n고구마 스틱 | 9,990\n합계 | 9,990\n총 구매수량: | 박민수"
+
+    masked = mask(text)
+
+    assert "박민수" not in masked
+    assert "고구마 스틱" in masked
+
+
+def test_name_like_ingredient_inside_items_survives() -> None:
+    """고구마·양배추·오징어는 성씨로 시작하는 세 글자입니다. 품목 영역에서는 지우면 안 됩니다."""
+    text = "상품명 | 단가\n고구마 | 2,980\n양배추 | 1,980\n오징어 | 5,900\n합계 | 10,860"
+
+    masked = mask(text)
+
+    assert "고구마" in masked
+    assert "양배추" in masked
+    assert "오징어" in masked
+
+
+def test_name_rule_is_off_without_an_item_header() -> None:
+    """표 머리글이 없으면 품목 영역을 못 가릅니다. 그때는 이름 규칙을 끕니다.
+
+    켜 두면 머리글이 없는 영수증에서 식재료가 통째로 지워집니다.
+    """
+    assert "고구마" in mask("고구마 | 2,980\n합계 | 2,980")
+
+
+def test_date_label_is_not_mistaken_for_a_name() -> None:
+    """'구매일' 은 성씨 구 로 시작하는 세 글자지만 날짜 레이블입니다.
+
+    지우면 LLM 이 여러 날짜 중 구매일을 고를 단서를 잃습니다.
+    """
+    text = "구매일 | 2026-01-30\n상품명 | 단가\n양파 | 1,000\n합계 | 1,000"
+
+    assert "구매일" in mask(text)
+
+
+def test_register_label_is_masked() -> None:
+    """세븐일레븐은 계산원을 REG: 뒤에 적습니다. 다른 레이블만 보면 실명이 새어 나갑니다."""
+    assert "정수진" not in mask("P:02-01 CNT:0004 REG:정수진")

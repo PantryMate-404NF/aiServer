@@ -22,7 +22,8 @@ PII_LABELS = re.compile(
     r"([가-힣]{2}카드|카드번호|카드\s*:|카드밴사"  # 하나카드·국민카드·신용카드
     r"|[승증]인\s*번호|승인No|승인일자|가맹점|매입사"  # OCR 이 '승'을 '증'으로 읽습니다
     r"|회원\s*[:번]|고객\s*번호|고객님"
-    r"|계산원|담당자|판매원"
+    r"|계산원|담당자|판매원|CASHIER|REG\s*:"  # 탑텐은 CASHIER, 세븐일레븐은 REG: 가 계산원입니다
+    r"|(?<![가-힣])표\s*:"  # OCR 이 '대표:' 의 앞 글자를 잘라 '표:' 만 남긴 사례
     r"|사업자\s*번호|사업자등록"
     r"|TEL|Tel|전\s*화|대표\s*번호|대표\s*:"
     r"|[Pp][O0o][Ss5]\s*[:\d]"  # POS:1509 / pos2 / p052 — OCR 이 O 를 0 으로 읽습니다
@@ -50,15 +51,39 @@ TIME = re.compile(r"\d{1,2}:\d{2}(:\d{2})?")
 # 단서가 없어 셀 검사가 잡지 못합니다. 칸 전체가 레이블일 때만 걸리도록 앵커를 겁니다.
 # "KT 멤버십 할인 | -100" 의 금액을 날리거나 매장 대표번호를 개인정보로 오인하지
 # 않기 위해서입니다.
-IDENTITY_LABEL = re.compile(r"^(공급받는자|수취인|주문자|구매자|[가-힣]{0,6}멤버십|회원\s*번호)$")
+IDENTITY_LABEL = re.compile(
+    r"^(공급받는자|수취인|주문자|구매자|[가-힣]{0,6}멤버십|회원\s*번호|대표(자|이사)?|계산원|CASHIER)$"
+)
+
+# 레이블 없이 이름만 찍힌 셀. 고객명이 줄 앞에 홀로 오거나(농협), 대표자명이 상호 옆에
+# 붙거나(롯데마트·탑텐), 계산원명이 합계 아래 홀로 오는(홈플러스) 형태입니다. 성씨로
+# 시작하는 한글 세 글자를 이름으로 봅니다. 두 글자 이름과 네 글자 이름은 영수증에서
+# 드물고, 넓히면 오탐이 늘어 세 글자로 고정합니다.
+SURNAMES = (
+    "김이박최정강조윤장임한오서신권황안송류전홍고문양손배백허유남심노하곽성차주우구라진지"
+    "엄채원천방공현함변염여추도소석선설마길연위표명기반왕금옥육인맹제모탁국어은편용예봉사부"
+)
+STANDALONE_NAME = re.compile(rf"^[{SURNAMES}][가-힣]{{2}}$")
+# 성씨로 시작하는 세 글자지만 이름이 아닌 영수증 표기어. 구매일과 주문일은 날짜 레이블이라
+# 지우면 LLM 이 여러 날짜 중 어느 것이 구매일인지 고를 단서를 잃습니다.
+NAME_ALLOWLIST = frozenset({"구매일", "주문일", "부가세", "정상가", "사업자"})
+# 이름 규칙은 품목 영역 밖에서만 돕니다. 고구마·양배추·오징어처럼 성씨로 시작하는 세 글자
+# 식재료가 많아, 품목 영역에 적용하면 팬트리에 넣을 것을 지웁니다. 품목 영역은 표 머리글
+# 줄부터 합계 줄 앞까지이고, 머리글을 못 찾으면 규칙을 끕니다. 넓게 지우는 것보다 이름
+# 하나를 놓치는 편이 낫습니다.
+ITEM_HEADER = re.compile(r"상\s*품\s*명|품\s*명|상품\(코드\)|단\s*가|수\s*량")
+ITEM_FOOTER = re.compile(r"합\s*계|총\s*액|결\s*제|판매총액|받을금액|받으실|과세|면세")
 
 CELL_SEPARATOR = " | "
 
 
 def mask(text: str) -> str:
     """OCR 원문을 개인정보가 지워진 텍스트로 바꿉니다. 셀이 다 지워진 줄은 통째로 뺍니다."""
+    raw_lines = text.splitlines()
+    item_start, item_end = _item_region(raw_lines)
     lines: list[str] = []
-    for line in text.splitlines():
+    for index, line in enumerate(raw_lines):
+        outside_items = item_start is not None and not (item_start <= index < item_end)
         cells: list[str] = []
         drop_next = False
         for cell in (c.strip() for c in line.split("|")):
@@ -70,12 +95,29 @@ def mask(text: str) -> str:
             if IDENTITY_LABEL.match(cell):
                 drop_next = True
                 continue
+            if outside_items and _looks_like_name(cell):
+                continue
             masked = _mask_cell(cell)
             if masked:
                 cells.append(masked)
         if cells:
             lines.append(CELL_SEPARATOR.join(cells))
     return "\n".join(lines)
+
+
+def _item_region(lines: list[str]) -> tuple[int | None, int]:
+    """품목 영역의 [시작, 끝) 줄 번호. 표 머리글이 없으면 시작이 None 입니다."""
+    start = next((i for i, line in enumerate(lines) if ITEM_HEADER.search(line)), None)
+    if start is None:
+        return None, len(lines)
+    end = next(
+        (i for i in range(start + 1, len(lines)) if ITEM_FOOTER.search(lines[i])), len(lines)
+    )
+    return start, end
+
+
+def _looks_like_name(cell: str) -> bool:
+    return bool(STANDALONE_NAME.match(cell)) and cell not in NAME_ALLOWLIST
 
 
 def _mask_cell(cell: str) -> str:

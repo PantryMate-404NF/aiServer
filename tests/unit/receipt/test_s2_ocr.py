@@ -53,6 +53,8 @@ def test_raw_result_becomes_ocr_cells(monkeypatch: pytest.MonkeyPatch) -> None:
     assert cell.y_center == 32
     assert cell.height == 24
     assert cell.score == pytest.approx(0.97)
+    # 윗변이 (30,20)->(150,22) 이므로 120px 에 2px 내려갑니다. 줄 묶기가 이 값으로 기울기를 잽니다.
+    assert cell.slope == pytest.approx(2 / 120)
 
 
 def test_missing_scores_default_to_zero(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -63,7 +65,11 @@ def test_missing_scores_default_to_zero(monkeypatch: pytest.MonkeyPatch) -> None
     }
     monkeypatch.setattr(ocr, "_engine", _FakeEngine(payload))
 
-    assert ocr._extract_cells(np.zeros((4, 4, 3), dtype=np.uint8))[0].score == 0.0
+    cell = ocr._extract_cells(np.zeros((4, 4, 3), dtype=np.uint8))[0]
+
+    assert cell.score == 0.0
+    # 10x10 짜리 짧은 상자는 각도를 재지 않습니다. 검출 오차가 각도를 그대로 흔듭니다.
+    assert cell.slope is None
 
 
 def test_broken_pool_turns_readiness_off(monkeypatch: pytest.MonkeyPatch) -> None:
