@@ -1,129 +1,158 @@
-"""추천 파이프라인의 흐름 조립. 단계 구현은 engine/ 에 있고 여기는 순서만 있습니다."""
+"""흐름 조립과 로그 쓰기 계측 (04 3-1).
+
+    from features.recommend.service import bump, counters, reset_counters
+
+## 로그 실패가 추천을 실패시키지 않습니다
+
+그렇다고 조용히 삼키면 데이터가 비어가는 것을 아무도 모릅니다. 그래서
+**삼키되 반드시 셉니다** — `counters()` 가 대시보드와 `/health` 로 나갑니다.
+
+## `stage_trace.totals.degraded` 에 얹지 않습니다
+
+두 가지 이유입니다.
+
+  1. `degraded` 는 `stage_trace` 안에 있고 `stage_trace` 는 그 INSERT 로만
+     저장됩니다. 쓰기가 실패하면 `degraded=true` 를 담은 행도 같이 사라집니다 -
+     **실패를 실패한 것 안에 기록할 수는 없습니다.**
+  2. `degraded` 의 정의는 "폴백 경로를 탔다" 이고 폴백율 대시보드의 분자입니다.
+     로깅 결함을 섞으면 두 신호가 한 칸에서 합쳐져 다시 못 나눕니다.
+
+그래서 프로세스 메모리에 세고 밖으로 노출합니다.
+
+## ② Ranking 과 ③ Re-ranking 의 조립
+
+`rank_candidates()` 가 두 단계를 잇습니다. DB 도 시각도 보지 않으므로 후보와 문맥만
+주면 어디서든 돌고, 같은 입력이면 점수가 같습니다. ① Retrieval 은 `repository.retrieve`
+가 하고, 후보가 모자랄 때 무엇을 다시 조회할지는 `engine/candidate.py` 가 정합니다.
+
+⬜ ① 을 포함한 서빙 전체(요청 파싱, DB 조회, 로그 적재)는 `repository` 와 라우터가
+   붙는 시점에 이 파일이 가져갑니다 - 02 의 3.2 가 흐름 조립을 여기로 정해 두었습니다.
+"""
 
 from __future__ import annotations
 
-import logging
 import random
-from collections.abc import Sequence
+import threading
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from time import perf_counter
-from uuid import UUID, uuid4
 
-from features.recommend.engine import candidate, explain, penalty, rank, rerank
-from features.recommend.schema import RecommendedItem, RecommendMeta, RecommendResponse
-from features.recommend.stage import (
-    CorpusStats,
-    RankConfig,
-    RecipeCandidate,
-    ScoredCandidate,
-    ServedItem,
-    UserContext,
-)
+from features.recommend.engine import rerank, score
+from features.recommend.engine.context import CorpusStats, RecipeFeature, UserContext
+from features.recommend.enums import Stage
+from features.recommend.policy import RankingPolicy
+from features.recommend.stage import Candidate, RankedItem, ScoredCandidate, StageInfo
 
-logger = logging.getLogger(__name__)
+_LOCK = threading.Lock()
+_C: dict[str, int] = {}
 
 MILLISECONDS_PER_SECOND = 1000
 
 
-@dataclass(frozen=True)
-class ServingLog:
-    """recommendation_log 한 행의 재료. repository 가 JSONB 로 바꿔 적재합니다."""
+def bump(key: str, n: int = 1) -> None:
+    with _LOCK:
+        _C[key] = _C.get(key, 0) + n
 
-    request_id: UUID
-    user_id: int
-    config_fingerprint: str
-    pantry_snapshot: tuple[int, ...]
-    served: tuple[ServedItem, ...]
-    candidates: tuple[ScoredCandidate, ...]
-    latency_ms: int
+
+def counters() -> dict[str, int]:
+    """현재 카운터 스냅샷. `/health` 와 대시보드가 읽습니다.
+
+    프로세스 메모리입니다 - 재시작하면 0 이 됩니다. 유실을 **누적 총계**로
+    보려면 대시보드가 주기적으로 긁어 시계열로 쌓아야 합니다.
+    """
+    with _LOCK:
+        return dict(_C)
+
+
+def reset_counters() -> None:
+    """테스트 전용."""
+    with _LOCK:
+        _C.clear()
+
+
+@dataclass(frozen=True)
+class RankingResult:
+    """②③ 의 산출과 그 과정. `stages` 는 그대로 `StageTrace.stages` 에 실립니다."""
+
+    items: list[RankedItem]
+    scored: list[ScoredCandidate]
+    stages: list[StageInfo]
 
     @property
-    def served_recipe_ids(self) -> tuple[int, ...]:
-        return tuple(item.scored.candidate.recipe_id for item in self.served)
-
-    @property
-    def propensity_scores(self) -> dict[int, float]:
-        return {item.scored.candidate.recipe_id: item.propensity for item in self.served}
+    def latency_ms(self) -> int:
+        return sum(stage.latency_ms for stage in self.stages)
 
 
-@dataclass(frozen=True)
-class PipelineResult:
-    response: RecommendResponse
-    log: ServingLog
-
-
-def run_pipeline(
+def rank_candidates(
+    candidates: Sequence[Candidate],
+    recipes: Mapping[int, RecipeFeature],
     ctx: UserContext,
-    pool: Sequence[RecipeCandidate],
     corpus: CorpusStats,
-    cfg: RankConfig,
+    policy: RankingPolicy,
     rng: random.Random,
-) -> PipelineResult:
-    """Stage 1~3 을 순서대로 돌립니다. I/O 가 없어 같은 입력이면 점수가 같습니다."""
+    *,
+    top_k: int = 20,
+    weights: Mapping[str, float] | None = None,
+    rng_seed: int = 0,
+    max_missing_final: int | None = None,
+    serving_mode: str = "real",
+) -> RankingResult:
+    """② 점수 계산 → ③ 재정렬. 제외는 하지 않습니다 - 그것은 ① 의 일입니다."""
     started = perf_counter()
-    selected = candidate.select_candidates(pool, ctx, cfg)
-    scored = tuple(
-        penalty.apply_penalties(rank.score_candidate(recipe, ctx, corpus, cfg), ctx, cfg)
-        for recipe in selected.candidates
+    scored = score.score_all(
+        candidates, recipes, ctx, corpus, policy, weights, max_missing=max_missing_final
     )
-    served = rerank.rerank(scored, ctx, corpus, cfg, rng)
-    stats = explain.block_stats(scored)
-    items = [_to_item(entry, ctx, corpus, stats, cfg) for entry in served]
-    latency_ms = int((perf_counter() - started) * MILLISECONDS_PER_SECOND)
+    ranking_ms = _elapsed(started)
 
-    if selected.degraded:
-        logger.warning(
-            "recommend degraded user_id=%s stage=%s candidates=%d",
-            ctx.user_id,
-            selected.fallback_stage,
-            len(scored),
-        )
+    started = perf_counter()
+    items = rerank.rerank(scored, recipes, ctx, corpus, policy, rng, top_k=top_k, weights=weights)
+    rerank_ms = _elapsed(started)
 
-    request_id = uuid4()
-    fingerprint = cfg.fingerprint()
-    response = RecommendResponse(
-        request_id=request_id,
-        recommendations=items,
-        meta=RecommendMeta(
-            degraded=selected.degraded,
-            fallback_stage=selected.fallback_stage,
-            candidate_count=len(scored),
-            latency_ms=latency_ms,
-            config_fingerprint=fingerprint,
+    n_explore = sum(1 for item in items if item.is_exploration)
+    params = policy.trace_params(
+        top_k=top_k,
+        n_explore=n_explore,
+        rng_seed=rng_seed,
+        max_missing_final=(policy.max_missing if max_missing_final is None else max_missing_final),
+        serving_mode=serving_mode,
+    )
+    stages = [
+        StageInfo(
+            name=Stage.RANKING,
+            in_count=len(candidates),
+            out_count=len(scored),
+            latency_ms=ranking_ms,
+            strategy="linear-weighted",
+            score_stats=_score_stats(scored),
+            params=params,
         ),
-    )
-    log = ServingLog(
-        request_id=request_id,
-        user_id=ctx.user_id,
-        config_fingerprint=fingerprint,
-        pantry_snapshot=tuple(sorted(ctx.pantry_ids)),
-        served=served,
-        candidates=scored,
-        latency_ms=latency_ms,
-    )
-    return PipelineResult(response, log)
-
-
-def _to_item(
-    entry: ServedItem,
-    ctx: UserContext,
-    corpus: CorpusStats,
-    stats: dict[str, explain.BlockStats],
-    cfg: RankConfig,
-) -> RecommendedItem:
-    scored = entry.scored
-    recipe = scored.candidate
-    return RecommendedItem(
-        rank=entry.rank,
-        recipe_id=recipe.recipe_id,
-        recipe_title=recipe.title,
-        match_score=scored.score,
-        cook_minutes=recipe.cook_minutes,
-        missing_ingredient_ids=list(scored.missing_ids),
-        missing_count=len(scored.missing_ids),
-        reason=explain.explain(
-            scored, ctx, corpus, stats, cfg, is_exploration=entry.is_exploration
+        StageInfo(
+            name=Stage.RERANK,
+            in_count=len(scored),
+            out_count=len(items),
+            latency_ms=rerank_ms,
+            strategy="mmr+mixed-exploration",
+            dropped={"mmr_or_cap": max(0, len(scored) - len(items))},
+            params=params,
+            exploration_items=[item.recipe_id for item in items if item.is_exploration],
         ),
-        matched_product_ids=list(recipe.product_ids),
-        is_exploration=entry.is_exploration,
-    )
+    ]
+    return RankingResult(items=items, scored=scored, stages=stages)
+
+
+def _score_stats(scored: Sequence[ScoredCandidate]) -> dict[str, float]:
+    """점수 분포. 랭커가 조용히 납작해지는 것을 이 값으로 알아챕니다."""
+    if not scored:
+        return {}
+    values = sorted(item.score for item in scored)
+    return {
+        "min": values[0],
+        "p25": values[len(values) // 4],
+        "p50": values[len(values) // 2],
+        "p75": values[(len(values) * 3) // 4],
+        "max": values[-1],
+    }
+
+
+def _elapsed(started: float) -> int:
+    return int((perf_counter() - started) * MILLISECONDS_PER_SECOND)
