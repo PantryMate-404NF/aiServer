@@ -3,7 +3,7 @@
 실행: uv run python scripts/eval_recommend_mock.py [--persona 1001] [--no-latency] [--only-latency]
 
 DB 없이 tests/fixtures/recommend 만 씁니다. 정답 라벨이 없으므로 정확도가 아니라
-"엔진이 명세대로 움직이는가"를 봅니다. 결과는 docs/plan 의 검증 기록에 옮겨 적습니다.
+"엔진이 명세대로 움직이는가"를 봅니다. 결과는 docs/recommend 의 검증 기록에 옮겨 적습니다.
 """
 
 from __future__ import annotations

@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 B 추천 엔진을 이어서 작업하는 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 0.5.0 · **최종 수정**: 2026-09-10 · **작성자**: 유재현
+**버전**: 0.6.0 · **최종 수정**: 2026-09-10 · **작성자**: 유재현
 
 ---
 
@@ -12,24 +12,25 @@
 
 | 키 | 값 |
 |---|---|
-| 정본 | 이 파일. 사람용 서술본 `human/PM_ENG_RECO_B_001_worklog.md` 는 식별자로 대응하는 파생본 |
-| 계획서 | `PM_ENG_RECO_B_001.md` (사람용, 정본) · `PM_ENG_RECO_B_001_agent.md` (요약, 어긋나면 원본이 이김) |
-| 브랜치 | `feat/recommend-engine-core` = `origin/feat/recommend-engine-core`. 코드 HEAD `7d72324` (9.3), 문서 커밋은 그 뒤 |
+| 정본 | 이 파일. 사람용 서술본 `human/recommend_engine_work_log.md` 는 식별자로 대응하는 파생본 |
+| 계획서 | `recommend_engine_design.md` (사람용, 정본) · `recommend_engine_design_digest.md` (요약, 어긋나면 원본이 이김) |
+| 브랜치 | `feat/recommend-engine-core` = `origin/feat/recommend-engine-core`. 코드 HEAD `7d72324` (9.3). 그 뒤 `origin/main` 병합과 문서 커밋 (9.4) |
 | 단계 | Layer 1 완료 = Step 0 · Step 2~4 의 순수 함수 · Step 5 의 조립·피드백 수식. Step 1, Step 6 미착수. DB·라우터 미연결 |
-| 검증 (2026-09-10) | ruff check OK · ruff format OK · mypy 36 files OK · `pytest tests/unit/recommend` 111 passed · 전체 191 passed / 1 failed (P-02, 기존) / coverage 95.16% · 기획서 정합·Mock 동작·2차 재검증은 `PM_ENG_RECO_B_001_eval.md` (X-01~X-10 반영 완료) |
-| 다음 행동 | T-17 (A 트랙과 3자 회의 안건 P-11~P-15 정리) → P-01 → T-05 를 A 의 `repository.retrieve` 호출로 재정의 (A-10) |
-| 병합 정책 | PR 없음. 브랜치 커밋·push 만. `main` 병합은 A·B 파트 완료 후 논의 (P-10) |
-| 갱신 규칙 | 세션마다 1절·3절·9절 갱신. 새 항목은 다음 번호, 번호 재사용 금지. 사람용 서술본 동시 갱신 (`README.md` 2절) |
+| 검증 (2026-09-10) | ruff check OK · ruff format OK · mypy 36 files OK · `pytest tests/unit/recommend` 111 passed · 전체 191 passed / 1 failed (P-02, 기존) / coverage 95.16% · 기획서 정합·Mock 동작·2차 재검증은 `recommend_engine_verification.md` (X-01~X-10 반영 완료) |
+| 다음 행동 | 3자 회의 (`recommend_engine_meeting_agenda.md`, G-02·G-04 먼저) → P-01 → 회의 결과대로 T-05·T-09·T-01 |
+| 병합 정책 | PR 없음. 브랜치 커밋·push 만. `main` 병합은 A·B 파트 완료 후 논의 (P-10). `origin/main` 은 merge 로 따라감 (A 가 브랜치를 본 뒤라 rebase 금지, 01의 2.1) |
+| 갱신 규칙 | 세션마다 1절·3절·9절 갱신. 새 항목은 다음 번호, 번호 재사용 금지. 사람용 서술본 동시 갱신 (2절) |
 
 ---
 
 ## 2. 읽는 법
 
-- 계획서 체크박스는 템플릿(02의 2.5). 결과는 이 파일에만 적는다.
-- 세션 시작 순서: 1절 → 4절 → 5절. 통합(실데이터·BE·DB) 작업이면 8절 먼저.
-- 검증은 실행 출력이 있는 것만 기록. 추정 금지.
-- 식별자 접두: D 결정 · A 가정 · I 접점 · T 계획 항목 · P 선행 조건 · C 고려사항 · E 환경. 폐기는 삭제하지 않고 상태 열에 "폐기" 표기.
-- 초안은 Claude Code 가 쓰고 유재현이 검토한다. 검토 전 문장은 남기지 않는다.
+- 계획서(`recommend_engine_design.md`)의 체크박스는 템플릿입니다(04의 2.2). 결과는 이 파일과 검증 기록에만 적습니다.
+- 세션 시작은 1절 → 4절 → 5절 순서로 읽습니다. 실데이터·백엔드·DB 와 합치는 작업이면 8절을 먼저 봅니다. 타 파트와 정할 일은 `recommend_engine_meeting_agenda.md` 에 있습니다.
+- 검증은 실행 출력이 있는 것만 기록합니다. 추정으로 통과를 적지 않습니다.
+- 식별자 접두는 D 결정 · A 가정 · I 접점 · T 계획 항목 · P 선행 조건 · C 고려사항 · E 환경입니다. 검증 기록은 S·V·F·X, 회의 안건은 G(타 파트)·N(내부)을 씁니다. 번호는 재사용하지 않고 폐기는 상태 열에 표기합니다.
+- 두 형식 기록의 근거와 식별자 대조 명령은 `../decisions/2026-09-10_recommend_record_dual_format.md` 에 있습니다. 세션이 끝나면 에이전트용을 갱신하고, 사람용 서술본을 맞추고, 대조 명령을 돌린 뒤 `docs(recommend): ...` 로 커밋합니다.
+- 초안은 Claude Code 가 쓰고 유재현이 검토합니다. 검토 전 문장은 남기지 않습니다.
 
 ---
 
@@ -69,13 +70,13 @@
 | D-15 | Input Adapter 는 2절 그림에만 | `build_context` 를 `service.py` 아닌 `engine/context.py` 에. engine 파일 7개 | 02의 3.2 service 는 흐름만. 픽스처가 service 없이 문맥 생성 가능해야 커밋 단위 검증 가능 | 없음 |
 | D-16 | 맛 축 순서 미명시 (구현은 매움·단맛·짠맛) | `(spicy, salty, sweet)` = A 트랙 D-11 의 (매움, 짠맛, 단맛). `RecipeCandidate` 는 6축 입력의 앞 3축만 | A 의 `recipe_feature.flavor_vec` 6축 앞 3축과 같은 순서여야 함. 값·길이가 같아 검사에 안 걸리는 오류 (A 공유 문서 1절) | 없음. `ba3e0f1` |
 | D-17 | 5절 파일 배치: 도메인 루트 6개 | `stage.py` 추가. `RecipeCandidate`, `UserHistory`, `UserContext`, `CorpusStats`, `RankConfig`, `ScoredCandidate`, `ServedItem` 이동. `schema.py` 는 HTTP 계약만 | A 가 같은 배치를 쓰고 병합 충돌을 줄이기 위해 요청 (A 공유 문서 2절). 저장소 02 규약은 아직 미개정 (P-11) | 02 규약이 `stage.py` 를 거부하면. `e2fc72d` |
-| D-18 | 3.2 수식·3.3 탐색 규칙 | 검증 기록 X-02(맛 신뢰도), X-05(탐색 축소), X-06(요리군 항), X-07(맛 거리 novelty) 로 확장 | Mock 검증 F-02·F-04·F-06·F-07. 상세는 `PM_ENG_RECO_B_001_eval.md` 7.1 | W3 가중치 학습 또는 명세 소유자 결정 |
+| D-18 | 3.2 수식·3.3 탐색 규칙 | 검증 기록 X-02(맛 신뢰도), X-05(탐색 축소), X-06(요리군 항), X-07(맛 거리 novelty) 로 확장 | Mock 검증 F-02·F-04·F-06·F-07. 상세는 `recommend_engine_verification.md` 7.1 | W3 가중치 학습 또는 명세 소유자 결정 |
 
 ### 3.3 검증 출력 (2026-09-10, 커밋된 트리)
 
 ```text
 uv run ruff check .                   → All checks passed!
-uv run ruff format --check .          → docs/plan 제외 72 files already formatted (계획서 코드블록 1건은 docs 커밋에서 포맷)
+uv run ruff format --check .          → docs/plan(현재 docs/recommend) 제외 72 files already formatted
 uv run python -m mypy src             → Success: no issues found in 35 source files   (E-01)
 uv run pytest tests/unit/recommend    → 96 passed
 uv run pytest tests/unit (유효한 .env 를 둔 별도 cwd, E-03)
@@ -107,9 +108,9 @@ uv run pytest tests/unit (유효한 .env 를 둔 별도 cwd, E-03)
 | T-12 | Step 6 | 계약 검증 42건 (TC-6-1) | 미착수 | 42건 정의 문서, P-05 |
 | T-13 | Step 6 | Locust p95 < 58ms (TC-6-3) | 미착수 | P-06 |
 | T-14 | 7절 | NDCG@10, Recall@20, 커버리지, ILD 실측 · Bradley-Terry 가중치 | 미착수 | 600쌍 라벨, Track C 하네스 |
-| T-15 | 문서 | `docs/plan/` 커밋과 `docs/README.md` 등록 | 완료 (`60f1d40`) | P-09 |
-| T-16 | 검증 | `PM_ENG_RECO_B_001_eval.md` 6절 수정 제안 9건의 채택 여부 결정과 반영 | 완료 (X-01~X-10, 9.3) | 2차 재검증 `_eval.md` 7절 |
-| T-17 | 통합 | A 트랙과 3자 회의 안건 정리와 병합 계획: P-11~P-15 | 미착수 | A 공유 문서 2026-09-10, `origin/develop-data-part` 실체 확인 (9.3) |
+| T-15 | 문서 | `docs/recommend/` 커밋과 `docs/README.md` 등록 | 완료 (`60f1d40`) | P-09 |
+| T-16 | 검증 | `recommend_engine_verification.md` 6절 수정 제안 9건의 채택 여부 결정과 반영 | 완료 (X-01~X-10, 9.3) | 2차 재검증 `recommend_engine_verification.md` 7절 |
+| T-17 | 통합 | A 트랙과 3자 회의 안건 정리와 병합 계획: P-11~P-16 | 안건 작성 완료 (`recommend_engine_meeting_agenda.md`), 회의 대기 | A 공유 문서 2026-09-10, `origin/develop-data-part` 실체 확인 (9.3) |
 
 ### 4.2 선행 조건 (P)
 
@@ -123,13 +124,14 @@ uv run pytest tests/unit (유효한 .env 를 둔 별도 cwd, E-03)
 | P-06 | `locust` 의존성 (`uv add`, body 에 사유) | TC-6-3 | Tech Lead |
 | P-07 | 기피 재료(`avoid_ingredient_ids`) 출처 | 요청 스키마에 없음. `UserHistory` 에 자리만 | BE 계약 협의 |
 | P-08 | 대체재(`substitute_ids`) 출처 | 2단계 폴백용 데이터 없음. 없으면 건너뜀 | Track A |
-| P-09 | `docs/plan/` 파일명 언더바, `docs/README.md` 목록 등록, 계획서 코드블록 포맷 | 02의 2.4·2.5. 2026-09-10 세션에서 처리 | 유재현 → 김민경 통보 |
+| P-09 | `docs/recommend/` 파일명 언더바, `docs/README.md` 목록 등록, 계획서 코드블록 포맷 | 04의 1.2·2.2. 2026-09-10 세션에서 처리 | 유재현 → 김민경 통보 |
 | P-10 | 브랜치·병합 정책 | PR 은 현 팀 정책상 대상 아님. `main` 병합은 A·B 완료 후. 선례 PR #3(2,409줄·9커밋·merge commit)은 OCR 단독이라 상황 다름 | 유재현 |
 | P-11 | 02 규약에 `stage.py` 추가 | D-17 로 도메인 루트 파일이 7개. 원격 `develop-data-part` 의 02 문서에도 `stage.py` 없음. 01의 9절 개정 절차 | A, 김민경 |
 | P-12 | A 브랜치와의 파일·이름 충돌 조정 | `engine/rank.py`, `service.py`, `router.py`, `repository.py`, `__init__.py` 가 양쪽에 별개 구현. `stage.ScoredCandidate` 형태 상이(A 17 피처 dict, B 5 블록). `RecommendRequest/Response` 는 A `make contract` 98건이 의존 | 3자 회의 |
 | P-13 | A `tests/conftest.py` 의 `collect_ignore_glob = ["unit/recommend/*.py"]` | B 테스트 전체가 수집에서 빠짐. A 가 파일명 명시로 수정 예정. 병합 전 확인 | A |
 | P-14 | propensity 의미 통일 | A `RankedItem.propensity` 는 확률(≤1), B `ServedItem.propensity` 는 역수(≥1). 로그 스키마 하나로 | 3자 회의 |
-| P-15 | `user_vector.taste_vec` 6축 (A DDL) vs B EMA 3축 | 갱신 시 앞 3축만 쓰고 뒤 3축을 보존할지, 6축 EMA 로 갈지 | A, 유재현 |
+| P-15 | `user_vector.taste_vec` 6축 (A DDL) vs B EMA 3축 | 갱신 시 앞 3축만 쓰고 뒤 3축을 보존할지, 6축 EMA 로 갈지. 회의 안건 G-01 | A, 유재현 |
+| P-16 | 04의 1.1 트리에 `docs/recommend/`(설계 명세·기록·회의 안건) 추가 | 기록을 저장소에 두기로 한 결정(`../decisions/2026-09-10_recommend_record_dual_format.md`)의 배치 근거가 규칙에 없음. 01의 9절 절차. 회의 안건 G-09 | 유재현 → 팀 전원 |
 
 ---
 
@@ -146,7 +148,7 @@ uv run pytest tests/unit (유효한 .env 를 둔 별도 cwd, E-03)
 | C-05 | 품질 블록 부분 결측: 한쪽만 있으면 그쪽, 둘 다 없으면 None. 픽스처 20건에 1건 품질 결측 | `rank.quality_score` |
 | C-06 | `config_fingerprint` = `RankConfig` 전 필드 MD5(`usedforsecurity=False`). 비가중치 값도 포함 | `RankConfig.fingerprint` |
 | C-07 | propensity: 개인화 1.0 · 균등 = 풀 크기 / 뽑는 수 · Thompson = MC 32회 추정 역수(라플라스, X-08 로 64→32). 표본 수 `propensity_samples` | `rerank._win_probability` |
-| C-08 | MMR 은 점수 상위 200건 × 슬롯 수, IDF 합 사전 계산, 최대 유사도 증분 갱신 (X-08). 후보 500 기준 rerank 중앙값 8.5 ms, 엔진 p95 22 ms (`_eval.md` 7.2) | `rerank.mmr_select` |
+| C-08 | MMR 은 점수 상위 200건 × 슬롯 수, IDF 합 사전 계산, 최대 유사도 증분 갱신 (X-08). 후보 500 기준 rerank 중앙값 8.5 ms, 엔진 p95 22 ms (`recommend_engine_verification.md` 7.2) | `rerank.mmr_select` |
 | C-09 | 알레르기 코드군 픽스처 18종. 19종 중 SULFITE 는 대응 재료 없어 제외 | `generate_mock_fixtures.ALLERGEN_GROUPS` |
 | C-10 | 픽스처 JSON 은 생성 산출물이나 커밋 대상(02의 2.3). 개인정보 없음 | `tests/fixtures/recommend/` |
 | C-11 | engine 파일 7개(`candidate`, `context`, `explain`, `feedback`, `penalty`, `rank`, `rerank`). 02의 5.1 디렉토리당 8개 기준 안 | `engine/` |
@@ -249,7 +251,7 @@ uv run ruff check . && uv run python -m mypy src
 | 항목 | 내용 |
 |---|---|
 | 산출물 | `scripts/eval_recommend_mock.py`. 12 페르소나 실행, 판정 지표, 감점·피드백·결정론 시나리오, 후보 500건 지연시간과 단계 분해 |
-| 기록 | `PM_ENG_RECO_B_001_eval.md` + `human/` 서술본. 기획서 조항 23건 대조, 검증 항목 16건, 발견 12건, 수정 제안 9건 |
+| 기록 | `recommend_engine_verification.md` + `human/` 서술본. 기획서 조항 23건 대조, 검증 항목 16건, 발견 12건, 수정 제안 9건 |
 | 코드 변경 | 없음. 수정은 결과를 보고 결정 (T-16) |
 | 커밋 | `chore(recommend): add the mock evaluation script` · `docs(plan): record the mock evaluation and fix proposals` |
 
@@ -260,6 +262,17 @@ uv run ruff check . && uv run python -m mypy src
 | 입력 | 유재현 결정: X 전부 반영. A 트랙 공유 문서(맞출 것 3가지). `origin/develop-data-part` 를 fetch 해 실체 확인 |
 | 우선순위 판단 | 맛 축 순서(D-16)를 먼저 고침. 축이 어긋난 채로는 1차 평가와 X 재검증이 전부 틀린 축 위에서 나오기 때문 |
 | 커밋 (순서대로) | `ba3e0f1` fix: 축 순서 · `0706f66` fix: 맛 사유 방향·부족 개수 (X-01, X-03) · `05e47a3` fix: 폴백 조리시간 상한 (X-04) · `c1f26f4` feat: 맛 블록 감쇠 (X-02) · `0d87904` feat: 요리군 항 (X-06) · `3ed126e` fix: 탐색 축소·맛 novelty (X-05, X-07) · `1d26e0d` perf: IDF 합·MMR 풀 (X-08) · `85c9dcd` docs: 재정렬 금지 (X-09) · `e2fc72d` refactor: `stage.py` (D-17) · `33ea107` fix: 0점 블록 제외 (X-10) · `7d72324` chore: 평가 분류 |
-| 검증 | 커밋마다 ruff·mypy·`pytest tests/unit/recommend` 통과. 최종 111 passed, 전체 191 passed / 1 failed(P-02) / coverage 95.16%. 2차 Mock 재검증은 `_eval.md` 7절 |
+| 검증 | 커밋마다 ruff·mypy·`pytest tests/unit/recommend` 통과. 최종 111 passed, 전체 191 passed / 1 failed(P-02) / coverage 95.16%. 2차 Mock 재검증은 `recommend_engine_verification.md` 7절 |
 | A 브랜치에서 확인한 것 | `stage.py`(RetrievalInput, Candidate, ScoredCandidate(17 피처 dict), RankedItem …) · `enums.FEATURE_KEYS` 17개와 `DEFAULT_WEIGHTS`(f_coverage .24, f_taste .16, f_expiring .15, f_ing_pref .11, f_cooccur .10, f_popularity .10, f_missing .05, f_cuisine .04, f_time_fit .03, f_season .02) · `engine/{rank,explore,reason,serendipity,mock}.py` 별개 구현 · `service.py` 는 카운터만(흐름은 `engine/mock.py`) · `repository.py` 365줄(`retrieve`, `write_recommendation`) · `router.py` 에 `/v1/recommend`, `/v1/events`, pantry·onboarding·search · `deploy/init/02_schema.sql`(`recipe_feature` flavor_vec REAL[6], `feature_stats.flavor_mu` REAL[6], `user_vector.taste_vec` REAL[6], `user_allergy`, `ingredient_substitute`, `recommendation_log`, `event_log`, `scoring_config`) · `Makefile`(`contract`, `log-test` 등) · `tests/conftest.py` 의 `collect_ignore_glob` (P-13). 공유 파일 변경: `pyproject.toml` +85, `config.py` +64, `main.py` +24, `conftest.py` +22, `.gitignore` +51 |
 | 넘긴 것 | T-17 (P-11~P-15), P-01 |
+
+### 9.4 2026-09-10 — 문서 규칙 정렬
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | `origin/main` 에 04_DOCUMENTATION_RULES 분리 도착. 유재현 지시: 기록을 규약에 맞춰 다시 쓰고 회의 안건을 타 파트·내부로 나눠 작성 |
+| 병합 | `origin/main` 을 merge (`chore: merge origin/main …`). 충돌은 `docs/README.md` 헤더 1줄. `main` 의 conftest 가 `env_file` 을 막아 P-02 해결 |
+| 이름·배치 | `docs/plan/` → `docs/recommend/`. 식별자 파일명(`PM_ENG_RECO_B_001_*`) → 내용이 드러나는 이름(`recommend_engine_design`, `_design_digest`, `_work_log`, `_verification`, `_meeting_agenda`). 하위 `README.md` 삭제(목록은 `docs/README.md` 한 곳, 04의 1.3). 두 형식 규칙은 `docs/decisions/2026-09-10_recommend_record_dual_format.md` 로 |
+| 형식 | 계획서를 04 형식으로 재작성(표준 헤더, `####` 제거, `~합니다`체, 체크박스 결과 열 제거, 예시값 표기). 에이전트용 문서의 글머리 문장을 `~합니다`체로. `02의 2.5` 참조를 `04의 2.2` 로 |
+| 신규 | `recommend_engine_meeting_agenda.md` + 서술본. G-01~G-12, N-01~N-10 |
+| 넘긴 것 | G 전부(회의), P-16(04 개정 신청), N-01 |
