@@ -1,158 +1,153 @@
-"""Stage 2. 5블록 Zero-Drop 가중합. 외부 I/O 가 없는 순수 함수만 둡니다."""
+"""점수 계산과 추천 이유 선택. 순수 함수만 둡니다.
+
+여기에 있는 것은 전부 입력만 보고 결과를 내는 함수입니다 — DB 도, 시각도,
+난수도 보지 않습니다. 03 의 4절이 판단과 순위를 외부 서비스에 맡기지 말라고
+하는 이유가 이것입니다: 재현되지 않으면 디버깅할 수 없습니다.
+
+주고받는 모델은 `features/recommend/stage.py` 에 있습니다. 이 파일은 그 모델을
+읽기만 하고 정의하지 않습니다.
+"""
 
 from __future__ import annotations
 
-import math
-from collections.abc import Mapping
+from collections.abc import Sequence
+from typing import Any
 
-from features.recommend.engine.candidate import missing_ids
-from features.recommend.schema import FlavorVector
-from features.recommend.stage import (
-    CorpusStats,
-    RankConfig,
-    RecipeCandidate,
-    ScoredCandidate,
-    UserContext,
+from features.recommend.enums import (
+    CANDIDATE_KEEP,
+    FEATURE_KEYS,
+    PROPENSITY_SEMANTICS,
+    REQUIRED_TRACE_PARAMS,
 )
+from features.recommend.stage import RankedItem, ScoredCandidate
 
-# 0 으로 나누는 것을 막는 값입니다. 점수에 보이는 영향은 없습니다.
-EPSILON = 1e-9
-
-BLOCK_MATCH = "match"
-BLOCK_EXPIRING = "expiring"
-BLOCK_TASTE = "taste"
-BLOCK_QUALITY = "quality"
-BLOCK_CTX = "ctx"
-BLOCKS = (BLOCK_MATCH, BLOCK_EXPIRING, BLOCK_TASTE, BLOCK_QUALITY, BLOCK_CTX)
-
-
-def score_candidate(
-    recipe: RecipeCandidate, ctx: UserContext, corpus: CorpusStats, cfg: RankConfig
-) -> ScoredCandidate:
-    """블록 점수를 구해 가중합합니다. 감점은 penalty 가 이어서 적용합니다."""
-    blocks = block_scores(recipe, ctx, corpus, cfg)
-    base = weighted_sum(blocks, cfg)
-    return ScoredCandidate(
-        candidate=recipe,
-        missing_ids=missing_ids(recipe, ctx.pantry_ids),
-        blocks=blocks,
-        base_score=base,
-        score=base,
-    )
+# ─────────────────────────────────────────────────────────────────
+# 추천 이유 선택 — z-salience (설계 5-5) *(v1.9)*
+#
+# 주의: `contrib = w·f` 의 최댓값으로 이유를 고르면 이유가 한 종류로 붕괴한다.
+#    측정: 후보 500건 시뮬레이션에서 Top-20 의 이유가 100% `f_coverage` 였다.
+#    ① 이 곧 max_missing 으로 걸러낸 뒤라 상위 후보의 f_coverage 는 항상 1.0 근처이고,
+#    ② w(f_coverage)=0.24 가 최대 가중치이므로 w·f 의 argmax 가 사실상 고정된다.
+#
+#    이유는 "점수가 높은 이유"가 아니라 "다른 후보와 달라서 뽑힌 이유" 여야 한다.
+#    따라서 같은 요청의 후보 집합을 기준으로 표준화한다.
+# ─────────────────────────────────────────────────────────────────
+#: sigma 하한. 없으면 z-salience 가 무의미한 차이를 증폭한다.
+#:    후보 500건의 `f_coverage` 가 전부 0.98~0.99 라면 sigma≈0.003 이고,
+#:    0.01 차이가 z=3 으로 튀어 그것이 추천 이유가 된다. 유저가 지각할 수 없는 차이다.
+#:    모든 피처가 0~1 로 정규화돼 있으므로(설계 5-2-1) 5% 를 지각 하한으로 둔다.
+SIGMA_FLOOR = 0.05
 
 
-def block_scores(
-    recipe: RecipeCandidate, ctx: UserContext, corpus: CorpusStats, cfg: RankConfig
-) -> dict[str, float | None]:
-    return {
-        BLOCK_MATCH: match_score(recipe, ctx.pantry_ids),
-        BLOCK_EXPIRING: expiring_score(recipe, ctx.expiring_ids),
-        BLOCK_TASTE: taste_score(
-            ctx.taste_vec, recipe.flavor_vec, corpus.flavor_mean, cfg.taste_min_norm
-        ),
-        BLOCK_QUALITY: quality_score(recipe, cfg),
-        BLOCK_CTX: context_score(recipe, ctx),
-    }
-
-
-def weighted_sum(blocks: Mapping[str, float | None], cfg: RankConfig) -> float:
-    """측정 불가(None) 블록은 분자와 분모에서 함께 뺍니다. 0점으로 두면 결측이 감점이 됩니다."""
-    weights = cfg.weights()
-    numerator = 0.0
-    denominator = 0.0
-    for name, value in blocks.items():
-        if value is None:
+def feature_stats(cands: Sequence[ScoredCandidate]) -> dict[str, tuple[float, float]]:
+    """후보 집합의 피처별 (평균, 표준편차). None 은 제외하고 계산한다."""
+    out: dict[str, tuple[float, float]] = {}
+    for k in FEATURE_KEYS:
+        raw = [c.features.get(k) for c in cands]
+        vals = [v for v in raw if v is not None]
+        if not vals:
+            out[k] = (0.0, SIGMA_FLOOR)
             continue
-        numerator += weights[name] * value
-        denominator += weights[name]
-    if denominator <= 0.0:
-        return 0.0
-    return _clamp(numerator / denominator)
+        mu = sum(vals) / len(vals)
+        var = sum((v - mu) ** 2 for v in vals) / len(vals)
+        out[k] = (mu, max(var**0.5, SIGMA_FLOOR))
+    return out
 
 
-def match_score(recipe: RecipeCandidate, pantry: frozenset[int]) -> float:
-    """필수 재료 충족도. 필수 재료가 없는 레시피는 전부 갖춘 것으로 봅니다."""
-    missing = len(recipe.essential_ids - pantry)
-    return _clamp(1.0 - missing / (len(recipe.essential_ids) + EPSILON))
+def salience(
+    cand: ScoredCandidate, weights: dict[str, float], stats: dict[str, tuple[float, float]]
+) -> dict[str, float]:
+    """w·(f-μ)/sigma — 후보 집합 대비 이 레시피가 두드러진 정도."""
+    out = {}
+    for k in FEATURE_KEYS:
+        w = weights.get(k, 0.0)
+        f = cand.features.get(k)
+        if w <= 0 or f is None:
+            continue
+        mu, sd = stats.get(k, (0.0, 1.0))
+        out[k] = w * (f - mu) / sd
+    return out
 
 
-def expiring_score(recipe: RecipeCandidate, expiring: frozenset[int]) -> float | None:
-    """임박 재료 소진율. 임박 재료가 없으면 측정 불가입니다."""
-    if not expiring:
-        return None
-    return _clamp(len(recipe.essential_ids & expiring) / (len(expiring) + EPSILON))
+def top_reasons(
+    cand: ScoredCandidate,
+    weights: dict[str, float],
+    stats: dict[str, tuple[float, float]],
+    n: int = 2,
+) -> list[str]:
+    """이유 템플릿에 쓸 상위 n개 피처.
 
-
-def taste_score(
-    user_vec: FlavorVector,
-    recipe_vec: FlavorVector,
-    corpus_mean: FlavorVector | None,
-    min_norm: float = 0.0,
-) -> float | None:
-    """코퍼스 평균을 양쪽에서 뺀 뒤의 코사인 유사도를 0~1 로 옮깁니다.
-
-    빼지 않으면 모든 벡터가 양수라 무엇을 넣어도 0.77 근처로 몰립니다. 평균이 없으면
-    계산하지 않고 측정 불가로 둡니다. 어느 한쪽이 평균과 같으면 방향이 없어 역시 측정 불가입니다.
-
-    코사인은 크기를 버리므로 평균에서 0.03 떨어진 사용자도 방향만으로 전폭 반영됩니다.
-    사용자 벡터의 거리가 min_norm 에 못 미치면 그 비율만큼 0.5 쪽으로 눌러 잡음을 줄입니다.
+    **2개를 쓰는 것이 기본이다.** 1개만 쓰면 sigma 로 표준화해도 분포가 뾰족한 피처
+    (`f_expiring` — 대부분 0, 가끔 1) 가 목록을 다시 지배한다. 측정에서 85% 였다.
     """
-    if corpus_mean is None:
-        return None
-    user = [a - m for a, m in zip(user_vec, corpus_mean, strict=True)]
-    recipe = [b - m for b, m in zip(recipe_vec, corpus_mean, strict=True)]
-    user_norm = math.sqrt(sum(x * x for x in user))
-    recipe_norm = math.sqrt(sum(x * x for x in recipe))
-    if user_norm < EPSILON or recipe_norm < EPSILON:
-        return None
-    cosine = sum(a * b for a, b in zip(user, recipe, strict=True)) / (user_norm * recipe_norm)
-    similarity = (cosine + 1.0) / 2.0
-    confidence = 1.0 if min_norm <= 0.0 else min(1.0, user_norm / min_norm)
-    return _clamp(0.5 + (similarity - 0.5) * confidence)
+    sal = salience(cand, weights, stats)
+    return [k for k, _ in sorted(sal.items(), key=lambda kv: -kv[1])[:n]]
 
 
-def quality_score(recipe: RecipeCandidate, cfg: RankConfig) -> float | None:
-    """인기도와 품질의 가중 평균. 한쪽이 없으면 있는 쪽만, 둘 다 없으면 측정 불가입니다."""
-    popularity = recipe.popularity_score
-    quality = recipe.quality_score
-    if popularity is None and quality is None:
-        return None
-    if popularity is None:
-        return _clamp(quality or 0.0)
-    if quality is None:
-        return _clamp(popularity)
-    share = cfg.quality_popularity_share
-    return _clamp(share * popularity + (1.0 - share) * quality)
+def merge_served_detail(
+    scored: Sequence[ScoredCandidate], items: Sequence[RankedItem]
+) -> list[ScoredCandidate]:
+    """③ 산출(RankedItem)을 ② 산출(ScoredCandidate) 위에 덮어쓴다.
 
+    🔴 **propensity 는 `RankedItem` 에만 있다.** `ScoredCandidate` 에는 없고,
+       `keep_candidates()` 는 `ScoredCandidate` 를 돌려준다. 그래서 이 병합을
+       건너뛰면 저장되는 후보가 전부 ② 투영이라 **propensity 가 로그에 단 한 번도
+       남지 않는다** — off-policy 평가의 IPS 분모가 통째로 사라진다.
+       같은 이유로 `is_exploration`·`team`·`mmr_penalty`·`explore_source` 도 잃는다.
 
-def context_score(recipe: RecipeCandidate, ctx: UserContext) -> float | None:
-    """조리시간 적합과 선호 요리군 일치의 평균. 측정 가능한 쪽만 씁니다(블록 안 Zero-Drop).
+    propensity 는 서빙 순간의 MC 값이 유일본이다. `user_cluster_stat` 이 갱신되면
+    사후 재계산이 불가능하므로 **이 자리에서 안 실으면 영원히 없다.**
 
-    요리군 선호는 명세 3.2 에 없던 항입니다. Mock 검증에서 한식·분식을 고른 사용자의
-    상위 20 에 중식 7, 일식 5 가 섰습니다(검증 기록 F-06). A 트랙의 17 피처 설계도
-    f_cuisine 에 가중치를 주고 있어 방향은 같습니다. 가중치 학습 전까지의 임시값입니다.
+    점수 내림차순 순서는 `scored` 것을 그대로 쓴다 — 절단 기준이 순서이기 때문이다.
+
+        >>> merged = merge_served_detail(scored, ranked_items)
+        >>> kept   = keep_candidates(merged, served, serving_mode)
+        >>> all(hasattr(c, "propensity") for c in kept if c.recipe_id in set(served))
+        True
     """
-    fits = (time_fit(recipe, ctx.max_cook_minutes), cuisine_fit(recipe, ctx.preferred_cuisines))
-    parts = [part for part in fits if part is not None]
-    if not parts:
-        return None
-    return _clamp(sum(parts) / len(parts))
+    by_id = {it.recipe_id: it for it in items}
+    return [by_id.get(c.recipe_id, c) for c in scored]
 
 
-def time_fit(recipe: RecipeCandidate, max_minutes: int | None) -> float | None:
-    """조리시간 적합도. 상한이나 조리시간이 없으면 측정 불가입니다."""
-    if max_minutes is None or recipe.cook_minutes is None:
-        return None
-    overrun = max(0.0, (recipe.cook_minutes - max_minutes) / max_minutes)
-    return _clamp(1.0 - overrun)
+def keep_candidates(
+    candidates: Sequence[ScoredCandidate], served: Sequence[int], serving_mode: str = "real"
+) -> list[ScoredCandidate]:
+    """🔴 저장할 candidates 를 고른다 — **`served ⊆ candidates` 를 보장한다** (S0 ① 확정).
+
+    후보 500건을 다 저장하면 1행이 100KB 를 넘는다. 그래서 상위 N 만 남기는데,
+    **exploration 아이템은 상위 200 풀에서 뽑히므로 그 N 밖으로 떨어질 수 있다.**
+    하필 그것이 **propensity ≠ 1.0 인 유일한 행**이라, 잘리면 off-policy 평가에
+    필요한 것만 정확히 사라진다. 실험 기록에서 대조군만 빼먹는 것과 같다.
+
+    그래서 **절단한 뒤 실제 노출분을 합집합한다.** 최대 +2건, 한 행에 약 0.5KB 다.
+
+    🔴 **`merge_served_detail()` 을 먼저 통과시켜라.** 이 함수는 `recipe_id` 만 읽으므로
+       `RankedItem` 이 섞여 있어도 그대로 보존한다 — 그래야 노출분에 propensity 가 실린다.
+
+        >>> kept = keep_candidates(scored, served=[c.recipe_id for c in ranked])
+        >>> set(served) <= {c.recipe_id for c in kept}
+        True
+    """
+    n = CANDIDATE_KEEP.get(serving_mode, 50)
+    if n is None or n <= 0:
+        return []
+    head = list(candidates[:n])
+    have = {c.recipe_id for c in head}
+    rest = {c.recipe_id: c for c in candidates if c.recipe_id not in have}
+    for rid in served:  # 순서를 보존해 재현성을 지킨다
+        if rid not in have and rid in rest:
+            head.append(rest[rid])
+            have.add(rid)
+    return head
 
 
-def cuisine_fit(recipe: RecipeCandidate, preferred: frozenset[str]) -> float | None:
-    """선호 요리군이면 1, 아니면 0. 선호가 없거나 요리군을 모르면 측정 불가입니다."""
-    if not preferred or recipe.cuisine is None:
-        return None
-    return 1.0 if recipe.cuisine in preferred else 0.0
+def check_trace_params(params: dict[str, Any]) -> list[str]:
+    """`StageInfo.params` 에 동결 키가 다 있는지. 없는 키 목록을 돌려준다.
 
-
-def _clamp(value: float) -> float:
-    return min(1.0, max(0.0, value))
+    값이 아니라 **정의**가 소급 불가다 — 로그가 있어도 이 키들이 없으면
+    propensity 를 재구성할 수 없다 (07 E-3 ①).
+    """
+    missing = [k for k in REQUIRED_TRACE_PARAMS if k not in params]
+    if params.get("propensity_semantics") not in (None, PROPENSITY_SEMANTICS):
+        missing.append(f"propensity_semantics!={PROPENSITY_SEMANTICS}")
+    return missing
