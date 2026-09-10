@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 B 추천 엔진을 이어서 작업하는 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 0.7.0 · **최종 수정**: 2026-09-10 · **작성자**: 유재현
+**버전**: 0.8.0 · **최종 수정**: 2026-09-10 · **작성자**: 유재현
 
 ---
 
@@ -14,10 +14,10 @@
 |---|---|
 | 정본 | 이 파일. 사람용 서술본 `human/recommend_engine_work_log.md` 는 식별자로 대응하는 파생본 |
 | 계획서 | `recommend_engine_design.md` (사람용, 정본) · `recommend_engine_design_digest.md` (요약, 어긋나면 원본이 이김) |
-| 브랜치 | `feat/recommend-engine-core`. `origin/main`(8aab6bf) 병합 완료. A 계약 채택과 엔진 재작성은 9.5 |
-| 단계 | ② Ranking 과 ③ Re-ranking 을 A 계약 위에서 구현 완료. ① Retrieval 은 A `repository.retrieve` 가 하고 B 는 완화 계획만 냅니다. 로그 적재·라우터·DB 미연결 |
-| 검증 (2026-09-10) | ruff check OK · ruff format OK · mypy 40 files OK · `pytest tests/unit` **190 passed / 0 failed** / coverage 92.21%. `main` 의 conftest 가 `env_file` 을 막아 P-02 가 풀렸고 전체 게이트가 처음으로 완전히 통과합니다. Mock 검증은 `recommend_engine_verification.md` 8절 |
-| 다음 행동 | G-09·G-10 규약 개정 신청 → N-01(.env) → N-03(라우터 연결)·T-03(로그 적재). 남은 회의 안건 G-06, G-08~G-12 |
+| 브랜치 | `feat/recommend-engine-core`. `origin/main`(6b7c7b7)·`origin/develop-data-part`(658d79a) 병합 완료. A 전량 병합은 9.6 |
+| 단계 | ② Ranking 과 ③ Re-ranking 을 A 계약 위에서 구현 완료. ① Retrieval·로그 적재·DDL·배치는 A 것이 브랜치에 들어와 있습니다(9.6). 라우터에 `rank_candidates` 를 끼우는 것(N-03)과 DB 연결이 남았습니다 |
+| 검증 (2026-09-10, A 병합 후) | ruff check OK · ruff format 128 files OK · mypy **58 files** OK · `pytest tests/unit` **190 passed / 0 failed** / coverage **88.12%**. A 자체 게이트(`validate`·`contract`·`normalize-test`)도 통과. 출력은 `recommend_engine_verification.md` 9절 |
+| 다음 행동 | A 개발자와 병합 순서 합의(B → main → A) → 게이트 예외 4건 Tech Lead 승인(G-16) → G-09·G-10 규약 개정 신청 → N-03(라우터 연결). 남은 회의 안건 G-06, G-12~G-17 |
 | 병합 정책 | PR 없음. 브랜치 커밋·push 만. `main` 병합은 A·B 파트 완료 후 논의 (P-10). `origin/main` 은 merge 로 따라감 (A 가 브랜치를 본 뒤라 rebase 금지, 01의 2.1) |
 | 갱신 규칙 | 세션마다 1절·3절·9절 갱신. 새 항목은 다음 번호, 번호 재사용 금지. 사람용 서술본 동시 갱신 (2절) |
 
@@ -75,20 +75,33 @@
 | D-20 | 5블록 가중합, `RecommendRequest` 를 B 가 정의 | A 의 **17 피처**(`enums.FEATURE_KEYS`)와 `stage.ScoredCandidate`·`RankedItem`. B `schema.py` 폐기 | 회의 결정 G-02·G-03·G-07. A 가 먼저 구현했고 계약 98건과 DDL 이 그 위에서 돎 | 없음. D-04·D-07·D-08·D-13 이 이 결정으로 대체됨 |
 | D-21 | propensity 는 노출확률의 **역수** | **확률** (0 < p <= 1). `enums.PROPENSITY_SEMANTICS` = "item" | 회의 결정 G-05. A DDL 과 C 의 IPS 계산이 확률을 전제 | 없음. C-07 대체 |
 | D-22 | 엔진 순수 함수를 B 가 전부 구현 | A 의 `rank`(z-salience·로그 헬퍼), `reason`(템플릿), `explore`(슬롯·interleaving), `serendipity`(Thompson)를 그대로 쓰고 B 는 **점수 계산만** 채움 | 회의 결정 G-04. 두 벌이 되면 propensity 정의가 갈려 off-policy 평가가 못 쓰게 됨. B 의 `explain`·`penalty`·`feedback` 폐기 | 없음. `c459c2f` |
+| D-23 | A 가 가져온 파일은 그대로 둔다 | `src/**` 의 ruff 45건·mypy 31건을 손으로 고침. 의미를 바꾸지 않는 표기·타입·구조 수정만 | 서빙 경로에 예외를 두면 그 예외가 요청 처리 코드에 남습니다. A 자체 게이트(`validate`·`contract`·`normalize-test`)로 의미 불변을 확인했습니다 | A 가 거부하면 해당 파일만 되돌림 |
+| D-24 | 게이트는 예외 없이 통과시킨다 | 도구 파일에 한해 범위를 좁힌 예외. `adapter.py` ANN401, `scripts/reco/bench` 검사 제외, 도구 9개 파일별 규칙 코드, 커버리지 `omit` 3항목 | 규칙이 막으려는 것이 자리마다 다릅니다. 근거와 해소 조건은 `../decisions/2026-09-10_merge_data_track_gate_exceptions.md` | Tech Lead 가 거부하면 해당 항목을 손으로 고침 (01의 3.3, 6.1) |
+| D-25 | 공유 파일은 A 것을 받는다 | `uv.lock` 의 `pillow-heif` 만 `main` 값 1.6.0 으로 되돌림 | 이 병합과 무관한 버전 올림이고, 1.7.0 의 DLL 이 Windows 앱 제어 정책에 걸려 영수증 파이프라인 검사 8건이 수집 단계에서 죽습니다 | 1.7.0 이 필요한 이유가 나오면 (G-13) |
+| D-26 | A 의 `tests/conftest.py` 를 그대로 받는다 | `collect_ignore_glob` 두 줄을 파일 8개 명시로 | 글로브가 B 의 pytest 검사 63건과 `integration/test_receipt_pipeline.py` 를 함께 뺍니다. 통과 건수가 줄어드는 것이 아니라 **세어지지 않아** 알아챌 수 없습니다 | 없음. G-08 의 (a)안이고 (b)안으로 가면 이 줄들이 사라집니다 |
 
-### 3.3 검증 출력 (2026-09-10, 커밋된 트리)
+### 3.3 검증 출력 (2026-09-10, A 브랜치 병합 후)
 
 ```text
 uv run ruff check .                   → All checks passed!
-uv run ruff format --check .          → docs/plan(현재 docs/recommend) 제외 72 files already formatted
-uv run python -m mypy src             → Success: no issues found in 35 source files   (E-01)
-uv run pytest tests/unit/recommend    → 96 passed
-uv run pytest tests/unit (유효한 .env 를 둔 별도 cwd, E-03)
-                                      → 1 failed (P-02), 177 passed, coverage 95.04% (기준 80%)
+uv run ruff format --check .          → 128 files already formatted
+uv run python -m mypy src             → Success: no issues found in 58 source files   (E-01)
+uv run pytest tests/unit              → 190 passed, coverage 88.12% (기준 80%)
 ```
 
-모듈 커버리지: `candidate` 100 · `context` 100 · `rank` 100 · `penalty` 100 · `feedback` 100 · `service` 100 · `rerank` 99 · `schema` 99 · `explain` 98.
-변경 규모: src 1,072줄 · 테스트 1,276줄 · 스크립트 346줄 · 생성 JSON 4,020줄.
+A 자체 게이트(`Makefile`, DB 불필요분). Windows 는 `PYTHONIOENCODING=utf-8` 이 필요합니다 (E-11, G-14).
+
+```text
+python seeds/validate.py                    → 통과 (경고 13건)
+python -m tests.unit.recommend.test_contract → 통과
+python -m tests.unit.recommend.run           → 74건 전부 통과
+python -m tests.unit.recommend.test_match    → 전부 통과 (23건)
+python -m tests.unit.recommend.test_role     → 전부 통과 (23건)
+python -m tests.unit.recommend.test_batch    → 5건 중 5건 통과
+```
+
+커버리지 측정 범위는 `ingest/*`·`repository.py`·`engine/mock.py` 를 뺀 1,734문입니다. 뺀 근거는 D-24 의 결정 기록에 있습니다.
+변경 규모: `main` 대비 193 파일 · +60,887줄 (A 커밋 21개 포함).
 
 ---
 
@@ -189,6 +202,8 @@ uv run ruff check . && uv run python -m mypy src
 | E-07 | `Path.write_text` 가 CRLF | 생성 스크립트 `newline="\n"` |
 | E-08 | Bash heredoc 10KB 초과 → 명령 잘림 | 큰 파일은 편집기 도구(Write) |
 | E-09 | addopts 에 `-q` 있음. `-q` 추가 시 요약 줄 사라짐 | 명령줄에 `-q` 안 붙임 |
+| E-11 | A 의 `make` 검사가 `✓` 를 찍다가 `UnicodeEncodeError` (cp949). 검사 실패가 아니라 콘솔 인코딩 | `PYTHONIOENCODING=utf-8` 을 세우고 실행. 항구 대책은 G-14 |
+| E-12 | A `uv.lock` 의 `pillow-heif` 1.7.0 → `_pillow_heif` DLL 이 앱 제어 정책에 차단. 영수증 검사 8건이 수집에서 죽음 | `uv.lock` 항목만 `main` 값 1.6.0 으로 되돌림 (D-25). 1.6.0 은 같은 머신에서 정상 import |
 | E-10 | git 사용자 설정 전무 | 저장소 로컬 `user.name=유재현`, `user.email=yjhorion@gmail.com`. 변경은 `git config --local` 후 push 전 `git rebase --exec 'git commit --amend --no-edit --reset-author' main` |
 
 ---
@@ -294,3 +309,22 @@ uv run ruff check . && uv run python -m mypy src
 | 커밋 | `3929ee9` merge main · `c459c2f` A 계약·엔진 채택 · `256c702` 17 피처·6축 점수 계산 · `9896fbc` 픽스처·테스트 |
 | 검증 | `pytest tests/unit` **190 passed / 0 failed**, coverage 92.21%. ruff·mypy 통과. Mock 재검증은 검증 기록 8절 |
 | 넘긴 것 | G-06·G-08~G-12(회의), N-01, N-03, N-11 |
+
+### 9.6 2026-09-10 - A 브랜치 전량 병합
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 지시: `origin/develop-data-part` 현재 버전을 전부 우리 브랜치에 합치고 `main` 에 병합 가능한 상태로 만들 것. `main` 병합 자체와 `stage.py` 규약 논의는 A 개발자와 함께 처리하므로 제외 |
+| 병합 | `git merge --no-ff origin/develop-data-part`(658d79a). 충돌 8건 — `engine/{explore,rank,reason,serendipity}.py`, `enums.py`, `stage.py`, `service.py` 는 우리 쪽 채택(A 내용 + 9.5 의 26곳 수정, `service.py` 는 A 카운터 + B `rank_candidates`), `docs/README.md` 는 양쪽 병기 |
+| 규모 | `main` 대비 193 파일 · +60,887줄. A 커밋 21개 |
+| 게이트 시작값 | ruff 373건 · mypy 31건 · 커버리지 46.15%. A 는 자기 `pyproject.toml` 에 게이트 미통과를 명시해 두었습니다 |
+| 경계 | 서빙 경로(`src/**`)는 손으로 고치고, 사람이 한 번 돌려 읽는 도구는 범위를 좁힌 예외. 근거는 `../decisions/2026-09-10_merge_data_track_gate_exceptions.md` |
+| `src/` 수정 (D-23) | ruff 45건 — `repository.py` 중간 import 8개를 위로, `mock.py` 세미콜론·미사용 언팩·S311 사유, `flavor.py`·`threshold.py` `zip(strict=)`, `match.py` 대문자 지역변수, `parse.py` 정규식 줄 분리, `__init__` 반환형 4곳. mypy 31건 — `tuple`·`dict` 타입 인자, `fetchone()` 의 None 처리 4곳, `_trgm` 반환형 오기(`str \| float` → `float`), `IngredientRole \| None`·`int \| None` 좁히기, `db.py` 커서 캐스트 |
+| 예외로 둔 것 (D-24) | `adapter.py` 의 `ANN401`(모양을 모르는 크롤러 JSON 경계), `scripts/reco/bench` 검사 제외, 도구 파일 9개에 파일별 규칙 코드, 커버리지 `omit` 3항목. 전부 Tech Lead 승인 대기 |
+| 되돌린 것 (D-25) | `uv.lock` 의 `pillow-heif` 1.7.0 → `main` 값 1.6.0. 이 병합과 무관한 변경이고 1.7.0 의 DLL 이 Windows 앱 제어 정책에 걸려 영수증 검사 8건이 수집 단계에서 죽습니다 |
+| 고친 것 (D-26) | A `tests/conftest.py` 의 `collect_ignore_glob = ["unit/recommend/*.py", "integration/*.py"]` 를 파일 8개 명시로. 그대로 두면 B 의 pytest 검사 63건과 `integration/test_receipt_pipeline.py` 가 **세어지지 않은 채** 사라집니다 (G-08 의 (a)안) |
+| 추가한 것 | `types-PyYAML`(dev). A 의 `src/` 3개 파일이 `yaml` 을 import 하는데 스텁이 없어 mypy 가 막혔습니다 |
+| A 파일에 남은 차이 | 37 파일. 대부분 `ruff format` 출력이고 의미 변경은 위 D-23 뿐입니다 |
+| 검증 | ruff `All checks passed!` · `ruff format --check` 128 files · mypy 58 files · `pytest tests/unit` 190 passed / coverage 88.12%. A 자체 게이트 — `validate` 통과(경고 13), `contract` 통과, `normalize-test` 74+23+23+5건 통과 |
+| 새 안건 | G-13~G-17, N-12 |
+| 넘긴 것 | `main` 병합(A 개발자와), G-06, G-09~G-17, N-01, N-03, N-11 |

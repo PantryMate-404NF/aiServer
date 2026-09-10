@@ -4,7 +4,7 @@
 
 **적용 대상**: 수정 여부를 결정하는 유재현과 수정을 반영할 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 2.0.0 · **최종 수정**: 2026-09-10 · **작성자**: 유재현
+**버전**: 3.0.0 · **최종 수정**: 2026-09-10 · **작성자**: 유재현
 
 ---
 
@@ -21,6 +21,7 @@
 | 2차 재검증 | 맛 축 순서 수정(D-16) 뒤 반영본으로 다시 측정 (7.2). 조리시간 상한 12/12 준수, 지연시간 엔진 p95 22 ms, 기본 문구 0 |
 | A 트랙 대조 | 공유 문서의 축 순서·stage.py 반영(7.4). 1차 회의 뒤 계약 전체를 A 에 맞춰 재작성했고 그 결과가 8절입니다 |
 | 3차 재검증 | A 의 17 피처·6축·확률 propensity 위에서 다시 측정 (8절). 전체 게이트 190 passed / 0 failed |
+| 4차 재검증 | A 브랜치 전량(658d79a) 병합 후 (9절). 게이트 4종과 A 자체 게이트 모두 통과. Mock 판정 지표는 3차와 동일 |
 | 재현 | `uv run python scripts/eval_recommend_mock.py` (2절) |
 
 ---
@@ -255,3 +256,72 @@ uv run python scripts/eval_recommend_mock.py --only-latency  # 후보 500건 지
 | F-16 | `rng_seed` 를 trace 에 적지만 실제로 그 시드로 RNG 를 만들지 않습니다. 호출부가 넘긴 RNG 를 그대로 씁니다 | 값이 로그에만 남아 재현이 안 됩니다. 라우터 연결 때 `random.Random(rng_seed)` 를 넘기도록 정합니다. 회의 안건 N-10 |
 | F-17 | `f_cuisine` 이 Mock 에서는 켜지지만 A 실데이터에서는 `cuisine_family` 가 전수 비어 있어 None 이 됩니다 | 코드는 그대로 두고 데이터가 오면 켜집니다. A 의 `PENDING_DATA_FEATURES` 와 같은 취급입니다 |
 | F-13 | 요리군 선호와 맛 정합의 절충이 남아 있습니다. 이제 `f_cuisine` 0.04 와 `f_taste` 0.16 이 각자 항이라 가중치로 드러납니다 | W3 쌍대비교 학습 대상. 회의 안건 N-04 |
+
+---
+
+## 9. A 브랜치 전량 병합 후 검증 (4차)
+
+`origin/develop-data-part`(658d79a) 를 전부 합친 트리에서 잰 값입니다. 병합 시작 시점의
+게이트는 ruff 373건 · mypy 31건 · 커버리지 46.15% 였습니다.
+
+### 9.1 저장소 게이트
+
+```text
+uv run ruff check .                   → All checks passed!
+uv run ruff format --check .          → 128 files already formatted
+uv run python -m mypy src             → Success: no issues found in 58 source files
+uv run pytest tests/unit              → 190 passed, coverage 88.12% (기준 80%)
+```
+
+측정 범위에서 뺀 것과 그 근거는 `../decisions/2026-09-10_merge_data_track_gate_exceptions.md`
+4절에 있습니다. 뺀 코드의 검사는 9.2 가 돌립니다.
+
+### 9.2 데이터 파트 자체 게이트 (DB 불필요분)
+
+```text
+python seeds/validate.py                     → 통과 (경고 13건)
+python -m tests.unit.recommend.test_contract  → 통과
+python -m tests.unit.recommend.run            → 74건 전부 통과
+python -m tests.unit.recommend.test_match     → 전부 통과 (23건)
+python -m tests.unit.recommend.test_role      → 전부 통과 (23건)
+python -m tests.unit.recommend.test_batch     → 5건 중 5건 통과
+```
+
+**이것이 D-23 의 근거입니다.** `src/` 의 45+31곳을 손으로 고쳤는데, 그중 `parse.py` 의
+정규식 분리, `match.py` 의 `_trgm` 반환형과 지역변수 이름, `flavor.py` 의 역할 가중치
+None 처리, `role.py` 의 `ingredient_id` 좁히기는 표기 수정이 아니라 코드에 손을 댄
+것입니다. 위 검사가 그 네 곳이 지나는 자리를 전부 지납니다.
+
+`make smoke`·`log-test`·`ddl-test`·`feature-test` 는 실 DB 가 필요해 돌리지 않았습니다.
+A 개발자와 함께 확인할 항목입니다.
+
+### 9.3 Mock 재실행
+
+3차와 같은 값입니다. 병합이 B 엔진의 동작을 바꾸지 않았습니다.
+
+| 지표 | 3차 | 4차 |
+|---|---|---|
+| 알레르기 배제 | 12/12 | 12/12 |
+| 개인 조리시간 상한 | 12/12 | 12/12 |
+| propensity 0 < p <= 1 | 전건 | 전건 |
+| 사유 채움 | 전건 | 전건 |
+| 탐색 슬롯 | [4,4,1,4,4,1,3,1,2,3,10,4] | 같음 |
+| 맛 lift 양수 | 10/12 | 10/12 |
+| 재는 피처 | 9/17 | 9/17 |
+| 감점 | 0.930 → 0.465 | 같음 |
+| 피드백 후 상위 5 매움 | 0.486 → 0.639 | 같음 |
+| 후보 500 지연시간 | p50 16.9ms · p95 22.6ms | p50 31.0ms · p95 34.2ms (목표 p95 58ms) |
+
+지연시간이 늘어난 것은 코드 변경이 아니라 같은 머신의 실행 편차입니다 — 엔진 입력과
+출력이 전부 같고, `service.rank_candidates` 를 거치는 경로도 그대로입니다. 목표 안입니다.
+
+### 9.4 병합이 드러낸 것
+
+| ID | 발견 | 판단 |
+|---|---|---|
+| F-18 | A `tests/conftest.py` 의 `collect_ignore_glob` 이 `unit/recommend/*.py` 와 `integration/*.py` 를 통째로 뺍니다. B 의 pytest 검사 63건과 `integration/test_receipt_pipeline.py` 가 함께 사라집니다 | **가장 급했습니다.** 실패가 아니라 **세어지지 않는** 형태라 통과 출력만 보면 알 수 없습니다. 파일 8개 명시로 고쳤습니다 (D-26, 회의 안건 G-08) |
+| F-19 | A `uv.lock` 이 `pillow-heif` 를 1.6.0 → 1.7.0 으로 올렸고, 1.7.0 의 DLL 이 Windows 앱 제어 정책에 차단되어 영수증 검사 8건이 수집 단계에서 죽습니다 | 이 병합에 필요한 변경이 아닙니다. `uv.lock` 의 그 항목만 `main` 값으로 되돌렸습니다 (D-25, G-13) |
+| F-20 | 커버리지가 92.21% → 46.15% 로 떨어집니다 | 코드가 검사되지 않는 것이 아니라 그 검사를 pytest 가 아니라 `make` 가 돌립니다. 측정 범위를 그 사실에 맞췄습니다 (D-24). 옮기면(G-08) 그대로 사라집니다 |
+| F-21 | `scripts/reco/bench/` 5개 파일이 작성자 로컬 절대경로를 `exec()` 로 읽습니다. 저장소 안에서는 애초에 돌지 않고 정적 검사에 미정의 이름 27건으로 잡힙니다 | 규칙을 부분적으로 끄는 대신 검사 대상에서 뺐습니다 (D-24). 문서가 인용하는 숫자를 재현하려면 읽는 파일을 저장소 안으로 옮겨야 합니다 (G-15) |
+| F-22 | A 의 `make` 검사가 Windows 에서 `UnicodeEncodeError` 로 끝납니다(cp949 가 `✓` 를 못 찍음). 검사 실패가 아니라 출력 실패인데 종료 코드가 1 입니다 | `PYTHONIOENCODING=utf-8` 로 우회했습니다(E-11). `Makefile` 한 곳에서 세우는 것이 낫습니다 (G-14) |
+| F-23 | `evaluation/threshold.py` 는 57문 전부 미실행이고 저장소 안에서 import 하는 코드가 없습니다 | 커버리지에서 **일부러 빼지 않았습니다.** 0% 가 계속 보이는 편이 낫습니다 (G-17) |
