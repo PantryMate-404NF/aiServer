@@ -4,7 +4,7 @@
 
 **적용 대상**: 수정 여부를 결정하는 유재현과 수정을 반영할 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 5.0.0 · **최종 수정**: 2026-09-11 · **작성자**: 유재현
+**버전**: 6.0.0 · **최종 수정**: 2026-09-11 · **작성자**: 유재현
 
 ---
 
@@ -24,6 +24,7 @@
 | 4차 재검증 | A 브랜치 전량(658d79a) 병합 후 (9절). 게이트 4종과 A 자체 게이트 모두 통과. Mock 판정 지표는 3차와 동일 |
 | 조용한 실패 점검 | 에러 없이 기능만 못 하는 자리를 계통적으로 찾음 (10절). 8건 발견, 3건 수정, 5건 미해결 |
 | 2차 점검과 전환 준비 | 설정·관측 축에서 2건 추가 발견, 보이지 않던 실패 3건을 보이게 고침 (11절). DB 전환 점검표 13항목과 못 10건 |
+| 5차 재검증 | A 최신 내용(def3d5b) 병합 뒤 (12절). 게이트 4종·A 자체 게이트·Mock 종단 전부 이전과 같고 새 발견 1건(F-34) |
 | 재현 | `uv run python scripts/eval_recommend_mock.py` (2절) |
 
 ---
@@ -405,3 +406,38 @@ A 개발자와 함께 확인할 항목입니다.
 
 남은 다섯(F-27, F-28 의 가중치 재배분, F-29, F-31, F-32)은 전부 DB 연결이나 파트 간
 합의가 선행 조건이라 지금 고칠 수 없습니다. MUST TODO 로 작업 기록 4.3 에 모았습니다.
+
+---
+
+## 12. A 최신 내용 병합 후 검증 (5차, 2026-09-11)
+
+A 가 검토 뒤 올린 두 커밋(`5d41e8f`, `def3d5b`)을 `b9105ae` 로 합친 트리에서 쟀습니다. 판정은 전부 종료 코드로 했습니다(01의 3.4).
+
+### 12.1 저장소 게이트
+
+```text
+uv run ruff check .                   → 0
+uv run ruff format --check .          → 0 (136 files already formatted)
+uv run python -m mypy src             → 0 (Success: no issues found in 60 source files)
+uv run pytest tests/unit              → 0 (206 passed, coverage 88.18%, 측정 1,735문)
+```
+
+### 12.2 A 자체 게이트와 Mock
+
+```text
+python seeds/validate.py                     → 0
+python -m tests.unit.recommend.run            → 0 (74건)
+python -m tests.unit.recommend.test_match     → 0 (23건)
+python -m tests.unit.recommend.test_role      → 0 (23건)
+python -m tests.unit.recommend.test_batch     → 0 (5건)
+python -m tests.unit.recommend.test_contract  → 0 (98건, 설정값을 채운 환경)
+python scripts/eval_recommend_mock.py         → 0 (판정 지표 이전과 동일, p95 28.1ms)
+```
+
+새 모듈 `ingest/freq_build.py` 와 `repository_ingest.py` 는 실 DB 없이 import 까지 확인했습니다. `make freq-build` 와 DB 가 필요한 A 게이트 4종은 **돌리지 못했습니다** — 실 DB 가 없습니다.
+
+### 12.3 새로 본 것
+
+| ID | 발견 | 판단 |
+|---|---|---|
+| F-34 | A 가 `repository.py`(904줄)를 나눠 365줄이 됐지만, 떼어 낸 `repository_ingest.py` 가 629줄로 02의 5.1 상한 500줄을 넘습니다. A 의 커밋 메시지는 "570줄로 상한 아래" 라고 적었는데 다음 커밋에서 59줄이 붙었고 상한 자체도 500줄입니다. 도메인 루트는 9개 파일이 되어 같은 절의 디렉터리 상한 8개도 넘습니다 | 검사로는 잡히지 않는 규약 위반입니다. A 의 파일이라 나누지 않고 회의 안건 G-10 에 올렸습니다 |

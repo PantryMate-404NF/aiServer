@@ -4,7 +4,7 @@
 
 **적용 대상**: 이 병합을 리뷰하는 인원, `pyproject.toml` 의 검사 설정을 고치는 인원, AI 코딩 에이전트
 
-**버전**: 1.0.0 · **최종 수정**: 2026-09-10 · **작성자**: 유재현
+**버전**: 1.1.0 · **최종 수정**: 2026-09-11 · **작성자**: 유재현
 
 ---
 
@@ -18,7 +18,7 @@
 | `src/features/recommend/ingest/adapter.py` 의 `ANN401` | 파일 단위 예외 | 모양을 모르는 크롤러 JSON 을 받는 경계입니다. `Any` 가 사실에 맞는 표기입니다 |
 | `scripts/reco/bench/**` | 검사 대상에서 제외 (`extend-exclude`) | 일회용 시뮬레이션이고, 일부는 작성자 로컬 경로를 `exec()` 로 읽어 저장소 안에서 돌지 않습니다 |
 | `seeds/validate.py`, `scripts/reco/**`, 데이터 파트의 단독 실행 검사 7개 | 파일마다 실제로 필요한 규칙 코드만 예외 | 사람이 터미널에서 읽는 도구입니다. 파일별로 적어 다음에 들어올 파일을 덮지 않게 했습니다 |
-| 커버리지 하한 80% | 측정 범위를 축소 (`[tool.coverage.run] omit` 3항목) | 검사가 없는 것이 아니라 그 검사를 pytest 가 아니라 `make` 가 돌립니다 |
+| 커버리지 하한 80% | 측정 범위를 축소 (`[tool.coverage.run] omit` 4항목. 2026-09-11 에 `repository_ingest.py` 추가) | 검사가 없는 것이 아니라 그 검사를 pytest 가 아니라 `make` 가 돌립니다 |
 | `uv.lock` 의 `pillow-heif` | `main` 값(1.6.0)으로 되돌림 | 이 병합과 무관한 변경이고, 되돌리지 않으면 영수증 파이프라인 검사 8건이 수집 단계에서 죽습니다 |
 
 **전역 `ignore = ["RUF001", "RUF002", "RUF003"]` 은 데이터 파트가 넣은 것을 그대로 두었습니다.** 이것만은 파일 범위가 아니라 저장소 전체에 걸립니다 — 5절을 봅니다.
@@ -47,6 +47,7 @@
 |---|---|---|
 | `src/features/recommend/ingest/*` | `make normalize-test`, `make contract`, `make feature-test`, `make flavor-check`, `make probe-all` | 병합 시점 실측 — `run` 74건, `test_match` 23건, `test_role` 23건, `test_batch` 5건 통과. `contract` 는 98건 전부 통과이나 `.env` 가 비어 있으면 중간에 멈춥니다(검증 기록 F-30) |
 | `src/features/recommend/repository.py` | `make smoke-py`, `make log-test`, `make ddl-test` | 실 DB 가 필요합니다. 01의 6.2 가 단위 테스트에서 실 DB 사용을 금지합니다 |
+| `src/features/recommend/repository_ingest.py` | `make feature-test`, `make freq-build` 등 배치 타깃 | 2026-09-11 A 가 `repository.py` 에서 떼어 낸 배치 SQL 입니다. 근거가 위 줄과 같습니다 |
 | `src/features/recommend/engine/mock.py` | `make contract`, `make api-docs` | 대시보드가 엔진을 기다리지 않게 하는 목업입니다 |
 
 축소 후 값은 **88.12%** 입니다(측정 1,734문). `evaluation/threshold.py` 는 일부러 남겨 두었습니다 — 부르는 곳이 없고 검사도 없어 0% 로 잡히며, 그 사실이 보이는 편이 낫습니다(회의 안건 G-17).
@@ -60,7 +61,7 @@
 | 전역 `ignore = ["RUF001", "RUF002", "RUF003"]` | 01의 3.3 | 데이터 파트 | 대기. 파트 B 는 이것 없이 통과시키려고 가져온 6개 파일의 수학 기호 21곳을 ASCII 로 고쳤습니다. 승인되면 그 21곳은 되돌려도 됩니다 |
 | 파일 단위 예외 10항목 | 01의 3.3 | 파트 B | 대기. `adapter.py` 1 + 도구 9입니다. 병합 전 `per-file-ignores` 는 `main` 의 2항목과 데이터 파트의 2항목이었습니다 |
 | `extend-exclude = ["scripts/reco/bench"]` | 01의 3.3 | 파트 B | 대기 |
-| 커버리지 측정 범위 축소 3항목 | 01의 6.1 | 파트 B | 대기. 이 문서가 그 기록입니다 |
+| 커버리지 측정 범위 축소 4항목 | 01의 6.1 | 파트 B | 대기. 이 문서가 그 기록입니다 |
 
 ## 6. 해소 조건
 

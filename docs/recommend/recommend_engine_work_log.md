@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 B 추천 엔진을 이어서 작업하는 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 1.1.0 · **최종 수정**: 2026-09-11 · **작성자**: 유재현
+**버전**: 1.2.0 · **최종 수정**: 2026-09-11 · **작성자**: 유재현
 
 ---
 
@@ -14,10 +14,10 @@
 |---|---|
 | 정본 | 이 파일. 사람용 서술본 `human/recommend_engine_work_log.md` 는 식별자로 대응하는 파생본 |
 | 계획서 | `recommend_engine_design.md` (사람용, 정본) · `recommend_engine_design_digest.md` (요약, 어긋나면 원본이 이김) |
-| 브랜치 | `feat/recommend-engine-core`. `origin/main`(6b7c7b7)·`origin/develop-data-part`(658d79a) 병합 완료. A 전량 병합은 9.6 |
+| 브랜치 | `feat/recommend-engine-core`. `origin/main` 병합 완료. `origin/develop-data-part` 는 두 번 병합했습니다 — 658d79a(9.6), def3d5b(9.10). `main` 병합은 PR 로 진행합니다(승인 대기) |
 | 단계 | ② Ranking 과 ③ Re-ranking 을 A 계약 위에서 구현 완료. ① Retrieval·로그 적재·DDL·배치는 A 것이 브랜치에 들어와 있습니다(9.6). 라우터에 `rank_candidates` 를 끼우는 것(N-03)과 DB 연결이 남았습니다 |
-| 검증 (2026-09-11) | ruff check OK · ruff format OK · mypy **58 files** OK · `pytest tests/unit` **206 passed / 0 failed** / coverage **88.18%**. A 자체 게이트도 통과 — `contract` 98건은 설정값을 채운 환경에서만 끝까지 돕니다(E-13). 출력은 `recommend_engine_verification.md` 9~11절 |
-| 다음 행동 | A 개발자와 병합 순서 합의(B → main → A) → 게이트 예외 4건 Tech Lead 승인(G-16) → N-01(.env 정리, F-30 의 전제) → G-09·G-10 규약 개정 신청 → N-03(라우터 실연결, F-29 의 해소). 남은 회의 안건 G-06, G-12~G-19 |
+| 검증 (2026-09-11, 9.10) | ruff check OK · ruff format OK · mypy **60 files** OK · `pytest tests/unit` **206 passed / 0 failed** / coverage **88.18%**. A 자체 게이트 전부 종료코드 0 — `contract` 98건은 설정값을 채운 환경에서만 끝까지 돕니다(E-13). 출력은 `recommend_engine_verification.md` 12절 |
+| 다음 행동 | PR 로 `main` 병합(2026-09-11 유재현 결정). 승인 1명과 300줄 초과에 대한 Tech Lead 사전 승인(01의 5.1), 게이트 예외 승인(G-16)이 필요합니다 → N-01(.env) → N-03(라우터 실연결). `main` 보호 설정은 G-20. 남은 회의 안건은 `recommend_engine_meeting_agenda.md` 2절 |
 | 병합 정책 | PR 없음. 브랜치 커밋·push 만. `main` 병합은 A·B 파트 완료 후 논의 (P-10). `origin/main` 은 merge 로 따라감 (A 가 브랜치를 본 뒤라 rebase 금지, 01의 2.1) |
 | DB 전환 | `recommend_engine_db_cutover.md` 의 M-01~M-13. DB 와 닿는 변경을 시작할 때 먼저 엽니다. `tests/unit/recommend/test_db_cutover.py` 가 못을 박아 두어 건너뛰면 검사가 깨집니다 |
 | 갱신 규칙 | 세션마다 1절·3절·9절 갱신. 새 항목은 다음 번호, 번호 재사용 금지. 사람용 서술본 동시 갱신 (2절). **3.3 의 수치는 그 세션의 실행에서 다시 잽니다** — 앞 세션 값을 옮기지 않습니다 (01의 3.4, D-28). 9절의 세션별 수치는 그 시점 기록이므로 고치지 않습니다 |
@@ -77,18 +77,18 @@
 | D-21 | propensity 는 노출확률의 **역수** | **확률** (0 < p <= 1). `enums.PROPENSITY_SEMANTICS` = "item" | 회의 결정 G-05. A DDL 과 C 의 IPS 계산이 확률을 전제 | 없음. C-07 대체 |
 | D-22 | 엔진 순수 함수를 B 가 전부 구현 | A 의 `rank`(z-salience·로그 헬퍼), `reason`(템플릿), `explore`(슬롯·interleaving), `serendipity`(Thompson)를 그대로 쓰고 B 는 **점수 계산만** 채움 | 회의 결정 G-04. 두 벌이 되면 propensity 정의가 갈려 off-policy 평가가 못 쓰게 됨. B 의 `explain`·`penalty`·`feedback` 폐기 | 없음. `c459c2f` |
 | D-23 | A 가 가져온 파일은 그대로 둔다 | `src/**` 의 ruff 45건·mypy 31건을 손으로 고침. 의미를 바꾸지 않는 표기·타입·구조 수정만 | 서빙 경로에 예외를 두면 그 예외가 요청 처리 코드에 남습니다. A 자체 게이트(`validate`·`contract` 98건·`normalize-test` 125건)로 의미 불변을 확인했습니다 | A 가 거부하면 해당 파일만 되돌림 |
-| D-24 | 게이트는 예외 없이 통과시킨다 | 도구 파일에 한해 범위를 좁힌 예외. `adapter.py` ANN401, `scripts/reco/bench` 검사 제외, 도구 9개 파일별 규칙 코드, 커버리지 `omit` 3항목 | 규칙이 막으려는 것이 자리마다 다릅니다. 근거와 해소 조건은 `../decisions/2026-09-10_merge_data_track_gate_exceptions.md` | Tech Lead 가 거부하면 해당 항목을 손으로 고침 (01의 3.3, 6.1) |
+| D-24 | 게이트는 예외 없이 통과시킨다 | 도구 파일에 한해 범위를 좁힌 예외. `adapter.py` ANN401, `scripts/reco/bench` 검사 제외, 도구 9개 파일별 규칙 코드, 커버리지 `omit` 3항목(9.10 에서 `repository_ingest.py` 를 더해 4항목) | 규칙이 막으려는 것이 자리마다 다릅니다. 근거와 해소 조건은 `../decisions/2026-09-10_merge_data_track_gate_exceptions.md` | Tech Lead 가 거부하면 해당 항목을 손으로 고침 (01의 3.3, 6.1) |
 | D-25 | 공유 파일은 A 것을 받는다 | `uv.lock` 의 `pillow-heif` 만 `main` 값 1.6.0 으로 되돌림 | 이 병합과 무관한 버전 올림이고, 1.7.0 의 DLL 이 Windows 앱 제어 정책에 걸려 영수증 파이프라인 검사 8건이 수집 단계에서 죽습니다 | 1.7.0 이 필요한 이유가 나오면 (G-13) |
 | D-26 | A 의 `tests/conftest.py` 를 그대로 받는다 | `collect_ignore_glob` 두 줄을 파일 8개 명시로 | 글로브가 B 의 pytest 검사 63건과 `integration/test_receipt_pipeline.py` 를 함께 뺍니다. 통과 건수가 줄어드는 것이 아니라 **세어지지 않아** 알아챌 수 없습니다 | 없음. G-08 의 (a)안이고 (b)안으로 가면 이 줄들이 사라집니다 |
 | D-27 | 설정 기본값을 편한 곳에 둔다 | 같은 값을 두 곳에 두지 않습니다. `health_payload(db_ok)`·`build_context(warm_event_count)` 에서 기본값을 없애고 `mixed_exploration(mc=)` 로 정책값을 넘깁니다 | 기본값이 있으면 호출자가 빠뜨려도 **에러가 안 납니다.** 확인 없이 참으로 나가거나(F-24), 로그와 계산이 갈라지거나(F-25), 손잡이가 안 먹습니다(F-26) | 없음. 회귀 검사 `tests/unit/recommend/test_wiring.py` 6건 |
 | D-28 | 통과 여부를 화면 출력으로 판단 | **종료 코드로 판정합니다.** 안 돌린 명령의 결과를 적지 않고, 남이 적어 둔 건수를 자기가 잰 것처럼 인용하지 않습니다 | 실제로 오보가 세 건 났습니다 — `make contract` 를 tail 로 통과로 읽었고(F-30), 안 돌린 242건을 통과로 적었고, 앞선 실행의 128·193 을 그대로 옮겼습니다. 01의 3.4 로 규칙에 넣었고 사례는 `../decisions/2026-09-11_report_only_verified_output.md` | 없음. 확인 비용이 `echo $?` 한 줄입니다 |
 
-### 3.3 검증 출력 (2026-09-11, 세션 9.8 종료 시점)
+### 3.3 검증 출력 (2026-09-11, 세션 9.10 종료 시점)
 
 ```text
 uv run ruff check .                   → All checks passed!
-uv run ruff format --check .          → 134 files already formatted
-uv run python -m mypy src             → Success: no issues found in 58 source files   (E-01)
+uv run ruff format --check .          → 136 files already formatted
+uv run python -m mypy src             → Success: no issues found in 60 source files   (E-01)
 uv run pytest tests/unit              → 206 passed, coverage 88.18% (기준 80%)
 ```
 
@@ -104,7 +104,7 @@ python -m tests.unit.recommend.test_role     → 전부 통과 (23건)
 python -m tests.unit.recommend.test_batch    → 5건 중 5건 통과
 ```
 
-커버리지 측정 범위는 `ingest/*`·`repository.py`·`engine/mock.py` 를 뺀 1,734문입니다. 뺀 근거는 D-24 의 결정 기록에 있습니다.
+커버리지 측정 범위는 `ingest/*`·`repository.py`·`repository_ingest.py`·`engine/mock.py` 를 뺀 1,735문입니다. 뺀 근거는 D-24 의 결정 기록에 있습니다.
 변경 규모: 병합 커밋 `da6de58` 에서 `main` 대비 194 파일 · +60,961줄. 들어온 A 커밋 21개.
 
 ---
@@ -177,7 +177,7 @@ python -m tests.unit.recommend.test_batch    → 5건 중 5건 통과
 | 01의 3.4 개정 승인 | 01의 9절이 팀 전원 승인을 요구합니다 | 회의에서 | D-28 |
 | 규약 개정 2건 | `docs/recommend/` 배치와 `stage.py`·`enums.py`·`policy.py` 가 규약에 없습니다 | 회의에서 | G-09, G-10 |
 | `.env` 채우기 | 값이 팀 비밀 저장소에 있고 유재현이 직접 넣습니다. 비면 서버도 `make contract` 도 못 돕니다 | 유재현 | N-01, E-13 |
-| `repository.py` 904줄 분리 | 02의 5.1 이 500줄 초과를 필수 분리로 둡니다. A 의 파일이라 단독 결정 불가 | A 와 합의 후 | G-10 묶음 |
+| `repository_ingest.py` 629줄 분리 | A 가 904줄이던 `repository.py` 를 365줄과 이 파일로 나눴지만(`5d41e8f`) 이 파일이 다시 02의 5.1 상한 500줄을 넘습니다. 도메인 루트도 9개 파일로 같은 절의 디렉터리 상한 8개를 넘습니다(F-34). A 의 파일이라 단독 결정 불가 | A 와 합의 후 | G-10 묶음 |
 | B 함수 인자 5개 초과 6곳 | 02의 5.1 의 확정 기준입니다. 요청·문맥 dataclass 로 묶는 것이 N-02 와 겹칩니다 | N-02 와 함께 | N-02 |
 | 상대 import 차단이 꺼져 있음 | `ban-relative-imports` 가 설정돼 있으나 `select` 에 `TID` 가 없습니다. `main` 의 설정이라 단독 수정 불가 | 회의에서 | G-16 묶음 |
 
@@ -398,3 +398,18 @@ uv run ruff check . && uv run python -m mypy src
 | 반영 위치의 근거 | `git show --stat` 로 확인한 커밋별 변경 파일. 1차 회의 결정은 `c459c2f`·`256c702`(2026-09-10 17:44·17:45), 병합 해소는 `da6de58`(18:30), 이후 조치는 `0da1aa6`·`50d77cf`(2026-09-11) |
 | 집계 | G 19건 — 결정·반영 7, 일부 반영 4, 결정 필요 8. N 13건 — 착수 가능 3, 일부 반영 1, 선행 대기 5, 결정 필요 3, 관찰 1 |
 | 뺀 것 | 회의 전의 배경·선택지 원문은 5.0.0 판(`86e5c07`)과 결정 기록에 있어 결정된 항목에서는 뺐습니다. "회의 전에 확인할 사실"(A 미푸시 커밋)은 A 전량 병합으로 의미가 없어져 뺐습니다 |
+
+### 9.10 2026-09-11 - A 최신 내용 두 번째 병합
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현: A 가 검토 뒤 자기 코드를 고쳐 커밋했으니 최신 내용을 합쳐 검수·커밋하고 마지막에 `main` 에 병합 |
+| A 의 새 커밋 | `5d41e8f` `repository.py` 에서 배치 SQL 분리(904→365줄, `repository_ingest.py` 신설) · `def3d5b` `ingredient.freq_count` 채움(`ingest/freq_build.py`, `make freq-build`). A 는 우리 브랜치를 받지 않았습니다 |
+| 병합 | `b9105ae`. 충돌은 `repository.py` 두 구간 — 파일 중간의 import 블록은 우리 쪽(맨 위로 올려 둔 것 유지, E402 방지), 배치 SQL 540줄은 A 쪽(새 파일로 이동). 해소 뒤 쓰이지 않게 된 `Mapping`·`cast` import 를 뺐습니다 |
+| 설정 | `repository_ingest.py` 를 커버리지 `omit` 에 더했습니다(4항목). `repository.py` 에서 떼어 낸 DB 전용 SQL 이라 근거가 같고, G-16 승인 대상에 포함됩니다 |
+| 새로 본 것 (F-34) | `repository_ingest.py` 가 629줄입니다. A 의 커밋 메시지는 570줄로 상한 아래라 적었지만 다음 커밋에서 59줄이 붙었고 02의 5.1 상한은 500줄입니다. 도메인 루트가 9개 파일이 되어 같은 절의 디렉터리 상한 8개도 넘습니다. A 의 파일이라 나누지 않고 G-10 에 올렸습니다 |
+| 새로 본 것 (G-20) | 01의 2.1 은 `main` 을 보호 브랜치로 둔다고 정하지만, GitHub 공개 API 로 확인하니 `main` 의 `protected` 가 `false` 입니다. 직접 push 해도 막히지 않습니다. 회의 안건으로 올렸습니다 |
+| 검증 | ruff·format(136)·mypy(60) 종료코드 0, `pytest tests/unit` 206 passed / coverage 88.18%. A 게이트 validate·run 74·test_match 23·test_role 23·test_batch 5 전부 종료코드 0, `contract` 98건 종료코드 0(설정값 채움). `freq_build`·`repository_ingest` 는 실 DB 없이 import 까지 확인. Mock 종단 판정 지표 이전과 동일, p95 28.1ms |
+| 돌리지 못한 것 | `make freq-build` 와 DB 가 필요한 A 게이트 4종은 실 DB 가 없어 돌리지 못했습니다 |
+| `main` 병합 방식 | 유재현 결정: PR. 01의 2.1 이 `main` 직접 push 를 금지하고 PR #3·#7 이 선례입니다. 이 PC 에 `gh` 가 없어 PR 은 GitHub 비교 화면에서 엽니다 |
+| 넘긴 것 | PR 승인(1명, 300줄 초과 사전 승인), G-16, G-10 에 F-34, G-20 |
