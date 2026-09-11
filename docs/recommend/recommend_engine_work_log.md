@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 B 추천 엔진을 이어서 작업하는 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 1.4.0 · **최종 수정**: 2026-09-11 · **작성자**: 유재현
+**버전**: 1.5.0 · **최종 수정**: 2026-09-12 · **작성자**: 유재현
 
 ---
 
@@ -15,9 +15,9 @@
 | 정본 | 이 파일. 사람용 서술본 `human/recommend_engine_work_log.md` 는 식별자로 대응하는 파생본 |
 | 계획서 | `recommend_engine_design.md` (사람용, 정본) · `recommend_engine_design_digest.md` (요약, 어긋나면 원본이 이김) |
 | 브랜치 | `feat/recommend-engine-core`. `origin/main` 병합 완료. `origin/develop-data-part` 는 두 번 병합했습니다 — 658d79a(9.6), def3d5b(9.10). `main` 병합은 PR #8 로 올렸습니다(2026-09-11, 승인 대기) |
-| 단계 | ② Ranking 과 ③ Re-ranking 을 A 계약 위에서 구현 완료. **취향 페르소나**(고른 음식 → 3축 척도 → 없음, 시간 감쇠·주기 가중, 사용자당 JSON 저장)를 9.11 에서 구현. ① Retrieval·로그 적재·DDL·배치는 A 것이 브랜치에 있습니다. 라우터에 `rank_candidates`·`PersonaService` 를 끼우는 것(M-01·M-15)과 DB 연결이 남았습니다 |
-| 검증 (2026-09-11, 9.11) | ruff check OK · ruff format OK · mypy **62 files** OK · `pytest tests/unit` **252 passed / 0 failed** / coverage **89.74%**. A 자체 게이트 전부 종료코드 0 — `contract` 98건은 설정값을 채운 환경에서만 끝까지 돕니다(E-13). 출력은 `recommend_engine_verification.md` 13절 |
-| 다음 행동 | PR #8 에 9.11 커밋을 얹었으니 본문 갱신 → 승인·병합 → N-01(.env) → 라우터 실연결(M-01·M-15) → G-24(3축 척도 범위) 확인. 남은 회의 안건은 `recommend_engine_meeting_agenda.md` 2절 |
+| 단계 | ② Ranking 과 ③ Re-ranking 을 A 계약 위에서 구현 완료. **취향 페르소나**(고른 음식 → 3축 척도 → 없음, 시간 감쇠·주기 가중, 사용자당 JSON 저장)를 9.11 에서 구현. ① Retrieval·로그 적재·DDL·배치는 A 것이 브랜치에 있습니다. 라우터에 `rank_candidates`·`PersonaService` 를 끼우는 것(M-01·M-15)과 DB 연결이 남았습니다. 9.12 에서 세 방향 복기(명세 · 무음 실패 · 규약)로 구멍 15개(F-36~F-50)를 찾아 14개를 코드로 고쳤습니다(D-34~D-38) |
+| 검증 (2026-09-12, 9.12) | ruff check OK · ruff format OK · mypy **62 files** OK · `pytest tests/unit` **276 passed / 0 failed** / coverage **90.23%**. `seeds/validate` 0 · `contract` 98건 0 — 설정값 20종을 셸 환경변수로만 채워야 끝까지 돕니다(E-13). 출력은 `recommend_engine_verification.md` 14절 |
+| 다음 행동 | PR #8 에 9.11·9.12 커밋을 얹었으니 본문 갱신 → 승인·병합 → N-01(.env) → 라우터 실연결(M-01·M-15) → G-24(3축 척도 범위)·G-25(월별 주기 해석)·G-26(`EventIn` 시각)·G-27(A 함수의 균등 폴백) 확인. 남은 회의 안건은 `recommend_engine_meeting_agenda.md` 2절 |
 | 병합 정책 | PR 없음. 브랜치 커밋·push 만. `main` 병합은 A·B 파트 완료 후 논의 (P-10). `origin/main` 은 merge 로 따라감 (A 가 브랜치를 본 뒤라 rebase 금지, 01의 2.1) |
 | DB 전환 | `recommend_engine_db_cutover.md` 의 M-01~M-15. DB 와 닿는 변경을 시작할 때 먼저 엽니다. `tests/unit/recommend/test_db_cutover.py` 가 못을 박아 두어 건너뛰면 검사가 깨집니다 |
 | 갱신 규칙 | 세션마다 1절·3절·9절 갱신. 새 항목은 다음 번호, 번호 재사용 금지. 사람용 서술본 동시 갱신 (2절). **3.3 의 수치는 그 세션의 실행에서 다시 잽니다** — 앞 세션 값을 옮기지 않습니다 (01의 3.4, D-28). 9절의 세션별 수치는 그 시점 기록이므로 고치지 않습니다 |
@@ -87,14 +87,19 @@
 | D-31 | 취향 저장은 A 의 `user_vector` 뿐 | 사용자당 JSON 파일(`profile_store.py`, 256 샤드, 원자적 쓰기, 저장 시 잘라내기). 원본(인덱스·척도)과 6축 스냅숏을 함께 둠 | 2차 회의 결정(G-23). 실 DB 전에도 돌고 검사할 수 있어야 합니다. 원본이 있어야 시드가 바뀌어도 재계산됩니다 | 실 DB 가 붙으면 `user_vector`·`event_log` 로 이전 (M-14) |
 | D-32 | 취향이 없으면 그냥 맛 피처 제외 | 맛 피처 제외에 더해 **탐색 비율을 0.4 로** 올립니다 (`cold_exploration_ratio`) | 회의가 요구한 "완전 임의값으로 다양한 레시피". 임의 취향을 넣으면 일관되게 엉뚱해지고, 비우면 다양성 장치가 대신 일합니다 | 실데이터에서 탐색 비율 재조정 (N-05) |
 | D-33 | 음의 이벤트(무시·저장 취소)도 취향에 반영 | 무게 0 으로 두어 취향을 만들지 않습니다. 별점은 3점 아래를 0 으로 자릅니다 | "싫어하는 맛" 은 좋아하는 것의 반대가 아닙니다. 가중 평균에 음수를 넣으면 분모가 0 이나 음수가 될 수 있습니다 | 싫어함 모델이 따로 생기면 그때 |
+| D-34 | 완화 조회 종료 기준 = `top_k` + 탐색 슬롯 수(24) | `top_k + 2 x exploration_min_pool_ratio x 슬롯`(36, 취향 없으면 52). `needed(policy, top_k, exploration_ratio)` | 탐색은 잔여 후보의 상위 절반에서 슬롯의 2배가 있어야 채워지는데 24건에서는 4칸 중 1칸만 채워졌습니다(F-41, F-04 의 뿌리). 취향 없는 사용자는 8칸이 필요합니다 | Mock 에서 인기순 폴백이 7/12 로 늘었습니다(N-15). 실데이터에서 후보가 충분하면 되돌릴 이유가 없고, 부족하면 `exploration_min_pool_ratio` 를 먼저 낮춥니다. `b7b25b4` |
+| D-35 | Thompson 몫은 A 함수가 채운다 | 군집이 없으면 B 가 `uniform_share` 1.0 으로 넘겨 전부 균등으로 채우고, 추적에 `explore_fallback: uniform` 을, 채우지 못한 칸 수를 `dropped.explore_shortfall` 로 남기며 둘 다 셉니다 | `Candidate.cluster_id` 계약("None 이면 균등 폴백")을 `mixed_exploration` 이 구현하지 않아 클러스터링 배치 전까지 탐색 절반이 예외 없이 사라집니다(F-42). `uniform_share` 는 동결 키라 덮지 않습니다 | A 가 함수 안에 폴백을 넣으면(G-27) B 우회를 지웁니다. `b7b25b4` |
+| D-36 | 사전 취향이 없으면 이벤트 하나로 `behavior` | 기준을 `scales_prior_weight`(6.0)로 둡니다. 그 아래는 `blended` | 클릭 하나(0.3)로 '행동' 사용자가 되면 탐색이 줄고 로그가 그렇게 적힙니다(F-43) | 기준값은 손잡이와 함께 재조정(N-05). `b7b25b4` |
+| D-37 | 온보딩 입력은 받아서 맞춘다(범위 밖 척도는 잘라 넣고 중복은 그대로) | 범위 밖 척도는 거부하고 셉니다. 중복 인덱스는 하나로 두고 셉니다. 3개 미만은 거부하지 않고 셉니다(`MIN_PICKS`) | 잘라 넣으면 5 가 4 와 같아지고 에러가 없습니다(F-48). 개수는 계약이 프론트의 일로 두어 서버가 거부하지 않습니다 | 계약이 개수를 서버 몫으로 바꾸면 거부로 전환. `b7b25b4` |
+| D-38 | 별점은 0 아래만 자른다 | 1.0 위도 자르고 1~5 밖의 별점은 잘못된 이벤트로 셉니다(`RATING_MIN`·`RATING_MAX`) | 별점 180 하나(무게 88.5)가 온보딩 전체(무게 12)를 덮었습니다(F-36). `EventIn.value` 에 범위가 없고 체류 시간과 필드를 같이 씁니다 | A 계약이 `value` 에 범위를 넣으면 서비스 검사는 이중이 됩니다. `b7b25b4` |
 
-### 3.3 검증 출력 (2026-09-11, 세션 9.11 종료 시점)
+### 3.3 검증 출력 (2026-09-12, 세션 9.12 종료 시점)
 
 ```text
 uv run ruff check .                   → All checks passed!
 uv run ruff format --check .          → 142 files already formatted
 uv run python -m mypy src             → Success: no issues found in 62 source files   (E-01)
-uv run pytest tests/unit              → 252 passed, coverage 89.74% (기준 80%)
+uv run pytest tests/unit              → 276 passed, coverage 90.23% (기준 80%)
 ```
 
 A 자체 게이트(`Makefile`, DB 불필요분). Windows 는 `PYTHONIOENCODING=utf-8` 이 필요합니다 (E-11, G-14).
@@ -109,7 +114,7 @@ python -m tests.unit.recommend.test_role     → 전부 통과 (23건)
 python -m tests.unit.recommend.test_batch    → 5건 중 5건 통과
 ```
 
-커버리지 측정 범위는 `ingest/*`·`repository.py`·`repository_ingest.py`·`engine/mock.py` 를 뺀 1,993문입니다. 뺀 근거는 D-24 의 결정 기록에 있습니다.
+커버리지 측정 범위는 `ingest/*`·`repository.py`·`repository_ingest.py`·`engine/mock.py` 를 뺀 2,098문입니다. 뺀 근거는 D-24 의 결정 기록에 있습니다.
 변경 규모: 병합 커밋 `da6de58` 에서 `main` 대비 194 파일 · +60,961줄. 들어온 A 커밋 21개.
 
 ---
@@ -185,10 +190,13 @@ python -m tests.unit.recommend.test_batch    → 5건 중 5건 통과
 | `repository_ingest.py` 629줄 분리 | A 가 904줄이던 `repository.py` 를 365줄과 이 파일로 나눴지만(`5d41e8f`) 이 파일이 다시 02의 5.1 상한 500줄을 넘습니다. 도메인 루트도 9개 파일로 같은 절의 디렉터리 상한 8개를 넘습니다(F-34). A 의 파일이라 단독 결정 불가 | A 와 합의 후 | G-10 묶음 |
 | B 함수 인자 5개 초과 6곳 | 02의 5.1 의 확정 기준입니다. 요청·문맥 dataclass 로 묶는 것이 N-02 와 겹칩니다 | N-02 와 함께 | N-02 |
 | 상대 import 차단이 꺼져 있음 | `ban-relative-imports` 가 설정돼 있으나 `select` 에 `TID` 가 없습니다. `main` 의 설정이라 단독 수정 불가 | 회의에서 | G-16 묶음 |
-| 취향 원본 JSON → DB 이전 | `user_vector`·`event_log` 가 준비돼야 합니다. 옮긴 뒤 두 저장소의 페르소나를 대조해야 합니다 | DB 기동 후 | M-14, D-31 |
+| 취향 원본 JSON → DB 이전 | `user_vector`·`event_log` 가 준비돼야 합니다. 옮긴 뒤 두 저장소의 페르소나를 대조해야 합니다. JSON 은 배치 간 재시도 중복을 흡수하지 않고 `event_log` 는 흡수하므로(F-47) 중복이 있는 사용자는 따로 봅니다 | DB 기동 후 | M-14, D-31 |
 | 온보딩·이벤트 라우트 실연결 | 라우터가 목업을 부릅니다. `PersonaService` 는 있으나 쓰는 곳이 없습니다 | M-01 과 같은 변경에서 | M-15 |
 | 3축 척도 범위 확정 | 계약은 0~4, 회의 기록은 1~5 입니다. 엔진은 0~1 만 받아 한 곳에서 바꾸면 되지만 어느 쪽이 맞는지는 정해야 합니다 | 회의에서 | G-24 |
 | Mock 카탈로그 맛 스케일 | 시드(실집계)와 분포가 달라 고른 음식으로 만든 취향이 Mock 평균 아래에 놓입니다. 맛 정합 lift 가 작게 나옵니다 | 생성기 수정 | N-14, F-35 |
+| `EventIn` 발생 시각 필드 | 계약이 A 것이라 혼자 못 더합니다. 없으면 오프라인 배치 전체가 수신 시각을 받아 주·일 주기가 헛돕니다 | A 와 합의 후 | G-26 |
+| Thompson 균등 폴백을 A 함수 안으로 | `serendipity.mixed_exploration` 은 A 의 파일입니다. 지금은 B 가 밖에서 우회합니다(D-35, F-42) | A 와 합의 후 | G-27 |
+| 월별 주기 해석 확인 | 연 주기 위상으로 읽은 것이 회의 뜻과 맞는지 확인이 필요합니다 | 회의에서 | G-25 |
 
 ## 5. 고려사항 (C)
 
@@ -441,3 +449,19 @@ uv run ruff check . && uv run python -m mypy src
 | 문서 | 결정 기록 1편 · 노션용 일반 설명서 `recommend_engine_how_it_works.md`(사람용 단일 판 — 독자가 사람뿐이라 두 형식 규칙의 대상이 아닙니다) · 계획서 두 편 3.4 에 대체 표시 · 점검표 M-14·M-15 · 안건 G-21~G-24·N-14 |
 | 커밋 | `d35b619` 결정 기록 · `04ec783` 코드·검사·픽스처·평가 |
 | 넘긴 것 | M-14·M-15, G-24, N-14, PR #8 본문 갱신 |
+
+### 9.12 2026-09-12 - 3회차 복기와 구멍 메우기
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 지시(9.11 과 같은 메시지) — "시간이 걸리더라도 여러 번 전체 코드를 복기". 9.11 의 3회 복기에 더해 독립 검토자 셋(명세 정합 · 무음 실패 · 규약과 문서 드리프트)을 병렬로 돌렸습니다. 셋째는 세션 한도(HTTP 429)로 시작하지 못해 04 검사기·제거 심볼 grep·게이트로 직접 대신했습니다 |
+| 결정 | D-34(완화 종료 기준에 탐색 몫 반영) · D-35(군집 없으면 균등 폴백과 추적) · D-36(사전 취향 없을 때 `behavior` 기준) · D-37(온보딩 입력은 거부·하나로·세기) · D-38(별점 무게 상한) |
+| 발견 | 열다섯 건 — F-36 별점 무게 상한 없음 · F-37 파일 사용자 미대조 · F-38 깨진 파일 약속의 구멍 · F-39 동시 저장 예외 · F-40 빈 맛 벡터의 행동 집계 · F-41 완화 종료 기준의 탐색 몫 누락 · F-42 군집 없으면 Thompson 몫 소실 · F-43 미세 무게로 behavior · F-44 손잡이 미검증 · F-45 잘라내기 동률 · F-46 평가 lift 조작 · F-47 배치 내 중복 · F-48 척도 클램프·중복 pick·3개 미만 · F-49 온보딩 저장 미잘라내기 · F-50 잘라내기 문서 과장. 검토자가 실험으로 확인한 것만 적었고 상세는 검증 기록 14절 |
+| 고친 코드 | `engine/persona.py`(별점 상한·범위, 빈 맛 벡터 미집계, 모드 기준, 잘라내기 동률, `require_aware`·`require_flavor` 공개) · `profile_store.py`(사용자 대조, `mkstemp`, `allow_nan=False`, 형 변환, 제시 목록 축 수) · `service.py`(척도 거부, 중복 pick 하나, `MIN_PICKS` 카운트, 잠금, 배치 내 중복·범위 밖 별점·빈 맛 카운트, 온보딩 저장 잘라내기, `explore_shortfall`·`explore_fallback`) · `policy.py`(`__post_init__`) · `engine/candidate.py`(`needed(policy, top_k, exploration_ratio)`) · `engine/rerank.py`(`effective_uniform_share`) · `scripts/eval_recommend_mock.py`(취향 없는 사용자 lift None, 완화에 탐색 비율) |
+| 새 카운터 | `persona_pick_duplicate` · `persona_picks_under_min` · `persona_scale_out_of_range` · `persona_event_invalid` · `persona_event_duplicate` · `explore_shortfall` · `explore_uniform_fallback` |
+| 검사 | 새 24건 — `test_persona.py` 6, `test_profile_store.py` 9(parametrize 7 포함), `test_service.py` 9, `test_candidate.py` 갱신. 바뀐 기대값 — 사전 취향 없는 조리 1건은 `blended`, `needed(20)` 은 36 |
+| 검증 | ruff·format(142)·mypy(62) 종료코드 0, `pytest tests/unit` **276 passed** / coverage **90.23%**(2,098문). `seeds/validate` 0, `contract` 98건 0(설정값을 셸 환경변수로만 채움). Mock 종단 — 탐색 칸 [4,4,4,4,4,4,4,4,2,4,10,8] — 9.11 은 1·3 칸이 섞여 있었음, 인기순 폴백 7/12(N-15), 취향 없는 사용자 lift None, 피드백 15.07 / 0.91 동일, p95 17.6ms |
+| 규약 | 02의 5.1: `persona.py` 340줄 · `service.py` 372줄 · `rerank.py` 302줄로 검토 문턱(300, 예시값) 초과, 필수 분리(500) 아님. 새 함수 인자 최대 5(`next_plan`). 디렉터리 파일 수는 루트 10 · `engine` 13 으로 이미 상한(8) 초과라 새 모듈을 만들지 않았습니다(G-10 묶음). ruff E501 은 한글을 폭 2 로 셉니다(E-04) |
+| 문서 | 결정 기록 1.1.0(별점 상한, 저장소 보강, 월별 해석, 3개 미강제, 수신 시각, C 가 읽는 추적 키) · 검증 기록 14절 · 안건 G-25~G-27·N-15 · 점검표 M-14·M-15 문구 · 설명서 1.1.0 |
+| 커밋 | `b7b25b4` 코드·검사·평가. 기록은 그다음 커밋 |
+| 넘긴 것 | G-25(월별 주기 해석) · G-26(`EventIn` 시각 필드) · G-27(A 함수의 균등 폴백) · N-15(완화 상향의 트레이드오프) · M-14 대조 기준에 중복 사용자 분리 · PR #8 본문 갱신 |

@@ -4,7 +4,7 @@
 
 **적용 대상**: `src/features/recommend/` 를 DB 에 연결하는 인원과 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 1.2.0 · **최종 수정**: 2026-09-11 · **작성자**: 유재현
+**버전**: 1.3.0 · **최종 수정**: 2026-09-12 · **작성자**: 유재현
 
 ---
 
@@ -55,8 +55,8 @@ uv run pytest tests/unit/recommend/test_db_cutover.py
 | M-10 | `f_time_fit` 재정의 판단 | 후보 조회가 `cook_minutes <= p_max_minutes` 를 이미 걸러서 살아남은 후보는 **전부 1.0** 입니다. 가중치 0.03 이 순위를 못 바꿉니다 (F-27, N-13) | 상한 대비 여유분을 재는 쪽으로 바꾸거나, 가중치를 `f_pantry_use` 로 옮깁니다. 값을 바꾸는 결정이라 W3 가중치 학습과 함께 정합니다 | 실데이터 260건 이상에서 값 종류가 2 이상 | 대기 |
 | M-11 | `/health` 의 `redis` | 저장소 어디에도 redis 클라이언트가 없는데 `HealthOut.redis` 기본값이 True 라 항상 참으로 나갑니다 (F-31, G-19) | 실제로 붙여 확인하거나 필드를 뺍니다. `db` 는 이미 실제 확인으로 고쳤습니다 (F-24) | redis 를 내린 상태에서 `redis: false` 이거나, 필드가 응답에 없음 | 대기 |
 | M-12 | DB 가 필요한 A 게이트 실행 | 병합 시점에 `make smoke`·`log-test`·`ddl-test`·`feature-test` 를 돌리지 못했습니다. 통과 여부를 모릅니다 | 넷을 돌리고 결과를 검증 기록에 남깁니다 | 네 명령 모두 종료 코드 0 | 대기 |
-| M-14 | 취향 원본을 DB 로 | 취향 원본(고른 음식·3축 척도·행동 이벤트)이 `profile_store.JsonProfileStore` 의 사용자당 JSON 파일에 있습니다. 데이터 파트의 `user_vector.onboarding_picks`·`onboarding_scales` 와 `event_log` 가 같은 내용을 담을 자리입니다 | `ProfileStore` 프로토콜의 DB 구현을 `repository.py` 에 만들고, JSON 의 이벤트를 `event_log` 로 옮긴 뒤 두 저장소의 페르소나가 같은지 대조하고 바꿉니다 | 같은 사용자에 대해 JSON 과 DB 구현의 `derive_persona` 결과가 축마다 1e-6 안에서 같음 | 대기 |
-| M-15 | 온보딩·이벤트 라우트 실연결 | `/v1/onboarding/{user_id}` 와 `/v1/events` 가 목업을 부릅니다. `PersonaService.save_onboarding`·`record_events` 는 있으나 라우터가 쓰지 않습니다 | M-01 과 같은 변경에서 라우터가 `PersonaService` 를 부르게 합니다. 이벤트 시각은 서버 수신 시각입니다 | 온보딩 실호출이 범위 밖 인덱스를 거부하고, 이벤트 실호출 뒤 `counters()` 의 `persona_events_stored` 가 늘어남 | 대기 |
+| M-14 | 취향 원본을 DB 로 | 취향 원본(고른 음식·3축 척도·행동 이벤트)이 `profile_store.JsonProfileStore` 의 사용자당 JSON 파일에 있습니다. 데이터 파트의 `user_vector.onboarding_picks`·`onboarding_scales` 와 `event_log` 가 같은 내용을 담을 자리입니다 | `ProfileStore` 프로토콜의 DB 구현을 `repository.py` 에 만들고, JSON 의 이벤트를 `event_log` 로 옮긴 뒤 두 저장소의 페르소나가 같은지 대조하고 바꿉니다 | 같은 사용자에 대해 JSON 과 DB 구현의 `derive_persona` 결과가 축마다 1e-6 안에서 같음. JSON 은 배치 간 재시도 중복을 흡수하지 않고 `event_log` 는 `DO NOTHING` 으로 흡수하므로, 중복이 있는 사용자는 차이 원인을 따로 적음 | 대기 |
+| M-15 | 온보딩·이벤트 라우트 실연결 | `/v1/onboarding/{user_id}` 와 `/v1/events` 가 목업을 부릅니다. `PersonaService.save_onboarding`·`record_events` 는 있으나 라우터가 쓰지 않습니다 | M-01 과 같은 변경에서 라우터가 `PersonaService` 를 부르게 합니다. 이벤트 시각은 서버 수신 시각입니다 | 온보딩 실호출이 범위 밖 인덱스를 거부하고, 이벤트 실호출 뒤 `counters()` 의 `persona_events_stored` 가 늘어남. 추천 실호출의 추적에 `explore_fallback`·`dropped.explore_shortfall` 이 실림 | 대기 |
 | M-13 | 커버리지 측정 범위 되돌리기 | `ingest/*`·`repository.py`·`repository_ingest.py`·`engine/mock.py` 를 `[tool.coverage.run] omit` 으로 빼 두었습니다. 검사가 pytest 밖(`make`)에 있기 때문입니다 | 단독 스크립트를 pytest 함수로 옮기는 만큼 `omit` 에서 뺍니다 (G-08) | `omit` 이 비고 커버리지 80% 이상 | 대기 |
 
 ## 4. 함께 처리해야 하는 묶음
