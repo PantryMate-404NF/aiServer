@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 B 추천 엔진을 이어서 작업하는 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 1.3.0 · **최종 수정**: 2026-09-11 · **작성자**: 유재현
+**버전**: 1.4.0 · **최종 수정**: 2026-09-11 · **작성자**: 유재현
 
 ---
 
@@ -15,11 +15,11 @@
 | 정본 | 이 파일. 사람용 서술본 `human/recommend_engine_work_log.md` 는 식별자로 대응하는 파생본 |
 | 계획서 | `recommend_engine_design.md` (사람용, 정본) · `recommend_engine_design_digest.md` (요약, 어긋나면 원본이 이김) |
 | 브랜치 | `feat/recommend-engine-core`. `origin/main` 병합 완료. `origin/develop-data-part` 는 두 번 병합했습니다 — 658d79a(9.6), def3d5b(9.10). `main` 병합은 PR #8 로 올렸습니다(2026-09-11, 승인 대기) |
-| 단계 | ② Ranking 과 ③ Re-ranking 을 A 계약 위에서 구현 완료. ① Retrieval·로그 적재·DDL·배치는 A 것이 브랜치에 들어와 있습니다(9.6). 라우터에 `rank_candidates` 를 끼우는 것(N-03)과 DB 연결이 남았습니다 |
-| 검증 (2026-09-11, 9.10) | ruff check OK · ruff format OK · mypy **60 files** OK · `pytest tests/unit` **206 passed / 0 failed** / coverage **88.18%**. A 자체 게이트 전부 종료코드 0 — `contract` 98건은 설정값을 채운 환경에서만 끝까지 돕니다(E-13). 출력은 `recommend_engine_verification.md` 12절 |
-| 다음 행동 | PR #8 승인과 병합(2026-09-11 생성). 승인 1명과 300줄 초과에 대한 Tech Lead 사전 승인(01의 5.1), 게이트 예외 승인(G-16)이 필요합니다 → N-01(.env) → N-03(라우터 실연결). `main` 보호 설정은 G-20. 남은 회의 안건은 `recommend_engine_meeting_agenda.md` 2절 |
+| 단계 | ② Ranking 과 ③ Re-ranking 을 A 계약 위에서 구현 완료. **취향 페르소나**(고른 음식 → 3축 척도 → 없음, 시간 감쇠·주기 가중, 사용자당 JSON 저장)를 9.11 에서 구현. ① Retrieval·로그 적재·DDL·배치는 A 것이 브랜치에 있습니다. 라우터에 `rank_candidates`·`PersonaService` 를 끼우는 것(M-01·M-15)과 DB 연결이 남았습니다 |
+| 검증 (2026-09-11, 9.11) | ruff check OK · ruff format OK · mypy **62 files** OK · `pytest tests/unit` **252 passed / 0 failed** / coverage **89.74%**. A 자체 게이트 전부 종료코드 0 — `contract` 98건은 설정값을 채운 환경에서만 끝까지 돕니다(E-13). 출력은 `recommend_engine_verification.md` 13절 |
+| 다음 행동 | PR #8 에 9.11 커밋을 얹었으니 본문 갱신 → 승인·병합 → N-01(.env) → 라우터 실연결(M-01·M-15) → G-24(3축 척도 범위) 확인. 남은 회의 안건은 `recommend_engine_meeting_agenda.md` 2절 |
 | 병합 정책 | PR 없음. 브랜치 커밋·push 만. `main` 병합은 A·B 파트 완료 후 논의 (P-10). `origin/main` 은 merge 로 따라감 (A 가 브랜치를 본 뒤라 rebase 금지, 01의 2.1) |
-| DB 전환 | `recommend_engine_db_cutover.md` 의 M-01~M-13. DB 와 닿는 변경을 시작할 때 먼저 엽니다. `tests/unit/recommend/test_db_cutover.py` 가 못을 박아 두어 건너뛰면 검사가 깨집니다 |
+| DB 전환 | `recommend_engine_db_cutover.md` 의 M-01~M-15. DB 와 닿는 변경을 시작할 때 먼저 엽니다. `tests/unit/recommend/test_db_cutover.py` 가 못을 박아 두어 건너뛰면 검사가 깨집니다 |
 | 갱신 규칙 | 세션마다 1절·3절·9절 갱신. 새 항목은 다음 번호, 번호 재사용 금지. 사람용 서술본 동시 갱신 (2절). **3.3 의 수치는 그 세션의 실행에서 다시 잽니다** — 앞 세션 값을 옮기지 않습니다 (01의 3.4, D-28). 9절의 세션별 수치는 그 시점 기록이므로 고치지 않습니다 |
 
 ---
@@ -82,14 +82,19 @@
 | D-26 | A 의 `tests/conftest.py` 를 그대로 받는다 | `collect_ignore_glob` 두 줄을 파일 8개 명시로 | 글로브가 B 의 pytest 검사 63건과 `integration/test_receipt_pipeline.py` 를 함께 뺍니다. 통과 건수가 줄어드는 것이 아니라 **세어지지 않아** 알아챌 수 없습니다 | 없음. G-08 의 (a)안이고 (b)안으로 가면 이 줄들이 사라집니다 |
 | D-27 | 설정 기본값을 편한 곳에 둔다 | 같은 값을 두 곳에 두지 않습니다. `health_payload(db_ok)`·`build_context(warm_event_count)` 에서 기본값을 없애고 `mixed_exploration(mc=)` 로 정책값을 넘깁니다 | 기본값이 있으면 호출자가 빠뜨려도 **에러가 안 납니다.** 확인 없이 참으로 나가거나(F-24), 로그와 계산이 갈라지거나(F-25), 손잡이가 안 먹습니다(F-26) | 없음. 회귀 검사 `tests/unit/recommend/test_wiring.py` 6건 |
 | D-28 | 통과 여부를 화면 출력으로 판단 | **종료 코드로 판정합니다.** 안 돌린 명령의 결과를 적지 않고, 남이 적어 둔 건수를 자기가 잰 것처럼 인용하지 않습니다 | 실제로 오보가 세 건 났습니다 — `make contract` 를 tail 로 통과로 읽었고(F-30), 안 돌린 242건을 통과로 적었고, 앞선 실행의 128·193 을 그대로 옮겼습니다. 01의 3.4 로 규칙에 넣었고 사례는 `../decisions/2026-09-11_report_only_verified_output.md` | 없음. 확인 비용이 `echo $?` 한 줄입니다 |
+| D-29 | 취향 = 온보딩 3축 척도 | **고른 음식의 6축 평균**이 먼저, 없으면 3축 척도, 둘 다 없으면 없음. 고른 음식이 있으면 척도는 저장만 합니다 | 2차 회의 결정(G-21). 고른 음식은 6축 전부를 알려 주고 자기 보고보다 믿을 만합니다. 척도는 나중에 LLM 추천의 보정값입니다 | 기획이 고른 음식을 필수로 만들면 2단계가 사라질 뿐 식은 그대로. `04ec783` |
+| D-30 | 행동은 EMA 로 갱신, 이벤트 수로 선형 전이 | 이벤트를 시각과 함께 저장하고 매번 다시 계산. 무게 = 종류 x 반감기 감쇠 x 연·주·일 주기 친화도. 축마다 `(k·prior + S·behavior)/(k + S)` | 2차 회의 결정(G-22). EMA 는 순서만 보고 시각을 보지 않아 1년 전 스무 건과 지난주 스무 건을 구분하지 못합니다 | 반감기·주기 세기·k 는 예시값. W3 학습에서 재조정. `04ec783` |
+| D-31 | 취향 저장은 A 의 `user_vector` 뿐 | 사용자당 JSON 파일(`profile_store.py`, 256 샤드, 원자적 쓰기, 저장 시 잘라내기). 원본(인덱스·척도)과 6축 스냅숏을 함께 둠 | 2차 회의 결정(G-23). 실 DB 전에도 돌고 검사할 수 있어야 합니다. 원본이 있어야 시드가 바뀌어도 재계산됩니다 | 실 DB 가 붙으면 `user_vector`·`event_log` 로 이전 (M-14) |
+| D-32 | 취향이 없으면 그냥 맛 피처 제외 | 맛 피처 제외에 더해 **탐색 비율을 0.4 로** 올립니다 (`cold_exploration_ratio`) | 회의가 요구한 "완전 임의값으로 다양한 레시피". 임의 취향을 넣으면 일관되게 엉뚱해지고, 비우면 다양성 장치가 대신 일합니다 | 실데이터에서 탐색 비율 재조정 (N-05) |
+| D-33 | 음의 이벤트(무시·저장 취소)도 취향에 반영 | 무게 0 으로 두어 취향을 만들지 않습니다. 별점은 3점 아래를 0 으로 자릅니다 | "싫어하는 맛" 은 좋아하는 것의 반대가 아닙니다. 가중 평균에 음수를 넣으면 분모가 0 이나 음수가 될 수 있습니다 | 싫어함 모델이 따로 생기면 그때 |
 
-### 3.3 검증 출력 (2026-09-11, 세션 9.10 종료 시점)
+### 3.3 검증 출력 (2026-09-11, 세션 9.11 종료 시점)
 
 ```text
 uv run ruff check .                   → All checks passed!
-uv run ruff format --check .          → 136 files already formatted
-uv run python -m mypy src             → Success: no issues found in 60 source files   (E-01)
-uv run pytest tests/unit              → 206 passed, coverage 88.18% (기준 80%)
+uv run ruff format --check .          → 142 files already formatted
+uv run python -m mypy src             → Success: no issues found in 62 source files   (E-01)
+uv run pytest tests/unit              → 252 passed, coverage 89.74% (기준 80%)
 ```
 
 A 자체 게이트(`Makefile`, DB 불필요분). Windows 는 `PYTHONIOENCODING=utf-8` 이 필요합니다 (E-11, G-14).
@@ -104,7 +109,7 @@ python -m tests.unit.recommend.test_role     → 전부 통과 (23건)
 python -m tests.unit.recommend.test_batch    → 5건 중 5건 통과
 ```
 
-커버리지 측정 범위는 `ingest/*`·`repository.py`·`repository_ingest.py`·`engine/mock.py` 를 뺀 1,735문입니다. 뺀 근거는 D-24 의 결정 기록에 있습니다.
+커버리지 측정 범위는 `ingest/*`·`repository.py`·`repository_ingest.py`·`engine/mock.py` 를 뺀 1,993문입니다. 뺀 근거는 D-24 의 결정 기록에 있습니다.
 변경 규모: 병합 커밋 `da6de58` 에서 `main` 대비 194 파일 · +60,961줄. 들어온 A 커밋 21개.
 
 ---
@@ -124,7 +129,7 @@ python -m tests.unit.recommend.test_batch    → 5건 중 5건 통과
 | T-07 | Step 3 | `feature_stats` → `CorpusStats` | 미착수 | Track A `feature_stats` 계약. I-03 |
 | T-08 | Step 4 | 요리군별 `cuisine_priors` Beta(α, β) 집계 | 미착수 | `event_log` 누적. 그전엔 (1, 1) |
 | T-09 | Step 5 | `service.recommend()` DB 조립, `RankConfig` ← `Settings` (`config.py` + `.env.example`) | 미착수 | T-02, T-05. D-04 이행 |
-| T-10 | Step 5 | `POST /v1/events` → `feedback.update_behavior_vector` → `user_vector` | 미착수 | T-02 |
+| T-10 | Step 5 | `POST /v1/events` → 취향 이벤트 저장 → 페르소나 재계산 | **엔진 쪽 완료** (`PersonaService.record_events`, `engine/persona.py`, `04ec783`). 라우터 연결은 M-15 | T-02 |
 | T-11 | Step 5 | `evaluation/feature_report.py` (TC-5-3) | 미착수 | 17개 목록 확정됨(`enums.FEATURE_KEYS`). 지금 재는 것은 9종 |
 | T-12 | Step 6 | 계약 검증 42건 (TC-6-1) | 미착수 | 42건 정의 문서, P-05 |
 | T-13 | Step 6 | Locust p95 < 58ms (TC-6-3) | 미착수 | P-06 |
@@ -180,6 +185,10 @@ python -m tests.unit.recommend.test_batch    → 5건 중 5건 통과
 | `repository_ingest.py` 629줄 분리 | A 가 904줄이던 `repository.py` 를 365줄과 이 파일로 나눴지만(`5d41e8f`) 이 파일이 다시 02의 5.1 상한 500줄을 넘습니다. 도메인 루트도 9개 파일로 같은 절의 디렉터리 상한 8개를 넘습니다(F-34). A 의 파일이라 단독 결정 불가 | A 와 합의 후 | G-10 묶음 |
 | B 함수 인자 5개 초과 6곳 | 02의 5.1 의 확정 기준입니다. 요청·문맥 dataclass 로 묶는 것이 N-02 와 겹칩니다 | N-02 와 함께 | N-02 |
 | 상대 import 차단이 꺼져 있음 | `ban-relative-imports` 가 설정돼 있으나 `select` 에 `TID` 가 없습니다. `main` 의 설정이라 단독 수정 불가 | 회의에서 | G-16 묶음 |
+| 취향 원본 JSON → DB 이전 | `user_vector`·`event_log` 가 준비돼야 합니다. 옮긴 뒤 두 저장소의 페르소나를 대조해야 합니다 | DB 기동 후 | M-14, D-31 |
+| 온보딩·이벤트 라우트 실연결 | 라우터가 목업을 부릅니다. `PersonaService` 는 있으나 쓰는 곳이 없습니다 | M-01 과 같은 변경에서 | M-15 |
+| 3축 척도 범위 확정 | 계약은 0~4, 회의 기록은 1~5 입니다. 엔진은 0~1 만 받아 한 곳에서 바꾸면 되지만 어느 쪽이 맞는지는 정해야 합니다 | 회의에서 | G-24 |
+| Mock 카탈로그 맛 스케일 | 시드(실집계)와 분포가 달라 고른 음식으로 만든 취향이 Mock 평균 아래에 놓입니다. 맛 정합 lift 가 작게 나옵니다 | 생성기 수정 | N-14, F-35 |
 
 ## 5. 고려사항 (C)
 
@@ -232,6 +241,7 @@ uv run ruff check . && uv run python -m mypy src
 | E-09 | addopts 에 `-q` 있음. `-q` 추가 시 요약 줄 사라짐 | 명령줄에 `-q` 안 붙임 |
 | E-11 | A 의 `make` 검사가 통과 표시(U+2713)를 찍다가 `UnicodeEncodeError` (cp949). 검사 실패가 아니라 콘솔 인코딩 | `PYTHONIOENCODING=utf-8` 을 세우고 실행. 항구 대책은 G-14 |
 | E-13 | `make contract` 가 `.env` 의 빈 값으로 `create_app()` 에서 죽습니다. `try` 가 `ImportError` 만 잡아 `ValidationError` 가 그대로 올라오고, **마지막으로 보이는 줄이 통과 표시(U+2713)라 눈으로는 통과처럼 읽힙니다**(F-30) | 설정값 20종을 환경변수로 채우고 실행하면 98건 전부 통과·종료코드 0. 항구 대책은 N-01(.env 정리)과 G-18 |
+| E-14 | `psycopg` 의 `pq.cp312-win_amd64.pyd` 가 어제 그대로인데 앱 제어 정책이 오늘 막기 시작. `tests/conftest.py` 가 `infra.db` 를 import 하므로 **전체 pytest 가 수집 단계에서 죽음** | 같은 버전 재설치(`uv pip install --reinstall --no-deps psycopg-binary==3.3.5`)로 해소. 정책이 파일 인스턴스 단위로 막는 듯합니다(E-12 와 같은 현상). 코드 변경 없음 |
 | E-12 | A `uv.lock` 의 `pillow-heif` 1.7.0 → `_pillow_heif` DLL 이 앱 제어 정책에 차단. 영수증 검사 8건이 수집에서 죽음 | `uv.lock` 항목만 `main` 값 1.6.0 으로 되돌림 (D-25). 1.6.0 은 같은 머신에서 정상 import |
 | E-10 | git 사용자 설정 전무 | 저장소 로컬 `user.name=유재현`, `user.email=yjhorion@gmail.com`. 변경은 `git config --local` 후 push 전 `git rebase --exec 'git commit --amend --no-edit --reset-author' main` |
 
@@ -413,3 +423,21 @@ uv run ruff check . && uv run python -m mypy src
 | 돌리지 못한 것 | `make freq-build` 와 DB 가 필요한 A 게이트 4종은 실 DB 가 없어 돌리지 못했습니다 |
 | `main` 병합 방식 | 유재현 결정: PR. 01의 2.1 이 `main` 직접 push 를 금지하고 PR #3·#7 이 선례입니다. 이 PC 에 `gh` 가 없어, 유재현의 동의를 받아 git 에 저장된 GitHub 인증으로 REST API 를 불러 PR #8 을 만들었습니다(HTTP 201). 토큰은 출력하거나 파일에 저장하지 않았습니다 |
 | 넘긴 것 | PR #8 승인(1명, 300줄 초과 사전 승인), G-16, G-10 에 F-34, G-20 |
+
+### 9.11 2026-09-11 - 취향 페르소나 (2차 회의 반영)
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 전달, 2차 3자 회의 결정 — 6축은 음식의 맛이고 사용자 취향은 온보딩에서 고른 음식 3개 이상에서 계산. 직접 적은 3축(1~5)은 고른 음식이 있으면 저장만(추후 LLM 추천 보정). 우선순위 고른 음식 → 3축 → 없으면 임의 다양. 레시피 선택 이벤트를 백엔드가 보내면 누적해 점진 갱신. 시간 감쇠와 계절·월·일 주기 가중. 사용자별 저장은 우리 DB 나 JSON, 사용자가 늘어도 관리되게. 끝나면 코드 복기 여러 번, 문서화, 노션용 일반 설명서 |
+| 결정 | D-29~D-33. 근거는 `../decisions/2026-09-11_taste_persona_from_picks_with_time_decay.md` |
+| 새 코드 | `engine/persona.py`(모델·우선순위·무게·합치기·잘라내기, 순수) · `profile_store.py`(JSON 저장소, 제시 목록 로더) · `service.py` 의 `onboarding_profile()`·`PersonaService`·추적 파라미터 덧붙임 · `policy.with_trace_extra()` · `rerank.exploration_ratio()` |
+| 바뀐 코드 | `policy.py` 손잡이(EMA 2개 → 페르소나 9개) · `taste.py`(EMA·선형 전이 삭제) · `context.py`(`persona` 필수, `UserHistory` 에서 취향 제거) · `rerank.py`(취향 없으면 탐색 확대) |
+| 계약 정합 | A 의 `OnboardingIn.picks`(제시 목록 인덱스)·`scales`(0~4)·`UserMode`(onboarding/blended/behavior)·`LABEL_WEIGHT`·`rating_to_label` 을 그대로 씁니다. 제시 목록은 `seeds/onboarding_recipes.yaml` 을 읽고 축 순서를 검사합니다 |
+| 검사 | 새 46건 — `test_persona.py` 27(우선순위·식·감쇠·주기·시각·잘라내기), `test_profile_store.py` 8, `test_service.py` 8, `test_rerank.py`·`test_wiring.py`·`test_db_cutover.py` 3. 지운 것 — EMA·선형 전이 4건 |
+| 픽스처·평가 | 생성기가 척도에 가장 가까운 제시 음식 4개를 picks 로 둡니다(1004 척도만, 1012 취향 없음). 평가 스크립트에 페르소나 출처·감쇠 대조(최근 16건 vs 1년 전 16건)·연 주기 세기별 무게를 추가 |
+| 복기 | 1차 — 새 손잡이 9개 전부 읽힘, 낡은 참조는 코드에 없고 문서 7곳(이번에 정리). 02의 5.1: `trace_params` 가 6인자가 됐던 것을 `with_trace_extra()` 로 분리해 5로 되돌림. `persona.py` 302줄·`service.py` 308줄은 검토 문턱(300, 예시값) 초과이나 필수 분리(500) 아님. 2차 — 문서가 가리키는 심볼·경로 실재 확인. 3차 — 깨진 취향 파일이 추천을 죽이지 않게 `persona_for` 가 받아서 세도록 추가(검사 1건) |
+| 검증 | ruff·format(142)·mypy(62) 종료코드 0, `pytest tests/unit` **252 passed** / coverage **89.74%**(`persona.py`·`profile_store.py`·`context.py` 100%). A 게이트 전부 0, `contract` 98건 0. Mock 종단 — 출처 picks 10·scales 1·none 1, 취향 없는 사용자 탐색 8/20, 최근 16건 조리 뒤 `behavior`(무게 15.07), 1년 전 조리는 `blended`(0.91)로 온보딩 쪽 복귀, p95 19.6ms. 상세는 검증 기록 13절 |
+| 새로 본 것 | F-35 Mock 카탈로그의 맛 분포가 시드와 달라 맛 정합 lift 가 작아짐(N-14). E-14 psycopg DLL 차단 |
+| 문서 | 결정 기록 1편 · 노션용 일반 설명서 `recommend_engine_how_it_works.md`(사람용 단일 판 — 독자가 사람뿐이라 두 형식 규칙의 대상이 아닙니다) · 계획서 두 편 3.4 에 대체 표시 · 점검표 M-14·M-15 · 안건 G-21~G-24·N-14 |
+| 커밋 | `d35b619` 결정 기록 · `04ec783` 코드·검사·픽스처·평가 |
+| 넘긴 것 | M-14·M-15, G-24, N-14, PR #8 본문 갱신 |
