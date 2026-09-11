@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from typing import Any
@@ -70,11 +71,35 @@ class RankingPolicy:
     season_cycle_strength: float = 0.5
     weekly_cycle_strength: float = 0.0
     daily_cycle_strength: float = 0.0
-    #: 저장소가 남기는 이벤트 상한. 감쇠 때문에 결과에는 영향이 없고 파일 크기만 정합니다.
+    #: 저장소가 남기는 이벤트 상한. 기본값에서는 잘리는 이벤트의 무게가 0.4% 이하라 결과에는
+    #: 영향이 없고 파일 크기만 정합니다. 반감기를 상한 근처로 늘리면 결과에도 닿습니다.
     persona_max_events: int = 2000
     persona_max_event_age_days: int = 730
     #: 취향을 전혀 모르는 사용자에게 쓰는 탐색 비율. 목록을 다양하게 만듭니다.
     cold_exploration_ratio: float = 0.4
+
+    def __post_init__(self) -> None:
+        """페르소나 손잡이의 범위. 벗어나면 예외 없이 모델이 뒤집히거나(세기 > 1) 0 으로 나눕니다"""
+        for name in ("picks_prior_weight", "scales_prior_weight"):
+            weight = getattr(self, name)
+            if not (math.isfinite(weight) and weight > 0.0):
+                raise ValueError(f"{name} 은 0 보다 큰 유한한 수여야 합니다: {weight}")
+        for name in ("season_cycle_strength", "weekly_cycle_strength", "daily_cycle_strength"):
+            strength = getattr(self, name)
+            if not 0.0 <= strength <= 1.0:
+                raise ValueError(f"{name} 은 0~1 이어야 합니다: {strength}")
+        if not math.isfinite(self.persona_half_life_days):
+            raise ValueError(
+                f"persona_half_life_days 는 유한한 수여야 합니다: {self.persona_half_life_days}"
+            )
+        if self.persona_max_events < 1 or self.persona_max_event_age_days < 1:
+            raise ValueError(
+                "persona_max_events 와 persona_max_event_age_days 는 1 이상이어야 합니다"
+            )
+        if not 0.0 < self.cold_exploration_ratio < 1.0:
+            raise ValueError(
+                f"cold_exploration_ratio 는 0 과 1 사이여야 합니다: {self.cold_exploration_ratio}"
+            )
 
     def fingerprint(self, weights: dict[str, float] | None = None) -> str:
         """정책과 가중치 조합의 지문. 서빙 로그가 이 값으로 그때의 계산을 되살립니다."""

@@ -58,8 +58,13 @@ def test_popularity_is_the_last_resort(policy: RankingPolicy) -> None:
 
 
 def test_needed_leaves_room_for_the_exploration_slots(policy: RankingPolicy) -> None:
-    """개인화 20개를 채우고 탐색 4칸이 잔여물이 되지 않으려면 그만큼 더 있어야 합니다."""
-    assert needed(policy, 20) == 24
+    """탐색 4칸은 잔여 후보 상위 절반에 슬롯의 2배수가 있어야 채워집니다.
+
+    슬롯 수만 더한 24건에서는 4칸 중 1칸만 채워졌습니다(F-04). 취향을 모르는 사용자는 8칸이라
+    그만큼 더 필요합니다.
+    """
+    assert needed(policy, 20) == 36
+    assert needed(policy, 20, exploration_ratio=policy.cold_exploration_ratio) == 52
     assert needed(policy, 10) >= policy.min_candidates
 
 

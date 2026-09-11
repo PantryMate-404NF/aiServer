@@ -25,6 +25,10 @@ HOURS_PER_DAY = 24.0
 DAYS_PER_WEEK = 7.0
 #: 직접 적는 3축 척도의 축 수. 순서는 데이터 파트 계약과 같이 [매움, 짠맛, 단맛] 입니다.
 SCALE_AXIS_COUNT = 3
+#: 별점의 범위. `rating_to_label` 은 1~5 를 -1~+1 로 옮기므로 그 밖의 값은 무게가 아니라 오류입니다.
+#: 위에서 자르지 않으면 별점 180 하나가 온보딩 전체를 덮습니다.
+RATING_MIN = 1.0
+RATING_MAX = 5.0
 
 
 class PersonaSource(StrEnum):
@@ -47,9 +51,10 @@ class TasteEvent:
     value: float | None = None
 
     def __post_init__(self) -> None:
-        _require_aware(self.at, "TasteEvent.at")
-        if len(self.flavor) != taste.AXIS_COUNT:
-            raise ValueError(f"flavor 는 {taste.AXIS_COUNT}축이어야 합니다: {len(self.flavor)}")
+        require_aware(self.at, "TasteEvent.at")
+        require_flavor(self.flavor, "TasteEvent.flavor")
+        if self.value is not None and not math.isfinite(self.value):
+            raise ValueError(f"TasteEvent.value 는 유한한 수여야 합니다: {self.value!r}")
 
 
 @dataclass(frozen=True)
@@ -71,10 +76,18 @@ class TasteProfile:
     updated_at: datetime | None = None
 
     def __post_init__(self) -> None:
-        if self.scales is not None and len(self.scales) != SCALE_AXIS_COUNT:
-            raise ValueError(f"scales 는 {SCALE_AXIS_COUNT}축이어야 합니다: {len(self.scales)}")
+        if self.picks and len(self.picks) != len(self.pick_flavors):
+            counts = f"{len(self.picks)} != {len(self.pick_flavors)}"
+            raise ValueError(f"picks 와 pick_flavors 의 길이가 다릅니다: {counts}")
+        for flavor in self.pick_flavors:
+            require_flavor(flavor, "TasteProfile.pick_flavors")
+        if self.scales is not None:
+            if len(self.scales) != SCALE_AXIS_COUNT:
+                raise ValueError(f"scales 는 {SCALE_AXIS_COUNT}축이어야 합니다: {len(self.scales)}")
+            if any(not (math.isfinite(s) and 0.0 <= s <= 1.0) for s in self.scales):
+                raise ValueError(f"scales 는 0~1 로 정규화된 값이어야 합니다: {self.scales}")
         if self.updated_at is not None:
-            _require_aware(self.updated_at, "TasteProfile.updated_at")
+            require_aware(self.updated_at, "TasteProfile.updated_at")
 
 
 @dataclass(frozen=True)
@@ -141,9 +154,14 @@ def prior_from_scales(scales: tuple[float, ...] | None) -> FlavorVector | None:
 # 이벤트 무게
 # ─────────────────────────────────────────────────────────────────
 def kind_weight(kind: EventType, value: float | None) -> float:
-    """이벤트 종류의 무게. 음의 신호는 0 입니다 — 페르소나는 좋아한 것만으로 만듭니다."""
+    """이벤트 종류의 무게. 음의 신호는 0 입니다 — 페르소나는 좋아한 것만으로 만듭니다.
+
+    별점은 범위 밖이면 0, 안이면 조리 한 건(1.0)을 넘지 않습니다.
+    """
     if kind is EventType.RATING:
-        return 0.0 if value is None else max(0.0, rating_to_label(value))
+        if value is None or not RATING_MIN <= value <= RATING_MAX:
+            return 0.0
+        return min(1.0, max(0.0, rating_to_label(value)))
     return max(0.0, LABEL_WEIGHT.get(kind, 0.0))
 
 
@@ -185,7 +203,7 @@ def event_weight(event: TasteEvent, now: datetime, policy: RankingPolicy) -> flo
     두 시각을 같은 시간대로 맞춘 뒤 계산합니다. 주기 위상은 지역 시각으로 정해지므로
     호출자가 넘긴 `now` 의 시간대를 기준으로 삼습니다.
     """
-    _require_aware(now, "now")
+    require_aware(now, "now")
     base = kind_weight(event.kind, event.value)
     if base <= 0.0:
         return 0.0
@@ -210,7 +228,7 @@ def event_weight(event: TasteEvent, now: datetime, policy: RankingPolicy) -> flo
 # ─────────────────────────────────────────────────────────────────
 def derive_persona(profile: TasteProfile, now: datetime, policy: RankingPolicy) -> Persona:
     """원본에서 페르소나를 만듭니다. 순수 함수이며 같은 입력이면 같은 결과입니다."""
-    _require_aware(now, "now")
+    require_aware(now, "now")
     prior, source, prior_weight = _prior(profile, policy)
     behavior, axis_weights, total_weight, n_events = _behavior(profile.events, now, policy)
 
@@ -227,9 +245,12 @@ def derive_persona(profile: TasteProfile, now: datetime, policy: RankingPolicy) 
         else:
             vec.append((prior_weight * p + s * b) / (prior_weight + s))
 
+    # 사전 취향이 없으면 3축 척도의 무게를 기준으로 삼습니다. 기준이 0 이면 클릭 하나(0.3)로
+    # '행동' 사용자가 되어 탐색이 줄고 로그도 그렇게 적힙니다.
+    reference = prior_weight if prior is not None else policy.scales_prior_weight
     if n_events == 0:
         mode = UserMode.COLD
-    elif prior is None or total_weight >= prior_weight:
+    elif total_weight >= reference:
         mode = UserMode.WARM
     else:
         mode = UserMode.BLENDED
@@ -249,16 +270,16 @@ def prune_events(
 ) -> tuple[TasteEvent, ...]:
     """너무 오래됐거나 너무 많은 이벤트를 버립니다. 최신 것부터 남깁니다.
 
-    감쇠가 있으면 오래된 이벤트는 어차피 무게가 0 에 가깝습니다. 버리는 것은 결과가
-    아니라 저장 크기를 위한 것입니다.
+    같은 시각이면 뒤에 온 것(한 배치에서 나중에 저장된 것)을 남깁니다. 기본값(반감기 90일,
+    상한 730일)에서는 잘리는 이벤트의 무게가 0.4% 이하라 결과가 아니라 저장 크기를 위한
+    것이지만, 반감기를 상한 근처로 늘리면 결과에도 닿습니다.
     """
-    _require_aware(now, "now")
+    require_aware(now, "now")
     limit_seconds = policy.persona_max_event_age_days * SECONDS_PER_DAY
     fresh = [e for e in events if (now - e.at).total_seconds() <= limit_seconds]
-    fresh.sort(key=lambda e: e.at, reverse=True)
-    kept = fresh[: policy.persona_max_events]
-    kept.sort(key=lambda e: e.at)
-    return tuple(kept)
+    fresh.sort(key=lambda e: e.at)
+    excess = max(0, len(fresh) - policy.persona_max_events)
+    return tuple(fresh[excess:])
 
 
 def _prior(
@@ -277,12 +298,17 @@ def _prior(
 def _behavior(
     events: tuple[TasteEvent, ...], now: datetime, policy: RankingPolicy
 ) -> tuple[FlavorVector, tuple[float, ...], float, int]:
-    """이벤트의 축별 가중 평균과 무게 합. 값이 없는 축은 None 이고 무게 0 입니다."""
+    """이벤트의 축별 가중 평균과 무게 합. 값이 없는 축은 None 이고 무게 0 입니다.
+
+    맛을 하나도 모르는 이벤트는 세지 않습니다. 세면 벡터는 그대로인데 모드만 '행동' 이 됩니다.
+    """
     sums = [0.0] * taste.AXIS_COUNT
     weights = [0.0] * taste.AXIS_COUNT
     total = 0.0
     counted = 0
     for event in events:
+        if all(v is None for v in event.flavor):
+            continue
         w = event_weight(event, now, policy)
         if w <= 0.0:
             continue
@@ -296,7 +322,19 @@ def _behavior(
     return vec, tuple(weights), total, counted
 
 
-def _require_aware(moment: datetime, label: str) -> None:
+def require_aware(moment: datetime, label: str) -> None:
     """시간대 없는 시각은 거부합니다. 섞이면 감쇠가 조용히 몇 시간씩 틀립니다."""
     if moment.tzinfo is None or moment.utcoffset() is None:
         raise ValueError(f"{label} 은 시간대가 있는 datetime 이어야 합니다: {moment!r}")
+
+
+def require_flavor(flavor: FlavorVector, label: str) -> None:
+    """6축이 아니거나 유한하지 않은 값이 있으면 거부합니다.
+
+    `taste.as_vector` 는 모자란 축을 채워 주므로 여기서는 쓰지 않습니다. NaN 은 코사인을
+    조용히 0 으로 만들어 어떤 검사에도 걸리지 않습니다.
+    """
+    if len(flavor) != taste.AXIS_COUNT:
+        raise ValueError(f"{label} 은 {taste.AXIS_COUNT}축이어야 합니다: {len(flavor)}")
+    if any(v is not None and not math.isfinite(v) for v in flavor):
+        raise ValueError(f"{label} 에 유한하지 않은 값이 있습니다: {flavor}")

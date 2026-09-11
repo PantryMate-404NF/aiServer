@@ -3,22 +3,30 @@
 from __future__ import annotations
 
 import random
+import threading
 from collections.abc import Callable, Iterable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 from features.recommend import service
 from features.recommend.engine.context import CorpusStats, RecipeFeature, UserContext
-from features.recommend.engine.persona import PersonaSource, TasteProfile, derive_persona
+from features.recommend.engine.persona import (
+    PersonaSource,
+    TasteProfile,
+    cold_persona,
+    derive_persona,
+)
 from features.recommend.engine.rank import check_trace_params, keep_candidates, merge_served_detail
+from features.recommend.engine.rerank import exploration_ratio
 from features.recommend.engine.taste import FlavorVector
 from features.recommend.enums import CANDIDATE_KEEP, FEATURE_KEYS, EventType, Stage, UserMode
 from features.recommend.policy import POLICY_ID, RankingPolicy, with_trace_extra
 from features.recommend.profile_store import JsonProfileStore
-from features.recommend.schema import EventIn
+from features.recommend.schema import EventIn, OnboardingIn
 from features.recommend.stage import Candidate
 
 
@@ -185,8 +193,9 @@ def _retrieve_with_fallback(
 
     plan = plan_module.first_plan(policy)
     rows = retrieve(ctx.pantry_ids, max_missing=plan.max_missing, max_minutes=ctx.max_cook_minutes)
+    ratio = exploration_ratio(ctx, policy)
     while True:
-        nxt = plan_module.next_plan(plan, len(rows), policy, top_k)
+        nxt = plan_module.next_plan(plan, len(rows), policy, top_k, ratio)
         if nxt is None:
             return plan_module.dedupe(rows)
         plan = nxt
@@ -287,23 +296,22 @@ def test_record_events_stores_positive_signals_and_counts_the_rest(
     assert counts["persona_events_stored"] == 2
     seven = persona_service.store.load(7)
     assert seven is not None and [e.recipe_id for e in seven.events] == [1]
-    assert persona_service.persona_for(7, NOW).mode is UserMode.WARM
+    # 사전 취향 없이 조리 한 건(무게 1.0)은 3축 척도 무게(6.0)에 못 미쳐 아직 '행동' 이 아닙니다.
+    assert persona_service.persona_for(7, NOW).mode is UserMode.BLENDED
     assert persona_service.persona_for(8, NOW).vec == (0.0,) * 6
 
 
-def test_record_events_prunes_to_the_policy_limits(
+def test_record_events_prunes_to_the_policy_limits_keeping_the_newest(
     tmp_path: Path, presented: tuple[FlavorVector, ...]
 ) -> None:
-    policy = RankingPolicy.__new__(RankingPolicy)
-    object.__setattr__(policy, "__dict__", dict(RankingPolicy().__dict__))
-    object.__setattr__(policy, "persona_max_events", 3)
+    policy = RankingPolicy(persona_max_events=3)
     svc = service.PersonaService(JsonProfileStore(tmp_path), presented, policy)
     events = [EventIn(user_id=1, event_type=EventType.COOK, recipe_id=i) for i in range(5)]
 
     svc.record_events(events, lambda _: (0.5,) * 6, NOW)
 
     stored = svc.store.load(1)
-    assert stored is not None and len(stored.events) == 3
+    assert stored is not None and [e.recipe_id for e in stored.events] == [2, 3, 4]
 
 
 def test_persona_for_an_unknown_user_is_cold_and_counted(
@@ -358,3 +366,183 @@ def test_extra_trace_keys_cannot_shadow_a_frozen_key(policy: RankingPolicy) -> N
     assert with_trace_extra(params, {"persona_source": "picks"})["persona_source"] == "picks"
     with pytest.raises(ValueError, match="동결 키"):
         with_trace_extra(params, {"top_k": 5})
+
+
+# ─────────────────────────────────────────────────────────────────
+# 3회차 복기에서 찾은 구멍
+# ─────────────────────────────────────────────────────────────────
+def test_onboarding_rejects_a_scale_outside_the_contract_instead_of_clamping(
+    persona_service: service.PersonaService,
+) -> None:
+    """잘라 넣으면 5 는 4 와 같아지고 아무도 모릅니다.
+
+    계약(0~4)을 바꾸는 곳은 SCALE_MAX 하나입니다.
+    """
+    service.reset_counters()
+    with pytest.raises(ValueError, match="척도"):
+        persona_service.save_onboarding(1, picks=[0, 1, 2], scales=[5, 0, 0], now=NOW)
+    assert service.counters()["persona_scale_out_of_range"] == 1
+    assert persona_service.store.load(1) is None
+
+
+def test_scale_max_matches_the_onboarding_contract() -> None:
+    """계약의 상한과 서비스의 상한이 갈라지면 모든 척도가 한 칸씩 조용히 밀립니다(G-24)."""
+    top = int(service.SCALE_MAX)
+    assert OnboardingIn(picks=[0], scales=[top, top, top]).scales == [top, top, top]
+    with pytest.raises(ValidationError):
+        OnboardingIn(picks=[0], scales=[top + 1, 0, 0])
+
+
+def test_duplicate_picks_count_once_and_a_short_list_is_counted(
+    persona_service: service.PersonaService, presented: tuple[FlavorVector, ...]
+) -> None:
+    """계약은 개수를 프론트의 일로 둡니다. 서버는 거부하지 않고 세어 드러냅니다."""
+    service.reset_counters()
+    made = persona_service.save_onboarding(1, picks=[3, 3, 3], scales=[2, 2, 2], now=NOW)
+
+    stored = persona_service.store.load(1)
+    assert stored is not None and stored.picks == (3,)
+    assert made.vec == presented[3]
+    counts = service.counters()
+    assert counts["persona_pick_duplicate"] == 2
+    assert counts["persona_picks_under_min"] == 1
+
+
+def test_unknown_flavor_bad_rating_and_repeats_are_counted_not_stored(
+    persona_service: service.PersonaService,
+) -> None:
+    """맛을 전부 모르는 레시피, 범위 밖·값 없는 별점, 한 배치 안의 같은 이벤트는 저장하지 않습니다.
+
+    저장하지 않되 각각 다른 이름으로 셉니다.
+    """
+    service.reset_counters()
+    flavors: dict[int, FlavorVector] = {1: (0.5,) * 6, 2: (None,) * 6}
+    events = [
+        EventIn(user_id=1, event_type=EventType.COOK, recipe_id=2),
+        EventIn(user_id=1, event_type=EventType.RATING, recipe_id=1, value=180.0),
+        EventIn(user_id=1, event_type=EventType.RATING, recipe_id=2),
+        EventIn(user_id=1, event_type=EventType.COOK, recipe_id=1),
+        EventIn(user_id=1, event_type=EventType.COOK, recipe_id=1),
+    ]
+
+    stored = persona_service.record_events(events, flavors.get, NOW)
+
+    counts = service.counters()
+    assert stored == 1
+    assert counts["persona_recipe_unknown"] == 1
+    assert counts["persona_event_invalid"] == 2
+    assert counts["persona_event_duplicate"] == 1
+    made = persona_service.persona_for(1, NOW)
+    assert made.n_events == 1 and made.behavior_weight == pytest.approx(1.0)
+
+
+def test_record_events_rejects_a_naive_clock_before_counting_anything(
+    persona_service: service.PersonaService,
+) -> None:
+    service.reset_counters()
+    events = [EventIn(user_id=1, event_type=EventType.DISMISS, recipe_id=1)]
+    with pytest.raises(ValueError, match="시간대"):
+        persona_service.record_events(events, lambda _: (0.5,) * 6, datetime(2026, 9, 11, 12, 0))
+    assert service.counters() == {}
+
+
+def test_events_carry_the_server_clock_and_age_out_on_the_next_save(
+    persona_service: service.PersonaService,
+) -> None:
+    """`EventIn` 에 시각이 없으므로 수신 시각이 곧 이벤트 시각입니다.
+
+    상한(730일)을 넘긴 것은 다음 저장에서 사라집니다.
+    """
+    long_ago = NOW - timedelta(days=800)
+    events = [EventIn(user_id=1, event_type=EventType.COOK, recipe_id=1)]
+    persona_service.record_events(events, lambda _: (0.5,) * 6, long_ago)
+    stored = persona_service.store.load(1)
+    assert stored is not None and stored.events[0].at == long_ago
+
+    persona_service.save_onboarding(1, picks=[0, 1, 2], scales=None, now=NOW)
+
+    again = persona_service.store.load(1)
+    assert again is not None and again.events == ()
+
+
+def test_concurrent_batches_for_one_user_lose_nothing(
+    persona_service: service.PersonaService,
+) -> None:
+    """같은 사용자의 배치가 여러 스레드에서 동시에 와도 읽고-합치고-쓰기가 겹치지 않습니다.
+
+    잠금 없이는 Windows 에서 임시 파일 이름이 겹쳐 160번 중 119번이 예외였고, 예외가 없어도
+    나중 쓰기가 앞 쓰기를 지웠습니다.
+    """
+    errors: list[Exception] = []
+
+    def worker(offset: int) -> None:
+        try:
+            for i in range(10):
+                events = [EventIn(user_id=1, event_type=EventType.COOK, recipe_id=offset * 100 + i)]
+                persona_service.record_events(events, lambda _: (0.5,) * 6, NOW)
+        except Exception as error:  # 스레드 안의 예외를 본 스레드의 검사로 옮깁니다.
+            errors.append(error)
+
+    threads = [threading.Thread(target=worker, args=(n,)) for n in range(4)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    stored = persona_service.store.load(1)
+    assert errors == []
+    assert stored is not None and len(stored.events) == 40
+
+
+def test_a_cold_user_has_no_taste_signal_and_the_wider_exploration(
+    recipes: dict[int, RecipeFeature],
+    corpus: CorpusStats,
+    policy: RankingPolicy,
+    rng: random.Random,
+    make_context: Callable[..., UserContext],
+) -> None:
+    """취향이 없으면 맛 피처는 전부 비고(Zero-Drop) 탐색이 8칸입니다. 임의 취향을 넣지 않습니다."""
+    cold = cold_persona()
+    ctx = make_context(pantry=range(1, 61), persona=cold, taste_vec=cold.vec)
+    candidates = [
+        Candidate(recipe_id=r, missing_count=0, missing_ids=[], coverage=1.0)
+        for r in list(recipes)[:60]
+    ]
+
+    result = service.rank_candidates(candidates, recipes, ctx, corpus, policy, rng)
+
+    assert all(item.features["f_taste"] is None for item in result.items)
+    assert sum(item.is_exploration for item in result.items) == round(
+        20 * policy.cold_exploration_ratio
+    )
+    params = result.stages[-1].params or {}
+    assert params["persona_source"] == "none"
+    # 이 후보들에는 군집이 없습니다. 계약대로 균등 폴백이 일어났고, 그것이 로그에 남습니다.
+    assert params["explore_fallback"] == "uniform"
+    assert result.stages[-1].dropped["explore_shortfall"] == 0
+
+
+def test_exploration_shortfall_and_uniform_fallback_are_visible(
+    recipes: dict[int, RecipeFeature],
+    corpus: CorpusStats,
+    policy: RankingPolicy,
+    rng: random.Random,
+    make_context: Callable[..., UserContext],
+) -> None:
+    """후보가 모자라 탐색이 줄면 셈과 추적에 남습니다. 24건이면 4칸을 다 채우지 못합니다(F-04)."""
+    service.reset_counters()
+    ctx = make_context(pantry=range(1, 61))
+    candidates = [
+        Candidate(recipe_id=r, missing_count=0, missing_ids=[], coverage=1.0)
+        for r in list(recipes)[:24]
+    ]
+
+    result = service.rank_candidates(candidates, recipes, ctx, corpus, policy, rng)
+
+    n_explore = sum(item.is_exploration for item in result.items)
+    wanted = round(20 * policy.exploration_ratio)
+    assert 0 < n_explore < wanted
+    assert result.stages[-1].dropped["explore_shortfall"] == wanted - n_explore
+    counts = service.counters()
+    assert counts["explore_shortfall"] == wanted - n_explore
+    assert counts["explore_uniform_fallback"] == 1

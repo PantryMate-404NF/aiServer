@@ -29,7 +29,7 @@ from typing import Any
 from features.recommend import service
 from features.recommend.engine import candidate as plan_module
 from features.recommend.engine import persona as persona_engine
-from features.recommend.engine import taste
+from features.recommend.engine import rerank, taste
 from features.recommend.engine.context import (
     CorpusStats,
     RecipeFeature,
@@ -162,8 +162,9 @@ def retrieve_with_fallback(
         max_missing=plan.max_missing,
         max_minutes=ctx.max_cook_minutes,
     )
+    ratio = rerank.exploration_ratio(ctx, policy)
     while True:
-        nxt = plan_module.next_plan(plan, len(rows), policy, top_k)
+        nxt = plan_module.next_plan(plan, len(rows), policy, top_k, ratio)
         if nxt is None:
             return plan_module.dedupe(rows), plan.stage, plan.max_missing
         plan = nxt
@@ -254,10 +255,16 @@ def measured_features(items: Sequence[RankedItem]) -> list[str]:
     )
 
 
-def dominant_axis_index(user: tuple[float | None, ...], mean: tuple[float | None, ...]) -> int:
+def dominant_axis_index(
+    user: tuple[float | None, ...], mean: tuple[float | None, ...]
+) -> int | None:
+    """사용자가 코퍼스 평균에서 가장 멀리 떨어진 축. 공통 축이 없으면(취향 없음) None 입니다.
+
+    0 을 돌려주면 취향 없는 사용자에게도 매움 축 lift 가 찍혀 집계에 섞입니다.
+    """
     axes = taste.shared_axes(user, mean)
     if not axes:
-        return 0
+        return None
     return max(axes, key=lambda i: abs(value_at(user, i) - value_at(mean, i)))
 
 
@@ -325,10 +332,13 @@ def evaluate(
 
     mean = corpus.flavor_mean or taste.as_vector(None)
     axis = dominant_axis_index(ctx.taste_vec, mean)
-    top = [recipes[i.recipe_id] for i in personal[:TOP_N_FOR_TASTE]]
-    served_axis = statistics.fmean([axis_of(r, axis) for r in top]) if top else 0.0
-    pool_axis = statistics.fmean([axis_of(recipes[c.recipe_id], axis) for c in candidates])
-    sign = 1.0 if value_at(ctx.taste_vec, axis) >= value_at(mean, axis) else -1.0
+    taste_lift: float | None = None
+    if axis is not None:
+        top = [recipes[i.recipe_id] for i in personal[:TOP_N_FOR_TASTE]]
+        served_axis = statistics.fmean([axis_of(r, axis) for r in top]) if top else 0.0
+        pool_axis = statistics.fmean([axis_of(recipes[c.recipe_id], axis) for c in candidates])
+        sign = 1.0 if value_at(ctx.taste_vec, axis) >= value_at(mean, axis) else -1.0
+        taste_lift = (served_axis - pool_axis) * sign
     uses_expiring = [bool(recipes[i.recipe_id].essential_ids & ctx.expiring_ids) for i in personal]
     pool_expiring = [
         bool(recipes[c.recipe_id].essential_ids & ctx.expiring_ids) for c in candidates
@@ -347,8 +357,10 @@ def evaluate(
         "propensity_ok": all(i.propensity is not None and 0 < i.propensity <= 1 for i in items),
         "exploration": len(explored),
         "explore_sources": sorted({str(i.explore_source) for i in explored}),
-        "taste_axis": taste.FLAVOR_AXES[axis],
-        "taste_lift": (served_axis - pool_axis) * sign,
+        # 취향 없는 사용자는 이 판정의 대상이 아닙니다. 값을 지어내지 않고 None 으로 둡니다.
+        "taste_axis": None if axis is None else taste.FLAVOR_AXES[axis],
+        "taste_lift": taste_lift,
+        "taste_tested": axis is not None,
         "expiring_served": statistics.fmean(uses_expiring) if uses_expiring else 0.0,
         "expiring_pool": statistics.fmean(pool_expiring) if pool_expiring else 0.0,
         "ild": intra_list_distance([recipes[i.recipe_id].all_ids for i in items]),
@@ -364,7 +376,8 @@ def evaluate(
     print(f"    checks: allergy={checks['allergy_clean']} cook_cap={checks['cook_cap']}", end="")
     print(f" propensity={checks['propensity_ok']} reason={checks['reason_ok']}", end="")
     print(f" expl={checks['exploration']}{checks['explore_sources']}", end="")
-    print(f" taste[{checks['taste_axis']}]lift={checks['taste_lift']:+.3f}")
+    lift = "n/a" if taste_lift is None else f"{taste_lift:+.3f}"
+    print(f" taste[{checks['taste_axis']}]lift={lift}")
     print(f"            expiring served={checks['expiring_served']:.2f}", end="")
     print(f" pool={checks['expiring_pool']:.2f} | ILD {checks['ild']:.3f}", end="")
     print(f" | score {checks['score_min']:.3f}~{checks['score_max']:.3f}", end="")
@@ -595,7 +608,9 @@ def main() -> None:
     print(f"    propensity in (0,1] = {all(r['propensity_ok'] for r in results)}")
     print(f"    reason filled = {all(r['reason_ok'] for r in results)}")
     print(f"    exploration counts = {[r['exploration'] for r in results]}")
-    print(f"    taste lift = {[round(r['taste_lift'], 3) for r in results]}")
+    n_taste = sum(r["taste_tested"] for r in results)
+    lifts = [None if r["taste_lift"] is None else round(r["taste_lift"], 3) for r in results]
+    print(f"    taste lift = {lifts}  (실효 {n_taste}/{len(results)}명 — None 은 취향 없음)")
     print(f"    ILD mean {statistics.fmean([r['ild'] for r in results]):.3f}")
     print(f"    features measured anywhere {len(measured)}/17 = {measured}")
     print(f"    latency ms = {[r['latency_ms'] for r in results]}")

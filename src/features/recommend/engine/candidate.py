@@ -19,6 +19,9 @@ from features.recommend.stage import Candidate
 FALLBACK_NONE = "none"
 FALLBACK_RELAX_MISSING = "relax_missing"
 FALLBACK_POPULARITY = "popularity"
+#: 탐색은 개인화에 들지 못한 후보 중 점수가 중위수 이상인 절반에서만 뽑습니다
+#: (`rerank._explorable`). 슬롯 하나에 잔여 후보가 이 배수만큼 필요합니다.
+EXPLORABLE_SHARE_DIVISOR = 2
 
 
 @dataclass(frozen=True)
@@ -38,24 +41,37 @@ def first_plan(policy: RankingPolicy) -> RetrievalPlan:
     return RetrievalPlan(max_missing=policy.max_missing, stage=FALLBACK_NONE)
 
 
-def needed(policy: RankingPolicy, top_k: int) -> int:
+def needed(policy: RankingPolicy, top_k: int, exploration_ratio: float | None = None) -> int:
     """후보가 이만큼은 있어야 완화를 멈춥니다.
 
-    `min_candidates` 는 Top-20 을 전제한 값입니다. 더 달라는 요청에는 그만큼 필요하고,
-    탐색 슬롯이 개인화 몫을 잠식하지 않도록 그 몫을 더합니다.
+    `min_candidates` 는 Top-20 을 전제한 값입니다. 더 달라는 요청에는 그만큼 필요하고, 탐색
+    슬롯이 개인화 몫을 잠식하지 않도록 탐색이 요구하는 후보를 더합니다. 탐색은 잔여 후보의
+    상위 절반에서 슬롯 수의 `exploration_min_pool_ratio` 배가 있어야 슬롯을 줄이지 않으므로,
+    슬롯 하나에 잔여 후보 `2 x exploration_min_pool_ratio` 건이 필요합니다. 슬롯 수만 더하면
+    (Top-20 에 24건) 탐색 4칸 중 1칸만 채워집니다. 취향을 모르는 사용자는 탐색 비율이
+    높으므로 `exploration_ratio` 를 넘겨 그만큼 더 요구합니다.
     """
-    return max(policy.min_candidates, top_k + round(top_k * policy.exploration_ratio))
+    ratio = policy.exploration_ratio if exploration_ratio is None else exploration_ratio
+    slots = round(top_k * ratio)
+    return max(
+        policy.min_candidates,
+        top_k + EXPLORABLE_SHARE_DIVISOR * policy.exploration_min_pool_ratio * slots,
+    )
 
 
 def next_plan(
-    current: RetrievalPlan, found: int, policy: RankingPolicy, top_k: int
+    current: RetrievalPlan,
+    found: int,
+    policy: RankingPolicy,
+    top_k: int,
+    exploration_ratio: float | None = None,
 ) -> RetrievalPlan | None:
     """이번 조회로 충분하면 None, 아니면 다음 조회 계획.
 
     부족수를 `max_missing_relaxed` 까지 한 단계씩 풀고, 그래도 모자라면 인기순입니다.
     인기순은 부족 재료를 보지 않으므로 `max_missing_relaxed` 를 그대로 싣습니다.
     """
-    if found >= needed(policy, top_k):
+    if found >= needed(policy, top_k, exploration_ratio):
         return None
     if current.max_missing < policy.max_missing_relaxed:
         return RetrievalPlan(current.max_missing + 1, FALLBACK_RELAX_MISSING)

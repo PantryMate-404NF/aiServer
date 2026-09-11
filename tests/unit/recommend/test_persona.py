@@ -303,3 +303,63 @@ def test_persona_is_a_value() -> None:
         profile, NOW, RankingPolicy()
     )
     assert isinstance(derive_persona(profile, NOW, RankingPolicy()), Persona)
+
+
+# ─────────────────────────────────────────────────────────────────
+# 3회차 복기에서 찾은 구멍
+# ─────────────────────────────────────────────────────────────────
+def test_a_rating_never_outweighs_a_cook_and_is_zero_outside_its_range() -> None:
+    """별점 180 하나가 온보딩 전체(무게 12)를 덮었습니다. 위에서도 자릅니다."""
+    assert persona.kind_weight(EventType.RATING, 5.0) == 1.0
+    assert persona.kind_weight(EventType.RATING, 4.0) == pytest.approx(0.5)
+    assert persona.kind_weight(EventType.RATING, 2.0) == 0.0
+    assert persona.kind_weight(EventType.RATING, 180.0) == 0.0
+    assert persona.kind_weight(EventType.RATING, None) == 0.0
+
+
+def test_an_event_with_no_known_flavor_is_not_behavior() -> None:
+    """세면 벡터는 사전 취향 그대로인데 모드만 '행동' 이 됩니다."""
+    unknown = TasteEvent(recipe_id=1, kind=EventType.COOK, at=NOW, flavor=(None,) * 6)
+    profile = TasteProfile(user_id=1, pick_flavors=(FULL,), events=(unknown,) * 12)
+    result = derive_persona(profile, NOW, STATIC)
+    assert result.n_events == 0 and result.mode is UserMode.COLD and result.vec == FULL
+
+
+def test_without_a_prior_behavior_must_reach_the_scales_weight_to_be_warm() -> None:
+    """클릭 하나(0.3)로 '행동' 사용자가 되면 탐색이 줄고 로그도 그렇게 적힙니다."""
+    one_click = TasteProfile(user_id=1, events=(cook(FULL, kind=EventType.CLICK),))
+    assert derive_persona(one_click, NOW, STATIC).mode is UserMode.BLENDED
+    six_cooks = TasteProfile(user_id=1, events=(cook(FULL),) * 6)
+    assert derive_persona(six_cooks, NOW, STATIC).mode is UserMode.WARM
+
+
+def test_prune_keeps_the_later_of_two_events_at_the_same_instant() -> None:
+    """한 배치는 같은 시각을 받습니다. 앞에 온 것을 남기면 배치의 새 이벤트가 먼저 버려집니다."""
+    policy = replace(RankingPolicy(), persona_max_events=2)
+    events = tuple(
+        TasteEvent(recipe_id=i, kind=EventType.COOK, at=NOW, flavor=FULL) for i in range(4)
+    )
+    assert [e.recipe_id for e in persona.prune_events(events, NOW, policy)] == [2, 3]
+
+
+def test_profiles_and_events_refuse_shapes_the_engine_would_misread() -> None:
+    with pytest.raises(ValueError, match="scales"):
+        TasteProfile(user_id=1, scales=(2.0, 0.0, 0.0))
+    with pytest.raises(ValueError, match="길이가 다릅니다"):
+        TasteProfile(user_id=1, picks=(0, 1), pick_flavors=(FULL,))
+    with pytest.raises(ValueError, match="유한하지"):
+        TasteEvent(recipe_id=1, kind=EventType.COOK, at=NOW, flavor=(float("nan"), *EMPTY[1:]))
+    with pytest.raises(ValueError, match="6축"):
+        TasteProfile(user_id=1, pick_flavors=((0.0,) * 5,))
+
+
+def test_policy_refuses_knobs_that_invert_or_break_the_model() -> None:
+    """세기 2.0 은 무게를 음수로 만들고 사전 무게 -1 은 0 으로 나눕니다. 조용히 못 지나갑니다."""
+    with pytest.raises(ValueError, match="season_cycle_strength"):
+        RankingPolicy(season_cycle_strength=2.0)
+    with pytest.raises(ValueError, match="picks_prior_weight"):
+        RankingPolicy(picks_prior_weight=-1.0)
+    with pytest.raises(ValueError, match="persona_max_events"):
+        RankingPolicy(persona_max_events=0)
+    with pytest.raises(ValueError, match="cold_exploration_ratio"):
+        RankingPolicy(cold_exploration_ratio=1.0)

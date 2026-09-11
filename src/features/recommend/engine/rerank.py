@@ -80,6 +80,19 @@ def exploration_ratio(ctx: UserContext, policy: RankingPolicy) -> float:
     return policy.exploration_ratio
 
 
+def effective_uniform_share(pool: Sequence[ScoredCandidate], policy: RankingPolicy) -> float:
+    """군집이 하나도 없으면 탐색을 전부 균등으로 채웁니다.
+
+    `Candidate.cluster_id` 의 계약은 "None 이면 균등 탐색으로 폴백" 인데
+    `serendipity.mixed_exploration` 은 군집이 없으면 Thompson 몫을 그냥 비웁니다. 그대로 두면
+    클러스터링 배치가 돌기 전까지 탐색 슬롯의 절반이 예외 없이 사라집니다. 폴백했는지는
+    서비스가 추적에 `explore_fallback` 으로 남깁니다.
+    """
+    if any(item.cluster_id is not None for item in pool):
+        return policy.uniform_share
+    return 1.0
+
+
 def mmr_select(
     pool: Sequence[ScoredCandidate],
     recipes: Mapping[int, RecipeFeature],
@@ -142,19 +155,20 @@ def pick_exploration(
         {"recipe_id": item.recipe_id, "score": item.score, "cluster_id": item.cluster_id}
         for item in pool
     ]
+    share = effective_uniform_share(pool, policy)
     chosen, propensities = serendipity.mixed_exploration(
         rows,
         stats,
         rng,
         k=count,
-        uniform_share=policy.uniform_share,
+        uniform_share=share,
         pool_size=policy.explore_pool_size,
         # 추적에 싣는 값과 실제로 쓰는 값이 같아야 합니다. 안 넘기면 함수 기본값이
         # 쓰이고, 손잡이를 바꾼 순간 로그와 계산이 조용히 갈라집니다.
         mc=policy.propensity_mc,
     )
     by_id = {item.recipe_id: item for item in pool}
-    uniform_slots = _uniform_count(count, policy)
+    uniform_slots = _uniform_count(count, share)
     picked: list[tuple[ScoredCandidate, float, str]] = []
     for index, row in enumerate(chosen):
         recipe_id = int(str(row["recipe_id"]))
@@ -232,11 +246,11 @@ def _explorable(rest: Sequence[ScoredCandidate], policy: RankingPolicy) -> list[
     return kept[: policy.explore_pool_size]
 
 
-def _uniform_count(count: int, policy: RankingPolicy) -> int:
+def _uniform_count(count: int, uniform_share: float) -> int:
     """`serendipity.mixed_exploration` 이 균등에 배정하는 슬롯 수와 같은 계산입니다."""
-    if policy.uniform_share <= 0:
+    if uniform_share <= 0:
         return 0
-    return max(1, round(count * policy.uniform_share))
+    return max(1, round(count * uniform_share))
 
 
 def _assemble(
