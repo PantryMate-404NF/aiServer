@@ -1,0 +1,42 @@
+{
+  "user_id": 1002,
+  "pantry_ingredient_ids": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    9,
+    10,
+    14,
+    15,
+    21,
+    22,
+    45,
+    46,
+    47,
+    50,
+    51,
+    52
+  ],
+  "expiring_ingredient_ids": [
+    6,
+    10,
+    14
+  ],
+  "taste_preference": {
+    "spicy_level": 2,
+    "sweet_level": 2,
+    "salty_level": 2
+  },
+  "household_size": "4인 가구",
+  "preferred_cuisines": [
+    "한식"
+  ],
+  "max_cook_minutes": 60,
+  "allergy_group_codes": [
+    "EGG"
+  ],
+  "top_k": 20
+}

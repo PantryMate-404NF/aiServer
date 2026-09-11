@@ -11,6 +11,7 @@
 하나만 보고하면 오해를 부른다. `양파` 처럼 흔한 재료가 잡히면 mention 은 쉽게 오르지만
 롱테일이 안 잡히면 distinct 는 낮다 — 그 격차가 곧 남은 검수량이다.
 """
+
 from __future__ import annotations
 
 import glob
@@ -28,14 +29,14 @@ def _records(f: str):
     with open(f, encoding="utf-8") as fh:
         head = fh.read(2048)
         fh.seek(0)
-        if head.lstrip()[:1] == "[":                 # JSON 배열
+        if head.lstrip()[:1] == "[":  # JSON 배열
             yield from json.load(fh)
         elif head.count("\n") and head.lstrip()[:1] == "{" and "}\n{" in head:
-            for line in fh:                          # JSONL
+            for line in fh:  # JSONL
                 line = line.strip()
                 if line:
                     yield json.loads(line)
-        else:                                        # 단건 JSON
+        else:  # 단건 JSON
             yield json.load(fh)
 
 
@@ -48,7 +49,7 @@ def _iter_mentions(files: list[str], limit: int | None = None):
                     txt = it.get("raw_text") or it.get("name", "")
                     for p in normalize(txt):
                         if p.is_non_ingredient:
-                            continue      # 도구·용기는 분모에서 뺀다
+                            continue  # 도구·용기는 분모에서 뺀다
                         yield p
             n += 1
             if limit and n >= limit:
@@ -83,8 +84,8 @@ def main(patterns: list[str]) -> int:
     print(f"파일 {len(files)}개 · 재료 언급 {cov.mention_total:,}건\n")
     print("═══ P3 매칭 커버리지 (설계 4-8) ═══")
     print(" ", cov.report())
-    print(f"\n  W3 목표 mention ≥ 0.55 → {'✅ 달성' if cov.mention >= .55 else '⬜ 미달'}")
-    print(f"  W5 목표 mention ≥ 0.85 → {'✅ 달성' if cov.mention >= .85 else '⬜ 미달'}")
+    print(f"\n  W3 목표 mention ≥ 0.55 → {'✅ 달성' if cov.mention >= 0.55 else '⬜ 미달'}")
+    print(f"  W5 목표 mention ≥ 0.85 → {'✅ 달성' if cov.mention >= 0.85 else '⬜ 미달'}")
 
     # ── P4 역할 판정 ────────────────────────────────────────
     _, st = judge_all([(p, match(p.name, d)) for p in parsed], d)
@@ -98,8 +99,12 @@ def main(patterns: list[str]) -> int:
         print(f"\n═══ 미매칭 {len(miss)}종 — 검수 큐 후보 ═══")
         for q, c in miss.most_common(20):
             r = next(x for x in res if x.query == q)
-            s = " | ".join(f"{n}({v}){'' if t == 'jamo_trgm' else ' ' + t}"
-                           for n, v, t in r.suggested[:3]) or "후보 없음"
+            s = (
+                " | ".join(
+                    f"{n}({v}){'' if t == 'jamo_trgm' else ' ' + t}" for n, v, t in r.suggested[:3]
+                )
+                or "후보 없음"
+            )
             blocked = f" 🔴차단={r.blocked_by}" if r.blocked_by else ""
             print(f"  {q:<14} ×{c}{blocked}  → {s}")
         print("\n  🔴 자동 확정하지 않는다 (4-4-1). 후보는 검수자에게 제안될 뿐이다.")

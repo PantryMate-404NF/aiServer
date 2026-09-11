@@ -17,6 +17,7 @@
    `ON CONFLICT` 멱등성을 COPY 로는 못 얻는다.
 4. 🔴 **닉네임 원문을 저장하지 않는다** (02 C-5). HMAC 해시만 남긴다.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -38,7 +39,9 @@ _NOW = __import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 #: 닉네임이 아예 없는 것도 0.86% 있다 — author_hash NULL 로 둔다.
 REVIEW_RE = re.compile(
     r"^(?P<a>.*?)(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}(?::\d{2})?)"
-    r"(?:\|답글\|신고)?(?P<b>.*)$", re.S)
+    r"(?:\|답글\|신고)?(?P<b>.*)$",
+    re.S,
+)
 
 _SERVING_RE = re.compile(r"(\d+)")
 _TIME_RE = re.compile(r"(\d+)")
@@ -65,7 +68,8 @@ def _salt() -> bytes:
             "     set -a; . ./.env; set +a\n"
             "\n"
             "  (데이터가 하나도 없는 새 프로젝트를 시작하는 경우에만"
-            " 새로 만듭니다.)")
+            " 새로 만듭니다.)"
+        )
     return s.encode()
 
 
@@ -80,6 +84,7 @@ def _safe_ts(ts: str) -> str | None:
     PostgreSQL 이 거부하므로 여기서 거른다 — 날짜가 없어도 후기 본문은 살린다."""
     try:
         from datetime import datetime
+
         fmt = "%Y-%m-%d %H:%M:%S" if len(ts) > 16 else "%Y-%m-%d %H:%M"
         datetime.strptime(ts, fmt)
         return ts
@@ -130,7 +135,8 @@ def load(paths: list[Path], limit: int | None, dsn: str) -> None:
         #    버려졌다 — 실제로 후기 627,610 → 29,035 였다. 에러가 안 나서 더 위험했다.
         #    psycopg3 는 executemany(returning=True) 로 모든 실행의 결과 집합을
         #    돌려주므로, nextset() 으로 끝까지 훑어 전부 모은다.
-        cur.executemany("""
+        cur.executemany(
+            """
             INSERT INTO recipe (source, source_id, url, title, description,
                                 servings, cook_minutes, difficulty,
                                 review_count, raw_json, crawled_at)
@@ -138,7 +144,10 @@ def load(paths: list[Path], limit: int | None, dsn: str) -> None:
             ON CONFLICT (source, source_id) DO UPDATE SET
                 title = EXCLUDED.title, raw_json = EXCLUDED.raw_json,
                 review_count = EXCLUDED.review_count
-            RETURNING id, source_id""", rec_buf, returning=True)
+            RETURNING id, source_id""",
+            rec_buf,
+            returning=True,
+        )
         idmap = {}
         while True:
             if cur.pgresult is not None and cur.rowcount > 0:
@@ -157,7 +166,7 @@ def load(paths: list[Path], limit: int | None, dsn: str) -> None:
             for pos, it in enumerate(d["ings"]):
                 # 주의: 원문 보존 — 수량을 분리하지 않고 한 문자열로 넣는다.
                 #    분리는 P2 의 일이고, 규칙이 바뀌면 여기서 다시 만든다 (설계 4-1).
-                txt = f'{it["name"]} {it["amount"]}'.strip() if it.get("amount") else it["name"]
+                txt = f"{it['name']} {it['amount']}".strip() if it.get("amount") else it["name"]
                 raw_rows.append((rid, it.get("group"), pos, txt[:255]))
             for a, ts, body in d["revs"]:
                 rev_rows.append((rid, a, ts, body))
@@ -165,20 +174,29 @@ def load(paths: list[Path], limit: int | None, dsn: str) -> None:
                 step_rows.append((rid, st["step_no"], st["text"], st["image_url"]))
 
         if raw_rows:
-            cur.executemany("""
+            cur.executemany(
+                """
                 INSERT INTO recipe_ingredient_raw (recipe_id, group_name,
                                                    position, raw_text)
-                VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING""", raw_rows)
+                VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING""",
+                raw_rows,
+            )
             n_raw += len(raw_rows)
         if rev_rows:
-            cur.executemany("""
+            cur.executemany(
+                """
                 INSERT INTO recipe_review (recipe_id, author_hash, written_at, body)
-                VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING""", rev_rows)
+                VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING""",
+                rev_rows,
+            )
             n_rev += len(rev_rows)
         if step_rows:
-            cur.executemany("""
+            cur.executemany(
+                """
                 INSERT INTO recipe_step (recipe_id, step_no, text, image_url)
-                VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING""", step_rows)
+                VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING""",
+                step_rows,
+            )
             n_step += len(step_rows)
         conn.commit()
         rec_buf, pending = [], []
@@ -210,36 +228,52 @@ def load(paths: list[Path], limit: int | None, dsn: str) -> None:
                     gname = g.get("group_name")
                     for it in g.get("items") or []:
                         if it.get("name"):
-                            ings.append({"name": it["name"], "amount": it.get("amount"),
-                                         "group": gname})
-                if not ings:      # groups 가 비면 평면 목록으로 폴백
+                            ings.append(
+                                {"name": it["name"], "amount": it.get("amount"), "group": gname}
+                            )
+                if not ings:  # groups 가 비면 평면 목록으로 폴백
                     for nm in d.get("ingredient_names") or []:
                         ings.append({"name": nm, "amount": None, "group": None})
 
-                rec_buf.append((
-                    SRC, sid, d.get("url"), d["title"], d.get("description"),
-                    _int_or_none(_SERVING_RE, d.get("serving")),
-                    _int_or_none(_TIME_RE, d.get("cooking_time")),
-                    DIFFICULTY.get((d.get("difficulty") or "").strip()),
-                    len(d.get("reviews") or []),
-                    # crawled_at 은 NOT NULL — 원문이 깨졌으면 적재 시각으로 대체한다
-                    Json(d), _safe_ts(d.get("crawled_at") or "") or _NOW,
-                ))
+                rec_buf.append(
+                    (
+                        SRC,
+                        sid,
+                        d.get("url"),
+                        d["title"],
+                        d.get("description"),
+                        _int_or_none(_SERVING_RE, d.get("serving")),
+                        _int_or_none(_TIME_RE, d.get("cooking_time")),
+                        DIFFICULTY.get((d.get("difficulty") or "").strip()),
+                        len(d.get("reviews") or []),
+                        # crawled_at 은 NOT NULL — 원문이 깨졌으면 적재 시각으로 대체한다
+                        Json(d),
+                        _safe_ts(d.get("crawled_at") or "") or _NOW,
+                    )
+                )
                 # 조리 순서. 어댑터(adapter.map_steps)와 같은 모양으로 만든다.
                 steps = []
                 for i, stp in enumerate(d.get("steps") or [], start=1):
-                    txt = stp if isinstance(stp, str) else (
-                        (stp.get("instruction") or stp.get("text") or "")
-                        if isinstance(stp, dict) else "")
+                    txt = (
+                        stp
+                        if isinstance(stp, str)
+                        else (
+                            (stp.get("instruction") or stp.get("text") or "")
+                            if isinstance(stp, dict)
+                            else ""
+                        )
+                    )
                     if str(txt).strip():
-                        steps.append({
-                            "step_no": stp.get("step_no", i) if isinstance(stp, dict) else i,
-                            "text": str(txt).strip(),
-                            "image_url": (stp.get("image") or stp.get("img"))
-                                         if isinstance(stp, dict) else None,
-                        })
-                pending.append({"source_id": sid, "ings": ings,
-                                "revs": revs, "steps": steps})
+                        steps.append(
+                            {
+                                "step_no": stp.get("step_no", i) if isinstance(stp, dict) else i,
+                                "text": str(txt).strip(),
+                                "image_url": (stp.get("image") or stp.get("img"))
+                                if isinstance(stp, dict)
+                                else None,
+                            }
+                        )
+                pending.append({"source_id": sid, "ings": ings, "revs": revs, "steps": steps})
                 if len(rec_buf) >= BATCH:
                     flush()
                     print(f"  … 레시피 {n_rec:,} · 재료 {n_raw:,} · 후기 {n_rev:,}", flush=True)
@@ -248,7 +282,9 @@ def load(paths: list[Path], limit: int | None, dsn: str) -> None:
     conn.close()
 
     print("\n✅ 적재 완료")
-    print(f"   레시피 {n_rec:,} · 재료원문 {n_raw:,} · 조리순서 {n_step:,} · 후기 {n_rev:,} · 건너뜀 {n_skip:,}")
+    print(
+        f"   레시피 {n_rec:,} · 재료원문 {n_raw:,} · 조리순서 {n_step:,} · 후기 {n_rev:,} · 건너뜀 {n_skip:,}"
+    )
     print("   다음:  make coverage   (정규화 커버리지 실측)")
 
 
@@ -256,8 +292,10 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("paths", nargs="+", type=Path)
     ap.add_argument("--limit", type=int, default=None, help="시험 적재용")
-    ap.add_argument("--dsn", default=os.environ.get(
-        "DATABASE_URL", "postgresql://reco:reco@localhost:5432/recodb"))
+    ap.add_argument(
+        "--dsn",
+        default=os.environ.get("DATABASE_URL", "postgresql://reco:reco@localhost:5432/recodb"),
+    )
     a = ap.parse_args()
     load(a.paths, a.limit, a.dsn)
 

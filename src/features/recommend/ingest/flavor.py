@@ -48,6 +48,7 @@
 **"등급"이지 "양"이 아니다.** 정확한 비율이 필요해지면 P5 를 해야 한다.
 그때까지의 **최선의 근사**이고, 비용이 0 이다 (P2 산출을 그대로 쓴다).
 """
+
 from __future__ import annotations
 
 import re
@@ -76,15 +77,16 @@ DEFAULT_ROLE_WEIGHT = 1.0
 class FlavorTable:
     """재료 → 6축 기여. 카테고리 기본값 + 개별 예외 (소비기한과 같은 패턴)."""
 
-    def __init__(self, defaults: dict[str, list[float]], overrides: dict[str, list[float]]):
+    def __init__(self, defaults: dict[str, list[float]], overrides: dict[str, list[float]]) -> None:
         self.defaults = defaults
         self.overrides = overrides
 
     @classmethod
     def from_seeds(cls, seeds: Path = ROOT / "seeds") -> FlavorTable:
         d = yaml.safe_load(open(seeds / "ingredient_flavor.yaml", encoding="utf-8"))
-        return cls({x["path"]: x["v"] for x in d["defaults"]},
-                   {x["name"]: x["v"] for x in d["overrides"]})
+        return cls(
+            {x["path"]: x["v"] for x in d["defaults"]}, {x["name"]: x["v"] for x in d["overrides"]}
+        )
 
     def of(self, name: str | None, category_path: str | None) -> list[float]:
         """개별 예외 > 카테고리 최장 접두 > 0벡터."""
@@ -99,8 +101,9 @@ class FlavorTable:
         return [0.0] * N_AXIS
 
 
-def aggregate(items: list[tuple[list[float], IngredientRole | None]],
-              mode: str = "role_w") -> list[float]:
+def aggregate(
+    items: list[tuple[list[float], IngredientRole | None]], mode: str = "role_w"
+) -> list[float]:
     """재료별 6축 → 레시피 6축.
 
     Args:
@@ -121,9 +124,13 @@ def aggregate(items: list[tuple[list[float], IngredientRole | None]],
     if mode == "mean":
         return [sum(v[k] for v in vecs) / len(vecs) for k in range(N_AXIS)]
     # role_w — 양념에 가중
-    ws = [ROLE_WEIGHT.get(r, DEFAULT_ROLE_WEIGHT) for _, r in items]
+    # 역할이 없는 항목은 기본 가중치. 사전에 없는 재료가 여기로 온다
+    ws = [
+        DEFAULT_ROLE_WEIGHT if r is None else ROLE_WEIGHT.get(r, DEFAULT_ROLE_WEIGHT)
+        for _, r in items
+    ]
     tot = sum(ws) or 1.0
-    return [sum(v[k] * w for (v, _), w in zip(items, ws)) / tot for k in range(N_AXIS)]
+    return [sum(v[k] * w for (v, _), w in zip(items, ws, strict=True)) / tot for k in range(N_AXIS)]
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -135,14 +142,31 @@ def aggregate(items: list[tuple[list[float], IngredientRole | None]],
 #:   g·kg·개·마리·대·모·공기 를 쓰면 주재료급이고, 큰술·작은술은 양념 규모다.
 UNIT_TIER = {
     # 주재료급 — 무게·개수로 센다
-    "g": 1.5, "kg": 2.0, "개": 1.5, "마리": 1.5, "대": 1.4, "모": 1.5,
-    "공기": 1.5, "장": 1.2, "쪽": 1.0, "줌": 1.2, "봉지": 1.4, "팩": 1.4,
+    "g": 1.5,
+    "kg": 2.0,
+    "개": 1.5,
+    "마리": 1.5,
+    "대": 1.4,
+    "모": 1.5,
+    "공기": 1.5,
+    "장": 1.2,
+    "쪽": 1.0,
+    "줌": 1.2,
+    "봉지": 1.4,
+    "팩": 1.4,
     # 액체 — 국물요리의 주재료일 수 있다
-    "ml": 1.2, "L": 1.8, "컵": 1.3,
+    "ml": 1.2,
+    "L": 1.8,
+    "컵": 1.3,
     # 양념 규모
-    "큰술": 1.0, "작은술": 0.7, "티스푼": 0.7,
+    "큰술": 1.0,
+    "작은술": 0.7,
+    "티스푼": 0.7,
     # 미량
-    "약간": 0.4, "조금": 0.4, "적당량": 0.6, "꼬집": 0.3,
+    "약간": 0.4,
+    "조금": 0.4,
+    "적당량": 0.6,
+    "꼬집": 0.3,
 }
 DEFAULT_TIER = 1.0
 
@@ -169,9 +193,14 @@ def in_title(name: str, title: str) -> bool:
     return _norm(name) in _norm(title)
 
 
-def intensity(p: ParsedIngredient, ingredient_name: str | None,
-              title: str, position: int, n_total: int,
-              role: IngredientRole | None = None) -> float:
+def intensity(
+    p: ParsedIngredient,
+    ingredient_name: str | None,
+    title: str,
+    position: int,
+    n_total: int,
+    role: IngredientRole | None = None,
+) -> float:
     """맛 집계에 쓸 강도 배수. 1.0 이 기준.
 
     수량 *숫자* 는 쓰지 않는다 — P5 를 보류했으므로 있어도 신뢰하지 않는다.

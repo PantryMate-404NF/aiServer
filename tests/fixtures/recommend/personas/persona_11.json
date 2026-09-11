@@ -1,0 +1,36 @@
+{
+  "user_id": 1011,
+  "pantry_ingredient_ids": [
+    1,
+    1,
+    2,
+    3,
+    11,
+    14,
+    21,
+    22,
+    22,
+    45,
+    46,
+    51,
+    52
+  ],
+  "expiring_ingredient_ids": [
+    14,
+    99
+  ],
+  "taste_preference": {
+    "spicy_level": 3,
+    "sweet_level": 2,
+    "salty_level": 3
+  },
+  "household_size": 2,
+  "preferred_cuisines": [
+    "한식"
+  ],
+  "max_cook_minutes": 60,
+  "allergy_group_codes": [],
+  "top_k": 50,
+  "nickname": "요리초보",
+  "app_version": "2.3.1"
+}

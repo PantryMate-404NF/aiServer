@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """fixture 기반 P1·P2 검증.   .venv/bin/python -m tests.unit.recommend.run [-v]"""
+
 from __future__ import annotations
 
 import sys
@@ -63,8 +64,10 @@ def main() -> int:
             fail_tag[tag] += 1
         elif verbose:
             g = got[0] if got else None
-            print(f"  ✓ {raw!r:<34} {g.name if g else '—'} "
-                  f"{g.quantity if g else ''} {g.unit or '' if g else ''}")
+            print(
+                f"  ✓ {raw!r:<34} {g.name if g else '—'} "
+                f"{g.quantity if g else ''} {g.unit or '' if g else ''}"
+            )
 
     print(f"\n{'분류':<16}{'전체':>5}{'실패':>6}")
     for t, n in by_tag.most_common():

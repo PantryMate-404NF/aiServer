@@ -8,6 +8,7 @@
 매핑이 틀렸으면 sources/mangae.yaml 의 paths 만 고치면 되고,
 adapter.py · DB 스키마 · 정규화 파이프라인은 건드리지 않는다.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -27,8 +28,10 @@ IMPACT = {
     "ingredients.container": ("🔴", "재료가 없으면 이 서비스가 성립하지 않는다"),
     "ingredients.raw_text": ("🔴", "정규화 대상이 없다"),
     "ingredients.group_name": (
-        "🟡", "role 판별을 is_staple/is_seasoning 플래그와 수량 표현으로만 하게 된다. "
-              "essential 과다 판정 → 추천 후보가 좁아진다 (설계 4-5)"),
+        "🟡",
+        "role 판별을 is_staple/is_seasoning 플래그와 수량 표현으로만 하게 된다. "
+        "essential 과다 판정 → 추천 후보가 좁아진다 (설계 4-5)",
+    ),
     "dish_type": ("🟡", "다양성 re-ranking 보조 축 상실 (설계 5-3-2)"),
     "situation": ("⚪", "상황 기반 필터 불가. 현재 설계에서 쓰는 곳 없음"),
     "main_ing_cat": ("🟡", "다양성 캡 축 하나 상실"),
@@ -65,7 +68,8 @@ def main() -> int:
 
     samples = load_samples(a.target)
     if not samples:
-        print("샘플이 비어 있습니다"); return 1
+        print("샘플이 비어 있습니다")
+        return 1
     ad = SourceAdapter.load(a.source)
 
     print(f"소스 {a.source} · 샘플 {len(samples)}건\n")
@@ -82,7 +86,7 @@ def main() -> int:
         fb_names = {f.split(":")[0].strip() for f in r.fallbacks}
         for k, v in r.values.items():
             if k in ("raw_json", "source") or k in fb_names:
-                continue          # 폴백으로 채워진 값은 '매핑 성공' 이 아니다
+                continue  # 폴백으로 채워진 값은 '매핑 성공' 이 아니다
             if v is not None:
                 hit_c[k] += 1
                 vals.setdefault(k, [])
@@ -115,14 +119,13 @@ def main() -> int:
         if not c:
             continue
         p = paths.get(k, Counter()).most_common(1)
-        sample = " · ".join(str(x)[:26] for x in vals.get(k, [])[:a.show])
-        print(f"  ✓ {k:<15} {c/N:>5.0%}  ← {p[0][0] if p else '?':<22} {sample}")
+        sample = " · ".join(str(x)[:26] for x in vals.get(k, [])[: a.show])
+        print(f"  ✓ {k:<15} {c / N:>5.0%}  ← {p[0][0] if p else '?':<22} {sample}")
     ic = paths.get("ingredients.container", Counter()).most_common(1)
     if ic:
-        print(f"  ✓ {'ingredients':<15} {'':>5}  ← {ic[0][0]:<22} "
-              f"레시피당 {n_ing/N:.1f}개")
+        print(f"  ✓ {'ingredients':<15} {'':>5}  ← {ic[0][0]:<22} 레시피당 {n_ing / N:.1f}개")
     if n_step:
-        print(f"  ✓ {'steps':<15} {'':>5}  {'':<22} 레시피당 {n_step/N:.1f}단계")
+        print(f"  ✓ {'steps':<15} {'':>5}  {'':<22} 레시피당 {n_step / N:.1f}단계")
 
     # ── 그룹명 ───────────────────────────────────────────────────
     print("\n── 🔑 재료 그룹명 (role 판별 1차 근거) ───────────────────")

@@ -1,10 +1,10 @@
 # aiServer · 문서 index
 
-**정하는 것**: 규칙 문서의 목록과 읽는 순서. 규칙 본문은 없습니다.
+**정하는 것**: 규칙 문서와 설계·기록 문서의 목록, 읽는 순서. 규칙 본문은 없습니다.
 
 **적용 대상**: 이 저장소에 기여하는 모든 인원 및 AI 코딩 에이전트
 
-**버전**: 1.1.0 · **최종 수정**: 2026-09-10 · **작성자**: 김민경
+**버전**: 1.7.0 · **최종 수정**: 2026-09-10 · **작성자**: 김민경
 
 ---
 
@@ -22,11 +22,22 @@
 충돌 시 번호가 작은 문서가 이깁니다. 규칙을 바꾸려면 01의 9절 개정 절차를 따릅니다.
 설계 결정 기록은 [decisions/](decisions/) 에 날짜별로 있습니다.
 
-### 1.1 추천 파트의 설계 문서는 저장소에 없습니다
+파트별 설계 명세와 진행 기록은 아래에 있습니다. 규칙이 아니라 진행 상태를 담습니다. 에이전트용 정본과 사람용 서술본을 함께 두는 이유는 [decisions/2026-09-10_recommend_record_dual_format.md](decisions/2026-09-10_recommend_record_dual_format.md) 에, 추천 엔진이 데이터 파트의 계약을 따르는 이유는 [decisions/2026-09-10_recommend_engine_follows_data_track_contract.md](decisions/2026-09-10_recommend_engine_follows_data_track_contract.md) 에, 데이터 파트 병합에서 검사 예외를 어디까지 허용했는지는 [decisions/2026-09-10_merge_data_track_gate_exceptions.md](decisions/2026-09-10_merge_data_track_gate_exceptions.md) 에, 01의 3.4(통과를 종료 코드로 판정)를 추가한 사례는 [decisions/2026-09-11_report_only_verified_output.md](decisions/2026-09-11_report_only_verified_output.md) 에 있습니다. `recommend/` 폴더는 04의 1.1 트리에 아직 없으며 개정 신청 대상입니다.
 
-이 저장소에는 기능 개발 코드만 둡니다. 추천 파트의 설계 노트와 초안은 팀 채널에 있습니다.
+| 폴더 | 문서 | 담는 것 |
+|---|---|---|
+| `recommend/` | [recommend_engine_design.md](recommend/recommend_engine_design.md) | 파트 B 추천 코어 엔진 설계 명세. 사람용 정본 |
+| `recommend/` | [recommend_engine_design_digest.md](recommend/recommend_engine_design_digest.md) | 위 명세의 에이전트용 압축본. 어긋나면 명세가 이깁니다 |
+| `recommend/` | [recommend_engine_work_log.md](recommend/recommend_engine_work_log.md) | 파트 B 작업 기록. 결정·가정·남은 일. 에이전트용 정본 |
+| `recommend/` | [recommend_engine_verification.md](recommend/recommend_engine_verification.md) | 파트 B 검증 기록. 명세 정합, Mock 동작, 수정 반영. 에이전트용 정본 |
+| `recommend/` | [recommend_engine_meeting_agenda.md](recommend/recommend_engine_meeting_agenda.md) | 파트 B 통합 회의 안건. 안건마다 상태(결정·반영 · 일부 반영 · 결정 필요 등)와 결정일·반영 커밋·반영 코드. 에이전트용 정본 |
+| `recommend/` | [recommend_engine_db_cutover.md](recommend/recommend_engine_db_cutover.md) | 실 DB 를 붙일 때 반드시 처리할 항목과 확인 근거. `tests/unit/recommend/test_db_cutover.py` 가 건너뛰지 못하게 막습니다 |
+| `recommend/human/` | [recommend_engine_work_log.md](recommend/human/recommend_engine_work_log.md) · [recommend_engine_verification.md](recommend/human/recommend_engine_verification.md) · [recommend_engine_meeting_agenda.md](recommend/human/recommend_engine_meeting_agenda.md) · [recommend_engine_db_cutover.md](recommend/human/recommend_engine_db_cutover.md) | 위 네 기록의 사람용 서술본 |
 
-**그래서 계약은 문서가 아니라 코드와 DDL 이 정합니다.** 아래를 보면 됩니다.
+### 1.1 추천 파트의 계약은 코드와 DDL 이 정합니다
+
+위 표의 기록 문서는 **진행 상태와 결정의 근거**를 담습니다. 실제 계약(컬럼, 조회 조건, 요청·응답 모양)은
+코드와 DDL 이 정하며 데이터 파트의 설계 노트와 초안은 저장소에 두지 않고 팀 채널에 있습니다.
 
 | 알고 싶은 것 | 볼 곳 |
 |---|---|

@@ -6,6 +6,7 @@
 손으로 쓴 예시는 코드와 어긋나지만, 이렇게 만든 것은 어긋날 수 없다.
 계약(src/features/recommend/schema.py · stage.py)이 바뀌면 이 스크립트를 다시 돌리고 render.py 로 문서를 재생성한다.
 """
+
 from __future__ import annotations
 
 import csv
@@ -18,12 +19,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
-from fastapi.testclient import TestClient  # noqa: E402
+# 바로 위에서 sys.path 에 src 를 넣은 뒤라야 아래 import 들이 됩니다.
+from fastapi.testclient import TestClient  # noqa: E402  # sys.path 설정 이후
 
-from main import create_app  # noqa: E402
+from main import create_app  # noqa: E402  # sys.path 설정 이후
 
 app = create_app()
-from features.recommend.enums import (  # noqa: E402
+from features.recommend.enums import (  # noqa: E402  # 바로 위에서 sys.path 에 src 를 넣은 뒤라야 import 가 됩니다
     ACTIVE_WEIGHT_TODAY,
     DEFAULT_WEIGHTS,
     FEATURE_KEYS,
@@ -45,6 +47,7 @@ def main() -> None:
     #    헤더가 없으면 401 이라 응답 본문을 볼 수 없다.
     from config import get_settings
     from deps import INTERNAL_API_KEY_HEADER
+
     c = TestClient(app, headers={INTERNAL_API_KEY_HEADER: get_settings().internal_api_key})
     cap: dict[str, dict] = {}
     wrong: list[str] = []
@@ -62,20 +65,25 @@ def main() -> None:
             # 주의: 그 자리에서 멈춘다. 계속 가면 뒤 호출이 KeyError 로 죽으면서
             #    진짜 원인이 묻힌다 — 무엇이 왜 틀렸는지 여기서 말해야 한다.
             wrong.append(key)
-            print(f"\n🔴 {key}: {method.upper()} {path} → {r.status_code} "
-                  f"(기대 {expect})\n   {r.text[:400]}\n\n"
-                  f"   이대로 두면 문서에 잘못된 예시가 실린다. "
-                  f"의도한 에러 예시라면 expect={r.status_code} 을 명시하세요.",
-                  file=sys.stderr)
+            print(
+                f"\n🔴 {key}: {method.upper()} {path} → {r.status_code} "
+                f"(기대 {expect})\n   {r.text[:400]}\n\n"
+                f"   이대로 두면 문서에 잘못된 예시가 실린다. "
+                f"의도한 에러 예시라면 expect={r.status_code} 을 명시하세요.",
+                file=sys.stderr,
+            )
             sys.exit(1)
         # 주의: 본문이 빌 수 있다. 09-07 부터 검증 실패는 400 + 빈 응답이다
         #    (영수증 파트가 앱 전체에 건 RequestValidationError 핸들러).
         #    r.json() 을 그냥 부르면 JSONDecodeError 로 캡처가 통째로 죽는다.
         body = r.json() if r.content else None
         cap[key] = {
-            "method": method.upper(), "path": path,
+            "method": method.upper(),
+            "path": path,
             "request": kw.get("json") or kw.get("params"),
-            "status": r.status_code, "expect": expect, "response": body,
+            "status": r.status_code,
+            "expect": expect,
+            "response": body,
         }
         return body
 
@@ -85,41 +93,106 @@ def main() -> None:
     # 주의: top_k 를 8 로 둔다. 3 이면 items 가 전부 한 종류라 문서에
     #    탐색 슬롯의 실제 모양이 안 나온다 — propensity 가 1.0 으로만 보여
     #    "IPS 분모" 라는 설명과 예시가 어긋난다.
-    resp = grab("recommend", "post", "/v1/recommend",
-                json={"user_id": 7, "session_id": "c-7-a1b2c3d4e5f6",
-                      "top_k": 8, "max_missing": 2})
+    resp = grab(
+        "recommend",
+        "post",
+        "/v1/recommend",
+        json={"user_id": 7, "session_id": "c-7-a1b2c3d4e5f6", "top_k": 8, "max_missing": 2},
+    )
     rid = resp["request_id"]
 
     # 디버거 경로라 d- 세션을 쓴다 (D-15). 접두어 실물이 문서에 남는다.
-    grab("recommend_ablation", "post", "/v1/recommend",
-         json={"user_id": 7, "session_id": "d-7-debug00000001",
-               "top_k": 2, "weight_override": {"f_expiring": 0.0}})
-    grab("recommend_degraded", "post", "/v1/recommend",
-         json={"user_id": 7, "top_k": 20, "max_missing": 0})
-    grab("recommend_interleave", "post", "/v1/recommend",
-         json={"user_id": 7, "top_k": 6, "interleave_with": "ranker-lgbm-v1"})
-    grab("events", "post", "/v1/events",
-         json={"events": [{"user_id": 7, "event_type": "click", "recipe_id": 10001,
-                           "request_id": rid, "position": 1, "session_id": "c-7-a1b2c3d4e5f6",
-                           "context": {"hour": 19}}]})
-    grab("events_rating", "post", "/v1/events",
-         json={"events": [{"user_id": 7, "event_type": "rating", "recipe_id": 10001,
-                           "value": 5, "request_id": rid, "position": 2,
-                           "session_id": "c-7-a1b2c3d4e5f6"}]})
-    grab("events_reject", "post", "/v1/events",
-         json={"events": [{"user_id": 7, "event_type": "cook", "recipe_id": 10001}]})
+    grab(
+        "recommend_ablation",
+        "post",
+        "/v1/recommend",
+        json={
+            "user_id": 7,
+            "session_id": "d-7-debug00000001",
+            "top_k": 2,
+            "weight_override": {"f_expiring": 0.0},
+        },
+    )
+    grab(
+        "recommend_degraded",
+        "post",
+        "/v1/recommend",
+        json={"user_id": 7, "top_k": 20, "max_missing": 0},
+    )
+    grab(
+        "recommend_interleave",
+        "post",
+        "/v1/recommend",
+        json={"user_id": 7, "top_k": 6, "interleave_with": "ranker-lgbm-v1"},
+    )
+    grab(
+        "events",
+        "post",
+        "/v1/events",
+        json={
+            "events": [
+                {
+                    "user_id": 7,
+                    "event_type": "click",
+                    "recipe_id": 10001,
+                    "request_id": rid,
+                    "position": 1,
+                    "session_id": "c-7-a1b2c3d4e5f6",
+                    "context": {"hour": 19},
+                }
+            ]
+        },
+    )
+    grab(
+        "events_rating",
+        "post",
+        "/v1/events",
+        json={
+            "events": [
+                {
+                    "user_id": 7,
+                    "event_type": "rating",
+                    "recipe_id": 10001,
+                    "value": 5,
+                    "request_id": rid,
+                    "position": 2,
+                    "session_id": "c-7-a1b2c3d4e5f6",
+                }
+            ]
+        },
+    )
+    grab(
+        "events_reject",
+        "post",
+        "/v1/events",
+        json={"events": [{"user_id": 7, "event_type": "cook", "recipe_id": 10001}]},
+    )
     # 주의: 프론트가 가장 흔히 맞을 400 — 세션 접두어를 안 지킨 경우.
     #    c- 실사용자 · g- 게스트 · d- 개발/디버거 이외는 입력에서 거부된다.
-    grab("events_bad_session", "post", "/v1/events", expect=400,
-         json={"events": [{"user_id": 7, "event_type": "click", "recipe_id": 10001,
-                           "request_id": rid, "position": 1,
-                           "session_id": "s-7-a1b2"}]})
-    grab("recipe_search", "get", "/v1/recipes/search",
-         params={"q": "김치", "limit": 5, "user_id": 7})
+    grab(
+        "events_bad_session",
+        "post",
+        "/v1/events",
+        expect=400,
+        json={
+            "events": [
+                {
+                    "user_id": 7,
+                    "event_type": "click",
+                    "recipe_id": 10001,
+                    "request_id": rid,
+                    "position": 1,
+                    "session_id": "s-7-a1b2",
+                }
+            ]
+        },
+    )
+    grab(
+        "recipe_search", "get", "/v1/recipes/search", params={"q": "김치", "limit": 5, "user_id": 7}
+    )
     # 주의: '라따뚜이' 는 mock 제목과 글자가 겹쳐 결과가 나왔다 — 결과 없음 예시가
     #    결과 있음이었다. 한글 제목과 문자 교집합이 0 인 값을 쓴다.
-    miss = grab("recipe_search_miss", "get", "/v1/recipes/search",
-                params={"q": "ratatouille"})
+    miss = grab("recipe_search_miss", "get", "/v1/recipes/search", params={"q": "ratatouille"})
     assert not miss["hits"], "결과 없음 예시에 hits 가 있다"
     grab("search", "get", "/v1/ingredients/search", params={"q": "대파", "limit": 5})
     smiss = grab("search_miss", "get", "/v1/ingredients/search", params={"q": "zzzz"})
@@ -127,25 +200,43 @@ def main() -> None:
     grab("pantry_get", "get", "/v1/users/7/pantry")
     # 주의: purchased_at 을 담는 예시 — 소비기한은 구매일 기준으로 추정한다 (09-03).
     #    유저가 expires_at 을 직접 주면 그것이 추정을 이긴다.
-    grab("pantry_put", "put", "/v1/users/7/pantry",
-         json={"items": [{"ingredient_id": 1042, "quantity": 1, "unit": "대",
-                          "purchased_at": "2026-09-01"},
-                         {"ingredient_id": 1300, "quantity": 1, "unit": "모",
-                          "expires_at": "2026-09-06"}],
-               "removed": [{"ingredient_id": 1101, "reason": "consumed"}]})
+    grab(
+        "pantry_put",
+        "put",
+        "/v1/users/7/pantry",
+        json={
+            "items": [
+                {"ingredient_id": 1042, "quantity": 1, "unit": "대", "purchased_at": "2026-09-01"},
+                {"ingredient_id": 1300, "quantity": 1, "unit": "모", "expires_at": "2026-09-06"},
+            ],
+            "removed": [{"ingredient_id": 1101, "reason": "consumed"}],
+        },
+    )
     # 온보딩 (09-03 신설). 이 계약이 없어서 가중치 0.27 을 저장할 곳이 없었다.
-    grab("onboarding", "post", "/v1/onboarding/7",
-         json={"picks": [3, 7, 12], "scales": [2, 3, 1],
-               "allergy_groups": ["nut", "shellfish"], "allergy_ingredient_ids": [170],
-               "avoid_ingredient_ids": [55], "household_size": 2})
-    grab("onboarding_reject", "post", "/v1/onboarding/7", expect=400,
-         json={"picks": [1], "scales": [9, 0, 0]})
+    grab(
+        "onboarding",
+        "post",
+        "/v1/onboarding/7",
+        json={
+            "picks": [3, 7, 12],
+            "scales": [2, 3, 1],
+            "allergy_groups": ["nut", "shellfish"],
+            "allergy_ingredient_ids": [170],
+            "avoid_ingredient_ids": [55],
+            "household_size": 2,
+        },
+    )
+    grab(
+        "onboarding_reject",
+        "post",
+        "/v1/onboarding/7",
+        expect=400,
+        json={"picks": [1], "scales": [9, 0, 0]},
+    )
     grab("log", "get", f"/v1/recommendations/{rid}")
     # 에러 규약 표가 404 를 말하는데 예시가 없었다.
-    grab("log_404", "get", "/v1/recommendations/00000000-0000-4000-8000-000000000000",
-         expect=404)
-    grab("error_400", "post", "/v1/recommend", expect=400,
-         json={"user_id": 7, "topk": 20})
+    grab("log_404", "get", "/v1/recommendations/00000000-0000-4000-8000-000000000000", expect=404)
+    grab("error_400", "post", "/v1/recommend", expect=400, json={"user_id": 7, "topk": 20})
     grab("health", "get", "/health")
 
     # ─────────────────────────────────────────────────────────────
@@ -174,7 +265,7 @@ def main() -> None:
         return re.findall(r"'([^']+)'", m.group(1))
 
     axes: list[str] = []
-    ay = (ROOT / "seeds/onboarding_recipes.yaml")
+    ay = ROOT / "seeds/onboarding_recipes.yaml"
     if ay.exists():
         m = re.search(r"^axes:\s*\[([^\]]*)\]", ay.read_text(encoding="utf-8"), re.M)
         if m:
@@ -184,9 +275,11 @@ def main() -> None:
     ic = ROOT / "seeds/ingredient.csv"
     if ic.exists():
         with ic.open(encoding="utf-8") as f:
-            n_staple = sum(1 for r in csv.DictReader(f)
-                           if str(r.get("is_staple", "")).strip().lower()
-                           in ("true", "t", "1", "y"))
+            n_staple = sum(
+                1
+                for r in csv.DictReader(f)
+                if str(r.get("is_staple", "")).strip().lower() in ("true", "t", "1", "y")
+            )
 
     METHODS = ("get", "post", "put", "patch", "delete")
     cap["_const"] = {
@@ -211,9 +304,11 @@ def main() -> None:
     }
 
     (OUT / "examples.json").write_text(
-        json.dumps(cap, ensure_ascii=False, indent=2), encoding="utf-8")
+        json.dumps(cap, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     (OUT / "openapi.json").write_text(
-        json.dumps(app.openapi(), ensure_ascii=False, indent=2), encoding="utf-8")
+        json.dumps(app.openapi(), ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
     n_schema = len(oas["components"]["schemas"])
     n_cap = sum(1 for k in cap if not k.startswith("_"))

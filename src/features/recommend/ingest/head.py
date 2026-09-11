@@ -26,6 +26,7 @@
 퍼지 매칭은 오탈자(`얘호박`)에만 남기고, 임계값은 캘리브레이션으로 정한다
 (`features.recommend.evaluation.threshold`).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -62,8 +63,7 @@ class HeadIndex:
     MIN_REMAINDER = 2
 
     @staticmethod
-    def derive_heads(names: list[str], min_count: int = 3,
-                     min_len: int = MIN_HEAD_LEN) -> set[str]:
+    def derive_heads(names: list[str], min_count: int = 3, min_len: int = MIN_HEAD_LEN) -> set[str]:
         """시드에서 핵심어를 **자동 유도한다.**
 
         손으로 적은 목록은 반드시 빠뜨린다. `min_count` 개 이상의 재료명이
@@ -73,14 +73,16 @@ class HeadIndex:
         시드가 커지면 자동으로 좋아진다는 것이 손으로 적는 것보다 나은 점이다.
         """
         from collections import Counter
+
         c: Counter[str] = Counter()
         for n in names:
-            for k in range(min_len, len(n)):        # 진부분 접미사만
+            for k in range(min_len, len(n)):  # 진부분 접미사만
                 c[n[-k:]] += 1
         return {suf for suf, cnt in c.items() if cnt >= min_count}
 
-    def __init__(self, names: list[str], extra_heads: tuple[str, ...] | None = None,
-                 derive: bool = True):
+    def __init__(
+        self, names: list[str], extra_heads: tuple[str, ...] | None = None, derive: bool = True
+    ) -> None:
         self.names = set(names)
         self.heads: set[str] = set(names)
         if derive:
@@ -103,7 +105,7 @@ class HeadIndex:
         for h in self._ordered:
             if len(h) < len(name) and name.endswith(h):
                 return Decomposed(name, (name[: -len(h)],), h)
-        return Decomposed(name, (), name)      # 못 쪼개면 통째로 핵심어
+        return Decomposed(name, (), name)  # 못 쪼개면 통째로 핵심어
 
     def relation(self, a: str, b: str, whitelist: set[str]) -> str:
         """두 표기의 관계. P3 캐스케이드의 판정값이 된다.
@@ -130,8 +132,7 @@ class HeadIndex:
         long_, short_ = (a, b) if len(a) > len(b) else (b, a)
         if long_.endswith(short_):
             mod = long_[: -len(short_)]
-            if (mod in whitelist and not both_registered
-                    and len(short_) >= self.MIN_REMAINDER):
+            if mod in whitelist and not both_registered and len(short_) >= self.MIN_REMAINDER:
                 return "rule"
             return "hyponym"
 

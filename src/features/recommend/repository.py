@@ -26,7 +26,19 @@ S3 에서 채웁니다. 채울 때 **후보 N개를 N번 조회하면 안 됩니
 
 from __future__ import annotations
 
-from features.recommend.stage import Candidate, RetrievalRequest
+import json
+from collections.abc import Sequence
+from typing import Any
+
+from features.recommend.engine.rank import (
+    check_trace_params,
+    keep_candidates,
+    merge_served_detail,
+)
+from features.recommend.enums import CANDIDATE_KEEP, SESSION_PREFIXES, Stage
+from features.recommend.schema import RecommendRequest, RecommendResponse
+from features.recommend.service import bump
+from features.recommend.stage import Candidate, RetrievalRequest, ScoredCandidate, StageTrace
 from infra.db import cursor
 
 #: 주의: ① 은 넉넉히 뽑고 ②③ 에서 좁힌다. 500 은 p95 30.2ms 로 실측된 값
@@ -87,20 +99,6 @@ def retrieve(
     ]
 
 
-import json
-from collections.abc import Sequence
-from typing import Any
-
-from features.recommend.engine.rank import (
-    check_trace_params,
-    keep_candidates,
-    merge_served_detail,
-)
-from features.recommend.enums import CANDIDATE_KEEP, SESSION_PREFIXES, Stage
-from features.recommend.schema import RecommendRequest, RecommendResponse
-from features.recommend.service import bump
-from features.recommend.stage import ScoredCandidate
-
 #: 주의: 로그 쓰기가 요청을 오래 붙들지 않게 한다. 여기 걸리면 실패로 세고 넘어간다.
 STATEMENT_TIMEOUT_MS = 300
 
@@ -152,7 +150,7 @@ DO NOTHING
 """
 
 
-def _rerank_params(tr: Any) -> dict[str, Any]:
+def _rerank_params(tr: StageTrace | None) -> dict[str, Any]:
     """③ Rerank 의 params. 동결 키 10종이 여기 실린다.
 
     🔴 **모든 스테이지를 검사하면 안 된다.** ①② 는 이 키들을 갖지 않는 것이 정상이라
@@ -166,7 +164,7 @@ def _rerank_params(tr: Any) -> dict[str, Any]:
     return {}
 
 
-def _serving_mode(tr: Any) -> str:
+def _serving_mode(tr: StageTrace | None) -> str:
     """real | sim | load_test. 절단 폭(CANDIDATE_KEEP)을 가른다.
 
     추적에 이미 실려 있으므로 라이터가 따로 유도하지 않는다 — 유도하면 로그에
@@ -204,13 +202,15 @@ def write_recommendation(
     scored: Sequence[ScoredCandidate] | None = None,
     pantry_ids: Sequence[int] = (),
     allergy_ids: Sequence[int] | None = None,
-    pantry_detail: Any = None,
-    trace: Any = None,
+    #: JSONB 로 그대로 실린다. 모양을 여기서 정하지 않는다 — 호출부가 만든 것을 옮긴다
+    pantry_detail: object = None,
+    trace: StageTrace | None = None,
     config_hash: str | None = None,
     warm_alpha: float | None = None,
     stats_version: int | None = None,
     mlflow_run_id: str | None = None,
-    policies: Any = None,
+    #: JSONB. 정책 스냅숏이라 키가 정책마다 다르다
+    policies: object = None,
 ) -> bool:
     """1행 + N행을 쓴다. **예외를 올리지 않는다** — 성공 여부만 돌려준다.
 

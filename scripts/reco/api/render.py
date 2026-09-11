@@ -12,6 +12,7 @@ src/features/recommend/schema.py · stage.py 를 고치고 이 두 스크립트�
 계약 상수는 capture.py 가 `examples.json` 의 `_const` 에 실어 보낸다 —
 여기서 숫자를 손으로 적으면 다음 변경에서 조용히 낡는다.
 """
+
 from __future__ import annotations
 
 import json
@@ -28,12 +29,12 @@ C = CAP["_const"]
 
 # 주의: 캡처가 기대와 다른 상태로 들어왔으면 렌더하지 않는다.
 #    capture.py 가 이미 막지만, render.py 만 따로 돌리는 경로가 있다.
-_bad = [k for k, v in CAP.items()
-        if not k.startswith("_") and v.get("status") != v.get("expect")]
+_bad = [k for k, v in CAP.items() if not k.startswith("_") and v.get("status") != v.get("expect")]
 if _bad:
     raise SystemExit(
         f"🔴 기대와 다른 상태의 캡처가 있다: {_bad}\n"
-        f"   scripts/reco/api/capture.py 를 먼저 돌리세요 (make api-docs).")
+        f"   scripts/reco/api/capture.py 를 먼저 돌리세요 (make api-docs)."
+    )
 
 
 def j(o, cut: int | None = None) -> str:
@@ -59,24 +60,30 @@ LOG = {k: v for k, v in CAP["log"]["response"].items() if k != "stage_trace"}
 DEGRADED_TOTALS = CAP["recommend_degraded"]["response"]["trace"]["totals"]
 
 PREFIX_MEANING = {"c-": "실사용자", "g-": "게스트", "d-": "개발·디버거·시딩"}
-PREFIX_ROWS = "\n".join(
-    f"| `{p}` | {PREFIX_MEANING.get(p, '?')} |" for p in C["session_prefixes"])
+PREFIX_ROWS = "\n".join(f"| `{p}` | {PREFIX_MEANING.get(p, '?')} |" for p in C["session_prefixes"])
 
 ALLERGEN_KO = {
-    "nut": "견과", "sesame": "참깨", "soy": "대두", "gluten": "밀", "egg": "달걀",
-    "dairy": "유제품", "fish": "어류", "shellfish": "갑각·패류",
-    "peach": "복숭아", "buckwheat": "메밀",
+    "nut": "견과",
+    "sesame": "참깨",
+    "soy": "대두",
+    "gluten": "밀",
+    "egg": "달걀",
+    "dairy": "유제품",
+    "fish": "어류",
+    "shellfish": "갑각·패류",
+    "peach": "복숭아",
+    "buckwheat": "메밀",
 }
-ALLERGEN_ROWS = "\n".join(
-    f"| `{g}` | {ALLERGEN_KO.get(g, '')} |" for g in C["allergen_groups"])
+ALLERGEN_ROWS = "\n".join(f"| `{g}` | {ALLERGEN_KO.get(g, '')} |" for g in C["allergen_groups"])
 
 # ── 피처 17종의 오늘 상태 ─────────────────────────────────────
 # 주의: 상태를 두 갈래(UNAVAILABLE / PENDING)로만 나누면 거짓말을 한다.
 #    f_content 는 둘 중 어디에도 없는데 w=0 이고 응답에서 항상 null 이다 —
 #    "정상" 이라고 찍혔었다. 가중치와 실제 캡처값까지 보고 판정한다.
 _W = C["default_weights"]
-_NULL_ALWAYS = {k for k in C["feature_keys"]
-                if all(i["features"].get(k) is None for i in R["items"])}
+_NULL_ALWAYS = {
+    k for k in C["feature_keys"] if all(i["features"].get(k) is None for i in R["items"])
+}
 
 
 def _fstate(k: str) -> str:
@@ -90,9 +97,9 @@ def _fstate(k: str) -> str:
 
 
 FEATURE_ROWS = "\n".join(
-    f"| `{k}` | {_W.get(k, 0.0)} | {_fstate(k)} | "
-    f"{'`null`' if k in _NULL_ALWAYS else '값 있음'} |"
-    for k in C["feature_keys"])
+    f"| `{k}` | {_W.get(k, 0.0)} | {_fstate(k)} | {'`null`' if k in _NULL_ALWAYS else '값 있음'} |"
+    for k in C["feature_keys"]
+)
 #: 점수에 실제로 기여하는 것 — w>0 이고 수단·데이터가 다 있는 것
 N_ACTIVE = sum(1 for k in C["feature_keys"] if _fstate(k).startswith("✅"))
 N_ZERO_W = sum(1 for k in C["feature_keys"] if _W.get(k, 0.0) == 0.0)
@@ -100,7 +107,7 @@ N_ZERO_W = sum(1 for k in C["feature_keys"] if _W.get(k, 0.0) == 0.0)
 TRACE_PARAM_NOTE = {
     "policy_id": "어느 정책이었나",
     "propensity_semantics": f"무엇의 확률인가. **`{C['propensity_semantics']}` 으로 동결** — "
-                            "Top-K 어딘가에 노출될 **주변확률**이고 (아이템,위치) 결합확률이 아니다",
+    "Top-K 어딘가에 노출될 **주변확률**이고 (아이템,위치) 결합확률이 아니다",
     "explore_pool_size": "탐색 풀 크기",
     "uniform_share": "혼합 정책의 균등 비율",
     "propensity_mc": "MC 반복 수",
@@ -109,10 +116,11 @@ TRACE_PARAM_NOTE = {
     "top_k": "몇 개를 노출했나. propensity 재계산의 분모",
     "n_explore": "탐색 슬롯이 몇 칸이었나",
     "serving_mode": "`real`·`sim`·`load_test` — 없으면 candidates 가 "
-                    "“잘려서 없는 것”인지 “원래 없던 것”인지 구분되지 않는다",
+    "“잘려서 없는 것”인지 “원래 없던 것”인지 구분되지 않는다",
 }
 TRACE_PARAM_ROWS = "\n".join(
-    f"| `{k}` | {TRACE_PARAM_NOTE.get(k, '')} |" for k in C["required_trace_params"])
+    f"| `{k}` | {TRACE_PARAM_NOTE.get(k, '')} |" for k in C["required_trace_params"]
+)
 
 
 # ── 엔드포인트 표 — 목록은 openapi 에서, 용도는 손으로 ────────
@@ -135,18 +143,19 @@ _METHODS = ("get", "post", "put", "patch", "delete")
 
 def _ep_rows() -> str:
     rows = []
-    for path in sorted(OAS["paths"],
-                       key=lambda p: _ORDER.index(p) if p in _ORDER else 99):
-        verbs = " · ".join(f"`{m.upper()}`"
-                           for m in _METHODS if m in OAS["paths"][path])
+    for path in sorted(OAS["paths"], key=lambda p: _ORDER.index(p) if p in _ORDER else 99):
+        verbs = " · ".join(f"`{m.upper()}`" for m in _METHODS if m in OAS["paths"][path])
         # 주의: 새 라우트가 생기면 설명이 비어 문서에 경고가 보인다 — 조용히 빠지지 않는다
-        use = _PURPOSE.get(path, "⚠️ **용도 미기재** — scripts/reco/api/render.py 의 `_PURPOSE` 에 추가하세요")
+        use = _PURPOSE.get(
+            path, "⚠️ **용도 미기재** — scripts/reco/api/render.py 의 `_PURPOSE` 에 추가하세요"
+        )
         # 이 값은 f-string 에 값으로 꽂히므로 중괄호를 이스케이프하지 않는다
         rows.append(f"| {verbs} | `{path}` | {use} |")
     return "\n".join(rows)
 
 
 EP_ROWS = _ep_rows()
+
 
 # ── EventIn 필드 표 — 타입은 openapi 에서, 경고는 손으로 ──────
 def _type(spec: dict) -> str:
@@ -157,8 +166,14 @@ def _type(spec: dict) -> str:
         opt = any(x.get("type") == "null" for x in spec["anyOf"])
         return (" \\| ".join(parts) or "any") + ("?" if opt else "")
     kind = spec.get("type", "")
-    t = {"integer": "int", "number": "float", "string": "str",
-         "boolean": "bool", "object": "dict", "array": "list"}.get(kind, "any")
+    t = {
+        "integer": "int",
+        "number": "float",
+        "string": "str",
+        "boolean": "bool",
+        "object": "dict",
+        "array": "list",
+    }.get(kind, "any")
     if spec.get("format") == "uuid":
         return "UUID"
     lo, hi = spec.get("minimum"), spec.get("maximum")
@@ -174,18 +189,19 @@ EVENT_NOTE = {
     "event_type": "아래 8종",
     "recipe_id": "`search` 등 아이템이 없는 이벤트는 생략",
     "value": "`rating` 은 **원점수 1~5**, dwell time 은 초(sec). 한 칸을 두 뜻으로 쓴다. "
-             "🔴 **서버가 범위를 검증하지 않는다** — 100 을 보내도 200 이고 라벨이 48.5 가 된다",
+    "🔴 **서버가 범위를 검증하지 않는다** — 100 을 보내도 200 이고 라벨이 48.5 가 된다",
     "request_id": "🔴 없으면 학습 라벨과 추천 로그를 이을 수 없다",
     "position": "🔴 **1-base** — `items[].final_rank` 와 같은 기준이다. "
-                "배열 인덱스(0-base)를 그대로 보내면 **400**",
+    "배열 인덱스(0-base)를 그대로 보내면 **400**",
     "session_id": "🔴 `^[cgd]-` — 아래 접두어 표 참조",
     "context": "값은 **문자열·정수·null 만**. 실수(37.5)·배열·중첩 객체는 400",
 }
 EVENT_ROWS = "\n".join(
-    f"| `{k}` | {_type(v)} | {EVENT_NOTE.get(k, '')} |"
-    for k, v in C["event_in"].items())
+    f"| `{k}` | {_type(v)} | {EVENT_NOTE.get(k, '')} |" for k, v in C["event_in"].items()
+)
 
-EXPLORE_BLOCK = f"""
+EXPLORE_BLOCK = (
+    f"""
 ## 응답 200 — items[] (탐색 슬롯)
 
 ```json
@@ -195,7 +211,10 @@ EXPLORE_BLOCK = f"""
 **탐색 슬롯은 점수로 뽑힌 것이 아니다.** 무작위로 꽂은 자리이고, 그래서
 `propensity` 가 1.0 이 아니다 — 이 값이 off-policy 평가의 분모가 된다.
 `explore_source` 가 `uniform` 이면 support 보장용, `thompson` 이면 우연성용이다.
-""" if EXPLORE else ""
+"""
+    if EXPLORE
+    else ""
+)
 
 
 DOC = f"""# API 명세
@@ -204,8 +223,8 @@ DOC = f"""# API 명세
 
 | 항목 | 내용 |
 |---|---|
-| 생성 | {C['captured_at']} — `make api-docs` 캡처 시각 |
-| 계약 버전 | `{R['contract_version']}` |
+| 생성 | {C["captured_at"]} — `make api-docs` 캡처 시각 |
+| 계약 버전 | `{R["contract_version"]}` |
 | **SoT** | **[`src/features/recommend/schema.py` · `stage.py`](../../../src/features/recommend/)** — 이 문서는 거기서 파생된다 |
 | 검증 | `make contract` — **출력의 통과 건수가 SoT** · Mock 실호출 캡처 |
 | 기계 판독용 | [`api/openapi.json`](api/openapi.json) · [`api/examples.json`](api/examples.json) |
@@ -234,7 +253,7 @@ make api-docs    # 이 문서 재생성
 |---|---|---|
 {EP_ROWS}
 
-**경로 {C['n_paths']}개 · 오퍼레이션 {C['n_ops']}개다** (pantry 가 GET·PUT 두 개).
+**경로 {C["n_paths"]}개 · 오퍼레이션 {C["n_ops"]}개다** (pantry 가 GET·PUT 두 개).
 소수 인원이 유지할 수 있는 최소 표면으로 잘랐다. AI 파트가 3명으로 늘었지만 표면은
 그대로 둔다 — 남은 기간이 3주다.
 
@@ -307,14 +326,14 @@ make api-docs    # 이 문서 재생성
 | `missing_count` · `missing_ids` | ① Retrieval 산출. `missing_ids` 는 **재료 ID 정수 배열**이다 — 이름이 아니고, 이름으로 바꿀 경로가 이 API 에 없다 |
 | `coverage` | `n_essential = 0` 이면 **1.0**, 아니면 `1 - missing_count / n_essential` |
 | `score` | ② Ranking 최종 점수 |
-| **`features`** | **피처 원값 {len(C['feature_keys'])}종 전부** *(v1.9 — `contrib` 저장 폐기)*. `null` 과 `0.0` 의 뜻이 다르다 — 아래 표 참조 |
+| **`features`** | **피처 원값 {len(C["feature_keys"])}종 전부** *(v1.9 — `contrib` 저장 폐기)*. `null` 과 `0.0` 의 뜻이 다르다 — 아래 표 참조 |
 | `penalty` | `p_recent × p_cooked × (1 - p_avoid)` |
 | `reason` · `reason_features` | **z-salience 상위 2개**로 만든 문구와 그 근거 피처 (설계 5-5). `contrib` argmax 는 이유가 1종으로 붕괴해 폐기됐다 |
 | `cluster_id` | 우연성·다양성 축 (설계 5-3-5). 배치 미실행이면 `null` |
 | `final_rank` | 최종 순위. **1-base** — `/v1/events` 의 `position` 과 **같은 기준**이다 |
 | `mmr_penalty` | 다양성(MMR) 감점. 기본 `0.0` |
 | `is_exploration` · `explore_source` | 무작위 삽입 슬롯과 채운 경로 — `uniform`(support 보장) / `thompson`(우연성) |
-| **`propensity`** | 🔴 이 아이템이 Top-K **어딘가에** 노출될 **주변확률**이다 — (아이템, 위치) 결합확률이 **아니다**(`propensity_semantics="{C['propensity_semantics']}"` 로 동결). **off-policy 평가(IPS)의 분모** — 소급 불가. 위치 효과를 곱해 넣으면 `P(examine\\|position) × P(relevant\\|item)` 이 한 칸에 섞여 **다시 뺄 수 없다** |
+| **`propensity`** | 🔴 이 아이템이 Top-K **어딘가에** 노출될 **주변확률**이다 — (아이템, 위치) 결합확률이 **아니다**(`propensity_semantics="{C["propensity_semantics"]}"` 로 동결). **off-policy 평가(IPS)의 분모** — 소급 불가. 위치 효과를 곱해 넣으면 `P(examine\\|position) × P(relevant\\|item)` 이 한 칸에 섞여 **다시 뺄 수 없다** |
 | `team` | interleaving 시 이 자리를 가져간 랭커 (`A`/`B`) |
 
 > 필수 재료가 전부 기본양념인 레시피(간장계란밥류)는 `essential_ids` 가 빈 배열이라
@@ -332,10 +351,10 @@ make api-docs    # 이 문서 재생성
 |---|---|---|---|
 {FEATURE_ROWS}
 
-> 🔴 **{len(C['feature_keys'])}종 중 점수에 실제로 기여하는 것은 {N_ACTIVE}종이고,
-> 그 가중치 합은 {C['active_weight_today']} 다** (설계 의도는 1.00).
-> 나머지 {len(C['feature_keys']) - N_ACTIVE}종 중 {N_ZERO_W}종은 `w=0` 이라 계산돼도
-> 순위를 못 바꾸고, {len(C['pending_data_features'])}종은 `w` 를 가진 채 값이 안 온다.
+> 🔴 **{len(C["feature_keys"])}종 중 점수에 실제로 기여하는 것은 {N_ACTIVE}종이고,
+> 그 가중치 합은 {C["active_weight_today"]} 다** (설계 의도는 1.00).
+> 나머지 {len(C["feature_keys"]) - N_ACTIVE}종 중 {N_ZERO_W}종은 `w=0` 이라 계산돼도
+> 순위를 못 바꾸고, {len(C["pending_data_features"])}종은 `w` 를 가진 채 값이 안 온다.
 > 점수 재현은 `Σwᵢfᵢ / Σwᵢ` 이며 — **`fᵢ` 가 `null` 인 피처는 분자·분모에서 함께 빠진다.**
 > 분모를 1.00 으로 잡으면 값이 틀린다. 재분배가 아니라 나눗셈이다.
 
@@ -343,7 +362,7 @@ make api-docs    # 이 문서 재생성
 > 실서빙에서는 원천 데이터가 없어 둘 다 `null` 이다. 반대로 `f_content`·`f_ing_cf`·
 > `f_group_pref` 는 Mock·실서빙 **양쪽 모두** `null` 이다 — 계산할 코드가 없다.
 
-> `features` 는 **{len(C['feature_keys'])}개 키 전부**가 있어야 한다. 빠뜨리거나 모르는 키가
+> `features` 는 **{len(C["feature_keys"])}개 키 전부**가 있어야 한다. 빠뜨리거나 모르는 키가
 > 있으면 **`ScoredCandidate` 생성 자체가 거부된다** — 이것은 요청으로 보내는 필드가 아니라
 > 서버 내부 계약이라, 어기면 400 이 아니라 **응답 조립 중 500** 이다.
 > `w=0` 피처가 로그에서 소실되어 소급 학습이 불가능해지는 것을 계약이 막는 장치다.
@@ -358,7 +377,7 @@ make api-docs    # 이 문서 재생성
 `missing_gt_k` 를 보면 즉시 “k 를 2에서 3으로 올려야 한다”는 결론이 나온다.
 탈락 사유를 집계하지 않으면 이 진단에 몇 시간이 걸린다.
 
-### `rerank.params` 동결 키 {len(C['required_trace_params'])}종
+### `rerank.params` 동결 키 {len(C["required_trace_params"])}종
 
 **값이 아니라 정의가 소급 불가다.** 없으면 로그가 있어도 propensity 를 재구성할 수 없다.
 
@@ -605,7 +624,7 @@ GET /v1/ingredients/search?q=대파&limit=5
 
 > ⚠️ 위 예시의 `staple_count`·`days_left` 는 **Mock 의 고정 스텁**이라 실제 값도
 > 아니고 `expires_at` 과 산술이 맞지도 않는다. 실제 기본양념 수는 `ingredient.is_staple`
-> 행 수이며 현재 시드 기준 **{C['n_staple_seed']}종**이다.
+> 행 수이며 현재 시드 기준 **{C["n_staple_seed"]}종**이다.
 > `PUT` 응답의 `days_left` 가 항상 `null` 인 것도 Mock 의 한계지 버그가 아니다.
 
 `expires_at` · `days_left` 가 `f_expiring` 피처의 원천이며 이 서비스의 **최대 차별화 포인트**다.
@@ -847,8 +866,8 @@ expires_at = COALESCE(purchased_at, 등록일) + 재료별 소비기한 일수
 # 버전 관리
 
 ```
-CONTRACT_VERSION         = "{R['contract_version']}"    # API 전체
-StageTrace.trace_version = "{R['trace']['trace_version']}"    # trace 구조
+CONTRACT_VERSION         = "{R["contract_version"]}"    # API 전체
+StageTrace.trace_version = "{R["trace"]["trace_version"]}"    # trace 구조
 ```
 
 | 변경 | 버전 | 예 |

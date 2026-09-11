@@ -42,6 +42,7 @@ class RetrievalInput(_Base):
     집합을 직접 넘긴다 — 시뮬레이터·벤치가 유저 없이 후보를 뽑을 때 쓴다.
     서빙 경로는 아래 `RetrievalRequest` 다.
     """
+
     user_id: int
     pantry_ids: list[int] = Field(description="냉장고 + staple 전체 (결정 2)")
     allergy_ids: list[int] = Field(default_factory=list, description="4경로 합집합 전개 결과")
@@ -60,6 +61,7 @@ class RetrievalRequest(_Base):
     경계값은 위 `RetrievalInput` 과 같아야 한다. 두 경로가 다른 상한을 쓰면
     시뮬 결과와 서빙 결과가 조용히 갈라진다.
     """
+
     user_id: int
     max_missing: int = Field(default=2, ge=0, le=10)
     max_minutes: int | None = Field(default=None, ge=1)
@@ -68,6 +70,7 @@ class RetrievalRequest(_Base):
 
 class Candidate(_Base):
     """① 산출. 아직 점수가 없다."""
+
     recipe_id: int
     missing_count: int = Field(ge=0)
     missing_ids: list[int] = Field(default_factory=list)
@@ -97,14 +100,17 @@ class ScoredCandidate(Candidate):
     `contrib` 는 저장하지 않고 `contrib(weights)` 로 언제든 되계산한다.
     가중치가 바뀌어도 과거 로그를 다시 해석할 수 있다.
     """
+
     #: 주의: FEATURE_KEYS 전부가 있어야 한다. `None` 과 `0.0` 은 다른 의미다.
     #:    `0.0` = 계산했더니 0 · `None` = 계산할 수 없음(수단 미구현·데이터 없음).
     #:    LightGBM 은 결측을 native 로 처리하므로 0 으로 메우면 정보가 왜곡된다.
     features: dict[str, float | None] = Field(
-        description="피처 원값 17종. w 와 무관하게 항상 전부 기록한다")
+        description="피처 원값 17종. w 와 무관하게 항상 전부 기록한다"
+    )
     score: float
-    penalty: float = Field(default=1.0, ge=0.0, le=1.0,
-                           description="p_recent · p_cooked · (1-p_avoid) 의 곱")
+    penalty: float = Field(
+        default=1.0, ge=0.0, le=1.0, description="p_recent · p_cooked · (1-p_avoid) 의 곱"
+    )
 
     @field_validator("features")
     @classmethod
@@ -119,9 +125,11 @@ class ScoredCandidate(Candidate):
 
     def contrib(self, weights: dict[str, float]) -> dict[str, float]:
         """w·f. 저장하지 않고 필요할 때 계산한다 (디버거 막대그래프용)."""
-        return {k: weights.get(k, 0.0) * (self.features.get(k) or 0.0)
-                for k in FEATURE_KEYS if weights.get(k, 0.0) > 0}
-
+        return {
+            k: weights.get(k, 0.0) * (self.features.get(k) or 0.0)
+            for k in FEATURE_KEYS
+            if weights.get(k, 0.0) > 0
+        }
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -129,11 +137,13 @@ class ScoredCandidate(Candidate):
 # ─────────────────────────────────────────────────────────────────
 class RankedItem(ScoredCandidate):
     """③ 산출. 유저에게 나가는 최종 형태."""
+
     final_rank: int = Field(ge=1)
     reason: str = Field(default="", description="템플릿 생성 문구 (설계 5-5)")
     reason_features: list[str] = Field(
         default_factory=list,
-        description="이유를 만든 피처 (z-salience 상위). 디버거가 근거를 보여준다")
+        description="이유를 만든 피처 (z-salience 상위). 디버거가 근거를 보여준다",
+    )
     mmr_penalty: float = 0.0
     is_exploration: bool = Field(
         default=False,
@@ -143,14 +153,18 @@ class RankedItem(ScoredCandidate):
     #:    나중에 off-policy 평가를 하려면 그때의 로그 정책을 알아야 하는데,
     #:    저장해두지 않으면 영원히 복원할 수 없다 (설계 3-2).
     propensity: float | None = Field(
-        default=None, gt=0.0, le=1.0,
-        description="노출 확률. exploration 슬롯은 1/|pool|, 결정적 슬롯은 1.0")
+        default=None,
+        gt=0.0,
+        le=1.0,
+        description="노출 확률. exploration 슬롯은 1/|pool|, 결정적 슬롯은 1.0",
+    )
     #: 🔑 탐색 슬롯을 어느 경로가 채웠는가 (설계 5-3-5).
     #:    'uniform'  — 균등 무작위. support 보장용. propensity 가 모든 후보에 > 0
     #:    'thompson' — 클러스터 Thompson. 우연성용. propensity 가 아이템마다 다르다
     #:    주의: 구분하지 않으면 두 경로의 로그가 섞여 off-policy 분석에서 나눌 수 없다.
     explore_source: str | None = Field(
-        default=None, description="uniform | thompson | None(탐색 슬롯이 아님)")
+        default=None, description="uniform | thompson | None(탐색 슬롯이 아님)"
+    )
     #: Team-Draft Interleaving 시 어느 랭커가 이 자리를 가져갔는가 (설계 5-7-2)
     team: str | None = None
 
@@ -160,6 +174,7 @@ class RankedItem(ScoredCandidate):
 # ─────────────────────────────────────────────────────────────────
 class StageInfo(_Base):
     """단계 하나의 기록. filters 가 디버깅에서 가장 유용하다."""
+
     name: Stage
     in_count: int
     out_count: int
@@ -168,16 +183,18 @@ class StageInfo(_Base):
     strategy: str | None = None
     model: str | None = None
     fallback: str | None = Field(
-        default=None, description="폴백이 발동했으면 대체 모델명 (설계 5-6)")
+        default=None, description="폴백이 발동했으면 대체 모델명 (설계 5-6)"
+    )
 
     filters: dict[str, int] = Field(
         default_factory=dict,
-        description="탈락 사유별 건수. 예 {'no_overlap':227999,'allergy_cut':12}")
+        description="탈락 사유별 건수. 예 {'no_overlap':227999,'allergy_cut':12}",
+    )
     dropped: dict[str, int] = Field(
-        default_factory=dict, description="③ 전용. 다양성·캡으로 제외한 건수")
+        default_factory=dict, description="③ 전용. 다양성·캡으로 제외한 건수"
+    )
     params: dict[str, float | int | str | None] = Field(default_factory=dict)
-    score_stats: dict[str, float] = Field(
-        default_factory=dict, description="min·p25·p50·p75·max")
+    score_stats: dict[str, float] = Field(default_factory=dict, description="min·p25·p50·p75·max")
     exploration_items: list[int] = Field(default_factory=list)
 
 
@@ -186,12 +203,14 @@ class TraceTotals(_Base):
     cache_hit: bool = False
     degraded: bool = Field(
         default=False,
-        description="폴백 경로를 탔다. 이 비율이 조용히 오르는 것이 가장 위험한 실패 양상")
+        description="폴백 경로를 탔다. 이 비율이 조용히 오르는 것이 가장 위험한 실패 양상",
+    )
     user_mode: UserMode = UserMode.COLD
 
 
 class StageTrace(_Base):
     """recommendation_log.stage_trace 에 그대로 직렬화된다."""
+
     trace_version: str = "v1"
     stages: list[StageInfo] = Field(default_factory=list)
     totals: TraceTotals
@@ -203,32 +222,34 @@ class StageTrace(_Base):
 @dataclass
 class Preprocessed:
     """P1 산출. 아직 분해되지 않았다."""
-    original: str                                  # 원문. 절대 수정하지 않는다
-    text: str                                      # 괄호를 걷어낸 본문
-    notes: list[str] = field(default_factory=list)         # 부위·상태 설명
-    conversions: list[str] = field(default_factory=list)   # '400ml' 같은 환산값
+
+    original: str  # 원문. 절대 수정하지 않는다
+    text: str  # 괄호를 걷어낸 본문
+    notes: list[str] = field(default_factory=list)  # 부위·상태 설명
+    conversions: list[str] = field(default_factory=list)  # '400ml' 같은 환산값
     optional_hints: list[str] = field(default_factory=list)  # '생략가능'
-    substitutes: list[str] = field(default_factory=list)     # '또는 미림'
+    substitutes: list[str] = field(default_factory=list)  # '또는 미림'
 
 
 @dataclass
 class ParsedIngredient:
     """P2 산출. P3 매칭의 입력."""
-    raw_text: str                     # 원문 (recipe_ingredient_raw.raw_text)
-    name: str                         # ← P3 매칭 대상
-    quantity: float | None = None     # 모호하면 None. 0 으로 채우지 않는다
+
+    raw_text: str  # 원문 (recipe_ingredient_raw.raw_text)
+    name: str  # ← P3 매칭 대상
+    quantity: float | None = None  # 모호하면 None. 0 으로 채우지 않는다
     unit: str | None = None
     note: str | None = None
-    modifiers: list[str] = field(default_factory=list)    # 제거한 수식어 (L2 재활용)
+    modifiers: list[str] = field(default_factory=list)  # 제거한 수식어 (L2 재활용)
     substitutes: list[str] = field(default_factory=list)
-    is_optional_hint: bool = False    # → P4 optional 신호
-    is_ambiguous_qty: bool = False    # '약간' 류 → P4 optional 신호
-    split_candidate: bool = False     # 복합 의심 → P3 실패 시 검수 큐
-    position: int = 0                 # 한 raw_text 에서 몇 번째로 나왔나
+    is_optional_hint: bool = False  # → P4 optional 신호
+    is_ambiguous_qty: bool = False  # '약간' 류 → P4 optional 신호
+    split_candidate: bool = False  # 복합 의심 → P3 실패 시 검수 큐
+    position: int = 0  # 한 raw_text 에서 몇 번째로 나왔나
     #: 주의: 재료가 아니다 — 조리도구·용기·소모품 (seeds/non_ingredient.yaml).
-    #:    만개의레시피는 재료 목록에 도구를 섞어 넣는다 (도마 ×2,259 · 냄비 ×1,124).
+    #:    만개의레시피는 재료 목록에 도구를 섞어 넣는다 (도마 x2,259 · 냄비 x1,124).
     #:    지우지 않고 표시만 한다. 유저에게 묻는 값이 아니라
     #:    후속 코드가 읽어가는 내부 플래그다 — position 이 어긋나면 안 되고,
     #:    "무엇을 걸렀는지" 자체가 데이터 품질 지표이기 때문이다.
     is_non_ingredient: bool = False
-    non_ingredient_kind: str | None = None   # tool | vessel | consumable | action
+    non_ingredient_kind: str | None = None  # tool | vessel | consumable | action

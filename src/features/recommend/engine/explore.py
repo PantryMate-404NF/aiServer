@@ -3,10 +3,11 @@
 둘 다 **지금 안 하면 나중에 소급할 수 없다.** 과거 로그에 없는 무작위성은
 사후에 만들어낼 수 없기 때문이다.
 """
+
 from __future__ import annotations
 
 import random
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 
 
@@ -29,8 +30,9 @@ def exploration_slots(top_k: int, n: int, rng: random.Random) -> list[int]:
     return sorted(rng.sample(range(top_k), n))
 
 
-def propensity_of(position: int, explore_positions: Sequence[int],
-                  pool_size: int, top_k: int, n_explore: int) -> float:
+def propensity_of(
+    position: int, explore_positions: Sequence[int], pool_size: int, top_k: int, n_explore: int
+) -> float:
     """이 위치의 아이템이 노출될 확률. IPS 의 분모다.
 
     - exploration 슬롯: 풀에서 균등 추출 → `n_explore / (top_k · pool_size)` 근사
@@ -56,8 +58,13 @@ def propensity_of(position: int, explore_positions: Sequence[int],
 #    서빙 propensity 의 정본은 `mixed_exploration` 의 반환값 하나뿐이다.
 
 
-def interleave(a: Sequence[Any], b: Sequence[Any], rng: random.Random,
-               top_k: int, key=lambda x: x) -> list[tuple[Any, str]]:
+def interleave(
+    a: Sequence[Any],
+    b: Sequence[Any],
+    rng: random.Random,
+    top_k: int,
+    key: Callable[[Any], Any] = lambda x: x,
+) -> list[tuple[Any, str]]:
     """Team-Draft Interleaving (Radlinski et al.).
 
     **유저 100명에서 A/B 테스트는 검정력이 없다.** 50명 vs 50명, 각 20 impression 으로
@@ -74,14 +81,15 @@ def interleave(a: Sequence[Any], b: Sequence[Any], rng: random.Random,
         [(item, 'A'|'B'), ...] — 길이 top_k
     """
     ia = ib = 0
-    seen: set = set()
+    seen: set[Any] = set()
     out: list[tuple[Any, str]] = []
     la, lb = list(a), list(b)
 
     while len(out) < top_k and (ia < len(la) or ib < len(lb)):
         first_is_a = rng.random() < 0.5
-        for team, lst, idx_name in (("A", la, "ia"), ("B", lb, "ib")) if first_is_a \
-                else (("B", lb, "ib"), ("A", la, "ia")):
+        for team, lst, idx_name in (
+            (("A", la, "ia"), ("B", lb, "ib")) if first_is_a else (("B", lb, "ib"), ("A", la, "ia"))
+        ):
             idx = ia if idx_name == "ia" else ib
             while idx < len(lst) and key(lst[idx]) in seen:
                 idx += 1

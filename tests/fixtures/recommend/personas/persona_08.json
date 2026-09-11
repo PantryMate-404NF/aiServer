@@ -1,0 +1,33 @@
+{
+  "user_id": 1008,
+  "pantry_ingredient_ids": [
+    11,
+    12,
+    13,
+    23,
+    24,
+    29,
+    30,
+    48,
+    49,
+    57,
+    58,
+    60
+  ],
+  "expiring_ingredient_ids": [
+    12,
+    58
+  ],
+  "taste_preference": {
+    "spicy_level": 0,
+    "sweet_level": 4,
+    "salty_level": 1
+  },
+  "household_size": 2,
+  "preferred_cuisines": [
+    "양식"
+  ],
+  "max_cook_minutes": 45,
+  "allergy_group_codes": [],
+  "top_k": 20
+}

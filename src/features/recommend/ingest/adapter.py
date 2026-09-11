@@ -9,6 +9,7 @@
 크롤링이 끝나고 실제 JSON 을 보면 `sources/*.yaml` 의 `paths` 만 고치면 되고,
 이 파일 · DB 스키마 · 정규화 파이프라인은 건드리지 않는다.
 """
+
 from __future__ import annotations
 
 import re
@@ -91,8 +92,12 @@ def t_list(v: Any) -> list[str] | None:
 
 
 TRANSFORMS = {
-    "strip": t_strip, "int": t_int, "float": t_float,
-    "minutes": t_minutes, "difficulty": t_difficulty, "list": t_list,
+    "strip": t_strip,
+    "int": t_int,
+    "float": t_float,
+    "minutes": t_minutes,
+    "difficulty": t_difficulty,
+    "list": t_list,
     "count": t_count,
 }
 
@@ -151,7 +156,7 @@ class MapResult:
 
 
 class SourceAdapter:
-    def __init__(self, spec: dict):
+    def __init__(self, spec: dict[str, Any]) -> None:
         self.spec = spec
         self.source: str = spec["source"]
 
@@ -163,7 +168,7 @@ class SourceAdapter:
         return cls(yaml.safe_load(p.read_text(encoding="utf-8")))
 
     # ── 필드 하나 ────────────────────────────────────────────────
-    def _one(self, obj: Any, name: str, rule: dict, res: MapResult) -> None:
+    def _one(self, obj: Any, name: str, rule: dict[str, Any], res: MapResult) -> None:
         v, hit = first_hit(obj, rule.get("paths", []))
         if hit:
             res.hit_paths[name] = hit
@@ -176,22 +181,22 @@ class SourceAdapter:
             if isinstance(fb, str) and fb.startswith("const:"):
                 res.values[name] = fb.split(":", 1)[1]
             else:
-                res.values[name] = None      # derive: 는 호출부가 처리
+                res.values[name] = None  # derive: 는 호출부가 처리
             return
         fn = TRANSFORMS.get(rule.get("transform", ""))
         res.values[name] = fn(v) if fn else v
 
     # ── 레시피 ──────────────────────────────────────────────────
-    def map_recipe(self, obj: dict) -> MapResult:
+    def map_recipe(self, obj: dict[str, Any]) -> MapResult:
         res = MapResult()
         for name, rule in self.spec["recipe"].items():
             self._one(obj, name, rule, res)
         res.values["source"] = self.source
-        res.values["raw_json"] = obj          # 원본 전체 보존 (설계 2-3)
+        res.values["raw_json"] = obj  # 원본 전체 보존 (설계 2-3)
         return res
 
     # ── 재료 ────────────────────────────────────────────────────
-    def map_ingredients(self, obj: dict) -> tuple[list[dict], MapResult]:
+    def map_ingredients(self, obj: dict[str, Any]) -> tuple[list[dict[str, Any]], MapResult]:
         """[{group_name, position, raw_text}] 를 돌려준다.
 
         group_name 이 없으면 None 으로 두고 fallback 을 기록한다.
@@ -206,7 +211,7 @@ class SourceAdapter:
             return [], res
         res.hit_paths["ingredients.container"] = hit or ""
 
-        rows: list[dict] = []
+        rows: list[dict[str, Any]] = []
         pos = 0
         groups = container if isinstance(container, list) else [container]
         has_group = False
@@ -232,17 +237,28 @@ class SourceAdapter:
             for it in items:
                 # 주의: raw_text 를 최우선으로 본다. name 만 쓰면 수량이 통째로 날아간다
                 #    (실측: {"name":"소고기","amount":"100g","raw_text":"소고기 100g"})
-                txt = it if isinstance(it, str) else (
-                    it.get("raw_text") or it.get("text")
-                    or (f"{it.get('name','')} {it.get('amount','')}".strip()
-                        if it.get("name") else None)
-                    or it.get("ingredient")
-                    if isinstance(it, dict) else None)
+                txt = (
+                    it
+                    if isinstance(it, str)
+                    else (
+                        it.get("raw_text")
+                        or it.get("text")
+                        or (
+                            f"{it.get('name', '')} {it.get('amount', '')}".strip()
+                            if it.get("name")
+                            else None
+                        )
+                        or it.get("ingredient")
+                        if isinstance(it, dict)
+                        else None
+                    )
+                )
                 if not txt:
                     continue
                 pos += 1
-                rows.append({"group_name": gname, "position": pos,
-                             "raw_text": str(txt).strip()[:255]})
+                rows.append(
+                    {"group_name": gname, "position": pos, "raw_text": str(txt).strip()[:255]}
+                )
 
         if not has_group:
             res.fallbacks.append("ingredients.group_name: derive:group_from_flat")
@@ -251,16 +267,25 @@ class SourceAdapter:
         return rows, res
 
     # ── 조리 단계 ───────────────────────────────────────────────
-    def map_steps(self, obj: dict) -> list[dict]:
+    def map_steps(self, obj: dict[str, Any]) -> list[dict[str, Any]]:
         st = self.spec.get("steps", {})
         container, _ = first_hit(obj, st.get("container", {}).get("paths", []))
         if not isinstance(container, list):
             return []
         out = []
         for i, s in enumerate(container, start=1):
-            txt = s if isinstance(s, str) else (
-                s.get("instruction") or s.get("text") or s.get("description")
-                or s.get("content") if isinstance(s, dict) else None)
+            txt = (
+                s
+                if isinstance(s, str)
+                else (
+                    s.get("instruction")
+                    or s.get("text")
+                    or s.get("description")
+                    or s.get("content")
+                    if isinstance(s, dict)
+                    else None
+                )
+            )
             if txt:
                 img = s.get("image") or s.get("img") if isinstance(s, dict) else None
                 out.append({"step_no": i, "text": str(txt).strip(), "image_url": img})

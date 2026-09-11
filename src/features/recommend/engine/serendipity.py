@@ -10,7 +10,7 @@ MMR 은 이번 목록을 흩뜨릴 뿐, 유저가 **가본 적 없는 곳으로 
 
 ## 측정 — 숨은 취향 5개 중 몇 개를 찾는가
 
-유저의 진짜 취향은 8개 클러스터인데 온보딩이 아는 것은 3개. 40세션 × Top-20, 90회 평균.
+유저의 진짜 취향은 8개 클러스터인데 온보딩이 아는 것은 3개. 40세션 x Top-20, 90회 평균.
 
     탐색 슬롯 채우는 법          숨은취향   탐색슬롯 적중률   누적 조리   propensity
     탐색 없음 (greedy)          1.56/5          —          379.0      —
@@ -22,7 +22,7 @@ MMR 은 이번 목록을 흩뜨릴 뿐, 유저가 **가본 적 없는 곳으로 
 
 ## 세 가지 결론
 
-**① 우연성 = 관련성 × 의외성.** '멀기만' 하면 탐색 슬롯 적중률이 14.4% → 12.7% 로
+**① 우연성 = 관련성 x 의외성.** '멀기만' 하면 탐색 슬롯 적중률이 14.4% → 12.7% 로
    **떨어진다.** 유저에게는 "이상한 게 두 칸 껴 있네"가 된다. 의외성만 최대화하는 것은
    그냥 안 좋은 것을 보여주는 것이다.
 
@@ -52,8 +52,8 @@ MMR 은 이번 목록을 흩뜨릴 뿐, 유저가 **가본 적 없는 곳으로 
 ## 🔴 정직한 한계 — 8주 안에는 본전을 못 뽑는다
 
     세션    greedy   Thompson    차이
-      20     189.5      180.2    −9.3
-      40     390.9      385.2    −5.7
+      20     189.5      180.2    -9.3
+      40     390.9      385.2    -5.7
       80     802.6      814.8   +12.2      ← 손익분기
      150    1534.7     1603.9   +69.2
 
@@ -66,38 +66,41 @@ MMR 은 이번 목록을 흩뜨릴 뿐, 유저가 **가본 적 없는 곳으로 
 의존한다. **견고한 것은 순서**다: greedy < 무작위 < 거리만 < 거리+품질 < Thompson,
 그리고 UCB 는 propensity 가 없고 Thompson 단독은 support 가 무너진다.
 """
+
 from __future__ import annotations
 
 import random
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
 class ClusterStats:
     """클러스터별 관측. `user_cluster_stat` 테이블에서 읽어온다 (설계 2-5).
 
-    유저별로 들고 있기엔 클러스터 50개 × 유저 100명 = 5,000행이라 부담이 없다.
+    유저별로 들고 있기엔 클러스터 50개 x 유저 100명 = 5,000행이라 부담이 없다.
     """
+
     #: 이 클러스터 아이템이 유저에게 노출된 횟수
     n: dict[int, int] = field(default_factory=dict)
     #: 그중 긍정 반응(click 이상) 횟수
     hits: dict[int, int] = field(default_factory=dict)
 
-    def alpha_beta(self, c: int, prior_a: float = 1.0, prior_b: float = 4.0
-                   ) -> tuple[float, float]:
-        """Beta 사후분포의 (α, β).
+    def alpha_beta(self, c: int, prior_a: float = 1.0, prior_b: float = 4.0) -> tuple[float, float]:
+        """Beta 사후분포의 (alpha, β).
 
         prior_b=4 는 "기본 반응률 20%" 를 뜻하는 약한 사전이다. 관측이 쌓이면 밀린다.
-        prior 를 0 으로 두면 노출 0 인 클러스터가 α=β=0 이 되어 표본이 불가능하다.
+        prior 를 0 으로 두면 노출 0 인 클러스터가 alpha=β=0 이 되어 표본이 불가능하다.
         """
         n = self.n.get(c, 0)
         h = self.hits.get(c, 0)
         return prior_a + h, prior_b + (n - h)
 
 
-def thompson_cluster_scores(clusters: Sequence[int], stats: ClusterStats,
-                            rng: random.Random) -> dict[int, float]:
+def thompson_cluster_scores(
+    clusters: Sequence[int], stats: ClusterStats, rng: random.Random
+) -> dict[int, float]:
     """각 클러스터에서 Beta 사후분포를 한 번씩 뽑는다.
 
     이것이 Thompson sampling 의 전부다 — 뽑은 값이 큰 클러스터를 고른다.
@@ -111,8 +114,9 @@ def thompson_cluster_scores(clusters: Sequence[int], stats: ClusterStats,
     return out
 
 
-def thompson_propensity(clusters: Sequence[int], stats: ClusterStats,
-                        k: int, mc: int = 200, seed: int = 0) -> dict[int, float]:
+def thompson_propensity(
+    clusters: Sequence[int], stats: ClusterStats, k: int, mc: int = 200, seed: int = 0
+) -> dict[int, float]:
     """P(클러스터 c 가 탐색 슬롯에 뽑힐 확률). **닫힌 해가 없어 몬테카를로로 구한다.**
 
     🔴 이 값을 로깅하지 않으면 Thompson 탐색으로 얻은 노출은 off-policy 평가에
@@ -122,7 +126,7 @@ def thompson_propensity(clusters: Sequence[int], stats: ClusterStats,
     MC 를 줄이면 0 인 클러스터가 늘어난다 — 50회 34개 · 200회 32개 · 1000회 27개.
     **어차피 0 이 남으므로 이 값만으로 support 를 보장할 수 없다.** 그래서 혼합한다.
     """
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # noqa: S311  # 재현용 시드 RNG. 암호 용도가 아닙니다
     cnt = {c: 0 for c in clusters}
     for _ in range(mc):
         draw = thompson_cluster_scores(clusters, stats, rng)
@@ -131,14 +135,21 @@ def thompson_propensity(clusters: Sequence[int], stats: ClusterStats,
     return {c: v / mc for c, v in cnt.items()}
 
 
-def mixed_exploration(candidates: Sequence[dict], stats: ClusterStats,
-                      rng: random.Random, k: int = 2,
-                      uniform_share: float = 0.5, pool_size: int = 200,
-                      quality_key: str = "score", cluster_key: str = "cluster_id",
-                      id_key: str = "recipe_id") -> tuple[list[dict], dict[int, float]]:
+def mixed_exploration(
+    candidates: Sequence[dict[str, Any]],
+    stats: ClusterStats,
+    rng: random.Random,
+    k: int = 2,
+    uniform_share: float = 0.5,
+    pool_size: int = 200,
+    quality_key: str = "score",
+    cluster_key: str = "cluster_id",
+    id_key: str = "recipe_id",
+    mc: int = 200,
+) -> tuple[list[dict[str, Any]], dict[int, float]]:
     """🔑 혼합 정책 — 균등 절반 + Thompson 절반.
 
-        π = uniform_share · 균등무작위  +  (1−uniform_share) · Thompson
+        π = uniform_share · 균등무작위  +  (1-uniform_share) · Thompson
 
     균등 쪽이 **모든 후보에 최소 노출확률을 보장**한다. 이것이 없으면
     Thompson 이 외면한 클러스터(실측 32/50)는 IPS 로 영원히 평가할 수 없다.
@@ -162,8 +173,8 @@ def mixed_exploration(candidates: Sequence[dict], stats: ClusterStats,
     n_uniform = max(1, round(k * uniform_share)) if uniform_share > 0 else 0
     n_thompson = k - n_uniform
 
-    chosen: list[dict] = []
-    taken: set = set()
+    chosen: list[dict[str, Any]] = []
+    taken: set[Any] = set()
 
     # ── ① 균등 — support 보장 ────────────────────────────────
     for d in rng.sample(pool, min(n_uniform, len(pool))):
@@ -175,11 +186,13 @@ def mixed_exploration(candidates: Sequence[dict], stats: ClusterStats,
     if n_thompson > 0 and clusters:
         draw = thompson_cluster_scores(clusters, stats, rng)
         for c in sorted(draw, key=lambda x: -draw[x]):
-            if len([x for x in chosen if x[id_key] not in ()]) >= k:
+            if len(chosen) >= k:
                 break
-            best = max((d for d in pool
-                        if d.get(cluster_key) == c and d[id_key] not in taken),
-                       key=lambda d: d.get(quality_key, 0.0), default=None)
+            best = max(
+                (d for d in pool if d.get(cluster_key) == c and d[id_key] not in taken),
+                key=lambda d: d.get(quality_key, 0.0),
+                default=None,
+            )
             if best is not None:
                 chosen.append(best)
                 taken.add(best[id_key])
@@ -189,24 +202,31 @@ def mixed_exploration(candidates: Sequence[dict], stats: ClusterStats,
     # ── ③ propensity — 두 경로의 확률을 합산한다 ───────────────
     #     같은 아이템이 양쪽에서 뽑힐 수 있으므로 더한다.
     p_uniform = (n_uniform / len(pool)) if (pool and n_uniform) else 0.0
-    p_cluster = (thompson_propensity(clusters, stats, n_thompson)
-                 if (n_thompson > 0 and clusters) else {})
+    p_cluster = (
+        thompson_propensity(clusters, stats, n_thompson, mc=mc)
+        if (n_thompson > 0 and clusters)
+        else {}
+    )
     # 클러스터 확률을 그 클러스터의 '최고 품질 1건' 에 전가한다 —
     # Thompson 은 클러스터를 고른 뒤 결정적으로 최고 품질을 고르기 때문이다.
     top_of: dict[int, int] = {}
     for c in clusters:
-        best = max((d for d in pool if d.get(cluster_key) == c),
-                   key=lambda d: d.get(quality_key, 0.0), default=None)
+        best = max(
+            (d for d in pool if d.get(cluster_key) == c),
+            key=lambda d: d.get(quality_key, 0.0),
+            default=None,
+        )
         if best is not None:
             top_of[c] = best[id_key]
 
     prop: dict[int, float] = {}
     for d in pool:
-        rid = d[id_key]
+        rid: int = d[id_key]
         p = p_uniform
-        c = d.get(cluster_key)
-        if c is not None and top_of.get(c) == rid:
-            p += p_cluster.get(c, 0.0)
+        # 위 클러스터 순회의 c 를 다시 쓰지 않습니다. 같은 이름이면 타입이 섞입니다.
+        cluster = d.get(cluster_key)
+        if cluster is not None and top_of.get(cluster) == rid:
+            p += p_cluster.get(cluster, 0.0)
         prop[rid] = min(1.0, p)
 
     return chosen[:k], prop

@@ -26,6 +26,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 from functools import lru_cache
+from typing import cast
 
 from psycopg import Cursor
 from sqlalchemy import Engine, create_engine, text
@@ -93,7 +94,9 @@ def cursor(commit: bool = False) -> Iterator[Cursor]:
     """
     conn = get_engine().raw_connection()
     try:
-        with conn.cursor() as cur:
+        # 드라이버는 psycopg3 로 고정돼 있습니다. SQLAlchemy 의 DBAPI 프로토콜 타입은
+        # 컨텍스트 매니저를 약속하지 않으므로 실제 타입으로 좁힙니다.
+        with cast(Cursor, conn.cursor()) as cur:
             yield cur
         if commit:
             conn.commit()
@@ -103,7 +106,7 @@ def cursor(commit: bool = False) -> Iterator[Cursor]:
         conn.rollback()
         raise
     finally:
-        conn.close()          # 풀로 반납한다. 실제로 닫지 않는다
+        conn.close()  # 풀로 반납한다. 실제로 닫지 않는다
 
 
 def healthy() -> bool:

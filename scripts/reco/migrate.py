@@ -11,6 +11,7 @@
 시드 파일이 SoT 다. DB 를 직접 수정하지 않는다 — 검수 UI 가 DB 를 쓰더라도
 반드시 CSV 로 export 해서 커밋해야 재현성이 유지된다.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -260,11 +261,17 @@ def load(cur, plan: Plan):
                      shelf_life_days = EXCLUDED.shelf_life_days,
                      storage_default = EXCLUDED.storage_default
                RETURNING id""",
-            (r["name"], cat_id[r["category_path"]], as_bool(r["is_staple"]),
-             as_bool(r["is_seasoning"]), nullable(r["allergen_group"]),
-             nullable(r.get("note")), jamo(r["name"]),
-             plan.shelf_of[r["name"]].get("days"),
-             plan.shelf_of[r["name"]].get("storage")),
+            (
+                r["name"],
+                cat_id[r["category_path"]],
+                as_bool(r["is_staple"]),
+                as_bool(r["is_seasoning"]),
+                nullable(r["allergen_group"]),
+                nullable(r.get("note")),
+                jamo(r["name"]),
+                plan.shelf_of[r["name"]].get("days"),
+                plan.shelf_of[r["name"]].get("storage"),
+            ),
         )
         ing_id[r["name"]] = cur.fetchone()[0]
     print(f"  ingredient               {len(ing_id):>5}")
@@ -276,9 +283,18 @@ def load(cur, plan: Plan):
            ON CONFLICT (alias, ingredient_id) DO UPDATE
              SET source = EXCLUDED.source, confidence = EXCLUDED.confidence,
                  note = EXCLUDED.note, alias_jamo = EXCLUDED.alias_jamo""",
-        [(r["alias"], ing_id[r["ingredient_name"]], r["source"],
-          float(r["confidence"]), nullable(r.get("note")), jamo(r["alias"]))
-         for r in plan.alias])
+        [
+            (
+                r["alias"],
+                ing_id[r["ingredient_name"]],
+                r["source"],
+                float(r["confidence"]),
+                nullable(r.get("note")),
+                jamo(r["alias"]),
+            )
+            for r in plan.alias
+        ],
+    )
     print(f"  ingredient_alias         {len(plan.alias):>5}")
 
     # ── 4. 단위 환산 ───────────────────────────────────────────
@@ -290,9 +306,18 @@ def load(cur, plan: Plan):
              SET grams_per_unit = EXCLUDED.grams_per_unit,
                  source = EXCLUDED.source, confidence = EXCLUDED.confidence,
                  note = EXCLUDED.note""",
-        [(ing_id[r["ingredient_name"]], r["unit"], float(r["grams_per_unit"]),
-          r["source"], float(r["confidence"]), nullable(r.get("note")))
-         for r in plan.unit])
+        [
+            (
+                ing_id[r["ingredient_name"]],
+                r["unit"],
+                float(r["grams_per_unit"]),
+                r["source"],
+                float(r["confidence"]),
+                nullable(r.get("note")),
+            )
+            for r in plan.unit
+        ],
+    )
     print(f"  ingredient_unit_weight   {len(plan.unit):>5}")
 
     # ── 5. 요리 계열 ───────────────────────────────────────────
@@ -303,8 +328,18 @@ def load(cur, plan: Plan):
              SET family = EXCLUDED.family, label_ko = EXCLUDED.label_ko,
                  label_en = EXCLUDED.label_en, active = EXCLUDED.active,
                  sort_order = EXCLUDED.sort_order""",
-        [(t["code"], t["family"], t["label_ko"], t["label_en"],
-          bool(t["active"]), int(t["sort_order"])) for t in plan.cuisine["taxonomy"]])
+        [
+            (
+                t["code"],
+                t["family"],
+                t["label_ko"],
+                t["label_en"],
+                bool(t["active"]),
+                int(t["sort_order"]),
+            )
+            for t in plan.cuisine["taxonomy"]
+        ],
+    )
     print(f"  cuisine_taxonomy         {len(plan.cuisine['taxonomy']):>5}")
 
 
@@ -324,17 +359,29 @@ def verify(cur):
     print(f"  · 대상 스키마: {cur.fetchone()[0]}")
     check("재료 수", "SELECT count(*) FROM ingredient", gt=400)
     check("staple 수", "SELECT count(*) FROM ingredient WHERE is_staple", gt=20)
-    check("고아 재료(카테고리 없음)", "SELECT count(*) FROM ingredient WHERE category_id IS NULL", want=0)
-    check("고아 카테고리(부모 유실)",
-          "SELECT count(*) FROM ingredient_category c WHERE c.depth > 0 AND c.parent_id IS NULL", want=0)
+    check(
+        "고아 재료(카테고리 없음)",
+        "SELECT count(*) FROM ingredient WHERE category_id IS NULL",
+        want=0,
+    )
+    check(
+        "고아 카테고리(부모 유실)",
+        "SELECT count(*) FROM ingredient_category c WHERE c.depth > 0 AND c.parent_id IS NULL",
+        want=0,
+    )
 
     # ltree 전개가 실제로 되는가 — 알러지 하드 컷의 생명줄
     check("자모 분해 적재", "SELECT count(*) FROM ingredient WHERE name_jamo IS NOT NULL", gt=400)
-    check("소비기한 미적재", "SELECT count(*) FROM ingredient WHERE shelf_life_days IS NULL", want=0)
-    check("ltree 견과류 전개",
-          """SELECT count(*) FROM ingredient i
+    check(
+        "소비기한 미적재", "SELECT count(*) FROM ingredient WHERE shelf_life_days IS NULL", want=0
+    )
+    check(
+        "ltree 견과류 전개",
+        """SELECT count(*) FROM ingredient i
              JOIN ingredient_category c ON c.id = i.category_id
-             WHERE c.path <@ 'agri.nutseed'::ltree""", gt=10)
+             WHERE c.path <@ 'agri.nutseed'::ltree""",
+        gt=10,
+    )
 
     # staple 함수가 결정 2 를 실제로 적용하는가
     cur.execute("SELECT cardinality(user_pantry_ids(-1))")
@@ -351,8 +398,10 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="DB 없이 파싱·참조 검증만")
     ap.add_argument("--reset", action="store_true", help="시드 테이블 비우고 재적재")
     ap.add_argument("--verify", action="store_true", help="적재 결과만 확인")
-    ap.add_argument("--url", default=os.environ.get(
-        "DATABASE_URL", "postgresql://reco:reco@localhost:5432/recodb"))
+    ap.add_argument(
+        "--url",
+        default=os.environ.get("DATABASE_URL", "postgresql://reco:reco@localhost:5432/recodb"),
+    )
     ap.add_argument("--schema", default="reco", help="대상 스키마 (기본 reco)")
     a = ap.parse_args()
 
@@ -367,8 +416,10 @@ def main():
     for t, n in plan.summary():
         print(f"  {t:<24} {n:>5}")
     st = plan.stats()
-    print(f"\n  staple {len(st['staple'])}종 · seasoning {st['seasoning']}종 "
-          f"· 단위환산 {st['unit_targets']}종 · 소비기한 3일↓ {st['shelf_short']}종 · 계층 깊이 {st['max_depth']}")
+    print(
+        f"\n  staple {len(st['staple'])}종 · seasoning {st['seasoning']}종 "
+        f"· 단위환산 {st['unit_targets']}종 · 소비기한 3일↓ {st['shelf_short']}종 · 계층 깊이 {st['max_depth']}"
+    )
     print(f"  알러지 그룹: {', '.join(f'{k}={v}' for k, v in sorted(st['allergens'].items()))}")
 
     if plan.errors:
@@ -385,7 +436,7 @@ def main():
     with conn, conn.cursor() as cur:
         print(f"\n적재 → {a.url.rsplit('@', 1)[-1]}")
         if a.reset:
-            do_reset(cur, force=os.environ.get('FORCE') == '1')
+            do_reset(cur, force=os.environ.get("FORCE") == "1")
         load(cur, plan)
         print()
         if not verify(cur):

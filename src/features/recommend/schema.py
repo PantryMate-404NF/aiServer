@@ -48,8 +48,10 @@ class RecommendRequest(_Base):
     #:    응답 조립 중 로그 계약에서 터진다 — 422 여야 할 것이 500 이 된다
     #:    (09-03 발견·수정). c- 실사용자 · g- 게스트 · d- 개발·디버거·시딩.
     session_id: str | None = Field(
-        default=None, pattern=r"^[cgd]-",
-        description="클라이언트 발급 (c-{user}-{uuid12}). 30분 무활동 시 갱신")
+        default=None,
+        pattern=r"^[cgd]-",
+        description="클라이언트 발급 (c-{user}-{uuid12}). 30분 무활동 시 갱신",
+    )
     top_k: int = Field(default=20, ge=1, le=100)
     max_missing: int = Field(default=2, ge=0, le=10)
     max_minutes: int | None = None
@@ -62,12 +64,15 @@ class RecommendRequest(_Base):
     #:    유저 100명에서 A/B 테스트는 검정력이 없다. 같은 유저가 두 랭커를 동시에
     #:    평가하므로 유저 간 분산이 사라지고 필요 표본이 1~2 자릿수 줄어든다.
     interleave_with: str | None = Field(
-        default=None, description="비교 대상 model_version. 지정 시 items[].team 이 채워진다")
+        default=None, description="비교 대상 model_version. 지정 시 items[].team 이 채워진다"
+    )
 
     include_trace: bool = Field(
-        default=True, description="False 면 응답에서 trace 를 빼고 DB 에는 그대로 남긴다")
+        default=True, description="False 면 응답에서 trace 를 빼고 DB 에는 그대로 남긴다"
+    )
     context: dict[str, str | int | None] = Field(
-        default_factory=dict, description="{hour, weekday, device, source_screen}")
+        default_factory=dict, description="{hour, weekday, device, source_screen}"
+    )
 
 
 class RecommendResponse(_Base):
@@ -88,20 +93,27 @@ class RecommendResponse(_Base):
 # ─────────────────────────────────────────────────────────────────
 class EventIn(_Base):
     """impression 은 서버가 자동 기록한다 (설계 3-2). 클라이언트는 보내지 않는다."""
+
     user_id: int
     event_type: EventType
     recipe_id: int | None = None
     value: float | None = Field(default=None, description="rating 점수 · dwell time(sec)")
     request_id: UUID | None = Field(
-        default=None, description="🔴 없으면 학습 라벨과 추천 로그를 이을 수 없다")
+        default=None, description="🔴 없으면 학습 라벨과 추천 로그를 이을 수 없다"
+    )
     position: int | None = Field(
-        default=None, ge=1, le=100,
-        description="🔴 없으면 position bias 보정이 영구 불가. **1-base** — final_rank 와 동일 기준")
+        default=None,
+        ge=1,
+        le=100,
+        description=(
+            "🔴 없으면 position bias 보정이 영구 불가. **1-base** — final_rank 와 동일 기준"
+        ),
+    )
     #: 주의: 소급 불가. 세션 = 한 번의 앉은 자리. 시퀀스 모델이 학습하는 단위다.
     #:    지금 안 남기면 나중에 SASRec/BERT4Rec 을 시도할 데이터가 영원히 없다.
     session_id: str | None = Field(
-        default=None, pattern=r"^[cgd]-",
-        description="클라이언트가 발급. 30분 무활동 시 갱신")
+        default=None, pattern=r"^[cgd]-", description="클라이언트가 발급. 30분 무활동 시 갱신"
+    )
     context: dict[str, str | int | None] = Field(default_factory=dict)
 
 
@@ -127,12 +139,12 @@ class PantryItemIn(_Base):
     #: 주의: 구매일. 소비기한 추정의 기준점이다 (09-02 신설).
     #: 사용자가 이것만 넣으면 서버가 재료별 소비기한을 더해 `expires_at` 을 만든다.
     #: 앱 등록일과 다르다 — 마트에서 사고 사흘 뒤에 넣으면 사흘을 공짜로 벌어준다.
-    purchased_at: date | None = Field(
-        default=None, description="구매일. 소비기한 추정의 기준점")
+    purchased_at: date | None = Field(default=None, description="구매일. 소비기한 추정의 기준점")
     #: 소비기한(use-by). 유통기한(sell-by)이 아니다.
     #: 사용자가 직접 넣으면 그것이 이긴다 — 추정보다 우선한다.
     expires_at: date | None = Field(
-        default=None, description="소비기한. 안 주면 purchased_at + 재료별 일수로 추정")
+        default=None, description="소비기한. 안 주면 purchased_at + 재료별 일수로 추정"
+    )
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -147,6 +159,7 @@ class OnboardingIn(_Base):
        유저를 다시 모아야 한다 (실제로 09-02 에 시드 2건을 고쳤다).
        저장 위치는 `user_vector.onboarding_picks` · `onboarding_scales`.
     """
+
     #: 제시 20개 중 고른 것의 인덱스 (seeds/onboarding_recipes.yaml 의 presented 순서).
     #: 확정 문항은 3개지만 개수는 서버가 강제하지 않는다 — 프론트가 정한다.
     picks: list[int] = Field(min_length=1, max_length=20)
@@ -172,6 +185,7 @@ class OnboardingIn(_Base):
 
 class OnboardingOut(_Base):
     """저장 결과. 프론트는 완료 여부만 알면 된다."""
+
     user_id: int
     #: 산출된 맛 취향 6축. 확인용으로만 돌려준다.
     taste_vec: list[float] = Field(min_length=6, max_length=6)
@@ -185,6 +199,7 @@ class PantryRemoval(_Base):
     🔴 **UI 방식을 서버가 알 필요 없다.** 버튼 두 개로 받든 저장 후 모달로 받든
     클라이언트 사정이고, 서버는 사유만 받는다. 그래야 UI 를 바꿔도 API 가 안 바뀐다.
     """
+
     ingredient_id: int
     #: consumed 다 씀 · discarded 상해서 버림 · unknown 물었는데 건너뜀
     #: 아예 안 물었으면 이 항목을 보내지 않는다 (DB 에서 NULL 로 남는다).
@@ -209,8 +224,7 @@ class PantryItemOut(PantryItemIn):
 class PantryOut(_Base):
     user_id: int
     items: list[PantryItemOut]
-    staple_count: int = Field(
-        description="자동 포함된 staple 수. 유저가 등록한 것이 아님 (결정 2)")
+    staple_count: int = Field(description="자동 포함된 staple 수. 유저가 등록한 것이 아님 (결정 2)")
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -222,10 +236,8 @@ class PantryOut(_Base):
 class RecipeSearchIn(_Base):
     q: str = Field(min_length=1, max_length=100, description="자연어 쿼리")
     limit: int = Field(default=20, ge=1, le=100)
-    user_id: int | None = Field(
-        default=None, description="주면 냉장고 재료 정보를 함께 반환한다")
-    max_missing: int | None = Field(
-        default=None, description="주면 만들 수 있는 것만 필터링한다")
+    user_id: int | None = Field(default=None, description="주면 냉장고 재료 정보를 함께 반환한다")
+    max_missing: int | None = Field(default=None, description="주면 만들 수 있는 것만 필터링한다")
 
 
 class RecipeHit(_Base):
@@ -245,8 +257,8 @@ class RecipeSearchOut(_Base):
     model_version: str = Field(description="임베딩 모델 버전")
     latency_ms: int
     degraded: bool = Field(
-        default=False,
-        description="임베딩 인덱스 미구축 등으로 제목 검색으로 폴백했다")
+        default=False, description="임베딩 인덱스 미구축 등으로 제목 검색으로 폴백했다"
+    )
 
 
 class IngredientHit(_Base):
@@ -273,6 +285,7 @@ class RecommendationLogOut(_Base):
     v2.8 DDL 개정으로 컬럼 7개가 늘었는데 이 계약이 따라오지 않아
     **DB 에 칸은 있는데 채울 계약이 없는** 상태였다. 여기서 맞춘다.
     """
+
     request_id: UUID
     user_id: int
     #: 주의: 세션 식별자. 소급 불가 — 시퀀스 모델(SASRec 등)의 전제다 (설계 3-2).
@@ -321,6 +334,7 @@ class ErrorOut(_Base):
     최악의 경우에도 인기순 Top-N 을 돌려주고 `trace.totals.degraded=True` 로 표시한다.
     빈 목록은 유저에게 장애로 보이고 디버깅 정보도 남지 않는다.
     """
+
     error: str
     detail: str | None = None
     request_id: UUID | None = None
@@ -339,6 +353,7 @@ class HealthOut(_Base):
 # ─────────────────────────────────────────────────────────────────
 class QueueCandidate(_Base):
     """검수 화면에 버튼으로 놓일 후보 하나."""
+
     #: 주의: 반드시 사전에 있는 표제어. 없는 이름을 만들지 않는다 —
     #:    검수자가 누르면 그대로 사전에 들어가기 때문이다.
     name: str = Field(min_length=1)
@@ -355,6 +370,7 @@ class QueueSuggestion(_Base):
     `[["매실청", 0.62, "trgm"]]` 은 위치로 의미를 기억해야 하고
     `blocked_by` 를 넣으려면 전부 고쳐야 한다.
     """
+
     candidates: list[QueueCandidate] = Field(default_factory=list, max_length=10)
     #: 구조적으로 막힌 이유. 없으면 None.
     blocked_by: Literal["hyponym", "sibling", "unrelated"] | None = None
@@ -369,10 +385,11 @@ class PantrySnapshotItem(_Base):
     🔴 `pantry_snapshot` 배열은 재료 id 만 담아 `f_expiring` 원값을 검증할 수 없다.
        그래서 상세를 따로 남긴다 — 소비기한이 유저 입력인지 추정인지까지.
     """
+
     ingredient_id: int
     quantity: float | None = None
     unit: str | None = None
-    expires_at: str | None = None          # ISO date
+    expires_at: str | None = None  # ISO date
     expires_at_source: Literal["user", "estimated", "unknown"] = "estimated"
 
 
@@ -385,6 +402,7 @@ class PolicyArm(_Base):
     🔴 `recipe_ids` 가 없으면 **어느 쪽이 이겼는지 셀 수 없다.**
        모델 이름만으로는 승패가 안 나온다 — 클릭된 것이 어느 팀 것이었는지가 필요하다.
     """
+
     team: Literal["A", "B"]
     model_version: str
     mlflow_run_id: str | None = None
@@ -400,6 +418,7 @@ class QualityExtra(_Base):
     🔴 표본 수를 반드시 남긴다. 없으면 배치 개선 없이도 추이선이 오르내려
        "좋아졌다" 로 잘못 읽힌다.
     """
+
     #: 몇 건을 보고 잰 값인가
     sample_n: int = Field(ge=0, alias="_sample_n")
     #: 파일에서 쟀나 DB 에서 쟀나 — 정의가 달라 섞으면 시계열이 꺾인다

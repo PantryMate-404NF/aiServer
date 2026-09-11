@@ -6,6 +6,7 @@
 🔑 **뒤에서부터 파싱한다.** 문자열 끝에서 `[수량][단위]` 를 먼저 떼어내고 남은 것을
    재료명으로 본다. 앞에서부터 찾으면 `양파 1/2개` 에서 `양파 1` 까지 먹어버린다.
 """
+
 from __future__ import annotations
 
 import re
@@ -24,14 +25,44 @@ SEEDS = Path(__file__).resolve().parents[4] / "seeds"
 #: 실데이터에서 `꼬집`(2,810건)·`줄`(1,391)·`봉지`(1,702) 가 여기 없어서
 #: `소금 1꼬집` 이 통째로 미매칭이 됐다. 단위가 늘 때 코드를 고치면 안 된다.
 COUNT_UNITS = [
-    "개", "대", "쪽", "알", "마리", "줌", "톨", "장", "봉", "모", "포기", "단",
-    "송이", "캔", "팩", "인분", "뿌리", "토막", "통", "조각", "공기", "판", "덩이",
+    "개",
+    "대",
+    "쪽",
+    "알",
+    "마리",
+    "줌",
+    "톨",
+    "장",
+    "봉",
+    "모",
+    "포기",
+    "단",
+    "송이",
+    "캔",
+    "팩",
+    "인분",
+    "뿌리",
+    "토막",
+    "통",
+    "조각",
+    "공기",
+    "판",
+    "덩이",
 ]
 
 #: 한글 수사. ⚠️ 뒤에 단위가 올 때만 수사로 본다 — `한우` `세발나물` `한천` 오분해 방지.
 KO_NUMERAL = {
-    "한": 1, "두": 2, "세": 3, "네": 4, "다섯": 5, "여섯": 6,
-    "일곱": 7, "여덟": 8, "아홉": 9, "열": 10, "반": 0.5,
+    "한": 1,
+    "두": 2,
+    "세": 3,
+    "네": 4,
+    "다섯": 5,
+    "여섯": 6,
+    "일곱": 7,
+    "여덟": 8,
+    "아홉": 9,
+    "열": 10,
+    "반": 0.5,
 }
 
 #: 복합 재료 구분자. `·` 는 P1 이 남겨둔다.
@@ -53,9 +84,18 @@ def _units() -> tuple[dict[str, str], set[str], list[str]]:
     d = yaml.safe_load((SEEDS / "measure_units.yaml").read_text(encoding="utf-8"))
     alias: dict[str, str] = {}
     for u in d["volume_ml"]:
-        alias[u] = {"T": "큰술", "Tbsp": "큰술", "스푼": "큰술", "큰수저": "큰술",
-                    "t": "작은술", "tsp": "작은술", "티스푼": "작은술",
-                    "작은수저": "작은술", "cc": "ml", "리터": "L"}.get(u, u)
+        alias[u] = {
+            "T": "큰술",
+            "Tbsp": "큰술",
+            "스푼": "큰술",
+            "큰수저": "큰술",
+            "t": "작은술",
+            "tsp": "작은술",
+            "티스푼": "작은술",
+            "작은수저": "작은술",
+            "cc": "ml",
+            "리터": "L",
+        }.get(u, u)
     for u in d["weight_g"]:
         alias[u] = {"그램": "g", "그람": "g", "킬로": "kg"}.get(u, u)
     # 코드 상수 + 시드의 count_unit·length_cm 을 합친다 (시드가 늘어도 코드는 그대로)
@@ -79,24 +119,26 @@ def _num_pattern() -> str:
     frac = r"\d+\s*/\s*\d+"
     ko = "|".join(sorted(KO_NUMERAL, key=len, reverse=True))
     # 순서가 중요하다. 긴 패턴부터 시도해야 `1과1/2` 에서 `1` 만 잡지 않는다.
-    return (rf"(?:{n}\s*과\s*{frac}"          # 대분수  1과1/2
-            rf"|{n}\s*[~\-–]\s*{n}"           # 범위    2~3
-            rf"|{frac}"                        # 분수    1/2
-            rf"|{n}"                           # 정수·소수
-            rf"|{ko})")                        # 한글 수사
+    return (
+        rf"(?:{n}\s*과\s*{frac}"  # 대분수  1과1/2
+        rf"|{n}\s*[~\-–]\s*{n}"  # 범위    2~3
+        rf"|{frac}"  # 분수    1/2
+        rf"|{n}"  # 정수·소수
+        rf"|{ko})"
+    )  # 한글 수사
 
 
 def _to_float(s: str) -> float | None:
     s = s.replace(",", "").replace(" ", "")
     if s in KO_NUMERAL:
         return float(KO_NUMERAL[s])
-    if m := re.fullmatch(r"(\d+)과(\d+)/(\d+)", s):          # 1과1/2
+    if m := re.fullmatch(r"(\d+)과(\d+)/(\d+)", s):  # 1과1/2
         a, b, c = map(float, m.groups())
         return a + b / c
-    if m := re.fullmatch(r"(\d+(?:\.\d+)?)[~\-–](\d+(?:\.\d+)?)", s):   # 2~3 → 중앙값
+    if m := re.fullmatch(r"(\d+(?:\.\d+)?)[~\-–](\d+(?:\.\d+)?)", s):  # 2~3 → 중앙값
         a, b = map(float, m.groups())
         return (a + b) / 2
-    if m := re.fullmatch(r"(\d+)/(\d+)", s):                 # 1/2
+    if m := re.fullmatch(r"(\d+)/(\d+)", s):  # 1/2
         a, b = map(float, m.groups())
         return a / b if b else None
     try:
@@ -106,15 +148,17 @@ def _to_float(s: str) -> float | None:
 
 
 @lru_cache(maxsize=1)
-def _regexes():
-    alias, ambiguous, alts = _units()
+def _regexes() -> dict[str, re.Pattern[str]]:
+    _alias, ambiguous, alts = _units()
     u = "|".join(re.escape(a) for a in alts)
     q = _num_pattern()
+    # 긴 것부터 잡아야 '약간씩' 이 '약간' 에 먼저 걸려 잘리지 않는다
+    amb = "|".join(re.escape(a) for a in sorted(ambiguous, key=len, reverse=True))
     return {
         # 끝에서 [수량][단위]
         "tail": re.compile(rf"\s*({q})\s*({u})\s*$"),
         # 끝에서 모호 수량만 ('약간' '조금' '약간씩')
-        "tail_amb": re.compile(rf"\s*({'|'.join(re.escape(a) for a in sorted(ambiguous, key=len, reverse=True))})\s*씩?\s*$"),
+        "tail_amb": re.compile(rf"\s*({amb})\s*씩?\s*$"),
         # 끝에서 단위 없는 수량 ('사과 2')
         "tail_bare": re.compile(rf"\s*({q})\s*$"),
         # 앞에서 [수량][단위] ('1큰술 참기름')
@@ -134,6 +178,7 @@ def _strip_modifiers(name: str) -> tuple[str, list[str]]:
     여기서 지우면 `다진마늘` → `마늘` 같은 사고를 막을 수 없다.
     """
     from features.recommend.ingest.preprocess import SEEDS as _S
+
     mods: list[str] = []
     p = _S / "modifier_whitelist.yaml"
     if p.exists():
@@ -188,13 +233,13 @@ def _parse_one(text: str, pre: Preprocessed, pos: int) -> ParsedIngredient | Non
     if qty is None and unit is None:
         if m := rx["head"].match(s):
             qty, unit = _to_float(m.group(1)), _norm_unit(m.group(2))
-            s = s[m.end():].strip()
+            s = s[m.end() :].strip()
 
     # ── ④ 단위 없는 끝자리 수량 ──────────────────────────────
     if qty is None and unit is None:
         if m := rx["tail_bare"].search(s):
             cand = s[: m.start()].strip()
-            if cand:                       # 재료명이 남을 때만
+            if cand:  # 재료명이 남을 때만
                 qty = _to_float(m.group(1))
                 s = cand
 
@@ -209,9 +254,13 @@ def _parse_one(text: str, pre: Preprocessed, pos: int) -> ParsedIngredient | Non
 
     name, mods = _strip_modifiers(s)
     return ParsedIngredient(
-        raw_text=pre.original, name=name, quantity=qty, unit=unit,
+        raw_text=pre.original,
+        name=name,
+        quantity=qty,
+        unit=unit,
         note=pre.notes[0] if pre.notes else None,
-        modifiers=mods, substitutes=subs,
+        modifiers=mods,
+        substitutes=subs,
         is_optional_hint=bool(pre.optional_hints),
         is_ambiguous_qty=ambiguous_qty,
         position=pos,
@@ -260,6 +309,7 @@ def normalize(raw_text: str) -> list[ParsedIngredient]:
     "무엇을 걸렀는지" 를 잃는다.
     """
     from features.recommend.ingest.preprocess import non_ingredient_kind
+
     out = parse(preprocess(raw_text))
     for pi in out:
         k = non_ingredient_kind(pi.name)

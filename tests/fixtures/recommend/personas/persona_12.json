@@ -1,0 +1,30 @@
+{
+  "user_id": 1012,
+  "pantry_ingredient_ids": [
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53
+  ],
+  "expiring_ingredient_ids": [],
+  "taste_preference": {
+    "spicy_level": 2,
+    "sweet_level": 2,
+    "salty_level": 2
+  },
+  "household_size": 1,
+  "preferred_cuisines": [
+    "한식"
+  ],
+  "max_cook_minutes": null,
+  "allergy_group_codes": [
+    "WHEAT",
+    "PEANUT"
+  ],
+  "top_k": 20
+}

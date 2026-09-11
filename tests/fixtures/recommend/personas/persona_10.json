@@ -1,0 +1,36 @@
+{
+  "user_id": 1010,
+  "pantry_ingredient_ids": [
+    4,
+    5,
+    9,
+    14,
+    16,
+    22,
+    26,
+    27,
+    45,
+    46,
+    48,
+    51,
+    52,
+    56
+  ],
+  "expiring_ingredient_ids": [
+    26,
+    27
+  ],
+  "taste_preference": {
+    "spicy_level": 3,
+    "sweet_level": 3,
+    "salty_level": 2
+  },
+  "household_size": "가구원 3명",
+  "preferred_cuisines": [
+    "분식",
+    "한식"
+  ],
+  "max_cook_minutes": 30,
+  "allergy_group_codes": [],
+  "top_k": 20
+}

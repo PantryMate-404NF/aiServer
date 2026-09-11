@@ -68,6 +68,7 @@ dev = [
     "pytest>=8.3",
     "pytest-cov>=5.0",
     "httpx>=0.28.1",           # fastapi.testclient — make contract 종단 검증
+    "types-pyyaml>=6.0",
 ]
 
 [build-system]
@@ -102,6 +103,15 @@ members = []
 target-version = "py312"
 line-length = 100                  # (예시값, 실제 데이터로 대체 필요)
 src = ["src", "tests"]
+# 🔴 `scripts/reco/bench/` 는 설계 근거를 재는 **일회용 시뮬레이션**입니다.
+#    한 번 돌려 숫자를 얻고 문서가 그 숫자를 인용하면 역할이 끝납니다. 서빙 코드
+#    기준(타입 강제·난수 금지·복잡도)을 들이대면 실험이 느려질 뿐 문서의 숫자가
+#    더 정확해지지 않습니다. 일부는 작성자 로컬 경로를 `exec()` 로 읽어 들여
+#    저장소 안에서는 애초에 돌지 않습니다 — 정적 검사가 잡는 미정의 이름 27건이
+#    그것입니다. 규칙을 부분적으로 끄는 대신 **검사 대상에서 뺍니다.**
+#    01의 3.3 에 따라 Tech Lead 승인이 필요합니다
+#    (docs/decisions/2026-09-10_merge_data_track_gate_exceptions.md).
+extend-exclude = ["scripts/reco/bench"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "N", "UP", "B", "S", "T20", "ANN", "RUF"]
@@ -120,11 +130,31 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 "tests/unit/recommend/**" = ["S101", "T20"]
 # 평가·백필 스크립트는 사람이 터미널에서 읽는 도구라 print 로 결과를 냅니다.
 "scripts/**" = ["T20"]
-# 🔴 `scripts/reco/bench/` 는 설계 근거를 재는 **일회용 시뮬레이션**이다.
-#    한 번 돌려 숫자를 얻고 문서가 그 숫자를 인용하면 역할이 끝난다.
-#    서빙 코드 기준(타입 강제·난수 금지·복잡도)을 들이대면 실험이 느려질 뿐
-#    문서의 숫자가 더 정확해지지 않는다.
-"scripts/reco/bench/**" = ["ANN", "S", "T20", "E501", "E701", "E702", "N", "RUF001", "RUF002", "RUF003"]
+# ── 데이터 파트가 들여온 단독 실행 도구 ─────────────────────────
+# 아래는 전부 **사람이 터미널에서 한 번 돌려 결과를 읽는 도구**입니다. 다른 코드가
+# import 하지 않고, 서빙 경로에 들어가지 않습니다. 타입 표기(ANN)는 계약을 지킬
+# 상대가 사람뿐이라 얻는 것이 없고, 검사용 난수(S311)·상수로만 만든 SQL(S608)·
+# 도구 프로세스 호출(S603/S607)은 그 도구가 하는 일 자체입니다.
+#
+# 🔴 파일마다 **실제로 필요한 코드만** 적습니다. 디렉터리 통째로 끄면 나중에 들어올
+#    파일까지 조용히 덮습니다. 특히 `tests/unit/recommend/` 에는 추천 엔진의 pytest
+#    검사 63건이 함께 있고 그쪽은 규칙을 전부 지킵니다.
+# 🔴 이 예외들은 01의 3.3 에 따라 Tech Lead 승인이 필요합니다. 근거와 해소 계획은
+#    docs/decisions/2026-09-10_merge_data_track_gate_exceptions.md 에 있습니다.
+"seeds/validate.py" = ["ANN", "T20", "N802"]
+"scripts/reco/**" = ["ANN", "S", "N806", "E501", "RUF005", "B007"]
+"tests/integration/test_ddl.py" = ["ANN", "N806", "S608", "RUF005", "E501"]
+"tests/integration/test_smoke.py" = ["ANN", "S311", "E501"]
+"tests/unit/recommend/run.py" = ["ANN"]
+"tests/unit/recommend/test_contract.py" = ["ANN", "S311", "E402", "E731"]
+"tests/unit/recommend/test_match.py" = ["ANN"]
+"tests/unit/recommend/test_role.py" = ["ANN"]
+"tests/unit/recommend/test_writer.py" = ["ANN", "E402", "RUF059", "B905"]
+
+# 크롤러 출력은 **모양을 모르는 JSON** 입니다. 이 파일이 그것을 우리 스키마로
+# 옮기는 경계이고, 경계 바깥의 타입을 여기서 좁힐 수단이 없습니다. `dig()` 이
+# 돌려주는 값의 타입이 곧 크롤 대상마다 다른 값이라 Any 가 사실에 맞는 표기입니다.
+"src/features/recommend/ingest/adapter.py" = ["ANN401"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
@@ -140,9 +170,40 @@ disallow_untyped_defs = true
 module = ["paddleocr.*", "pillow_heif.*"]
 ignore_missing_imports = true
 
+# ─────────────────────────────────────────────────────────────
+# 커버리지 측정 범위
+#
+# ⬜ 아래 목록은 "이 코드는 검사되지 않는다" 는 뜻이 **아닙니다.** 그 검사를
+#    pytest 가 아니라 `make` 가 돌린다는 뜻입니다 — 데이터 파트의 검사 242건은
+#    단독 실행 스크립트로 작성돼 있어 pytest 가 수집하면 SystemExit 으로 죽습니다
+#    (tests/conftest.py 참고). 그래서 pytest 가 재는 숫자에서는 0% 로 잡힙니다.
+#    측정하지 않는 것을 하한선에 넣으면 하한선이 코드 품질이 아니라 **어느 도구로
+#    돌렸는가**를 재게 됩니다.
+#
+#    - ingest/*        : make normalize-test · contract · feature-test · flavor-check · probe-all
+#    - repository.py   : make smoke-py · log-test · ddl-test (실 DB 필요.
+#                        01의 6.2 가 단위 테스트에서 실 DB 사용을 금지합니다)
+#    - repository_ingest.py : 배치용 SQL. repository.py 에서 떼어 낸 것이라 근거가
+#                        같습니다 (make feature-test · freq-build 등, 실 DB 필요)
+#    - engine/mock.py  : make contract · api-docs
+#
+# 🔴 이 축소는 01의 6.1 에 따라 Tech Lead 승인이 필요합니다. 해소 조건은
+#    "단독 스크립트를 pytest 함수로 옮기는 것"(회의 안건 G-08)이고, 옮기는 즉시
+#    이 목록에서 빠집니다. 근거는
+#    docs/decisions/2026-09-10_merge_data_track_gate_exceptions.md 에 있습니다.
+# ─────────────────────────────────────────────────────────────
+[tool.coverage.run]
+omit = [
+    "src/features/recommend/ingest/*",
+    "src/features/recommend/repository.py",
+    "src/features/recommend/repository_ingest.py",
+    "src/features/recommend/engine/mock.py",
+]
+
 [tool.pytest.ini_options]
 # 통합 테스트는 실제 OCR 모델을 올려 느리므로 기본 실행에서 뺍니다.
 # 돌릴 때는 uv run pytest -m integration --no-cov 를 씁니다.
-addopts = "-q --strict-markers -m 'not integration' --cov=src --cov-report=term-missing --cov-fail-under=80"
+# 도메인마다 test_service.py 처럼 같은 이름의 테스트 파일이 있어 importlib 모드가 필요합니다.
+addopts = "-q --strict-markers --import-mode=importlib -m 'not integration' --cov=src --cov-report=term-missing --cov-fail-under=80"
 testpaths = ["tests"]
 markers = ["integration: 실제 OCR 엔진을 올려 도는 느린 테스트"]

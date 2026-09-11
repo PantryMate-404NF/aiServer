@@ -28,6 +28,7 @@
 유한 표본에서 관측 정밀도는 낙관적이다. `conservative=True` 면 Wilson 하한을 쓴다 —
 "관측 정밀도 100%(10건 중 10건)"를 그대로 믿지 않는다.
 """
+
 from __future__ import annotations
 
 import math
@@ -40,7 +41,7 @@ class ThresholdResult:
     threshold: float | None
     precision: float
     recall: float
-    coverage: float               # 자동 확정된 비율 (= 사람이 안 봐도 되는 비율)
+    coverage: float  # 자동 확정된 비율 (= 사람이 안 봐도 되는 비율)
     n_auto: int
     n_total: int
     target: float
@@ -52,12 +53,16 @@ class ThresholdResult:
 
     def report(self) -> str:
         if not self.usable:
-            return (f"🔴 정밀도 {self.target:.0%} 를 만족하는 임계값이 없다 — "
-                    f"이 점수로는 자동 확정 불가. 전부 검수 큐로 보낸다. (n={self.n_total})")
-        return (f"τ={self.threshold:.3f} → 정밀도 {self.precision:.1%}"
-                f"{' (Wilson 하한)' if self.conservative else ''} · "
-                f"재현율 {self.recall:.1%} · 자동확정 {self.n_auto}/{self.n_total} "
-                f"({self.coverage:.0%}) · 나머지는 검수")
+            return (
+                f"🔴 정밀도 {self.target:.0%} 를 만족하는 임계값이 없다 — "
+                f"이 점수로는 자동 확정 불가. 전부 검수 큐로 보낸다. (n={self.n_total})"
+            )
+        return (
+            f"τ={self.threshold:.3f} → 정밀도 {self.precision:.1%}"
+            f"{' (Wilson 하한)' if self.conservative else ''} · "
+            f"재현율 {self.recall:.1%} · 자동확정 {self.n_auto}/{self.n_total} "
+            f"({self.coverage:.0%}) · 나머지는 검수"
+        )
 
 
 def _wilson_lower(k: int, n: int, z: float = 1.96) -> float:
@@ -71,9 +76,12 @@ def _wilson_lower(k: int, n: int, z: float = 1.96) -> float:
     return max(0.0, (centre - margin) / d)
 
 
-def calibrate(scores: Sequence[float], labels: Sequence[int],
-              target_precision: float = 0.99,
-              conservative: bool = True) -> ThresholdResult:
+def calibrate(
+    scores: Sequence[float],
+    labels: Sequence[int],
+    target_precision: float = 0.99,
+    conservative: bool = True,
+) -> ThresholdResult:
     """목표 정밀도를 보장하는 최저 임계값.
 
     Args:
@@ -95,7 +103,7 @@ def calibrate(scores: Sequence[float], labels: Sequence[int],
     if n_total == 0:
         return ThresholdResult(None, 0.0, 0.0, 0.0, 0, 0, target_precision, conservative)
 
-    pairs = sorted(zip(scores, labels), key=lambda x: -x[0])
+    pairs = sorted(zip(scores, labels, strict=True), key=lambda x: -x[0])
     best: ThresholdResult | None = None
     tp = fp = 0
     for i, (s, y) in enumerate(pairs):
@@ -112,14 +120,15 @@ def calibrate(scores: Sequence[float], labels: Sequence[int],
                 precision=prec,
                 recall=tp / n_pos if n_pos else 0.0,
                 coverage=n_auto / n_total,
-                n_auto=n_auto, n_total=n_total,
-                target=target_precision, conservative=conservative)
-    return best or ThresholdResult(None, 0.0, 0.0, 0.0, 0, n_total,
-                                   target_precision, conservative)
+                n_auto=n_auto,
+                n_total=n_total,
+                target=target_precision,
+                conservative=conservative,
+            )
+    return best or ThresholdResult(None, 0.0, 0.0, 0.0, 0, n_total, target_precision, conservative)
 
 
-def min_samples_for(target: float, observed_precision: float = 1.0,
-                    z: float = 1.96) -> int:
+def min_samples_for(target: float, observed_precision: float = 1.0, z: float = 1.96) -> int:
     """목표 정밀도를 **보장**하려면 라벨이 몇 건 필요한가.
 
     완벽한 분리(오탐 0)를 얻어도 표본이 적으면 보장할 수 없다.

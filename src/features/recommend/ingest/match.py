@@ -34,12 +34,14 @@
 행마다 DB 를 왕복하면 배치가 끝나지 않는다. 시드에서 로드하면 `make normalize-test` 처럼
 DB 없이 검증할 수 있고, 운영에서는 같은 인터페이스로 DB 에서 로드한다.
 """
+
 from __future__ import annotations
 
 import csv
 import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from features.recommend.enums import MatchMethod
 from features.recommend.ingest.head import HeadIndex
@@ -57,7 +59,8 @@ N_SUGGEST = 5
 @dataclass
 class MatchResult:
     """P3 산출. `recipe_ingredient` 한 행이 된다."""
-    query: str                                   # P2 가 낸 name
+
+    query: str  # P2 가 낸 name
     ingredient_id: int | None = None
     ingredient_name: str | None = None
     method: MatchMethod | None = None
@@ -93,12 +96,12 @@ def _jamo(s: str) -> str:
     return unicodedata.normalize("NFD", s)
 
 
-def _trgm(a: str, b: str) -> str | float:
+def _trgm(a: str, b: str) -> float:
     """자카드 기반 trigram 유사도. PostgreSQL pg_trgm 의 근사."""
-    A = {a[i:i + 3] for i in range(max(1, len(a) - 2))}
-    B = {b[i:i + 3] for i in range(max(1, len(b) - 2))}
-    u = A | B
-    return len(A & B) / len(u) if u else 0.0
+    ta = {a[i : i + 3] for i in range(max(1, len(a) - 2))}
+    tb = {b[i : i + 3] for i in range(max(1, len(b) - 2))}
+    u = ta | tb
+    return len(ta & tb) / len(u) if u else 0.0
 
 
 class Dictionary:
@@ -108,15 +111,20 @@ class Dictionary:
     행마다 DB 를 왕복하면 배치가 끝나지 않는다.
     """
 
-    def __init__(self, names: dict[str, int], aliases: dict[str, int],
-                 whitelist: set[str], confusable: set[tuple[str, str]] | None = None,
-                 meta: dict[int, dict] | None = None):
-        self.names = names                       # 정식명 → id
-        self.aliases = aliases                   # alias → id
+    def __init__(
+        self,
+        names: dict[str, int],
+        aliases: dict[str, int],
+        whitelist: set[str],
+        confusable: set[tuple[str, str]] | None = None,
+        meta: dict[int, dict[str, Any]] | None = None,
+    ) -> None:
+        self.names = names  # 정식명 → id
+        self.aliases = aliases  # alias → id
         # 조회 키(공백 제거) → id. 사전에 `대 파` 같은 표기가 있어도 흡수된다
         self.names_key = {_key(k): v for k, v in names.items()}
         self.aliases_key = {_key(k): v for k, v in aliases.items()}
-        self.whitelist = whitelist               # 제거 가능한 수식어
+        self.whitelist = whitelist  # 제거 가능한 수식어
         self.confusable = confusable or set()
         #: id → {is_staple, is_seasoning, category_path}. P4 역할 판정의 유일한 근거이다
         #: (`group_name` 이 실측에서 전부 '기본재료' 라 쓸 수 없기 때문 — 설계 4-5)
@@ -131,12 +139,17 @@ class Dictionary:
     def from_seeds(cls, seeds: Path = SEEDS) -> Dictionary:
         """시드 파일에서. **DB 불필요** — 테스트·CI 경로."""
         import yaml
+
         rows = list(csv.DictReader(open(seeds / "ingredient.csv", encoding="utf-8")))
         names = {r["name"]: i + 1 for i, r in enumerate(rows)}
-        meta = {i + 1: {"is_staple": r["is_staple"] == "true",
-                        "is_seasoning": r["is_seasoning"] == "true",
-                        "category_path": r["category_path"]}
-                for i, r in enumerate(rows)}
+        meta = {
+            i + 1: {
+                "is_staple": r["is_staple"] == "true",
+                "is_seasoning": r["is_seasoning"] == "true",
+                "category_path": r["category_path"],
+            }
+            for i, r in enumerate(rows)
+        }
         aliases = {}
         for r in csv.DictReader(open(seeds / "ingredient_alias.csv", encoding="utf-8")):
             tgt = names.get(r["ingredient_name"])
@@ -145,9 +158,13 @@ class Dictionary:
         wl_raw = yaml.safe_load(open(seeds / "modifier_whitelist.yaml", encoding="utf-8"))
         # 주의: do_not_remove_examples 는 "제거하면 안 되는 것" 목록이다. 섞으면 정반대로 동작한다
         wl = {x for k, v in wl_raw.items() if k != "do_not_remove_examples" for x in (v or [])}
-        conf = {tuple(p[:2]) for p in
-                yaml.safe_load(open(seeds / "confusable_pairs.yaml", encoding="utf-8"))["pairs"]
-                if isinstance(p, (list, tuple))}
+        conf = {
+            tuple(p[:2])
+            for p in yaml.safe_load(open(seeds / "confusable_pairs.yaml", encoding="utf-8"))[
+                "pairs"
+            ]
+            if isinstance(p, (list, tuple))
+        }
         return cls(names, aliases, wl, conf, meta)
 
     @classmethod
@@ -163,14 +180,20 @@ class Dictionary:
 
         rows, alias_rows = load_dictionary_rows()
         names = {r[1]: r[0] for r in rows}
-        meta = {r[0]: {"is_staple": r[2], "is_seasoning": r[3],
-                       "category_path": r[4] or ""} for r in rows}
+        meta = {
+            r[0]: {"is_staple": r[2], "is_seasoning": r[3], "category_path": r[4] or ""}
+            for r in rows
+        }
         aliases = dict(alias_rows)
         wl_raw = yaml.safe_load(open(seeds / "modifier_whitelist.yaml", encoding="utf-8"))
         wl = {x for k, v in wl_raw.items() if k != "do_not_remove_examples" for x in (v or [])}
-        conf = {tuple(p[:2]) for p in
-                yaml.safe_load(open(seeds / "confusable_pairs.yaml", encoding="utf-8"))["pairs"]
-                if isinstance(p, (list, tuple))}
+        conf = {
+            tuple(p[:2])
+            for p in yaml.safe_load(open(seeds / "confusable_pairs.yaml", encoding="utf-8"))[
+                "pairs"
+            ]
+            if isinstance(p, (list, tuple))
+        }
         return cls(names, aliases, wl, conf, meta)
 
 
@@ -187,7 +210,7 @@ def _strip_modifiers(name: str, d: Dictionary) -> tuple[str, list[str]]:
         changed = False
         for m in sorted(d.whitelist, key=len, reverse=True):
             if cur.startswith(m) and len(cur) - len(m) >= HeadIndex.MIN_REMAINDER:
-                cur = cur[len(m):].strip()
+                cur = cur[len(m) :].strip()
                 removed.append(m)
                 changed = True
                 break
@@ -229,7 +252,7 @@ def _suggest(name: str, d: Dictionary, n: int = N_SUGGEST) -> list[tuple[str, fl
 def match(name: str, d: Dictionary) -> MatchResult:
     """캐스케이드 본체. **앞에서 잡히면 뒤는 안 돈다.**"""
     r = MatchResult(query=name)
-    q = _key(name)                               # 조회는 공백 뗀 형태로
+    q = _key(name)  # 조회는 공백 뗀 형태로
     if not q:
         return r
 
@@ -261,7 +284,7 @@ def match(name: str, d: Dictionary) -> MatchResult:
                 r.method, r.score = MatchMethod.RULE, SCORE[MatchMethod.RULE]
                 r.stripped = removed
                 return r
-            r.blocked_by = rel          # sibling/hyponym → 검수 큐로, 사유를 남긴다
+            r.blocked_by = rel  # sibling/hyponym → 검수 큐로, 사유를 남긴다
 
     # ── 미매칭 → 검수 큐 ────────────────────────────────────
     r.suggested = _suggest(q, d)
@@ -271,6 +294,7 @@ def match(name: str, d: Dictionary) -> MatchResult:
 @dataclass
 class Coverage:
     """4-8 이 요구하는 **두 숫자**. 하나만 보고하면 오해를 부른다."""
+
     mention_total: int = 0
     mention_matched: int = 0
     distinct_total: int = 0
@@ -288,11 +312,16 @@ class Coverage:
 
     def report(self) -> str:
         m = " · ".join(f"{k} {v}" for k, v in sorted(self.by_method.items()))
-        b = (" · 구조차단 " + ", ".join(f"{k} {v}" for k, v in sorted(self.blocked.items()))
-             if self.blocked else "")
-        return (f"mention {self.mention:.1%} ({self.mention_matched}/{self.mention_total}) · "
-                f"distinct {self.distinct:.1%} ({self.distinct_matched}/{self.distinct_total})"
-                f"\n  {m}{b}")
+        b = (
+            " · 구조차단 " + ", ".join(f"{k} {v}" for k, v in sorted(self.blocked.items()))
+            if self.blocked
+            else ""
+        )
+        return (
+            f"mention {self.mention:.1%} ({self.mention_matched}/{self.mention_total}) · "
+            f"distinct {self.distinct:.1%} ({self.distinct_matched}/{self.distinct_total})"
+            f"\n  {m}{b}"
+        )
 
 
 def match_all(names: list[str], d: Dictionary) -> tuple[list[MatchResult], Coverage]:
@@ -308,7 +337,7 @@ def match_all(names: list[str], d: Dictionary) -> tuple[list[MatchResult], Cover
         r = cache[nm]
         out.append(r)
         cov.mention_total += 1
-        if r.matched:
+        if r.matched and r.method is not None:
             cov.mention_matched += 1
             cov.by_method[r.method.value] = cov.by_method.get(r.method.value, 0) + 1
         elif r.blocked_by:

@@ -39,6 +39,7 @@ all_ids       = 전부 (양념·고명 포함)                  -- 알러지 검
 다행히 `garnish` 와 `seasoning` 은 `essential_ids` 에 동일하게 영향한다(둘 다 제외).
 차이는 표시용뿐이므로 **지금 구분하지 못해도 추천 결과는 바뀌지 않는다.**
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -70,8 +71,8 @@ GARNISH_BY_POSITION = False
 
 @dataclass
 class RoleResult:
-    role: IngredientRole | None = None       # None = 판정 보류 (미매칭)
-    rule: str = ""                           # 어느 규칙이 발동했는가 — 측정용
+    role: IngredientRole | None = None  # None = 판정 보류 (미매칭)
+    rule: str = ""  # 어느 규칙이 발동했는가 — 측정용
     note: str = ""
 
     @property
@@ -79,8 +80,13 @@ class RoleResult:
         return self.role == IngredientRole.ESSENTIAL
 
 
-def judge(p: ParsedIngredient, m: MatchResult, d: Dictionary,
-          pos: int | None = None, n_total: int | None = None) -> RoleResult:
+def judge(
+    p: ParsedIngredient,
+    m: MatchResult,
+    d: Dictionary,
+    pos: int | None = None,
+    n_total: int | None = None,
+) -> RoleResult:
     """역할 하나를 판정한다. **위에서 먼저 걸리면 종료** (설계 4-5).
 
     Args:
@@ -91,7 +97,7 @@ def judge(p: ParsedIngredient, m: MatchResult, d: Dictionary,
     # ── 0. 미매칭은 판정하지 않는다 ─────────────────────────
     #    사전에 없으므로 is_staple 을 알 수 없고, ingredient_id 가 없어
     #    어차피 essential_ids 에 들어가지 못한다. 검수 큐에서 함께 해결된다.
-    if not m.matched:
+    if not m.matched or m.ingredient_id is None:
         return RoleResult(None, "R0_미매칭", "P3 검수 큐 대기")
 
     meta = d.meta.get(m.ingredient_id, {})
@@ -113,8 +119,11 @@ def judge(p: ParsedIngredient, m: MatchResult, d: Dictionary,
     # ── 5. 모호 수량 ('약간' '적당량') + 주재료 가드 ──────
     if p.is_ambiguous_qty:
         if cat0 in MAIN_CATEGORIES:
-            return RoleResult(IngredientRole.ESSENTIAL, "R5_가드_주재료",
-                              f"'{p.unit}' 이지만 {cat0} 는 필수로 남긴다")
+            return RoleResult(
+                IngredientRole.ESSENTIAL,
+                "R5_가드_주재료",
+                f"'{p.unit}' 이지만 {cat0} 는 필수로 남긴다",
+            )
         return RoleResult(IngredientRole.OPTIONAL, "R5_모호수량")
 
     # ── 6. 위치 기반 garnish — 기본 비활성 ──────────────────
@@ -132,13 +141,14 @@ class RoleStats:
     설계 4-5 는 1·2번이 주력이라고 썼는데 실측은 3번이 주력이다.
     이 표가 그 차이를 계속 감시한다.
     """
+
     by_rule: dict[str, int] = field(default_factory=dict)
     by_role: dict[str, int] = field(default_factory=dict)
     n_essential: int = 0
     n_total: int = 0
     n_unjudged: int = 0
 
-    def add(self, r: RoleResult):
+    def add(self, r: RoleResult) -> None:
         self.n_total += 1
         self.by_rule[r.rule] = self.by_rule.get(r.rule, 0) + 1
         if r.role is None:
@@ -155,15 +165,19 @@ class RoleStats:
 
     def report(self) -> str:
         roles = " · ".join(f"{k} {v}" for k, v in sorted(self.by_role.items()))
-        rules = "\n".join(f"    {k:<18}{v:>4}"
-                          for k, v in sorted(self.by_rule.items(), key=lambda kv: -kv[1]))
-        return (f"판정 {self.n_total - self.n_unjudged}/{self.n_total} "
-                f"(보류 {self.n_unjudged})\n  {roles}\n"
-                f"  essential 비율 {self.essential_ratio:.1%}\n  규칙별 발동:\n{rules}")
+        rules = "\n".join(
+            f"    {k:<18}{v:>4}" for k, v in sorted(self.by_rule.items(), key=lambda kv: -kv[1])
+        )
+        return (
+            f"판정 {self.n_total - self.n_unjudged}/{self.n_total} "
+            f"(보류 {self.n_unjudged})\n  {roles}\n"
+            f"  essential 비율 {self.essential_ratio:.1%}\n  규칙별 발동:\n{rules}"
+        )
 
 
-def judge_all(items: list[tuple[ParsedIngredient, MatchResult]],
-              d: Dictionary) -> tuple[list[RoleResult], RoleStats]:
+def judge_all(
+    items: list[tuple[ParsedIngredient, MatchResult]], d: Dictionary
+) -> tuple[list[RoleResult], RoleStats]:
     """레시피 하나의 재료 전체. 위치를 알 수 있으므로 여기서 넘긴다."""
     n = len(items)
     out, st = [], RoleStats()
