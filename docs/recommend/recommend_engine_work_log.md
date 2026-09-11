@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 B 추천 엔진을 이어서 작업하는 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 1.5.0 · **최종 수정**: 2026-09-12 · **작성자**: 유재현
+**버전**: 1.6.0 · **최종 수정**: 2026-09-12 · **작성자**: 유재현
 
 ---
 
@@ -14,11 +14,11 @@
 |---|---|
 | 정본 | 이 파일. 사람용 서술본 `human/recommend_engine_work_log.md` 는 식별자로 대응하는 파생본 |
 | 계획서 | `recommend_engine_design.md` (사람용, 정본) · `recommend_engine_design_digest.md` (요약, 어긋나면 원본이 이김) |
-| 브랜치 | `feat/recommend-engine-core`. `origin/main` 병합 완료. `origin/develop-data-part` 는 두 번 병합했습니다 — 658d79a(9.6), def3d5b(9.10). `main` 병합은 PR #8 로 올렸습니다(2026-09-11, 승인 대기) |
+| 브랜치 | `feat/recommend-engine-core`. `origin/main` 병합 완료. `origin/develop-data-part` 는 두 번 병합했습니다 — 658d79a(9.6), def3d5b(9.10). `main` 병합은 PR #8 로 올렸고 **2026-09-11 11:52(KST) kmk9259 가 병합**했습니다(`5846a72`, `80cc832` 까지). 그 뒤 커밋 5개(`d35b619`~`e853277`, 44 파일 +2,781/-253, `main` 과 충돌 없음)는 미병합이며 새 PR 은 보류입니다(유재현, 2026-09-12) |
 | 단계 | ② Ranking 과 ③ Re-ranking 을 A 계약 위에서 구현 완료. **취향 페르소나**(고른 음식 → 3축 척도 → 없음, 시간 감쇠·주기 가중, 사용자당 JSON 저장)를 9.11 에서 구현. ① Retrieval·로그 적재·DDL·배치는 A 것이 브랜치에 있습니다. 라우터에 `rank_candidates`·`PersonaService` 를 끼우는 것(M-01·M-15)과 DB 연결이 남았습니다. 9.12 에서 세 방향 복기(명세 · 무음 실패 · 규약)로 구멍 15개(F-36~F-50)를 찾아 14개를 코드로 고쳤습니다(D-34~D-38) |
 | 검증 (2026-09-12, 9.12) | ruff check OK · ruff format OK · mypy **62 files** OK · `pytest tests/unit` **276 passed / 0 failed** / coverage **90.23%**. `seeds/validate` 0 · `contract` 98건 0 — 설정값 20종을 셸 환경변수로만 채워야 끝까지 돕니다(E-13). 출력은 `recommend_engine_verification.md` 14절 |
-| 다음 행동 | PR #8 에 9.11·9.12 커밋을 얹었으니 본문 갱신 → 승인·병합 → N-01(.env) → 라우터 실연결(M-01·M-15) → G-24(3축 척도 범위)·G-25(월별 주기 해석)·G-26(`EventIn` 시각)·G-27(A 함수의 균등 폴백) 확인. 남은 회의 안건은 `recommend_engine_meeting_agenda.md` 2절 |
-| 병합 정책 | PR 없음. 브랜치 커밋·push 만. `main` 병합은 A·B 파트 완료 후 논의 (P-10). `origin/main` 은 merge 로 따라감 (A 가 브랜치를 본 뒤라 rebase 금지, 01의 2.1) |
+| 다음 행동 | 미병합 커밋 5개의 새 PR(보류 해제 시) → N-01(.env) → 라우터 실연결(M-01·M-15) → G-24(3축 척도 범위)·G-25(월별 주기 해석)·G-26(`EventIn` 시각)·G-27(A 함수의 균등 폴백) 확인. 남은 회의 안건은 `recommend_engine_meeting_agenda.md` 2절 |
+| 병합 정책 | `main` 은 PR 로만 병합합니다(첫 PR #8 은 `5846a72` 로 병합됨). 브랜치 커밋·push 는 자유. `origin/main` 은 merge 로 따라감(rebase 금지, 01의 2.1). 병합된 브랜치 `feat/recommend-engine-core` 는 01의 2.1 대로 삭제 대상이나 미병합 커밋 5개가 있어 새 PR 전까지 둡니다 |
 | DB 전환 | `recommend_engine_db_cutover.md` 의 M-01~M-15. DB 와 닿는 변경을 시작할 때 먼저 엽니다. `tests/unit/recommend/test_db_cutover.py` 가 못을 박아 두어 건너뛰면 검사가 깨집니다 |
 | 갱신 규칙 | 세션마다 1절·3절·9절 갱신. 새 항목은 다음 번호, 번호 재사용 금지. 사람용 서술본 동시 갱신 (2절). **3.3 의 수치는 그 세션의 실행에서 다시 잽니다** — 앞 세션 값을 옮기지 않습니다 (01의 3.4, D-28). 9절의 세션별 수치는 그 시점 기록이므로 고치지 않습니다 |
 
@@ -183,7 +183,7 @@ python -m tests.unit.recommend.test_batch    → 5건 중 5건 통과
 | `/health` 의 `redis` | 저장소에 redis 클라이언트가 없어 찔러 볼 대상이 없습니다 | A 가 붙이거나 필드를 뺄 때 | M-11, G-19, F-31 |
 | DB 가 필요한 A 게이트 4종 | `make smoke`·`log-test`·`ddl-test`·`feature-test` 는 실 DB 를 씁니다. 병합 시 못 돌렸습니다 | DB 기동 후 | M-12 |
 | 커버리지 `omit` 되돌리기 | A 의 단독 스크립트를 pytest 로 옮겨야 합니다. A 의 파일이라 단독 결정 불가 | G-08 결정 후 | M-13, D-24 |
-| 게이트 예외 4건 승인 | 01의 3.3·6.1 이 Tech Lead 승인을 요구합니다 | 회의에서 | G-16 |
+| 게이트 예외 4건 사후 승인 확인 | 01의 3.3·6.1 이 Tech Lead 승인을 요구합니다. PR #8 이 병합돼(`5846a72`) 예외가 `main` 에 들어갔으나 명시 승인 기록은 없습니다 | 회의에서 | G-16 |
 | 01의 3.4 개정 승인 | 01의 9절이 팀 전원 승인을 요구합니다 | 회의에서 | D-28 |
 | 규약 개정 2건 | `docs/recommend/` 배치와 `stage.py`·`enums.py`·`policy.py` 가 규약에 없습니다 | 회의에서 | G-09, G-10 |
 | `.env` 채우기 | 값이 팀 비밀 저장소에 있고 유재현이 직접 넣습니다. 비면 서버도 `make contract` 도 못 돕니다 | 유재현 | N-01, E-13 |
@@ -464,4 +464,15 @@ uv run ruff check . && uv run python -m mypy src
 | 규약 | 02의 5.1: `persona.py` 340줄 · `service.py` 372줄 · `rerank.py` 302줄로 검토 문턱(300, 예시값) 초과, 필수 분리(500) 아님. 새 함수 인자 최대 5(`next_plan`). 디렉터리 파일 수는 루트 10 · `engine` 13 으로 이미 상한(8) 초과라 새 모듈을 만들지 않았습니다(G-10 묶음). ruff E501 은 한글을 폭 2 로 셉니다(E-04) |
 | 문서 | 결정 기록 1.1.0(별점 상한, 저장소 보강, 월별 해석, 3개 미강제, 수신 시각, C 가 읽는 추적 키) · 검증 기록 14절 · 안건 G-25~G-27·N-15 · 점검표 M-14·M-15 문구 · 설명서 1.1.0 |
 | 커밋 | `b7b25b4` 코드·검사·평가. 기록은 그다음 커밋 |
-| 넘긴 것 | G-25(월별 주기 해석) · G-26(`EventIn` 시각 필드) · G-27(A 함수의 균등 폴백) · N-15(완화 상향의 트레이드오프) · M-14 대조 기준에 중복 사용자 분리 · PR #8 본문 갱신 |
+| 넘긴 것 | G-25(월별 주기 해석) · G-26(`EventIn` 시각 필드) · G-27(A 함수의 균등 폴백) · N-15(완화 상향의 트레이드오프) · M-14 대조 기준에 중복 사용자 분리 · 미병합 커밋 5개의 새 PR(보류, 9.13) |
+
+### 9.13 2026-09-12 - PR #8 병합 확인과 기록 정리
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 "응 진행해줘" — PR #8 본문 갱신 승인. 갱신 전 공개 API 로 상태를 읽으니 이미 병합돼 있었습니다 |
+| 사실 | PR #8 은 2026-09-11 02:52Z(11:52 KST) kmk9259 가 병합, merge commit `5846a72`, head `80cc832`. `origin/main` 에 `80cc832` 까지 있고 그 뒤 커밋 5개(`d35b619` `04ec783` `5b6043f` `b7b25b4` `e853277`)는 없습니다. 열린 PR 없음. 브랜치 `feat/recommend-engine-core` 는 원격에 남아 있음 |
+| 규모 | `git diff --stat origin/main...HEAD` 44 파일 +2,781/-253 — `src/features` 8(+847/-84) · `tests/unit` 9(+964/-61) · `docs/recommend` 11(+603/-37) · `scripts` 2 · `tests/fixtures` 12 · `docs/decisions` 1 · `docs/README.md`. `git merge-tree` 충돌 0 |
+| 결정 | 새 PR 은 보류(유재현). 선택지는 새 브랜치 `feat/recommend-taste-persona` 에서 PR · 기존 브랜치에서 PR · 보류였습니다. PR #8 본문 갱신은 병합된 PR 이라 하지 않았고 자격증명도 쓰지 않았습니다 |
+| 기록 | 1절 브랜치·다음 행동·병합 정책, MUST TODO G-16 줄, 안건 G-16(막히는 것 없음, 사후 확인)·N-12(B 몫 완료)·요약·커밋 범례, 사람용 사본 |
+| 넘긴 것 | 새 PR 시점 결정(유재현) · 병합된 브랜치 삭제 여부(01의 2.1) · G-16 사후 승인 확인 · A 가 `main` 을 받는 것(N-12 의 A 몫) |
