@@ -4,7 +4,7 @@
 
 **적용 대상**: 팀 전원, 특히 평가 파트. 노션에 그대로 옮겨 공유합니다. 구현 세부는 이 문서 끝의 기술 문서 목록을 봅니다
 
-**버전**: 1.1.0 · **최종 수정**: 2026-09-12 · **작성자**: 유재현
+**버전**: 1.2.0 · **최종 수정**: 2026-09-12 · **작성자**: 유재현
 
 ---
 
@@ -278,4 +278,4 @@
 | 진행 상태와 남은 일 | `docs/recommend/human/recommend_engine_work_log.md` |
 | 검증 결과의 상세 수치 | `docs/recommend/human/recommend_engine_verification.md` |
 | 데이터베이스를 붙일 때의 점검표 | `docs/recommend/human/recommend_engine_db_cutover.md` |
-| 원래 계획서 (회의 이전 판) | `docs/recommend/recommend_engine_design.md` |
+| 구현 명세 (흐름 · 계약 · 수식 · 저장소 · 배치 · 상태를 한 문서로) | `docs/recommend/recommend_engine_design.md` |

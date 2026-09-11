@@ -4,7 +4,7 @@
 
 **적용 대상**: 이 저장소에 기여하는 모든 인원 및 AI 코딩 에이전트
 
-**버전**: 1.8.0 · **최종 수정**: 2026-09-10 · **작성자**: 김민경
+**버전**: 1.8.1 · **최종 수정**: 2026-09-12 · **작성자**: 김민경
 
 ---
 
@@ -26,8 +26,8 @@
 
 | 폴더 | 문서 | 담는 것 |
 |---|---|---|
-| `recommend/` | [recommend_engine_design.md](recommend/recommend_engine_design.md) | 파트 B 추천 코어 엔진 설계 명세. 사람용 정본 |
-| `recommend/` | [recommend_engine_design_digest.md](recommend/recommend_engine_design_digest.md) | 위 명세의 에이전트용 압축본. 어긋나면 명세가 이깁니다 |
+| `recommend/` | [recommend_engine_design.md](recommend/recommend_engine_design.md) | 파트 B 추천 코어 엔진 구현 명세(2.0.0, 현재 구현 기준). 흐름·계약·수식·저장소·배치·상태·검증·열린 결정을 이 문서 하나로 읽습니다. 사람용 정본, 노션 공유용 |
+| `recommend/` | [recommend_engine_design_digest.md](recommend/recommend_engine_design_digest.md) | 위 명세의 에이전트용 압축본. 어긋나면 명세가 이기고, 명세와 코드가 어긋나면 코드가 이깁니다 |
 | `recommend/` | [recommend_engine_how_it_works.md](recommend/recommend_engine_how_it_works.md) | 추천 엔진이 어떻게 동작하는지를 내부 식별자 없이 일반 언어로 설명. 노션 공유용이며 평가 파트의 모델 이해 자료 |
 | `recommend/` | [recommend_engine_work_log.md](recommend/recommend_engine_work_log.md) | 파트 B 작업 기록. 결정·가정·남은 일. 에이전트용 정본 |
 | `recommend/` | [recommend_engine_verification.md](recommend/recommend_engine_verification.md) | 파트 B 검증 기록. 명세 정합, Mock 동작, 수정 반영. 에이전트용 정본 |
