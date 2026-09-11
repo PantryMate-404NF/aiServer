@@ -4,7 +4,7 @@
 
 **적용 대상**: 이 저장소에 기여하는 모든 인원 및 AI 코딩 에이전트
 
-**버전**: 1.6.0 · **최종 수정**: 2026-09-10 · **작성자**: 김민경
+**버전**: 1.7.0 · **최종 수정**: 2026-09-10 · **작성자**: 김민경
 
 ---
 
@@ -30,7 +30,7 @@
 | `recommend/` | [recommend_engine_design_digest.md](recommend/recommend_engine_design_digest.md) | 위 명세의 에이전트용 압축본. 어긋나면 명세가 이깁니다 |
 | `recommend/` | [recommend_engine_work_log.md](recommend/recommend_engine_work_log.md) | 파트 B 작업 기록. 결정·가정·남은 일. 에이전트용 정본 |
 | `recommend/` | [recommend_engine_verification.md](recommend/recommend_engine_verification.md) | 파트 B 검증 기록. 명세 정합, Mock 동작, 수정 반영. 에이전트용 정본 |
-| `recommend/` | [recommend_engine_meeting_agenda.md](recommend/recommend_engine_meeting_agenda.md) | 파트 B 통합 회의 안건. 타 파트 논의와 내부 처리 구분. 에이전트용 정본 |
+| `recommend/` | [recommend_engine_meeting_agenda.md](recommend/recommend_engine_meeting_agenda.md) | 파트 B 통합 회의 안건. 안건마다 상태(결정·반영 · 일부 반영 · 결정 필요 등)와 결정일·반영 커밋·반영 코드. 에이전트용 정본 |
 | `recommend/` | [recommend_engine_db_cutover.md](recommend/recommend_engine_db_cutover.md) | 실 DB 를 붙일 때 반드시 처리할 항목과 확인 근거. `tests/unit/recommend/test_db_cutover.py` 가 건너뛰지 못하게 막습니다 |
 | `recommend/human/` | [recommend_engine_work_log.md](recommend/human/recommend_engine_work_log.md) · [recommend_engine_verification.md](recommend/human/recommend_engine_verification.md) · [recommend_engine_meeting_agenda.md](recommend/human/recommend_engine_meeting_agenda.md) · [recommend_engine_db_cutover.md](recommend/human/recommend_engine_db_cutover.md) | 위 네 기록의 사람용 서술본 |
 
