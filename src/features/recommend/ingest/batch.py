@@ -46,7 +46,7 @@ from features.recommend.ingest.match import Dictionary, match
 from features.recommend.ingest.parse import normalize
 from features.recommend.ingest.role import judge
 from features.recommend.ingest.run_log import batch_run
-from features.recommend.repository import (
+from features.recommend.repository_ingest import (
     insert_recipe_ingredients,
     load_raw_ingredients,
     load_recipe_ids,

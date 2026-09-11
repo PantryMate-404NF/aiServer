@@ -143,6 +143,9 @@ popularity-build:  ## popularity_score 백분위 순위 + quality_score 0 (A-6).
 feature-test:  ## 회귀 게이트 — 피처 체크 8개. 스키마·배치를 건드렸으면 이것부터 (A-8)
 	$(PY) -m features.recommend.ingest.feature_test
 
+freq-build:  ## ingredient.freq_count 채우기 — f_cooccur 의 IDF 분모 (A-14). 1초
+	$(PY) -m features.recommend.ingest.freq_build
+
 batch-log:  ## 배치 실행 기록 — status·건수·실패 사유 (A-7)
 	@$(PSQL) -c "SET search_path=reco,public; \
 	  SELECT id, job_name, status, input_count, output_count, \

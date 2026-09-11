@@ -50,7 +50,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from features.recommend.ingest.flavor_check import check as flavor_check
-from features.recommend.repository import (
+from features.recommend.repository_ingest import (
     load_gate_counts,
     load_gate_stats,
     load_popularity_deciles,

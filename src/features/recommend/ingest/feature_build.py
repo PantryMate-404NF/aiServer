@@ -41,7 +41,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from features.recommend.ingest.run_log import batch_run
-from features.recommend.repository import (
+from features.recommend.repository_ingest import (
     load_feature_quality,
     mark_recipe_status,
     rebuild_recipe_features,

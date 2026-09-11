@@ -183,6 +183,8 @@ ignore_missing_imports = true
 #    - ingest/*        : make normalize-test · contract · feature-test · flavor-check · probe-all
 #    - repository.py   : make smoke-py · log-test · ddl-test (실 DB 필요.
 #                        01의 6.2 가 단위 테스트에서 실 DB 사용을 금지합니다)
+#    - repository_ingest.py : 배치용 SQL. repository.py 에서 떼어 낸 것이라 근거가
+#                        같습니다 (make feature-test · freq-build 등, 실 DB 필요)
 #    - engine/mock.py  : make contract · api-docs
 #
 # 🔴 이 축소는 01의 6.1 에 따라 Tech Lead 승인이 필요합니다. 해소 조건은
@@ -194,6 +196,7 @@ ignore_missing_imports = true
 omit = [
     "src/features/recommend/ingest/*",
     "src/features/recommend/repository.py",
+    "src/features/recommend/repository_ingest.py",
     "src/features/recommend/engine/mock.py",
 ]
 

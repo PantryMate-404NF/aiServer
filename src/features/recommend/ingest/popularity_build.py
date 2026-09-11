@@ -49,7 +49,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from features.recommend.ingest.run_log import batch_run
-from features.recommend.repository import (
+from features.recommend.repository_ingest import (
     load_popularity_deciles,
     load_popularity_stats,
     rebuild_popularity,
