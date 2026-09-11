@@ -627,3 +627,69 @@ def load_freq_top(limit: int = 10) -> list[tuple[str, int, str | None]]:
     with cursor() as cur:
         cur.execute(_FREQ_TOP_SQL, (limit,))
         return cur.fetchall()
+
+
+# ─────────────────────────────────────────────────────────────────
+# 골든 픽스처 — ingest/golden.py 가 읽는다 (A-9)
+# ─────────────────────────────────────────────────────────────────
+#: 픽스처에 담을 컬럼. recipe_feature 에서 B·C 가 실제로 읽는 것만 고른다.
+#: content_emb(768차원)와 nutrition 은 뺀다 — 파일이 커지고 아직 비어 있다.
+_GOLDEN_COLS = (
+    "recipe_id, essential_ids, all_ids, category_ids, n_essential, n_total, "
+    "n_unmatched, flavor_vec, popularity_score, quality_score, "
+    "cook_minutes, difficulty, cluster_id, feature_version"
+)
+
+#: 구분마다 정해진 수만큼 뽑는다. recipe_id 순으로 고정해 실행마다 같은 것이
+#: 나오게 한다 — 픽스처가 흔들리면 그것으로 쓴 테스트도 흔들린다.
+#:
+#: 주의: 문자열로 조립하는 유일한 쿼리다. 넣는 값 둘 다 모듈 상수이고 바깥
+#:    입력이 닿지 않는다 — 컬럼은 _GOLDEN_COLS, 조건은 GOLDEN_CONDS 의 값이며
+#:    호출부는 이름으로만 고른다. 건수는 %s 로 바인딩한다.
+_GOLDEN_SQL = f"""
+SELECT {_GOLDEN_COLS}
+FROM recipe_feature
+WHERE {{cond}}
+ORDER BY recipe_id
+LIMIT %s
+"""  # noqa: S608
+
+
+#: 허용된 조건만 담은 표. 문자열로 SQL 을 조립하는 유일한 자리라, 바깥에서
+#: 임의의 문자열이 들어올 수 없게 이름으로만 고르게 한다.
+GOLDEN_CONDS: dict[str, str] = {
+    "normal": (
+        "n_total > 0 AND n_essential > 0 AND n_unmatched <= 2 "
+        "AND cook_minutes IS NOT NULL AND flavor_vec <> ARRAY[0,0,0,0,0,0]::real[]"
+    ),
+    "zero_essential": "n_total > 0 AND n_essential = 0",
+    "many_unmatched": "n_unmatched >= 5 AND n_essential > 0",
+    "zero_flavor": "flavor_vec = ARRAY[0,0,0,0,0,0]::real[] AND n_total > 0",
+    "no_cooktime": "cook_minutes IS NULL AND n_total > 0 AND n_essential > 0",
+}
+
+
+def load_golden_rows(kind: str, limit: int) -> list[tuple[Any, ...]]:
+    """조건에 맞는 recipe_feature 행을 recipe_id 순으로 뽑는다.
+
+    Args:
+        kind: GOLDEN_CONDS 의 키. 표에 없는 이름은 거부한다 — 조건절이 SQL 에
+            문자열로 들어가는 유일한 자리라, 값이 아니라 이름으로만 고르게 한다.
+    """
+    cond = GOLDEN_CONDS.get(kind)
+    if cond is None:
+        raise ValueError(f"모르는 조건입니다: {kind!r} (가능: {sorted(GOLDEN_CONDS)})")
+    with cursor() as cur:
+        cur.execute(_GOLDEN_SQL.format(cond=cond), (limit,))
+        return cur.fetchall()
+
+
+def load_feature_columns() -> list[str]:
+    """recipe_feature 의 현재 컬럼 이름. 픽스처 키와 대조한다."""
+    with cursor() as cur:
+        cur.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema = 'reco' AND table_name = 'recipe_feature' "
+            "ORDER BY ordinal_position"
+        )
+        return [r[0] for r in cur.fetchall()]

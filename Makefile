@@ -146,6 +146,12 @@ feature-test:  ## 회귀 게이트 — 피처 체크 8개. 스키마·배치를 
 freq-build:  ## ingredient.freq_count 채우기 — f_cooccur 의 IDF 분모 (A-14). 1초
 	$(PY) -m features.recommend.ingest.freq_build
 
+golden-build:  ## B·C 용 골든 픽스처 생성 — 실 recipe_feature 30건 + μ (A-9)
+	$(PY) -m features.recommend.ingest.golden
+
+golden-check:  ## 골든 픽스처가 현재 계약과 맞는지 대조 (DB 필요)
+	$(PY) -m features.recommend.ingest.golden --check
+
 batch-log:  ## 배치 실행 기록 — status·건수·실패 사유 (A-7)
 	@$(PSQL) -c "SET search_path=reco,public; \
 	  SELECT id, job_name, status, input_count, output_count, \
@@ -218,6 +224,7 @@ data-gate:  ## 데이터 파트 게이트 전부 — 커밋 전에 이것 하나
 	@$(MAKE) --no-print-directory contract
 	@$(MAKE) --no-print-directory normalize-test
 	@$(MAKE) --no-print-directory feature-test
+	@$(MAKE) --no-print-directory golden-check
 	@echo "  ✓ 데이터 파트 게이트 전부 통과"
 
 # ── 한 번에 ─────────────────────────────────────────────────────
