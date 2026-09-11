@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 B 추천 엔진을 이어서 작업하는 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 1.2.0 · **최종 수정**: 2026-09-11 · **작성자**: 유재현
+**버전**: 1.3.0 · **최종 수정**: 2026-09-11 · **작성자**: 유재현
 
 ---
 
@@ -14,10 +14,10 @@
 |---|---|
 | 정본 | 이 파일. 사람용 서술본 `human/recommend_engine_work_log.md` 는 식별자로 대응하는 파생본 |
 | 계획서 | `recommend_engine_design.md` (사람용, 정본) · `recommend_engine_design_digest.md` (요약, 어긋나면 원본이 이김) |
-| 브랜치 | `feat/recommend-engine-core`. `origin/main` 병합 완료. `origin/develop-data-part` 는 두 번 병합했습니다 — 658d79a(9.6), def3d5b(9.10). `main` 병합은 PR 로 진행합니다(승인 대기) |
+| 브랜치 | `feat/recommend-engine-core`. `origin/main` 병합 완료. `origin/develop-data-part` 는 두 번 병합했습니다 — 658d79a(9.6), def3d5b(9.10). `main` 병합은 PR #8 로 올렸습니다(2026-09-11, 승인 대기) |
 | 단계 | ② Ranking 과 ③ Re-ranking 을 A 계약 위에서 구현 완료. ① Retrieval·로그 적재·DDL·배치는 A 것이 브랜치에 들어와 있습니다(9.6). 라우터에 `rank_candidates` 를 끼우는 것(N-03)과 DB 연결이 남았습니다 |
 | 검증 (2026-09-11, 9.10) | ruff check OK · ruff format OK · mypy **60 files** OK · `pytest tests/unit` **206 passed / 0 failed** / coverage **88.18%**. A 자체 게이트 전부 종료코드 0 — `contract` 98건은 설정값을 채운 환경에서만 끝까지 돕니다(E-13). 출력은 `recommend_engine_verification.md` 12절 |
-| 다음 행동 | PR 로 `main` 병합(2026-09-11 유재현 결정). 승인 1명과 300줄 초과에 대한 Tech Lead 사전 승인(01의 5.1), 게이트 예외 승인(G-16)이 필요합니다 → N-01(.env) → N-03(라우터 실연결). `main` 보호 설정은 G-20. 남은 회의 안건은 `recommend_engine_meeting_agenda.md` 2절 |
+| 다음 행동 | PR #8 승인과 병합(2026-09-11 생성). 승인 1명과 300줄 초과에 대한 Tech Lead 사전 승인(01의 5.1), 게이트 예외 승인(G-16)이 필요합니다 → N-01(.env) → N-03(라우터 실연결). `main` 보호 설정은 G-20. 남은 회의 안건은 `recommend_engine_meeting_agenda.md` 2절 |
 | 병합 정책 | PR 없음. 브랜치 커밋·push 만. `main` 병합은 A·B 파트 완료 후 논의 (P-10). `origin/main` 은 merge 로 따라감 (A 가 브랜치를 본 뒤라 rebase 금지, 01의 2.1) |
 | DB 전환 | `recommend_engine_db_cutover.md` 의 M-01~M-13. DB 와 닿는 변경을 시작할 때 먼저 엽니다. `tests/unit/recommend/test_db_cutover.py` 가 못을 박아 두어 건너뛰면 검사가 깨집니다 |
 | 갱신 규칙 | 세션마다 1절·3절·9절 갱신. 새 항목은 다음 번호, 번호 재사용 금지. 사람용 서술본 동시 갱신 (2절). **3.3 의 수치는 그 세션의 실행에서 다시 잽니다** — 앞 세션 값을 옮기지 않습니다 (01의 3.4, D-28). 9절의 세션별 수치는 그 시점 기록이므로 고치지 않습니다 |
@@ -411,5 +411,5 @@ uv run ruff check . && uv run python -m mypy src
 | 새로 본 것 (G-20) | 01의 2.1 은 `main` 을 보호 브랜치로 둔다고 정하지만, GitHub 공개 API 로 확인하니 `main` 의 `protected` 가 `false` 입니다. 직접 push 해도 막히지 않습니다. 회의 안건으로 올렸습니다 |
 | 검증 | ruff·format(136)·mypy(60) 종료코드 0, `pytest tests/unit` 206 passed / coverage 88.18%. A 게이트 validate·run 74·test_match 23·test_role 23·test_batch 5 전부 종료코드 0, `contract` 98건 종료코드 0(설정값 채움). `freq_build`·`repository_ingest` 는 실 DB 없이 import 까지 확인. Mock 종단 판정 지표 이전과 동일, p95 28.1ms |
 | 돌리지 못한 것 | `make freq-build` 와 DB 가 필요한 A 게이트 4종은 실 DB 가 없어 돌리지 못했습니다 |
-| `main` 병합 방식 | 유재현 결정: PR. 01의 2.1 이 `main` 직접 push 를 금지하고 PR #3·#7 이 선례입니다. 이 PC 에 `gh` 가 없어 PR 은 GitHub 비교 화면에서 엽니다 |
-| 넘긴 것 | PR 승인(1명, 300줄 초과 사전 승인), G-16, G-10 에 F-34, G-20 |
+| `main` 병합 방식 | 유재현 결정: PR. 01의 2.1 이 `main` 직접 push 를 금지하고 PR #3·#7 이 선례입니다. 이 PC 에 `gh` 가 없어, 유재현의 동의를 받아 git 에 저장된 GitHub 인증으로 REST API 를 불러 PR #8 을 만들었습니다(HTTP 201). 토큰은 출력하거나 파일에 저장하지 않았습니다 |
+| 넘긴 것 | PR #8 승인(1명, 300줄 초과 사전 승인), G-16, G-10 에 F-34, G-20 |
