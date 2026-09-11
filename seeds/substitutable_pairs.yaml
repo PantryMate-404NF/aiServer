@@ -1,0 +1,171 @@
+# 재료 대체 가능성 — **측정용 라벨 데이터**
+#
+# 목적: item2vec · ko-SBERT · 가중 자카드 중 무엇이 "대체 가능"을 잘 판정하는지
+#       실측으로 확인한다. 구현 전에 측정한다 (설계 4-4-1 과 같은 방식).
+#
+# ⚠️ confusable_pairs.yaml 과 목적이 다르다. 혼동하지 말 것.
+#
+#   confusable_pairs   "같은 재료로 오인하면 안 되는 쌍"     ← 정규화 매칭용
+#   substitutable      "다른 재료지만 대체 가능한 쌍"        ← 추천용
+#
+#   두 목록은 겹칠 수 있다. 예) 닭가슴살 ↔ 닭안심 은
+#     - 매칭에서는 구분해야 하고(confusable)
+#     - 요리에서는 대체 가능하다(substitutable)
+#   그래서 confusable 을 그대로 negative 로 쓸 수 없다.
+
+version: 1
+
+# ─────────────────────────────────────────────────────────────
+# POSITIVE — 대체 가능
+#   from 을 to 로 바꿔도 요리가 성립한다.
+#   score: 1.0 거의 동일 / 0.7 대체로 가능 / 0.5 조건부
+#   ⚠️ 방향성이 있다. '설탕→올리고당'은 되지만 반대는 요리에 따라 실패한다.
+# ─────────────────────────────────────────────────────────────
+positive:
+  # 당류
+  - {from: 설탕,      to: 올리고당,    score: 0.9, reason: same_role}
+  - {from: 설탕,      to: 물엿,        score: 0.8, reason: same_role}
+  - {from: 설탕,      to: 알룰로스,    score: 0.9, reason: same_role}
+  - {from: 올리고당,   to: 물엿,        score: 0.9, reason: same_role}
+  - {from: 올리고당,   to: 조청,        score: 0.8, reason: same_role}
+  - {from: 물엿,      to: 조청,        score: 0.8, reason: same_role}
+  - {from: 설탕,      to: 황설탕,      score: 0.9, reason: same_role}
+  - {from: 흑설탕,     to: 황설탕,      score: 0.9, reason: same_role}
+  - {from: 꿀,        to: 올리고당,    score: 0.7, reason: same_role}
+
+  # 장류
+  - {from: 간장,      to: 진간장,      score: 0.9, reason: same_role}
+  - {from: 간장,      to: 양조간장,    score: 0.9, reason: same_role}
+  - {from: 진간장,     to: 양조간장,    score: 0.95, reason: same_role}
+  - {from: 진간장,     to: 맛간장,      score: 0.7, reason: same_role}
+  - {from: 고추장,     to: 초고추장,    score: 0.5, reason: same_role}
+
+  # 기름
+  - {from: 식용유,     to: 카놀라유,    score: 0.95, reason: same_role}
+  - {from: 식용유,     to: 포도씨유,    score: 0.9, reason: same_role}
+  - {from: 카놀라유,   to: 포도씨유,    score: 0.95, reason: same_role}
+  - {from: 식용유,     to: 올리브유,    score: 0.7, reason: same_role}
+  - {from: 버터,      to: 마가린,      score: 0.8, reason: same_role}
+  - {from: 버터,      to: 식용유,      score: 0.5, reason: same_role}
+
+  # 식초·주류
+  - {from: 식초,      to: 사과식초,    score: 0.9, reason: same_role}
+  - {from: 식초,      to: 현미식초,    score: 0.9, reason: same_role}
+  - {from: 사과식초,   to: 현미식초,    score: 0.9, reason: same_role}
+  - {from: 맛술,      to: 미림,        score: 0.95, reason: same_role}
+  - {from: 맛술,      to: 청주,        score: 0.8, reason: same_role}
+  - {from: 청주,      to: 소주,        score: 0.7, reason: same_role}
+  - {from: 레몬즙,     to: 식초,        score: 0.6, reason: same_role}
+
+  # 육류 — 같은 계열 부위
+  - {from: 닭가슴살,   to: 닭안심,      score: 0.9, reason: same_role}
+  - {from: 삼겹살,     to: 오겹살,      score: 0.95, reason: same_role}
+  - {from: 앞다리살,   to: 뒷다리살,    score: 0.8, reason: same_role}
+  - {from: 돼지등심,   to: 돼지안심,    score: 0.8, reason: same_role}
+  - {from: 소등심,     to: 채끝등심,    score: 0.85, reason: same_role}
+  - {from: 소고기다짐육, to: 돼지고기다짐육, score: 0.6, reason: same_role}
+
+  # 채소
+  - {from: 대파,      to: 쪽파,        score: 0.6, reason: same_category}
+  - {from: 쪽파,      to: 실파,        score: 0.9, reason: same_category}
+  - {from: 양배추,     to: 알배추,      score: 0.6, reason: same_category}
+  - {from: 청양고추,   to: 홍고추,      score: 0.7, reason: same_category}
+  - {from: 풋고추,     to: 꽈리고추,    score: 0.8, reason: same_category}
+  - {from: 애호박,     to: 주키니,      score: 0.9, reason: same_category}
+  - {from: 파프리카,   to: 피망,        score: 0.9, reason: same_category}
+  - {from: 상추,      to: 적상추,      score: 0.95, reason: same_category}
+  - {from: 시금치,     to: 근대,        score: 0.6, reason: same_category}
+  - {from: 숙주,      to: 콩나물,      score: 0.6, reason: same_category}
+
+  # 버섯
+  - {from: 표고버섯,   to: 새송이버섯,   score: 0.7, reason: same_category}
+  - {from: 느타리버섯, to: 만가닥버섯,   score: 0.85, reason: same_category}
+  - {from: 양송이버섯, to: 새송이버섯,   score: 0.7, reason: same_category}
+
+  # 유가공
+  - {from: 우유,      to: 저지방우유,   score: 0.95, reason: same_role}
+  - {from: 생크림,     to: 휘핑크림,    score: 0.85, reason: same_role}
+  - {from: 플레인요거트, to: 그릭요거트,  score: 0.8, reason: same_role}
+  - {from: 모짜렐라치즈, to: 피자치즈,   score: 0.9, reason: same_role}
+
+  # 수산
+  - {from: 새우,      to: 대하,        score: 0.9, reason: same_category}
+  - {from: 오징어,     to: 갑오징어,    score: 0.85, reason: same_category}
+  - {from: 낙지,      to: 주꾸미,      score: 0.8, reason: same_category}
+  - {from: 바지락,     to: 모시조개,    score: 0.9, reason: same_category}
+  - {from: 멸치,      to: 잔멸치,      score: 0.85, reason: same_category}
+  - {from: 국물용멸치, to: 멸치,        score: 0.8, reason: same_role}
+  - {from: 다시마,     to: 국물용멸치,  score: 0.5, reason: same_role}
+
+  # 가공
+  - {from: 어묵,      to: 사각어묵,    score: 0.95, reason: same_category}
+  - {from: 소면,      to: 중면,        score: 0.9, reason: same_category}
+  - {from: 스파게티면, to: 파스타면,    score: 0.95, reason: same_category}
+  - {from: 두부,      to: 부침용두부,   score: 0.8, reason: same_category}
+  - {from: 햄,        to: 슬라이스햄,   score: 0.9, reason: same_category}
+  - {from: 소시지,     to: 비엔나소시지, score: 0.8, reason: same_category}
+
+  # 가루·전분
+  - {from: 전분,      to: 감자전분,    score: 0.95, reason: same_role}
+  - {from: 감자전분,   to: 옥수수전분,  score: 0.9, reason: same_role}
+  - {from: 밀가루,     to: 중력분,      score: 0.95, reason: same_role}
+
+  # 양념
+  - {from: 다진마늘,   to: 마늘,        score: 0.7, reason: same_role}
+  - {from: 고춧가루,   to: 굵은고춧가루, score: 0.9, reason: same_category}
+  - {from: 케첩,      to: 토마토페이스트, score: 0.5, reason: same_role}
+
+# ─────────────────────────────────────────────────────────────
+# NEGATIVE — 대체 불가
+#   이름·의미가 비슷해 보이지만 바꾸면 요리가 달라진다.
+#   why 는 사람이 읽는 근거다. 측정에 쓰이지 않는다.
+# ─────────────────────────────────────────────────────────────
+negative:
+  # 🔴 문자열 유사도가 가장 크게 실패하는 구간
+  - {a: 참기름,     b: 들기름,     why: 향이 완전히 다르다. 나물무침과 전용도가 갈린다}
+  - {a: 진간장,     b: 국간장,     why: 국간장은 색이 옅고 염도가 높다. 국물 색이 달라진다}
+  - {a: 찹쌀,       b: 쌀,        why: 점성이 달라 결과물이 다른 음식이 된다}
+  - {a: 찹쌀가루,    b: 쌀가루,     why: 위와 같음}
+  - {a: 밀가루,     b: 부침가루,   why: 부침가루는 조미·팽창제가 섞여 있다}
+  - {a: 부침가루,    b: 튀김가루,   why: 배합이 다르다}
+  - {a: 설탕,       b: 소금,       why: 자명}
+  - {a: 고춧가루,    b: 고추장,     why: 형태·염도·당도가 전부 다르다}
+  - {a: 된장,       b: 고추장,     why: 다른 장}
+  - {a: 된장,       b: 청국장,     why: 발효도·향이 다르다}
+  - {a: 생크림,     b: 우유,       why: 유지방 함량이 달라 농도가 안 나온다}
+  - {a: 전분,       b: 밀가루,     why: 점성 방식이 다르다}
+  - {a: 빵가루,     b: 밀가루,     why: 튀김옷 식감이 완전히 다르다}
+
+  # 재료 자체가 다름
+  - {a: 고구마,     b: 감자,       why: 당도·수분이 다르다}
+  - {a: 애호박,     b: 단호박,     why: 단맛과 조직이 다르다}
+  - {a: 무,        b: 열무,       why: 부위·용도가 다르다}
+  - {a: 대파,       b: 양파,       why: 다른 채소}
+  - {a: 부추,       b: 미나리,     why: 향이 다르다}
+  - {a: 깻잎,       b: 상추,       why: 향이 다르다}
+  - {a: 미역,       b: 다시마,     why: 미역은 먹고 다시마는 우린다}
+  - {a: 김,        b: 파래,       why: 다른 해조}
+  - {a: 명태,       b: 동태,       why: 생물과 냉동. 조리법이 갈린다}
+  - {a: 배추김치,    b: 백김치,     why: 매운맛 유무}
+  - {a: 삼겹살,     b: 목살,       why: 지방 비율이 다르다}
+  - {a: 소등심,     b: 소안심,     why: 조직·조리법이 다르다}
+  - {a: 메밀,       b: 밀가루,     why: 알러젠이 다르다. 안전 문제}
+  - {a: 두부,       b: 순두부,     why: 경도가 달라 조리가 다르다}
+  - {a: 당면,       b: 소면,       why: 원료가 다르다}
+  - {a: 식초,       b: 발사믹식초,  why: 색·단맛이 요리를 바꾼다}
+  - {a: 참깨,       b: 들깨,       why: 향이 다르다}
+  - {a: 카레가루,    b: 강황가루,   why: 카레는 혼합 향신료}
+
+# ─────────────────────────────────────────────────────────────
+# 측정 절차 (설계 6-4-6)
+#
+#   1. positive · negative 각 쌍에 대해 세 지표를 계산
+#        - item2vec 코사인       (재료 공기)
+#        - ko-SBERT 코사인       (이름 의미)
+#        - 가중 자카드           (함께 등장하는 레시피 집합)
+#   2. 임계값별 정밀도·재현율 표 작성
+#   3. 정탐·오탐 분포가 겹치면 → 자동 판정 불가. 검수 큐로만
+#   4. 두 신호가 어긋나는 사분면(공기 멀다 + 의미 가깝다)에
+#      negative 가 몰리는지 확인 → 몰리면 규칙으로 사용 가능
+#
+# 🔴 측정 전에 구현하지 않는다. 4-4-1 에서 임계값 0.6 이 재현율 0% 였던 전례가 있다.

@@ -3,13 +3,20 @@ name = "aiserver"
 version = "0.1.0"
 description = "영수증 OCR과 추천을 제공하는 AI 서버"
 requires-python = ">=3.12,<3.13"
+
+# ─────────────────────────────────────────────────────────────
+# 🔴 여기 있는 것은 **전부 실제로 import 된다.** 안 쓰는 것을 넣지 않는다.
+#    설치는 되는데 아무도 안 부르는 의존은 나중에 "왜 있지" 로 남는다.
+# ─────────────────────────────────────────────────────────────
 dependencies = [
-    "pydantic>=2.9",
-    "pydantic-settings>=2.5",
-    "sqlalchemy>=2.0",
-    "psycopg[binary]>=3.2",
+    "pydantic>=2.9",           # 계약 98건이 이 위에서 돈다
+    "pydantic-settings>=2.5",  # config.py — 환경변수 검증
+    "sqlalchemy>=2.0",         # infra/db.py — Engine·풀·세션
+    "psycopg[binary]>=3.2",    # DB 드라이버. psycopg2 는 09-04 에 걷어냈다
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
+    "pyyaml>=6.0",             # seeds/*.yaml
+    # ── 영수증 OCR (feat/ocr-receipt)
     "paddlepaddle>=3.3.1",
     "paddleocr>=3.4.0",
     "opencv-contrib-python>=4.10.0.84",
@@ -19,13 +26,49 @@ dependencies = [
     "python-multipart>=0.0.32",
 ]
 
+[project.optional-dependencies]
+# 대시보드. 트랙 C — 01 3-2 에서 Streamlit 확정
+# 🔴 pandas 를 넣지 않는다. st.dataframe 은 dict 리스트를 그대로 받고,
+#    화면에 띄울 것이 요청 1건의 후보 20개 수준이라 할 일이 없다.
+dash = [
+    "streamlit>=1.40",
+]
+
+# 실험 추적. `make mlflow-ui` 가 이것을 부른다
+obs = [
+    "mlflow>=2.17",
+]
+
+# 피처·평가 계산. 트랙 A/C
+ml = [
+    "numpy>=2.0",
+    # C-3 이 평가 지표를 **외부 기준과 대조**할 때 쓴다.
+    # 우리 nDCG 구현이 맞는지 확인할 유일한 바깥 잣대다.
+    "scikit-learn>=1.5",
+]
+
+# 랭킹 v1. 🔴 W6 말 컷라인(누적 그룹 ≥ 500) 통과 시에만 깐다.
+#    안 쓸 가능성이 실제로 있어서 기본에 넣지 않는다 —
+#    유저를 못 모으면 v0 선형으로 마무리한다.
+rank-v1 = [
+    "lightgbm>=4.5",
+]
+
+# ⬜ 임베딩. **이번 3주에는 쓰지 않는다.**
+#    A-12 가 ko-SBERT 대신 "TF-IDF → SVD 48차" 싼 버전으로 확정됐다 —
+#    content_emb 를 만드는 코드가 없고 배치가 3주에 안 들어가기 때문이다.
+embed = [
+    "sentence-transformers>=3.0",
+]
+
 [dependency-groups]
 dev = [
     "ruff>=0.6",
     "mypy>=1.11",
     "pytest>=8.3",
     "pytest-cov>=5.0",
-    "httpx>=0.28.1",
+    "httpx>=0.28.1",           # fastapi.testclient — make contract 종단 검증
+    "types-pyyaml>=6.0",
 ]
 
 [build-system]
@@ -36,21 +79,82 @@ build-backend = "hatchling.build"
 only-include = ["src"]
 sources = ["src"]            # src/ 내용을 최상위로 매핑
 
+# ─────────────────────────────────────────────────────────────
+# uv
+# ─────────────────────────────────────────────────────────────
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.uv.sources]
+# (없음)
+
+[tool.uv.workspace]
+members = []
+
+# ─────────────────────────────────────────────────────────────
+# 도구
+#
+# ⬜ 09-04 현재 ruff·mypy·pytest 게이트는 **아직 통과하지 못한다.**
+#    구조 이식과 규칙 준수를 같은 변경에 섞으면 리뷰가 불가능해져서
+#    설정만 먼저 넣고 코드를 맞추는 것은 다음 작업으로 뺐다.
+#    `make 검증 9종` 은 그대로 통과한다.
+# ─────────────────────────────────────────────────────────────
 [tool.ruff]
 target-version = "py312"
 line-length = 100                  # (예시값, 실제 데이터로 대체 필요)
 src = ["src", "tests"]
+# 🔴 `scripts/reco/bench/` 는 설계 근거를 재는 **일회용 시뮬레이션**입니다.
+#    한 번 돌려 숫자를 얻고 문서가 그 숫자를 인용하면 역할이 끝납니다. 서빙 코드
+#    기준(타입 강제·난수 금지·복잡도)을 들이대면 실험이 느려질 뿐 문서의 숫자가
+#    더 정확해지지 않습니다. 일부는 작성자 로컬 경로를 `exec()` 로 읽어 들여
+#    저장소 안에서는 애초에 돌지 않습니다 — 정적 검사가 잡는 미정의 이름 27건이
+#    그것입니다. 규칙을 부분적으로 끄는 대신 **검사 대상에서 뺍니다.**
+#    01의 3.3 에 따라 Tech Lead 승인이 필요합니다
+#    (docs/decisions/2026-09-10_merge_data_track_gate_exceptions.md).
+extend-exclude = ["scripts/reco/bench"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "N", "UP", "B", "S", "T20", "ANN", "RUF"]
+# 한글 주석·문서에서 ·(가운뎃점) — (줄표) 같은 전각 기호를 "헷갈리는 문자" 로
+# 지적합니다. 한글 프로젝트에서는 의도한 표기라 검사에서 뺍니다.
+ignore = ["RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.lint.per-file-ignores]
+# 테스트는 assert 를 씁니다(S101).
 "tests/**" = ["S101"]
 # 통합 테스트는 각 단계의 중간 결과를 눈으로 확인하는 용도를 겸합니다. 그 출력은
 # 로그가 아니라 사람이 터미널에서 읽는 것이라 print 를 씁니다.
 "tests/integration/**" = ["S101", "T20"]
+# 추천 파트의 검사도 같습니다 — pytest 함수가 아니라 단독 실행 스크립트라
+# 결과를 print 로 보고합니다 (make normalize-test · contract · log-test 가 돌립니다).
+"tests/unit/recommend/**" = ["S101", "T20"]
 # 평가·백필 스크립트는 사람이 터미널에서 읽는 도구라 print 로 결과를 냅니다.
 "scripts/**" = ["T20"]
+# ── 데이터 파트가 들여온 단독 실행 도구 ─────────────────────────
+# 아래는 전부 **사람이 터미널에서 한 번 돌려 결과를 읽는 도구**입니다. 다른 코드가
+# import 하지 않고, 서빙 경로에 들어가지 않습니다. 타입 표기(ANN)는 계약을 지킬
+# 상대가 사람뿐이라 얻는 것이 없고, 검사용 난수(S311)·상수로만 만든 SQL(S608)·
+# 도구 프로세스 호출(S603/S607)은 그 도구가 하는 일 자체입니다.
+#
+# 🔴 파일마다 **실제로 필요한 코드만** 적습니다. 디렉터리 통째로 끄면 나중에 들어올
+#    파일까지 조용히 덮습니다. 특히 `tests/unit/recommend/` 에는 추천 엔진의 pytest
+#    검사 63건이 함께 있고 그쪽은 규칙을 전부 지킵니다.
+# 🔴 이 예외들은 01의 3.3 에 따라 Tech Lead 승인이 필요합니다. 근거와 해소 계획은
+#    docs/decisions/2026-09-10_merge_data_track_gate_exceptions.md 에 있습니다.
+"seeds/validate.py" = ["ANN", "T20", "N802"]
+"scripts/reco/**" = ["ANN", "S", "N806", "E501", "RUF005", "B007"]
+"tests/integration/test_ddl.py" = ["ANN", "N806", "S608", "RUF005", "E501"]
+"tests/integration/test_smoke.py" = ["ANN", "S311", "E501"]
+"tests/unit/recommend/run.py" = ["ANN"]
+"tests/unit/recommend/test_contract.py" = ["ANN", "S311", "E402", "E731"]
+"tests/unit/recommend/test_match.py" = ["ANN"]
+"tests/unit/recommend/test_role.py" = ["ANN"]
+"tests/unit/recommend/test_writer.py" = ["ANN", "E402", "RUF059", "B905"]
+
+# 크롤러 출력은 **모양을 모르는 JSON** 입니다. 이 파일이 그것을 우리 스키마로
+# 옮기는 경계이고, 경계 바깥의 타입을 여기서 좁힐 수단이 없습니다. `dig()` 이
+# 돌려주는 값의 타입이 곧 크롤 대상마다 다른 값이라 Any 가 사실에 맞는 표기입니다.
+"src/features/recommend/ingest/adapter.py" = ["ANN401"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
@@ -66,9 +170,40 @@ disallow_untyped_defs = true
 module = ["paddleocr.*", "pillow_heif.*"]
 ignore_missing_imports = true
 
+# ─────────────────────────────────────────────────────────────
+# 커버리지 측정 범위
+#
+# ⬜ 아래 목록은 "이 코드는 검사되지 않는다" 는 뜻이 **아닙니다.** 그 검사를
+#    pytest 가 아니라 `make` 가 돌린다는 뜻입니다 — 데이터 파트의 검사 242건은
+#    단독 실행 스크립트로 작성돼 있어 pytest 가 수집하면 SystemExit 으로 죽습니다
+#    (tests/conftest.py 참고). 그래서 pytest 가 재는 숫자에서는 0% 로 잡힙니다.
+#    측정하지 않는 것을 하한선에 넣으면 하한선이 코드 품질이 아니라 **어느 도구로
+#    돌렸는가**를 재게 됩니다.
+#
+#    - ingest/*        : make normalize-test · contract · feature-test · flavor-check · probe-all
+#    - repository.py   : make smoke-py · log-test · ddl-test (실 DB 필요.
+#                        01의 6.2 가 단위 테스트에서 실 DB 사용을 금지합니다)
+#    - repository_ingest.py : 배치용 SQL. repository.py 에서 떼어 낸 것이라 근거가
+#                        같습니다 (make feature-test · freq-build 등, 실 DB 필요)
+#    - engine/mock.py  : make contract · api-docs
+#
+# 🔴 이 축소는 01의 6.1 에 따라 Tech Lead 승인이 필요합니다. 해소 조건은
+#    "단독 스크립트를 pytest 함수로 옮기는 것"(회의 안건 G-08)이고, 옮기는 즉시
+#    이 목록에서 빠집니다. 근거는
+#    docs/decisions/2026-09-10_merge_data_track_gate_exceptions.md 에 있습니다.
+# ─────────────────────────────────────────────────────────────
+[tool.coverage.run]
+omit = [
+    "src/features/recommend/ingest/*",
+    "src/features/recommend/repository.py",
+    "src/features/recommend/repository_ingest.py",
+    "src/features/recommend/engine/mock.py",
+]
+
 [tool.pytest.ini_options]
 # 통합 테스트는 실제 OCR 모델을 올려 느리므로 기본 실행에서 뺍니다.
 # 돌릴 때는 uv run pytest -m integration --no-cov 를 씁니다.
-addopts = "-q --strict-markers -m 'not integration' --cov=src --cov-report=term-missing --cov-fail-under=80"
+# 도메인마다 test_service.py 처럼 같은 이름의 테스트 파일이 있어 importlib 모드가 필요합니다.
+addopts = "-q --strict-markers --import-mode=importlib -m 'not integration' --cov=src --cov-report=term-missing --cov-fail-under=80"
 testpaths = ["tests"]
 markers = ["integration: 실제 OCR 엔진을 올려 도는 느린 테스트"]
