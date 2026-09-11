@@ -15,6 +15,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 from features.recommend.engine import taste
+from features.recommend.engine.persona import Persona
 from features.recommend.engine.taste import FlavorVector
 
 
@@ -44,10 +45,12 @@ class RecipeFeature:
 
 @dataclass(frozen=True)
 class UserHistory:
-    """DB 에서 읽어 오는 사용자 이력. 요청 본문에는 없는 것들입니다."""
+    """DB 에서 읽어 오는 사용자 이력. 요청 본문에는 없는 것들입니다.
 
-    behavior_taste_vec: FlavorVector | None = None
-    events_count: int = 0
+    맛 취향은 여기 없습니다. `engine/persona.py` 가 저장소의 원본에서 만들어 `UserContext.persona`
+    로 들어옵니다.
+    """
+
     #: 선호·기피 재료 (`user_ingredient_pref`).
     liked_ingredient_ids: frozenset[int] = frozenset()
     avoid_ingredient_ids: frozenset[int] = frozenset()
@@ -83,41 +86,40 @@ class UserContext:
     preferred_dish_types: frozenset[str] = frozenset()
     skill_level: float | None = None
     history: UserHistory = field(default_factory=UserHistory)
+    #: 취향의 출처와 상태. 랭킹은 `taste_vec` 을 보고, 탐색 정책과 로그는 이것을 봅니다.
+    #: 검사가 `UserContext` 를 직접 만들 때는 None 이며, 그때는 보통 사용자로 다룹니다.
+    persona: Persona | None = None
 
 
 def build_context(
     *,
     user_id: int,
+    #: 기본값을 두지 않습니다. 빠뜨리면 조용히 취향 없는 사용자가 되어 목록이 통째로
+    #: 달라지는데 에러는 나지 않습니다. 취향이 없으면 `persona.cold_persona()` 를 넘깁니다.
+    persona: Persona,
     pantry_ids: Sequence[int] = (),
     expiring_ids: Sequence[int] = (),
-    onboarding_taste: Sequence[float | None] | None = None,
     history: UserHistory | None = None,
-    #: 기본값을 두지 않습니다. `policy.RankingPolicy` 에 같은 값이 있어서,
-    #: 여기 기본값을 두면 손잡이를 바꿔도 안 넘긴 호출자는 옛 값을 씁니다.
-    warm_event_count: int,
     max_cook_minutes: int | None = None,
     preferred_cuisines: Sequence[str] = (),
     preferred_dish_types: Sequence[str] = (),
     skill_level: float | None = None,
 ) -> UserContext:
-    """온보딩 취향과 행동 취향을 섞어 랭킹이 쓸 문맥을 만듭니다.
+    """페르소나와 이력을 모아 랭킹이 쓸 문맥을 만듭니다.
 
-    온보딩은 지금 앞 3축만 옵니다. `as_vector` 가 뒤 3축을 None 으로 채우므로 그 축은
-    맛 계산에서 빠지고, 나중에 6축이 오면 그대로 쓰입니다.
+    맛 취향은 `persona.vec` 그대로입니다. 값이 없는 축은 맛 계산에서 빠지고, 데이터가 오면
+    코드를 고치지 않아도 켜집니다.
     """
     past = history or UserHistory()
-    onboarding = taste.as_vector(onboarding_taste)
-    effective = taste.effective_taste(
-        onboarding, past.behavior_taste_vec, past.events_count, warm_event_count
-    )
     return UserContext(
         user_id=user_id,
         pantry_ids=frozenset(pantry_ids),
         expiring_ids=frozenset(expiring_ids),
-        taste_vec=effective,
+        taste_vec=persona.vec,
         max_cook_minutes=max_cook_minutes,
         preferred_cuisines=frozenset(preferred_cuisines),
         preferred_dish_types=frozenset(preferred_dish_types),
         skill_level=skill_level,
         history=past,
+        persona=persona,
     )

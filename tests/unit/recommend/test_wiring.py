@@ -10,6 +10,7 @@ from __future__ import annotations
 import inspect
 import random
 from collections.abc import Callable, Sequence
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pytest
@@ -19,9 +20,9 @@ from features.recommend.engine.context import (
     CorpusStats,
     RecipeFeature,
     UserContext,
-    UserHistory,
     build_context,
 )
+from features.recommend.engine.persona import TasteProfile, derive_persona
 from features.recommend.engine.score import score_all
 from features.recommend.engine.serendipity import ClusterStats
 from features.recommend.policy import RankingPolicy
@@ -29,6 +30,7 @@ from features.recommend.router import health as health_endpoint
 from features.recommend.stage import Candidate
 
 CORPUS = CorpusStats(flavor_mean=(0.5,) * 6)
+NOW = datetime(2026, 9, 11, 12, 0, tzinfo=timezone(timedelta(hours=9)))
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -104,23 +106,18 @@ def test_rerank_uses_the_mc_it_writes_to_the_trace(
 
 
 # ─────────────────────────────────────────────────────────────────
-# 웜업 문턱은 정책에서만 옵니다
+# 문맥은 페르소나를 반드시 받습니다
 # ─────────────────────────────────────────────────────────────────
-def test_build_context_requires_the_warm_threshold() -> None:
-    """기본값이 생기면 `policy.warm_event_count` 를 바꿔도 안 넘긴 호출자는 옛 값을 씁니다."""
+def test_build_context_requires_a_persona() -> None:
+    """기본값이 생기면 빠뜨린 호출자가 조용히 취향 없는 사용자가 됩니다. 목록이 통째로 바뀝니다."""
     with pytest.raises(TypeError):
         build_context(user_id=1)  # type: ignore[call-arg]  # 인자 누락을 확인하는 검사입니다
 
 
-def test_warm_threshold_moves_the_effective_taste() -> None:
-    """문턱이 실제로 혼합비를 바꿉니다. 안 바뀌면 위 검사만으로는 못 잡습니다."""
-    history = UserHistory(behavior_taste_vec=(1.0,) * 6, events_count=10)
-    onboarding = [0.0, 0.0, 0.0]
-    early = build_context(
-        user_id=1, onboarding_taste=onboarding, history=history, warm_event_count=10
-    )
-    late = build_context(
-        user_id=1, onboarding_taste=onboarding, history=history, warm_event_count=40
-    )
-    assert early.taste_vec[0] == pytest.approx(1.0)
-    assert late.taste_vec[0] == pytest.approx(0.25)
+def test_context_taste_is_exactly_the_persona_vector() -> None:
+    """같은 값을 두 곳에 두지 않습니다(D-27). 문맥의 맛은 페르소나 그대로입니다."""
+    profile = TasteProfile(user_id=1, pick_flavors=((0.1, 0.2, 0.3, 0.4, 0.5, 0.6),))
+    made = derive_persona(profile, NOW, RankingPolicy())
+    ctx = build_context(user_id=1, persona=made)
+    assert ctx.taste_vec == made.vec
+    assert ctx.persona is made

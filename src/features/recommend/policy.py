@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from typing import Any
 
@@ -57,9 +58,23 @@ class RankingPolicy:
     uniform_share: float = 0.5
     #: Thompson 노출확률의 몬테카를로 반복 수.
     propensity_mc: int = 200
-    # ── 피드백 루프 ──────────────────────────────────────────
-    ema_gamma: float = 0.2
-    warm_event_count: int = 20
+    # ── 취향 페르소나 (결정 기록 2026-09-11) ──────────────────
+    #: 고른 음식으로 만든 사전 취향을 조리 이벤트 몇 건과 같은 무게로 볼지.
+    picks_prior_weight: float = 12.0
+    #: 직접 적은 3축 척도는 자기 보고라 그 절반입니다.
+    scales_prior_weight: float = 6.0
+    #: 이벤트 무게가 절반이 되는 경과 일수. 0 이하면 감쇠를 끕니다.
+    persona_half_life_days: float = 90.0
+    #: 주기 친화도의 세기(0~1). 0 이면 그 주기를 보지 않습니다. 1 이면 정반대 시기의
+    #: 이벤트가 사라지므로 권하지 않습니다.
+    season_cycle_strength: float = 0.5
+    weekly_cycle_strength: float = 0.0
+    daily_cycle_strength: float = 0.0
+    #: 저장소가 남기는 이벤트 상한. 감쇠 때문에 결과에는 영향이 없고 파일 크기만 정합니다.
+    persona_max_events: int = 2000
+    persona_max_event_age_days: int = 730
+    #: 취향을 전혀 모르는 사용자에게 쓰는 탐색 비율. 목록을 다양하게 만듭니다.
+    cold_exploration_ratio: float = 0.4
 
     def fingerprint(self, weights: dict[str, float] | None = None) -> str:
         """정책과 가중치 조합의 지문. 서빙 로그가 이 값으로 그때의 계산을 되살립니다."""
@@ -76,7 +91,10 @@ class RankingPolicy:
         max_missing_final: int,
         serving_mode: str = "real",
     ) -> dict[str, Any]:
-        """`StageInfo.params` 에 실을 값. `REQUIRED_TRACE_PARAMS` 를 전부 채웁니다."""
+        """`StageInfo.params` 에 실을 값. `REQUIRED_TRACE_PARAMS` 를 전부 채웁니다.
+
+        요청마다 다른 값(페르소나 출처 등)은 `with_trace_extra()` 로 덧붙입니다.
+        """
         return {
             "policy_id": POLICY_ID,
             "propensity_semantics": PROPENSITY_SEMANTICS,
@@ -89,3 +107,14 @@ class RankingPolicy:
             "n_explore": n_explore,
             "serving_mode": serving_mode,
         }
+
+
+def with_trace_extra(params: Mapping[str, Any], extra: Mapping[str, Any]) -> dict[str, Any]:
+    """추적 파라미터에 요청별 값을 덧붙입니다. 동결 키는 덮지 못합니다.
+
+    덮어써지면 로그의 `top_k` 같은 값이 조용히 바뀌어 재현이 틀어집니다.
+    """
+    clash = sorted(set(extra) & set(params))
+    if clash:
+        raise ValueError(f"동결 키를 덮어쓸 수 없습니다: {clash}")
+    return {**params, **extra}

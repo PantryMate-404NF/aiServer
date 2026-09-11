@@ -4,15 +4,21 @@ from __future__ import annotations
 
 import random
 from collections.abc import Callable, Iterable
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 import pytest
 
 from features.recommend import service
 from features.recommend.engine.context import CorpusStats, RecipeFeature, UserContext
+from features.recommend.engine.persona import PersonaSource, TasteProfile, derive_persona
 from features.recommend.engine.rank import check_trace_params, keep_candidates, merge_served_detail
-from features.recommend.enums import CANDIDATE_KEEP, FEATURE_KEYS, Stage
-from features.recommend.policy import POLICY_ID, RankingPolicy
+from features.recommend.engine.taste import FlavorVector
+from features.recommend.enums import CANDIDATE_KEEP, FEATURE_KEYS, EventType, Stage, UserMode
+from features.recommend.policy import POLICY_ID, RankingPolicy, with_trace_extra
+from features.recommend.profile_store import JsonProfileStore
+from features.recommend.schema import EventIn
 from features.recommend.stage import Candidate
 
 
@@ -207,3 +213,148 @@ def test_policy_knobs_stay_within_their_meaning(policy: RankingPolicy) -> None:
     assert policy.mmr_pool_size <= policy.candidate_limit
     with pytest.raises(KeyError):
         _ = policy.trace_params(top_k=20, n_explore=4, rng_seed=0, max_missing_final=2)["없는키"]
+
+
+# ─────────────────────────────────────────────────────────────────
+# 취향 페르소나 서비스
+# ─────────────────────────────────────────────────────────────────
+KST = timezone(timedelta(hours=9))
+NOW = datetime(2026, 9, 11, 12, 0, tzinfo=KST)
+
+
+@pytest.fixture
+def persona_service(
+    tmp_path: Path, presented: tuple[FlavorVector, ...], policy: RankingPolicy
+) -> service.PersonaService:
+    return service.PersonaService(JsonProfileStore(tmp_path), presented, policy)
+
+
+def test_onboarding_keeps_the_originals_and_derives_from_picks(
+    persona_service: service.PersonaService, presented: tuple[FlavorVector, ...]
+) -> None:
+    made = persona_service.save_onboarding(1, picks=[0, 3], scales=[4, 0, 2], now=NOW)
+
+    stored = persona_service.store.load(1)
+    assert stored is not None
+    assert stored.picks == (0, 3) and stored.pick_flavors == (presented[0], presented[3])
+    assert stored.scales == (1.0, 0.0, 0.5)
+    assert made.prior_source is PersonaSource.PICKS
+    assert made.vec == pytest.approx(
+        tuple((a + b) / 2 for a, b in zip(presented[0], presented[3], strict=True))
+    )
+
+
+def test_onboarding_rejects_an_index_outside_the_presented_list(
+    persona_service: service.PersonaService,
+) -> None:
+    service.reset_counters()
+    with pytest.raises(ValueError, match="제시 목록 밖"):
+        persona_service.save_onboarding(1, picks=[0, 20], scales=[2, 2, 2], now=NOW)
+    assert service.counters()["persona_pick_out_of_range"] == 1
+    assert persona_service.store.load(1) is None
+
+
+def test_re_onboarding_keeps_recorded_events(persona_service: service.PersonaService) -> None:
+    persona_service.save_onboarding(1, picks=[0], scales=None, now=NOW)
+    events = [EventIn(user_id=1, event_type=EventType.COOK, recipe_id=42)]
+    persona_service.record_events(events, lambda _: (0.9,) * 6, NOW)
+
+    persona_service.save_onboarding(1, picks=[1, 2], scales=[1, 1, 1], now=NOW + timedelta(days=1))
+
+    stored = persona_service.store.load(1)
+    assert stored is not None and len(stored.events) == 1 and stored.picks == (1, 2)
+
+
+def test_record_events_stores_positive_signals_and_counts_the_rest(
+    persona_service: service.PersonaService,
+) -> None:
+    service.reset_counters()
+    flavors: dict[int, FlavorVector] = {1: (1.0,) * 6, 2: (0.0,) * 6}
+    events = [
+        EventIn(user_id=7, event_type=EventType.COOK, recipe_id=1),
+        EventIn(user_id=7, event_type=EventType.DISMISS, recipe_id=2),
+        EventIn(user_id=7, event_type=EventType.CLICK, recipe_id=999),
+        EventIn(user_id=7, event_type=EventType.SEARCH, recipe_id=None),
+        EventIn(user_id=8, event_type=EventType.RATING, recipe_id=2, value=5.0),
+    ]
+
+    stored = persona_service.record_events(events, flavors.get, NOW)
+
+    assert stored == 2
+    counts = service.counters()
+    assert counts["persona_event_ignored"] == 1
+    assert counts["persona_recipe_unknown"] == 1
+    assert counts["persona_events_stored"] == 2
+    seven = persona_service.store.load(7)
+    assert seven is not None and [e.recipe_id for e in seven.events] == [1]
+    assert persona_service.persona_for(7, NOW).mode is UserMode.WARM
+    assert persona_service.persona_for(8, NOW).vec == (0.0,) * 6
+
+
+def test_record_events_prunes_to_the_policy_limits(
+    tmp_path: Path, presented: tuple[FlavorVector, ...]
+) -> None:
+    policy = RankingPolicy.__new__(RankingPolicy)
+    object.__setattr__(policy, "__dict__", dict(RankingPolicy().__dict__))
+    object.__setattr__(policy, "persona_max_events", 3)
+    svc = service.PersonaService(JsonProfileStore(tmp_path), presented, policy)
+    events = [EventIn(user_id=1, event_type=EventType.COOK, recipe_id=i) for i in range(5)]
+
+    svc.record_events(events, lambda _: (0.5,) * 6, NOW)
+
+    stored = svc.store.load(1)
+    assert stored is not None and len(stored.events) == 3
+
+
+def test_persona_for_an_unknown_user_is_cold_and_counted(
+    persona_service: service.PersonaService,
+) -> None:
+    service.reset_counters()
+    made = persona_service.persona_for(12345, NOW)
+    assert made.is_cold and made.prior_source is PersonaSource.NONE
+    assert service.counters()["persona_missing"] == 1
+
+
+def test_an_unreadable_profile_degrades_to_cold_and_is_counted(
+    persona_service: service.PersonaService, tmp_path: Path
+) -> None:
+    """저장소는 예외를 올리고 서빙은 받아서 셉니다. 추천이 파일 하나 때문에 죽지 않습니다."""
+    service.reset_counters()
+    target = JsonProfileStore(tmp_path).path(3)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("{broken", encoding="utf-8")
+
+    made = persona_service.persona_for(3, NOW)
+
+    assert made.is_cold
+    assert service.counters()["persona_profile_unreadable"] == 1
+
+
+def test_trace_carries_the_persona_source(
+    recipes: dict[int, RecipeFeature],
+    corpus: CorpusStats,
+    policy: RankingPolicy,
+    rng: random.Random,
+    make_context: Callable[..., UserContext],
+) -> None:
+    """평가가 취향 유무로 갈라 볼 수 있어야 합니다. 동결 키 10종은 그대로입니다."""
+    made = derive_persona(TasteProfile(user_id=1, scales=(0.5, 0.5, 0.5)), NOW, policy)
+    ctx = make_context(pantry=range(1, 61), persona=made, taste_vec=made.vec)
+    candidates = [
+        Candidate(recipe_id=r, missing_count=0, missing_ids=[], coverage=1.0)
+        for r in list(recipes)[:30]
+    ]
+
+    result = service.rank_candidates(candidates, recipes, ctx, corpus, policy, rng)
+
+    params = result.stages[-1].params or {}
+    assert check_trace_params(params) == []
+    assert params["persona_source"] == "scales" and params["persona_mode"] == "onboarding"
+    assert params["persona_events"] == 0
+
+
+def test_extra_trace_keys_cannot_shadow_a_frozen_key(policy: RankingPolicy) -> None:
+    params = policy.trace_params(top_k=20, n_explore=0, rng_seed=1, max_missing_final=2)
+    assert with_trace_extra(params, {"persona_source": "picks"})["persona_source"] == "picks"
+    with pytest.raises(ValueError, match="동결 키"):
+        with_trace_extra(params, {"top_k": 5})

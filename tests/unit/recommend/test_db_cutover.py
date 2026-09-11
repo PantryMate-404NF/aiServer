@@ -33,7 +33,7 @@ from features.recommend.engine import rerank
 from features.recommend.policy import RankingPolicy
 
 #: 점검표에 있는 항목 전부. 문서와 이 목록이 어긋나면 아래 검사가 잡습니다.
-CUTOVER_IDS = tuple(f"M-{n:02d}" for n in range(1, 14))
+CUTOVER_IDS = tuple(f"M-{n:02d}" for n in range(1, 16))
 
 CHECKLIST = Path(__file__).resolve().parents[3] / "docs/recommend/recommend_engine_db_cutover.md"
 
@@ -120,6 +120,31 @@ def test_the_failure_counters_are_not_exposed_yet() -> None:
     assert "log_counters" not in HealthOut.model_fields, HOWTO.format(item="M-07")
     router_module = importlib.import_module("features.recommend.router")
     assert "counters" not in inspect.getsource(router_module), HOWTO.format(item="M-07")
+
+
+def test_persona_originals_still_live_in_the_json_store() -> None:
+    """M-14. 취향 원본을 DB 에서 읽는 저장소 함수가 아직 없습니다.
+
+    `profile_store.JsonProfileStore` 가 정본입니다. `user_vector`·`event_log` 로 옮길 때
+    JSON 의 이벤트를 먼저 옮기고, 두 저장소가 같은 페르소나를 내는지 대조한 뒤 바꿉니다.
+    """
+    repository = importlib.import_module("features.recommend.repository")
+    loaders = [
+        name
+        for name in dir(repository)
+        if not name.startswith("_") and ("profile" in name.lower() or "persona" in name.lower())
+    ]
+    assert not loaders, HOWTO.format(item="M-14") + f" (발견: {loaders})"
+
+
+def test_onboarding_and_events_routes_still_serve_the_mock() -> None:
+    """M-15. 온보딩과 이벤트 라우트가 아직 `PersonaService` 를 부르지 않습니다.
+
+    연결하면 `save_onboarding` 의 인덱스 검증과 `record_events` 의 카운터가 실서빙에
+    들어갑니다. 라우터 실연결(M-01)과 같은 변경에서 처리합니다.
+    """
+    router_module = importlib.import_module("features.recommend.router")
+    assert "PersonaService" not in inspect.getsource(router_module), HOWTO.format(item="M-15")
 
 
 @pytest.mark.parametrize("name", ["f_ing_pref", "f_cooccur", "f_season"])

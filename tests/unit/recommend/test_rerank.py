@@ -9,6 +9,7 @@ import pytest
 
 from features.recommend.engine import rerank
 from features.recommend.engine.context import CorpusStats, RecipeFeature, UserContext, UserHistory
+from features.recommend.engine.persona import cold_persona
 from features.recommend.engine.score import score_all
 from features.recommend.policy import RankingPolicy
 from features.recommend.stage import Candidate, ScoredCandidate
@@ -44,6 +45,21 @@ def test_exploration_is_a_fifth_of_the_list(
     assert len(items) == 20
     assert [item.final_rank for item in items] == list(range(1, 21))
     assert sum(item.is_exploration for item in items) == 4
+
+
+def test_a_cold_user_gets_more_exploration(
+    pool: tuple[list[ScoredCandidate], dict[int, RecipeFeature]],
+    make_context: Callable[..., UserContext],
+    policy: RankingPolicy,
+    rng: random.Random,
+) -> None:
+    """취향을 전혀 모르면 개인화할 재료가 없으므로 목록을 더 다양하게 냅니다."""
+    scored, recipes = pool
+    cold = make_context(persona=cold_persona())
+    items = rerank.rerank(scored, recipes, cold, CORPUS, policy, rng, top_k=20)
+    assert sum(item.is_exploration for item in items) == round(20 * policy.cold_exploration_ratio)
+    assert rerank.exploration_ratio(cold, policy) == policy.cold_exploration_ratio
+    assert rerank.exploration_ratio(make_context(), policy) == policy.exploration_ratio
 
 
 def test_propensity_is_a_probability(

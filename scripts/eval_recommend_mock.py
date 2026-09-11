@@ -20,6 +20,7 @@ import random
 import statistics
 import sys
 from collections.abc import Iterable, Mapping, Sequence
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from time import perf_counter
 from types import ModuleType
@@ -27,6 +28,7 @@ from typing import Any
 
 from features.recommend import service
 from features.recommend.engine import candidate as plan_module
+from features.recommend.engine import persona as persona_engine
 from features.recommend.engine import taste
 from features.recommend.engine.context import (
     CorpusStats,
@@ -35,9 +37,16 @@ from features.recommend.engine.context import (
     UserHistory,
     build_context,
 )
-from features.recommend.enums import DEFAULT_WEIGHTS, FEATURE_KEYS, UNAVAILABLE_FEATURES
+from features.recommend.engine.persona import Persona, TasteEvent, TasteProfile
+from features.recommend.enums import DEFAULT_WEIGHTS, FEATURE_KEYS, UNAVAILABLE_FEATURES, EventType
 from features.recommend.policy import RankingPolicy
+from features.recommend.profile_store import load_presented_flavors
 from features.recommend.stage import Candidate, RankedItem
+
+KST = timezone(timedelta(hours=9))
+#: 고정 시각. 감쇠와 주기 계산이 실행 날짜에 따라 달라지지 않게 합니다.
+NOW = datetime(2026, 9, 11, 12, 0, tzinfo=KST)
+PRESENTED_PATH = Path(__file__).resolve().parents[1] / "seeds" / "onboarding_recipes.yaml"
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURE_DIR = ROOT / "tests" / "fixtures" / "recommend"
@@ -170,23 +179,54 @@ def retrieve_with_fallback(
         rows = plan_module.dedupe([*rows, *wider])
 
 
-def context_of(profile: Mapping[str, Any], policy: RankingPolicy) -> UserContext:
-    """온보딩은 앞 3축만 채웁니다. 뒤 3축은 None 이라 계산에서 빠집니다."""
-    preference = profile.get("taste_preference", {})
-    onboarding = [
+def taste_profile_of(
+    profile: Mapping[str, Any],
+    presented: Sequence[tuple[float | None, ...]],
+    events: Sequence[TasteEvent] = (),
+) -> TasteProfile:
+    """가상 사용자 프로필을 취향 원본으로 바꿉니다. 범위 변환은 서비스 층 한 곳에서 합니다."""
+    preference = profile.get("taste_preference") or {}
+    raw = [
         preference.get("spicy_level"),
         preference.get("salty_level"),
         preference.get("sweet_level"),
     ]
+    scales = None if any(v is None for v in raw) else [int(v) for v in raw]
+    made = service.onboarding_profile(
+        int(profile["user_id"]), profile.get("onboarding_picks", []), scales, presented, NOW
+    )
+    return TasteProfile(
+        user_id=made.user_id,
+        picks=made.picks,
+        pick_flavors=made.pick_flavors,
+        scales=made.scales,
+        events=tuple(events),
+        updated_at=NOW,
+    )
+
+
+def context_of(
+    profile: Mapping[str, Any],
+    policy: RankingPolicy,
+    presented: Sequence[tuple[float | None, ...]],
+    events: Sequence[TasteEvent] = (),
+) -> UserContext:
+    """고른 음식 → 3축 척도 → 없음 순서로 취향을 만듭니다. 이벤트가 있으면 함께 합칩니다."""
+    made = persona_engine.derive_persona(taste_profile_of(profile, presented, events), NOW, policy)
     return build_context(
         user_id=int(profile["user_id"]),
+        persona=made,
         pantry_ids=profile.get("pantry_ingredient_ids", []),
         expiring_ids=profile.get("expiring_ingredient_ids", []),
-        onboarding_taste=[None if v is None else v / 4 for v in onboarding],
-        warm_event_count=policy.warm_event_count,
         max_cook_minutes=profile.get("max_cook_minutes"),
         preferred_cuisines=cuisines_of(profile.get("preferred_cuisines", [])),
     )
+
+
+def persona_of(ctx: UserContext) -> Persona:
+    if ctx.persona is None:
+        raise ValueError("이 스크립트의 문맥은 항상 페르소나를 갖습니다")
+    return ctx.persona
 
 
 def cuisines_of(raw: object) -> list[str]:
@@ -238,13 +278,14 @@ def evaluate(
     allergen_groups: Mapping[str, list[int]],
     policy: RankingPolicy,
     rng: random.Random,
+    presented: Sequence[tuple[float | None, ...]],
 ) -> dict[str, Any]:
     user_id = int(profile["user_id"])
     top_k = int(profile.get("top_k", DEFAULT_TOP_K))
     allergy = frozenset(
         i for code in profile.get("allergy_group_codes", []) for i in allergen_groups.get(code, [])
     )
-    ctx = context_of(profile, policy)
+    ctx = context_of(profile, policy, presented)
     candidates, stage, max_missing = retrieve_with_fallback(
         recipes, clusters, ctx, policy, top_k, allergy
     )
@@ -295,6 +336,7 @@ def evaluate(
     checks: dict[str, Any] = {
         "user_id": user_id,
         "stage": stage,
+        "persona": f"{persona_of(ctx).prior_source.value}/{persona_of(ctx).mode.value}",
         # 알레르기가 없는 사람은 이 판정의 대상이 아닙니다. 대상 수를 함께 내지 않으면
         # "12명 전원 통과" 가 실은 4명만 검사한 결과라는 것이 숨습니다.
         "allergy_clean": all(not (recipes[i.recipe_id].all_ids & allergy) for i in items),
@@ -318,6 +360,7 @@ def evaluate(
         "served_ids": [i.recipe_id for i in items],
         "latency_ms": result.latency_ms,
     }
+    print(f"    persona: {checks['persona']} taste={fmt(ctx.taste_vec)}")
     print(f"    checks: allergy={checks['allergy_clean']} cook_cap={checks['cook_cap']}", end="")
     print(f" propensity={checks['propensity_ok']} reason={checks['reason_ok']}", end="")
     print(f" expl={checks['exploration']}{checks['explore_sources']}", end="")
@@ -336,9 +379,10 @@ def penalty_scenario(
     corpus: CorpusStats,
     policy: RankingPolicy,
     rng: random.Random,
+    presented: Sequence[tuple[float | None, ...]],
 ) -> None:
     """1위 레시피를 최근 조리로 표시하면 점수가 절반이 되는지."""
-    ctx = context_of(profile, policy)
+    ctx = context_of(profile, policy, presented)
     candidates, _, _ = retrieve_with_fallback(recipes, clusters, ctx, policy, DEFAULT_TOP_K)
     before = service.rank_candidates(candidates, recipes, ctx, corpus, policy, rng)
     top = next(i for i in before.items if not i.is_exploration)
@@ -346,9 +390,8 @@ def penalty_scenario(
         user_id=ctx.user_id,
         pantry_ids=ctx.pantry_ids,
         expiring_ids=ctx.expiring_ids,
-        onboarding_taste=ctx.taste_vec,
+        persona=persona_of(ctx),
         history=UserHistory(cooked_recipe_ids=frozenset({top.recipe_id})),
-        warm_event_count=policy.warm_event_count,
         max_cook_minutes=ctx.max_cook_minutes,
         preferred_cuisines=ctx.preferred_cuisines,
     )
@@ -369,36 +412,71 @@ def feedback_scenario(
     corpus: CorpusStats,
     policy: RankingPolicy,
     rng: random.Random,
+    presented: Sequence[tuple[float | None, ...]],
 ) -> None:
-    """매운 레시피를 조리하면 상위 목록의 매운맛이 오르는지. 뒤 3축도 함께 배웁니다."""
-    base = context_of(profile, policy)
-    spicy = [r for r in recipes.values() if (r.flavor_vec[0] or 0.0) >= SPICY_THRESHOLD]
-    used = spicy[: policy.warm_event_count]
-    behavior: tuple[float | None, ...] | None = None
-    for recipe in used:
-        behavior = taste.update_behavior(behavior, recipe.flavor_vec, policy.ema_gamma)
+    """매운 레시피를 조리하면 상위 목록의 매운맛이 오르고, 그 조리가 오래되면 다시 내려갑니다.
 
-    def top_spicy(history: UserHistory) -> tuple[float, tuple[float | None, ...]]:
-        ctx = build_context(
-            user_id=base.user_id,
-            pantry_ids=base.pantry_ids,
-            expiring_ids=base.expiring_ids,
-            onboarding_taste=base.taste_vec,
-            history=history,
-            warm_event_count=policy.warm_event_count,
-            max_cook_minutes=base.max_cook_minutes,
-            preferred_cuisines=base.preferred_cuisines,
-        )
+    같은 조리 열여섯 건을 최근 16일에 둔 경우와 1년 전 16일에 둔 경우를 비교합니다.
+    반감기 90일이면 1년 전 이벤트의 무게는 6% 라 페르소나가 온보딩 쪽으로 돌아갑니다.
+    """
+    spicy = [r for r in recipes.values() if (r.flavor_vec[0] or 0.0) >= SPICY_THRESHOLD]
+    used = spicy[:16]
+
+    def events_at(offset_days: int) -> list[TasteEvent]:
+        return [
+            TasteEvent(
+                recipe_id=recipe.recipe_id,
+                kind=EventType.COOK,
+                at=NOW - timedelta(days=offset_days + index),
+                flavor=recipe.flavor_vec,
+            )
+            for index, recipe in enumerate(used)
+        ]
+
+    def top_spicy(events: Sequence[TasteEvent]) -> tuple[float, UserContext]:
+        ctx = context_of(profile, policy, presented, events)
         candidates, _, _ = retrieve_with_fallback(recipes, clusters, ctx, policy, DEFAULT_TOP_K)
         result = service.rank_candidates(candidates, recipes, ctx, corpus, policy, rng)
         personal = [i for i in result.items if not i.is_exploration][:TOP_N_FOR_TASTE]
-        return statistics.fmean([axis_of(recipes[i.recipe_id], 0) for i in personal]), ctx.taste_vec
+        return statistics.fmean([axis_of(recipes[i.recipe_id], 0) for i in personal]), ctx
 
-    cold = top_spicy(UserHistory())
-    warm = top_spicy(UserHistory(behavior_taste_vec=behavior, events_count=len(used)))
-    print(f"\n=== feedback (user {base.user_id}) after {len(used)} spicy cooks")
-    print(f"    effective taste {fmt(cold[1])} -> {fmt(warm[1])}")
-    print(f"    top-{TOP_N_FOR_TASTE} spicy mean {cold[0]:.3f} -> {warm[0]:.3f}")
+    cold_mean, cold_ctx = top_spicy(())
+    recent_mean, recent_ctx = top_spicy(events_at(0))
+    stale_mean, stale_ctx = top_spicy(events_at(365))
+    print(f"\n=== feedback (user {cold_ctx.user_id}) after {len(used)} spicy cooks")
+    print(
+        f"    onboarding only   {fmt(cold_ctx.taste_vec)}  mode={persona_of(cold_ctx).mode.value}"
+    )
+    print(
+        f"    cooked last 16d   {fmt(recent_ctx.taste_vec)}"
+        f"  mode={persona_of(recent_ctx).mode.value}"
+        f"  weight={persona_of(recent_ctx).behavior_weight:.2f}"
+    )
+    print(
+        f"    cooked a year ago {fmt(stale_ctx.taste_vec)}"
+        f"  mode={persona_of(stale_ctx).mode.value}"
+        f"  weight={persona_of(stale_ctx).behavior_weight:.2f}"
+    )
+    print(
+        f"    top-5 spicy mean  {cold_mean:.3f} -> {recent_mean:.3f} (recent)"
+        f" / {stale_mean:.3f} (stale)"
+    )
+
+
+def season_scenario(policy: RankingPolicy) -> None:
+    """같은 조리라도 지금과 같은 계절이면 더 무겁습니다. 연 주기 세기가 그 차이를 정합니다."""
+    same = TasteEvent(
+        recipe_id=1, kind=EventType.COOK, at=NOW - timedelta(days=365), flavor=(1.0,) * 6
+    )
+    opposite = TasteEvent(
+        recipe_id=2, kind=EventType.COOK, at=NOW - timedelta(days=182), flavor=(1.0,) * 6
+    )
+    print("\n=== season affinity (cook 1y ago vs 6mo ago, same decay)")
+    for strength in (0.0, policy.season_cycle_strength, 1.0):
+        tuned = RankingPolicy(**{**policy.__dict__, "season_cycle_strength": strength})
+        w_same = persona_engine.event_weight(same, NOW, tuned)
+        w_opposite = persona_engine.event_weight(opposite, NOW, tuned)
+        print(f"    strength {strength:.1f}: same-season {w_same:.4f}  opposite {w_opposite:.4f}")
 
 
 def load_generator() -> ModuleType:
@@ -420,8 +498,10 @@ def latency_benchmark(corpus: CorpusStats, policy: RankingPolicy, rng: random.Ra
     clusters = {int(r["recipe_id"]): int(r["cluster_id"]) for r in rows}
     ctx = build_context(
         user_id=1,
+        persona=persona_engine.derive_persona(
+            TasteProfile(user_id=1, scales=(0.5, 0.5, 0.5)), NOW, policy
+        ),
         pantry_ids=range(1, 61),
-        warm_event_count=policy.warm_event_count,
         preferred_cuisines=["한식"],
     )
     candidates = retrieve(recipes, clusters, ctx.pantry_ids, limit=policy.candidate_limit)
@@ -471,6 +551,7 @@ def main() -> None:
     args = parser.parse_args()
 
     catalog = load_catalog()
+    presented = load_presented_flavors(PRESENTED_PATH)
     recipes = {int(r["recipe_id"]): to_recipe(r) for r in catalog["recipes"]}
     clusters = {int(r["recipe_id"]): int(r["cluster_id"]) for r in catalog["recipes"]}
     corpus = build_corpus(catalog, recipes)
@@ -485,11 +566,11 @@ def main() -> None:
     if args.user is not None:
         profiles = [p for p in profiles if p["user_id"] == args.user]
 
-    print(f"pool={len(recipes)} corpus_mean={fmt(corpus.flavor_mean or ())}")
+    print(f"pool={len(recipes)} corpus_mean={fmt(corpus.flavor_mean or ())} now={NOW.isoformat()}")
     print(f"active weights={sorted(k for k, w in DEFAULT_WEIGHTS.items() if w > 0)}")
     print(f"unavailable={sorted(UNAVAILABLE_FEATURES)}")
     results = [
-        evaluate(p, recipes, clusters, corpus, catalog["allergen_groups"], policy, rng)
+        evaluate(p, recipes, clusters, corpus, catalog["allergen_groups"], policy, rng, presented)
         for p in profiles
     ]
 
@@ -499,6 +580,8 @@ def main() -> None:
     print(f"\n=== aggregate over {len(results)} profiles")
     print(f"    catalog coverage {len(served)}/{len(recipes)} = {len(served) / len(recipes):.2f}")
     print(f"    stages { ({s: stages.count(s) for s in sorted(set(stages))}) }")
+    sources = [r["persona"] for r in results]
+    print(f"    persona sources { ({s: sources.count(s) for s in sorted(set(sources))}) }")
     n_allergy = sum(r["allergy_tested"] for r in results)
     n_cap = sum(r["cook_cap_tested"] for r in results)
     print(
@@ -520,8 +603,9 @@ def main() -> None:
 
     if args.user is None:
         by_id = {p["user_id"]: p for p in profiles}
-        penalty_scenario(by_id[1005], recipes, clusters, corpus, policy, rng)
-        feedback_scenario(by_id[1002], recipes, clusters, corpus, policy, rng)
+        penalty_scenario(by_id[1005], recipes, clusters, corpus, policy, rng, presented)
+        feedback_scenario(by_id[1002], recipes, clusters, corpus, policy, rng, presented)
+        season_scenario(policy)
         latency_benchmark(corpus, policy, rng)
 
 

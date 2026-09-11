@@ -14,9 +14,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+
+import yaml
 
 SEED = "reco-mock-v1"
 OUT_DIR = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "recommend"
@@ -183,6 +186,8 @@ PERSONAS: list[dict[str, object]] = [
     },
     {
         "user_id": 1004,
+        # 고른 음식이 없는 사용자. 3축 척도로만 취향을 만드는 경로를 검사합니다.
+        "onboarding_picks": [],
         "pantry_ingredient_ids": [11, 52],
         "expiring_ingredient_ids": [],
         "taste_preference": {"spicy_level": 2, "sweet_level": 2, "salty_level": 2},
@@ -273,9 +278,11 @@ PERSONAS: list[dict[str, object]] = [
     },
     {
         "user_id": 1012,
+        # 온보딩을 하지 않은 사용자. 취향 없이 다양한 목록을 내는 경로를 검사합니다.
+        "onboarding_picks": [],
         "pantry_ingredient_ids": [45, 46, 47, 48, 49, 50, 51, 52, 53],
         "expiring_ingredient_ids": [],
-        "taste_preference": {"spicy_level": 2, "sweet_level": 2, "salty_level": 2},
+        "taste_preference": None,
         "household_size": 1,
         "preferred_cuisines": ["한식"],
         "max_cook_minutes": None,
@@ -346,7 +353,43 @@ def write_json(path: Path, payload: object) -> None:
     path.write_text(text, encoding="utf-8", newline="\n")
 
 
+PICK_COUNT = 4
+PRESENTED_PATH = Path(__file__).resolve().parents[1] / "seeds" / "onboarding_recipes.yaml"
+
+
+def picks_for(preference: dict[str, int], presented: list[list[float]]) -> list[int]:
+    """3축 척도와 앞 3축이 가장 가까운 제시 음식 네 개. 결정적입니다.
+
+    실제 사용자는 손으로 고르지만, 가상 사용자는 자기 척도와 어긋나지 않는 음식을 고른 것으로
+    둡니다. 척도와 고른 음식이 다른 경우는 검사가 따로 만듭니다.
+    """
+    target = [
+        preference["spicy_level"] / 4,
+        preference["salty_level"] / 4,
+        preference["sweet_level"] / 4,
+    ]
+    ranked = sorted(
+        range(len(presented)),
+        key=lambda i: (
+            math.dist(target, presented[i][:3]),
+            i,
+        ),
+    )
+    return sorted(ranked[:PICK_COUNT])
+
+
+def with_picks(persona: dict[str, object], presented: list[list[float]]) -> dict[str, object]:
+    if "onboarding_picks" in persona:
+        return persona
+    preference = persona["taste_preference"]
+    if not isinstance(preference, dict):
+        raise TypeError(f"고른 음식이 없으면 척도가 있어야 합니다: {persona['user_id']}")
+    return {**persona, "onboarding_picks": picks_for(preference, presented)}
+
+
 def main() -> None:
+    presented_doc = yaml.safe_load(PRESENTED_PATH.read_text(encoding="utf-8"))
+    presented = [[float(v) for v in entry["flavor"]] for entry in presented_doc["presented"]]
     catalog = {
         "seed": SEED,
         "ingredients": {str(i): name for i, name in INGREDIENTS.items()},
@@ -356,7 +399,9 @@ def main() -> None:
     }
     write_json(OUT_DIR / "catalog.json", catalog)
     for number, persona in enumerate(PERSONAS, start=1):
-        write_json(OUT_DIR / "personas" / f"persona_{number:02d}.json", persona)
+        write_json(
+            OUT_DIR / "personas" / f"persona_{number:02d}.json", with_picks(persona, presented)
+        )
     print(f"wrote {RECIPE_COUNT} recipes and {len(PERSONAS)} personas to {OUT_DIR}")
 
 

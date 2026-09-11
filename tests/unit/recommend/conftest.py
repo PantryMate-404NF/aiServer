@@ -6,11 +6,13 @@ import json
 import math
 import random
 from collections.abc import Callable, Iterable, Sequence
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from features.recommend import service
 from features.recommend.engine import taste
 from features.recommend.engine.context import (
     CorpusStats,
@@ -19,8 +21,15 @@ from features.recommend.engine.context import (
     UserHistory,
     build_context,
 )
+from features.recommend.engine.persona import derive_persona
+from features.recommend.engine.taste import FlavorVector
 from features.recommend.policy import RankingPolicy
+from features.recommend.profile_store import load_presented_flavors
 from features.recommend.stage import Candidate
+
+ROOT = Path(__file__).resolve().parents[3]
+#: 고정 시각. 페르소나의 감쇠·주기 계산이 검사 실행 날짜에 따라 달라지지 않게 합니다.
+NOW = datetime(2026, 9, 11, 12, 0, tzinfo=timezone(timedelta(hours=9)))
 
 FIXTURE_DIR = Path(__file__).resolve().parents[2] / "fixtures" / "recommend"
 
@@ -85,6 +94,12 @@ def _axis(recipe: RecipeFeature, index: int) -> float:
 @pytest.fixture
 def policy() -> RankingPolicy:
     return RankingPolicy()
+
+
+@pytest.fixture(scope="session")
+def presented() -> tuple[FlavorVector, ...]:
+    """온보딩 제시 목록의 6축. 실제 시드 파일을 읽습니다 - 픽스처의 picks 가 그 인덱스입니다."""
+    return load_presented_flavors(ROOT / "seeds" / "onboarding_recipes.yaml")
 
 
 @pytest.fixture
@@ -157,27 +172,33 @@ def retrieve(
 
 @pytest.fixture
 def context_for(
-    allergy_ids: Callable[[Iterable[str]], frozenset[int]], policy: RankingPolicy
+    allergy_ids: Callable[[Iterable[str]], frozenset[int]],
+    policy: RankingPolicy,
+    presented: tuple[FlavorVector, ...],
 ) -> Callable[..., UserContext]:
     """가상 사용자 프로필을 랭킹 문맥으로 바꿉니다.
 
-    온보딩은 앞 3축(매움, 짠맛, 단맛)만 채웁니다. 뒤 3축은 None 이라 계산에서 빠집니다.
+    고른 음식(`onboarding_picks`, 제시 목록 인덱스)이 있으면 그 6축 평균이 취향이고, 없으면
+    3축 척도, 그것도 없으면 취향 없는 사용자입니다. 이벤트는 없습니다.
     """
 
     def build(profile: dict[str, Any], history: UserHistory | None = None) -> UserContext:
-        preference = profile.get("taste_preference", {})
+        preference = profile.get("taste_preference") or {}
         onboarding = [
             preference.get("spicy_level"),
             preference.get("salty_level"),
             preference.get("sweet_level"),
         ]
+        scales = None if any(v is None for v in onboarding) else [int(v) for v in onboarding]
+        taste_profile = service.onboarding_profile(
+            int(profile["user_id"]), profile.get("onboarding_picks", []), scales, presented, NOW
+        )
         return build_context(
             user_id=int(profile["user_id"]),
+            persona=derive_persona(taste_profile, NOW, policy),
             pantry_ids=profile.get("pantry_ingredient_ids", []),
             expiring_ids=profile.get("expiring_ingredient_ids", []),
-            onboarding_taste=[None if v is None else v / 4 for v in onboarding],
             history=history or UserHistory(),
-            warm_event_count=policy.warm_event_count,
             max_cook_minutes=profile.get("max_cook_minutes"),
             preferred_cuisines=_cuisines(profile.get("preferred_cuisines", [])),
         )

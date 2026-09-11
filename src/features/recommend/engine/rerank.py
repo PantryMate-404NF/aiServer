@@ -59,13 +59,25 @@ def rerank(
     )
     shown = {item.recipe_id for item, _ in personal_full}
     rest = [item for item in ranked if item.recipe_id not in shown]
-    explored = pick_exploration(rest, ctx, policy, rng, round(total * policy.exploration_ratio))
+    explored = pick_exploration(
+        rest, ctx, policy, rng, round(total * exploration_ratio(ctx, policy))
+    )
     personal = personal_full[: total - len(explored)]
 
     stats = rank.feature_stats(ranked)
     effective = dict(weights or DEFAULT_WEIGHTS)
     slots = explore.exploration_slots(total, len(explored), rng)
     return _assemble(personal, explored, slots, recipes, ctx, corpus, stats, effective)
+
+
+def exploration_ratio(ctx: UserContext, policy: RankingPolicy) -> float:
+    """취향을 전혀 모르는 사용자는 탐색 비율을 올립니다. 개인화할 재료가 없어서입니다.
+
+    페르소나 없이 만든 문맥(검사 도구)은 보통 사용자로 다룹니다.
+    """
+    if ctx.persona is not None and ctx.persona.is_cold:
+        return policy.cold_exploration_ratio
+    return policy.exploration_ratio
 
 
 def mmr_select(

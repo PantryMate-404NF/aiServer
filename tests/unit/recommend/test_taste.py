@@ -15,7 +15,6 @@ def test_axis_order_follows_the_data_track() -> None:
     """축 순서는 A 트랙 ingest/flavor.py 의 AXES 와 같아야 합니다."""
     assert taste.FLAVOR_AXES == ("매움", "짠맛", "단맛", "신맛", "감칠맛", "기름짐")
     assert taste.AXIS_COUNT == 6
-    assert taste.ONBOARDING_AXIS_COUNT == 3
 
 
 @pytest.mark.parametrize(
@@ -103,36 +102,3 @@ def test_dominant_axis_reports_direction() -> None:
 
     assert likes == ("매움", True)
     assert avoids == ("매움", False)
-
-
-def test_behavior_update_leaves_unknown_axes_alone() -> None:
-    current = (0.5, 0.5, 0.5, None, None, None)
-    recipe = (1.0, None, 0.0, 0.8, None, None)
-
-    moved = taste.update_behavior(current, recipe, gamma=0.2)
-
-    assert moved[0] == pytest.approx(0.6)
-    assert moved[1] == pytest.approx(0.5)
-    assert moved[2] == pytest.approx(0.4)
-    assert moved[3] == pytest.approx(0.8)
-    assert moved[4] is None
-
-
-def test_effective_taste_reaches_behavior_at_the_warm_count() -> None:
-    onboarding = (1.0, 0.0, 0.0, None, None, None)
-    behavior = (0.0, 1.0, 1.0, 0.5, None, None)
-
-    assert taste.effective_taste(onboarding, behavior, 20, 20)[:3] == pytest.approx((0.0, 1.0, 1.0))
-    assert taste.effective_taste(onboarding, behavior, 10, 20)[:3] == pytest.approx((0.5, 0.5, 0.5))
-    assert taste.effective_taste(onboarding, behavior, 0, 20) == onboarding
-
-
-def test_effective_taste_keeps_an_axis_only_one_side_knows() -> None:
-    """행동 이력에만 있는 신맛을 콜드 전이가 지워 버리면 안 됩니다."""
-    onboarding = (1.0, 0.0, 0.0, None, None, None)
-    behavior = (None, None, None, 0.7, None, None)
-
-    blended = taste.effective_taste(onboarding, behavior, 10, 20)
-
-    assert blended[0] == pytest.approx(1.0)
-    assert blended[3] == pytest.approx(0.7)

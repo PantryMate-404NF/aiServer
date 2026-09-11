@@ -33,20 +33,32 @@
 
 ⬜ ① 을 포함한 서빙 전체(요청 파싱, DB 조회, 로그 적재)는 `repository` 와 라우터가
    붙는 시점에 이 파일이 가져갑니다 - 02 의 3.2 가 흐름 조립을 여기로 정해 두었습니다.
+
+## 취향 페르소나의 조립
+
+`PersonaService` 가 온보딩 저장, 이벤트 기록, 페르소나 조회를 잇습니다. 수학은
+`engine/persona.py` 에, 저장은 `profile_store.py` 에 있고 여기는 둘을 붙이는 일만 합니다.
+3축 척도의 범위 변환(계약 0~4 → 0~1)은 `onboarding_profile()` 한 곳에서만 합니다.
 """
 
 from __future__ import annotations
 
 import random
 import threading
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, replace
+from datetime import datetime
 from time import perf_counter
 
+from features.recommend.engine import persona as persona_engine
 from features.recommend.engine import rerank, score
 from features.recommend.engine.context import CorpusStats, RecipeFeature, UserContext
+from features.recommend.engine.persona import Persona, TasteEvent, TasteProfile
+from features.recommend.engine.taste import FlavorVector
 from features.recommend.enums import Stage
-from features.recommend.policy import RankingPolicy
+from features.recommend.policy import RankingPolicy, with_trace_extra
+from features.recommend.profile_store import ProfileStore
+from features.recommend.schema import EventIn
 from features.recommend.stage import Candidate, RankedItem, ScoredCandidate, StageInfo
 
 _LOCK = threading.Lock()
@@ -74,6 +86,125 @@ def reset_counters() -> None:
     """테스트 전용."""
     with _LOCK:
         _C.clear()
+
+
+#: 3축 척도 계약의 상한. `OnboardingIn.scales` 는 0~4 이고 엔진은 0~1 만 받습니다.
+SCALE_MAX = 4.0
+
+
+def onboarding_profile(
+    user_id: int,
+    picks: Sequence[int],
+    scales: Sequence[int] | None,
+    presented: Sequence[FlavorVector],
+    now: datetime,
+) -> TasteProfile:
+    """온보딩 응답을 취향 원본으로 바꿉니다. 범위 밖 인덱스는 거부합니다.
+
+    조용히 받으면 다른 음식의 맛이 취향이 되고 에러는 나지 않습니다. 척도는 여기서 0~1 로
+    옮기며, 이 변환은 저장소에도 엔진에도 없습니다.
+    """
+    bad = [i for i in picks if not 0 <= i < len(presented)]
+    if bad:
+        bump("persona_pick_out_of_range")
+        raise ValueError(f"제시 목록 밖의 인덱스입니다: {bad}")
+    normalized = (
+        None if scales is None else tuple(min(1.0, max(0.0, s / SCALE_MAX)) for s in scales)
+    )
+    return TasteProfile(
+        user_id=user_id,
+        picks=tuple(int(i) for i in picks),
+        pick_flavors=tuple(presented[i] for i in picks),
+        scales=normalized,
+        updated_at=now,
+    )
+
+
+@dataclass(frozen=True)
+class PersonaService:
+    """온보딩·이벤트·조회를 하나의 저장소 위에서 잇습니다.
+
+    시계를 갖지 않습니다. `now` 는 호출자가 넘기며, 검사에서는 고정 시각을 씁니다.
+    """
+
+    store: ProfileStore
+    #: 온보딩 제시 목록의 6축. `profile_store.load_presented_flavors()` 가 만듭니다.
+    presented: Sequence[FlavorVector]
+    policy: RankingPolicy
+
+    def save_onboarding(
+        self, user_id: int, picks: Sequence[int], scales: Sequence[int] | None, now: datetime
+    ) -> Persona:
+        """고른 음식과 척도 원본을 저장하고 페르소나를 돌려줍니다.
+
+        이미 있는 이벤트는 지키므로 온보딩을 다시 해도 이력이 사라지지 않습니다.
+        """
+        profile = onboarding_profile(user_id, picks, scales, self.presented, now)
+        before = self.store.load(user_id)
+        if before is not None:
+            profile = replace(profile, events=before.events)
+        self.store.save(profile)
+        bump("persona_onboarded")
+        return persona_engine.derive_persona(profile, now, self.policy)
+
+    def record_events(
+        self,
+        events: Sequence[EventIn],
+        flavor_of: Callable[[int], FlavorVector | None],
+        now: datetime,
+    ) -> int:
+        """긍정 신호를 취향 이벤트로 저장합니다. 저장한 수를 돌려줍니다.
+
+        무시·저장 취소처럼 무게가 0 인 종류와 레시피가 없는 이벤트, 맛을 모르는 레시피는
+        저장하지 않고 **셉니다.** 삼키기만 하면 취향이 안 쌓이는 것을 아무도 모릅니다.
+
+        사용자마다 읽고-합치고-쓰기를 합니다. 같은 사용자의 배치가 동시에 들어오면 나중 쓰기가
+        앞 쓰기를 덮습니다 - 단일 프로세스 전제이며, 실 DB 로 옮기면(M-14) 사라지는 제약입니다.
+        """
+        added: dict[int, list[TasteEvent]] = {}
+        for event in events:
+            if event.recipe_id is None:
+                continue
+            if persona_engine.kind_weight(event.event_type, event.value) <= 0.0:
+                bump("persona_event_ignored")
+                continue
+            flavor = flavor_of(event.recipe_id)
+            if flavor is None:
+                bump("persona_recipe_unknown")
+                continue
+            added.setdefault(event.user_id, []).append(
+                TasteEvent(
+                    recipe_id=event.recipe_id,
+                    kind=event.event_type,
+                    at=now,
+                    flavor=flavor,
+                    value=event.value,
+                )
+            )
+        stored = 0
+        for user_id, fresh in added.items():
+            before = self.store.load(user_id) or TasteProfile(user_id=user_id)
+            kept = persona_engine.prune_events(before.events + tuple(fresh), now, self.policy)
+            self.store.save(replace(before, events=kept, updated_at=now))
+            stored += len(fresh)
+        bump("persona_events_stored", stored)
+        return stored
+
+    def persona_for(self, user_id: int, now: datetime) -> Persona:
+        """저장된 원본에서 페르소나를 만듭니다. 원본이 없으면 취향 없는 사용자입니다.
+
+        원본 파일이 깨져 있으면 추천을 실패시키지 않고 취향 없는 사용자로 다루되
+        **셉니다.** 저장소는 예외를 올리고(조용한 빈 취향 금지), 서빙은 여기서 받습니다.
+        """
+        try:
+            profile = self.store.load(user_id)
+        except ValueError:
+            bump("persona_profile_unreadable")
+            return persona_engine.cold_persona()
+        if profile is None:
+            bump("persona_missing")
+            return persona_engine.cold_persona()
+        return persona_engine.derive_persona(profile, now, self.policy)
 
 
 @dataclass(frozen=True)
@@ -122,6 +253,7 @@ def rank_candidates(
         max_missing_final=(policy.max_missing if max_missing_final is None else max_missing_final),
         serving_mode=serving_mode,
     )
+    params = with_trace_extra(params, _persona_params(ctx))
     stages = [
         StageInfo(
             name=Stage.RANKING,
@@ -144,6 +276,18 @@ def rank_candidates(
         ),
     ]
     return RankingResult(items=items, scored=scored, stages=stages)
+
+
+def _persona_params(ctx: UserContext) -> dict[str, object]:
+    """평가가 취향 유무로 갈라 볼 수 있게 출처와 상태를 추적에 싣습니다."""
+    if ctx.persona is None:
+        return {}
+    return {
+        "persona_source": ctx.persona.prior_source.value,
+        "persona_mode": ctx.persona.mode.value,
+        "persona_events": ctx.persona.n_events,
+        "persona_behavior_weight": round(ctx.persona.behavior_weight, 3),
+    }
 
 
 def _score_stats(scored: Sequence[ScoredCandidate]) -> dict[str, float]:
