@@ -15,6 +15,13 @@ import time
 import urllib.request
 from pathlib import Path
 
+#: 저장소 루트 기준. 스크립트를 어디서 돌리든 같은 자리에 쓴다 —
+#: 상대경로는 scripts/reco 에서 돌릴 때만 맞고, 루트에서 돌리면 계산을 다 한
+#: 뒤 마지막 쓰기에서 FileNotFoundError 로 죽는다.
+ROOT = Path(__file__).resolve().parents[3]
+BENCH_OUT = ROOT / "scripts" / "reco" / "bench" / "out"
+
+
 MODEL = "gemma4:12b-it-qat"
 URL = "http://localhost:11434/api/generate"
 AXES = ["매움", "짠맛", "단맛", "신맛", "감칠맛", "기름짐"]
@@ -102,8 +109,8 @@ def main() -> None:
         f"{a} {statistics.mean([g - m for _, _, mi, go in rows for m, g in [(mi[i], go[i])]]):+.3f}"
         for i, a in enumerate(AXES)))
 
-    Path("bench/out").mkdir(exist_ok=True)
-    Path("bench/out/flavor_llm_agreement.json").write_text(json.dumps(
+    BENCH_OUT.mkdir(parents=True, exist_ok=True)
+    (BENCH_OUT / "flavor_llm_agreement.json").write_text(json.dumps(
         [{"name": n, "hand": mi, "llm": go} for _, n, mi, go in rows],
         ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -113,7 +120,7 @@ def main() -> None:
         print(f"      수기 {[round(x,2) for x in mine]}")
         print(f"      LLM  {[round(x,2) for x in got]}")
 
-    print(f"\n── 처리량 ──")
+    print("\n── 처리량 ──")
     print(f"  건당 중앙값 {statistics.median(walls):.2f}s   총 {sum(walls):.0f}s / {len(items)}건")
     print(f"  → 재료 1,000종 소요 예상: {statistics.median(walls)*1000/60:.0f}분")
     print(f"  → 재료 5,000종 소요 예상: {statistics.median(walls)*5000/3600:.1f}시간")

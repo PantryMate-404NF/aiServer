@@ -177,8 +177,14 @@ opt={r.is_optional_hint} amb={r.is_ambiguous_qty} subs={r.substitutes}') \
 review-sheet:  ## 검수 시트 생성 — 스프레드시트로 판단 (make review-sheet TOP=300)
 	$(PY) scripts/reco/bench/review_sheet.py --top $(or $(TOP),300)
 
-review-apply:  ## 채운 시트를 시드에 반영 (--write 없이는 미리보기)
-	$(PY) scripts/reco/bench/review_apply.py $(if $(WRITE),--write,)
+review-csv:  ## 검수 시트를 구글 스프레드시트용 CSV 로 내보낸다
+	$(PY) scripts/reco/bench/review_export.py
+
+review-apply:  ## 채운 시트를 시드에 반영 (WRITE=1 없이는 미리보기. SHEET= 로 파일 지정)
+# 주의: SHEET 를 따옴표로 감싼다. 구글 스프레드시트에서 받으면 파일명에
+#    공백이 들어간다 ("시트 이름 - 시트1.csv"). 안 감싸면 argparse 가
+#    뒷부분을 모르는 인자로 보고 죽는다.
+	$(PY) scripts/reco/bench/review_apply.py $(if $(SHEET),--sheet "$(SHEET)",) $(if $(WRITE),--write,)
 
 unmatched:  ## 미매칭 표현을 빈도순으로 덤프 (약 12분)
 	$(PY) scripts/reco/bench/unmatched_dump.py

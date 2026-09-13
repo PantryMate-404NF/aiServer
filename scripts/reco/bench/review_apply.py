@@ -21,12 +21,18 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, ".")
-from features.recommend.ingest.match import Dictionary  # noqa: E402
+from features.recommend.ingest.match import Dictionary
 
-SHEET = Path("bench/out/review_sheet.tsv")
+#: 저장소 루트 기준. 스크립트를 어디서 돌리든 같은 자리에 쓴다 —
+#: 상대경로 "bench/out" 은 scripts/reco 에서 돌릴 때만 맞고, 루트에서
+#: 돌리면 9분을 계산한 뒤 마지막 쓰기에서 FileNotFoundError 로 죽는다.
+ROOT = Path(__file__).resolve().parents[3]
+BENCH_OUT = ROOT / "scripts" / "reco" / "bench" / "out"
+
+SHEET = BENCH_OUT / "review_sheet.tsv"
 ALIAS = Path("seeds/ingredient_alias.csv")
 NONING = Path("seeds/non_ingredient.yaml")
-NEWOUT = Path("bench/out/new_ingredients.tsv")
+NEWOUT = BENCH_OUT / "new_ingredients.tsv"
 
 
 def main() -> None:
@@ -46,10 +52,28 @@ def main() -> None:
     alias_rows, tools, news, bad, blank = [], [], [], [], 0
     with open(a.sheet, encoding="utf-8") as f:
         lines = [ln for ln in f if not ln.startswith("#")]   # 안내 주석 건너뛰기
+    if not lines:
+        sys.exit(f"시트가 비어 있습니다: {a.sheet}")
+
+    # 구분자를 머리줄에서 알아본다. 구글 스프레드시트에서 내보내면 쉼표이고,
+    # bench/review_sheet.py 가 만든 원본은 탭이다. 둘 다 받는다 —
+    # 사람이 어느 도구로 채웠는지에 따라 도구를 갈아타게 만들면,
+    # 잘못된 구분자로 읽어 전 행이 한 덩어리가 되고 **조용히 0건 반영**된다.
+    delim = "\t" if lines[0].count("\t") >= lines[0].count(",") else ","
     import io
     with io.StringIO("".join(lines)) as f:
-        for row in csv.DictReader(f, delimiter="\t"):
-            term, dec = row["표현"].strip(), row["결정"].strip()
+        rows = list(csv.DictReader(f, delimiter=delim))
+    need = {"표현", "결정"}
+    if not rows or not need <= set(rows[0]):
+        sys.exit(
+            f"시트 머리줄을 못 읽었습니다 (구분자 {delim!r} 로 시도)\n"
+            f"  읽은 열: {sorted(rows[0]) if rows else '(없음)'}\n"
+            f"  필요한 열: 표현 · 결정"
+        )
+    print(f"  구분자 {'탭' if delim == chr(9) else '쉼표'} · {len(rows)}행")
+
+    for row in rows:
+            term, dec = (row["표현"] or "").strip(), (row["결정"] or "").strip()
             if not dec:
                 blank += 1
             elif dec == "X":
@@ -91,7 +115,7 @@ def main() -> None:
         print(f"  ✅ {NONING} 에 {len(tools)}종 추가")
 
     if news:
-        NEWOUT.parent.mkdir(exist_ok=True)
+        NEWOUT.parent.mkdir(parents=True, exist_ok=True)
         with open(NEWOUT, "w", encoding="utf-8") as w:
             w.write("빈도\t표현\tcategory_path\tis_staple\tis_seasoning\tallergen_group\n")
             for c, t in news:
