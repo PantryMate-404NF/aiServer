@@ -69,6 +69,8 @@ dev = [
     "pytest-cov>=5.0",
     "httpx>=0.28.1",           # fastapi.testclient — make contract 종단 검증
     "types-pyyaml>=6.0",
+    "openpyxl>=3.1",           # scripts/sim 변환기 · tests/unit/sim — 기획 xlsx 읽기
+    "pandas>=2.2",             # 같은 용도. paddlex 가 끌어오지만 직접 import 라 명시
 ]
 
 [build-system]
