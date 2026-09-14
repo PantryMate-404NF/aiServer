@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import random
 import threading
 from collections.abc import Callable, Iterable
 from datetime import datetime, timedelta, timezone
@@ -13,7 +12,12 @@ import pytest
 from pydantic import ValidationError
 
 from features.recommend import service
-from features.recommend.engine.context import CorpusStats, RecipeFeature, UserContext
+from features.recommend.engine.context import (
+    CorpusStats,
+    RecipeFeature,
+    UserContext,
+    UserHistory,
+)
 from features.recommend.engine.persona import (
     PersonaSource,
     TasteProfile,
@@ -22,12 +26,20 @@ from features.recommend.engine.persona import (
 )
 from features.recommend.engine.rank import check_trace_params, keep_candidates, merge_served_detail
 from features.recommend.engine.rerank import exploration_ratio
+from features.recommend.engine.score import weighted_score
 from features.recommend.engine.taste import FlavorVector
-from features.recommend.enums import CANDIDATE_KEEP, FEATURE_KEYS, EventType, Stage, UserMode
+from features.recommend.enums import (
+    CANDIDATE_KEEP,
+    DEFAULT_WEIGHTS,
+    FEATURE_KEYS,
+    EventType,
+    Stage,
+    UserMode,
+)
 from features.recommend.policy import POLICY_ID, RankingPolicy, with_trace_extra
 from features.recommend.profile_store import JsonProfileStore
 from features.recommend.schema import EventIn, OnboardingIn
-from features.recommend.stage import Candidate
+from features.recommend.stage import Candidate, ScoredCandidate
 
 
 def _profile(profiles: list[dict[str, Any]], user_id: int) -> dict[str, Any]:
@@ -41,15 +53,12 @@ def test_pipeline_meets_the_stage_contract(
     context_for: Callable[..., UserContext],
     retrieve: Callable[..., list[Candidate]],
     policy: RankingPolicy,
-    rng: random.Random,
 ) -> None:
     profile = _profile(personas, 1005)
     ctx = context_for(profile)
     candidates = retrieve(ctx.pantry_ids, max_minutes=ctx.max_cook_minutes)
 
-    result = service.rank_candidates(
-        candidates, recipes, ctx, corpus, policy, rng, top_k=20, rng_seed=7
-    )
+    result = service.rank_candidates(candidates, recipes, ctx, corpus, policy, top_k=20, rng_seed=7)
 
     assert len(result.items) == 20
     assert [item.final_rank for item in result.items] == list(range(1, 21))
@@ -67,13 +76,12 @@ def test_trace_params_carry_every_frozen_key(
     context_for: Callable[..., UserContext],
     retrieve: Callable[..., list[Candidate]],
     policy: RankingPolicy,
-    rng: random.Random,
 ) -> None:
     """값이 아니라 정의가 소급 불가입니다. 키가 없으면 propensity 를 재구성할 수 없습니다."""
     ctx = context_for(_profile(personas, 1002))
     candidates = retrieve(ctx.pantry_ids, max_minutes=ctx.max_cook_minutes)
 
-    result = service.rank_candidates(candidates, recipes, ctx, corpus, policy, rng, rng_seed=3)
+    result = service.rank_candidates(candidates, recipes, ctx, corpus, policy, rng_seed=3)
 
     for stage in result.stages:
         assert check_trace_params(stage.params) == []
@@ -89,13 +97,12 @@ def test_score_stats_show_the_spread(
     context_for: Callable[..., UserContext],
     retrieve: Callable[..., list[Candidate]],
     policy: RankingPolicy,
-    rng: random.Random,
 ) -> None:
     """랭커가 조용히 납작해지는 것을 이 값으로 알아챕니다."""
     ctx = context_for(_profile(personas, 1005))
     candidates = retrieve(ctx.pantry_ids, max_minutes=ctx.max_cook_minutes)
 
-    result = service.rank_candidates(candidates, recipes, ctx, corpus, policy, rng)
+    result = service.rank_candidates(candidates, recipes, ctx, corpus, policy)
 
     stats = result.stages[0].score_stats
     assert stats["min"] <= stats["p50"] <= stats["max"]
@@ -109,12 +116,11 @@ def test_served_items_survive_the_candidate_cut(
     context_for: Callable[..., UserContext],
     retrieve: Callable[..., list[Candidate]],
     policy: RankingPolicy,
-    rng: random.Random,
 ) -> None:
     """탐색 아이템은 상위 50 밖으로 떨어질 수 있고, 그것이 propensity != 1 인 유일한 행입니다."""
     ctx = context_for(_profile(personas, 1005))
     candidates = retrieve(ctx.pantry_ids, max_minutes=ctx.max_cook_minutes)
-    result = service.rank_candidates(candidates, recipes, ctx, corpus, policy, rng)
+    result = service.rank_candidates(candidates, recipes, ctx, corpus, policy)
     served = [item.recipe_id for item in result.items]
 
     merged = merge_served_detail(result.scored, result.items)
@@ -134,7 +140,6 @@ def test_every_profile_is_served(
     context_for: Callable[..., UserContext],
     retrieve: Callable[..., list[Candidate]],
     policy: RankingPolicy,
-    rng: random.Random,
 ) -> None:
     """후보가 모자란 프로필은 완화 계획을 따라 다시 조회하면 채워져야 합니다."""
     for profile in personas:
@@ -142,7 +147,7 @@ def test_every_profile_is_served(
         top_k = int(profile.get("top_k", 20))
         candidates = _retrieve_with_fallback(retrieve, ctx, policy, top_k)
 
-        result = service.rank_candidates(candidates, recipes, ctx, corpus, policy, rng, top_k=top_k)
+        result = service.rank_candidates(candidates, recipes, ctx, corpus, policy, top_k=top_k)
 
         assert len(result.items) == min(top_k, len(candidates)), profile["user_id"]
         assert len(result.items) >= 10, profile["user_id"]
@@ -156,7 +161,6 @@ def test_allergy_cut_is_the_retrieval_stage_not_the_ranking(
     retrieve: Callable[..., list[Candidate]],
     allergy_ids: Callable[[Iterable[str]], frozenset[int]],
     policy: RankingPolicy,
-    rng: random.Random,
 ) -> None:
     """제외는 ① 에서만 합니다. ② 는 걸러진 뒤의 후보만 봅니다."""
     profile = _profile(personas, 1006)
@@ -164,14 +168,14 @@ def test_allergy_cut_is_the_retrieval_stage_not_the_ranking(
     ctx = context_for(profile)
     candidates = retrieve(ctx.pantry_ids, allergy=banned, max_minutes=ctx.max_cook_minutes)
 
-    result = service.rank_candidates(candidates, recipes, ctx, corpus, policy, rng)
+    result = service.rank_candidates(candidates, recipes, ctx, corpus, policy)
 
     assert result.items
     assert all(not (recipes[item.recipe_id].all_ids & banned) for item in result.items)
 
 
-def test_counters_are_isolated_from_ranking() -> None:
-    """로그 실패를 삼키되 반드시 셉니다. 카운터는 프로세스 메모리입니다."""
+def test_counters_accumulate_and_reset() -> None:
+    """카운터는 프로세스 메모리에 쌓이고 검사는 지우고 시작합니다."""
     service.reset_counters()
     service.bump("log_write_failed")
     service.bump("log_write_failed", 2)
@@ -215,13 +219,16 @@ def test_fingerprint_changes_with_the_policy(policy: RankingPolicy) -> None:
     assert policy.fingerprint() != policy.fingerprint({"f_coverage": 0.9})
 
 
-def test_policy_knobs_stay_within_their_meaning(policy: RankingPolicy) -> None:
-    assert 0.0 < policy.uniform_share <= 1.0
-    assert 0.0 < policy.exploration_ratio < 1.0
-    assert policy.max_missing < policy.max_missing_relaxed
-    assert policy.mmr_pool_size <= policy.candidate_limit
-    with pytest.raises(KeyError):
-        _ = policy.trace_params(top_k=20, n_explore=4, rng_seed=0, max_missing_final=2)["없는키"]
+def test_policy_refuses_relations_that_break_the_procedure() -> None:
+    """풀이 조회 상한보다 크거나 완화 상한이 시작값보다 작으면 절차가 조용히 틀립니다."""
+    with pytest.raises(ValueError, match="candidate_limit"):
+        RankingPolicy(mmr_pool_size=600)
+    with pytest.raises(ValueError, match="max_missing_relaxed"):
+        RankingPolicy(max_missing=5)
+    with pytest.raises(ValueError, match="uniform_share"):
+        RankingPolicy(uniform_share=1.5)
+    with pytest.raises(ValueError, match="penalty_cooked"):
+        RankingPolicy(penalty_cooked=-0.5)
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -342,7 +349,6 @@ def test_trace_carries_the_persona_source(
     recipes: dict[int, RecipeFeature],
     corpus: CorpusStats,
     policy: RankingPolicy,
-    rng: random.Random,
     make_context: Callable[..., UserContext],
 ) -> None:
     """평가가 취향 유무로 갈라 볼 수 있어야 합니다. 동결 키 10종은 그대로입니다."""
@@ -353,7 +359,7 @@ def test_trace_carries_the_persona_source(
         for r in list(recipes)[:30]
     ]
 
-    result = service.rank_candidates(candidates, recipes, ctx, corpus, policy, rng)
+    result = service.rank_candidates(candidates, recipes, ctx, corpus, policy)
 
     params = result.stages[-1].params or {}
     assert check_trace_params(params) == []
@@ -498,7 +504,6 @@ def test_a_cold_user_has_no_taste_signal_and_the_wider_exploration(
     recipes: dict[int, RecipeFeature],
     corpus: CorpusStats,
     policy: RankingPolicy,
-    rng: random.Random,
     make_context: Callable[..., UserContext],
 ) -> None:
     """취향이 없으면 맛 피처는 전부 비고(Zero-Drop) 탐색이 8칸입니다. 임의 취향을 넣지 않습니다."""
@@ -509,7 +514,7 @@ def test_a_cold_user_has_no_taste_signal_and_the_wider_exploration(
         for r in list(recipes)[:60]
     ]
 
-    result = service.rank_candidates(candidates, recipes, ctx, corpus, policy, rng)
+    result = service.rank_candidates(candidates, recipes, ctx, corpus, policy)
 
     assert all(item.features["f_taste"] is None for item in result.items)
     assert sum(item.is_exploration for item in result.items) == round(
@@ -526,7 +531,6 @@ def test_exploration_shortfall_and_uniform_fallback_are_visible(
     recipes: dict[int, RecipeFeature],
     corpus: CorpusStats,
     policy: RankingPolicy,
-    rng: random.Random,
     make_context: Callable[..., UserContext],
 ) -> None:
     """후보가 모자라 탐색이 줄면 셈과 추적에 남습니다. 24건이면 4칸을 다 채우지 못합니다(F-04)."""
@@ -537,7 +541,7 @@ def test_exploration_shortfall_and_uniform_fallback_are_visible(
         for r in list(recipes)[:24]
     ]
 
-    result = service.rank_candidates(candidates, recipes, ctx, corpus, policy, rng)
+    result = service.rank_candidates(candidates, recipes, ctx, corpus, policy)
 
     n_explore = sum(item.is_exploration for item in result.items)
     wanted = round(20 * policy.exploration_ratio)
@@ -546,3 +550,252 @@ def test_exploration_shortfall_and_uniform_fallback_are_visible(
     counts = service.counters()
     assert counts["explore_shortfall"] == wanted - n_explore
     assert counts["explore_uniform_fallback"] == 1
+
+
+def test_positive_events_without_a_recipe_are_counted_as_invalid(
+    persona_service: service.PersonaService,
+) -> None:
+    """검색처럼 레시피가 없는 것이 정상인 종류는 지나갑니다.
+
+    조리·별점이 레시피 없이 오면 잘못된 이벤트로 셉니다.
+    """
+    service.reset_counters()
+    events = [
+        EventIn(user_id=1, event_type=EventType.COOK, recipe_id=None),
+        EventIn(user_id=1, event_type=EventType.RATING, recipe_id=None, value=5.0),
+        EventIn(user_id=1, event_type=EventType.SEARCH, recipe_id=None),
+        EventIn(user_id=1, event_type=EventType.IMPRESSION, recipe_id=None),
+    ]
+
+    stored = persona_service.record_events(events, lambda _: (0.5,) * 6, NOW)
+
+    assert stored == 0
+    assert service.counters()["persona_event_invalid"] == 2
+    assert "persona_event_ignored" not in service.counters()
+
+
+def test_a_store_that_cannot_be_read_degrades_to_cold_and_is_counted(
+    persona_service: service.PersonaService, tmp_path: Path
+) -> None:
+    """깨진 파일(ValueError)과 읽을 수 없는 저장소(OSError)는 다른 이름으로 셉니다.
+
+    둘 다 추천을 죽이지 않습니다.
+    """
+    service.reset_counters()
+    target = JsonProfileStore(tmp_path).path(9)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.mkdir()  # 파일 자리에 디렉터리가 있으면 읽기가 OSError 로 끝납니다
+
+    made = persona_service.persona_for(9, NOW)
+
+    assert made.is_cold
+    assert service.counters()["persona_store_error"] == 1
+    assert "persona_profile_unreadable" not in service.counters()
+
+
+def test_fallback_and_shortfall_come_from_one_decision(
+    recipes: dict[int, RecipeFeature],
+    corpus: CorpusStats,
+    policy: RankingPolicy,
+    make_context: Callable[..., UserContext],
+) -> None:
+    """군집은 배치 단위입니다.
+
+    후보 어딘가에 있으면 폴백이 아니고, 풀에 군집 후보가 없어 못 채운 칸은 부족분입니다.
+    Thompson 으로 뽑힌 것은 반드시 군집이 있어야 합니다.
+    """
+    service.reset_counters()
+    ctx = make_context(pantry=range(1, 61))
+    ids = list(recipes)[:60]
+    # 점수 상위(개인화)가 될 앞쪽 20건에만 군집이 있고 탐색 풀이 될 나머지에는 없습니다.
+    candidates = [
+        Candidate(
+            recipe_id=r,
+            missing_count=0,
+            missing_ids=[],
+            coverage=1.0 - i / 100,
+            cluster_id=(i % 4) if i < 20 else None,
+        )
+        for i, r in enumerate(ids)
+    ]
+
+    result = service.rank_candidates(candidates, recipes, ctx, corpus, policy)
+
+    params = result.stages[-1].params or {}
+    n_explore = sum(item.is_exploration for item in result.items)
+    assert "explore_fallback" not in params
+    assert "explore_uniform_fallback" not in service.counters()
+    assert result.stages[-1].dropped["explore_shortfall"] == 4 - n_explore
+    thompson = [item for item in result.items if item.explore_source == "thompson"]
+    assert all(item.cluster_id is not None for item in thompson)
+
+
+# ─────────────────────────────────────────────────────────────────
+# 4회차 복기에서 찾은 구멍
+# ─────────────────────────────────────────────────────────────────
+def _plain(ids: list[int]) -> list[Candidate]:
+    return [Candidate(recipe_id=r, missing_count=0, missing_ids=[], coverage=1.0) for r in ids]
+
+
+def test_a_candidate_without_a_feature_row_is_not_ranked_but_counted(
+    recipes: dict[int, RecipeFeature],
+    corpus: CorpusStats,
+    policy: RankingPolicy,
+    make_context: Callable[..., UserContext],
+) -> None:
+    """피처 행이 없는 후보는 갖춘 재료만으로 만점이 되어 1위로 나갔습니다.
+
+    세고 추적에 남기고 뺍니다.
+    """
+    service.reset_counters()
+    ctx = make_context(pantry=range(1, 61))
+    ids = list(recipes)[:30]
+    candidates = _plain(ids)
+    candidates.append(Candidate(recipe_id=99_999, missing_count=0, missing_ids=[], coverage=1.0))
+    candidates.append(Candidate(recipe_id=ids[0], missing_count=1, missing_ids=[7], coverage=0.5))
+
+    result = service.rank_candidates(candidates, recipes, ctx, corpus, policy)
+
+    served = [item.recipe_id for item in result.items]
+    assert 99_999 not in served and len(served) == len(set(served))
+    assert (result.stages[0].in_count, result.stages[0].out_count) == (32, 30)
+    assert result.stages[0].filters == {"recipe_feature_missing": 1, "candidate_duplicate": 1}
+    counts = service.counters()
+    assert counts["recipe_feature_missing"] == 1 and counts["candidate_duplicate"] == 1
+    first = next(row for row in result.scored if row.recipe_id == ids[0])
+    assert first.missing_count == 0
+
+
+def test_weight_overrides_are_validated(
+    recipes: dict[int, RecipeFeature],
+    corpus: CorpusStats,
+    policy: RankingPolicy,
+    make_context: Callable[..., UserContext],
+) -> None:
+    """오타 키는 그 피처의 몫을 조용히 없애고, 음수는 0 으로 읽히고, 합이 0 이면 전원 0 점입니다."""
+    ctx = make_context(pantry=range(1, 61))
+    candidates = _plain(list(recipes)[:10])
+    with pytest.raises(ValueError, match="FEATURE_KEYS"):
+        service.rank_candidates(
+            candidates, recipes, ctx, corpus, policy, weights={"f_covrage": 1.0}
+        )
+    with pytest.raises(ValueError, match="음의 가중치"):
+        service.rank_candidates(candidates, recipes, ctx, corpus, policy, weights={"f_taste": -0.2})
+    with pytest.raises(ValueError, match="합이 0"):
+        service.rank_candidates(candidates, recipes, ctx, corpus, policy, weights={"f_taste": 0.0})
+
+
+def test_trace_carries_the_policy_fingerprint_and_the_values_it_promises(
+    recipes: dict[int, RecipeFeature],
+    corpus: CorpusStats,
+    policy: RankingPolicy,
+    make_context: Callable[..., UserContext],
+) -> None:
+    """policy_id 는 절차 이름이라 λ 를 바꿔도 그대로입니다.
+
+    지문이 있어야 그때의 손잡이를 되찾습니다.
+    """
+    ctx = make_context(pantry=range(1, 61))
+    candidates = _plain(list(recipes)[:60])
+    override = {"f_coverage": 0.5, "f_popularity": 0.5}
+
+    result = service.rank_candidates(
+        candidates, recipes, ctx, corpus, policy, weights=override, max_missing_final=4
+    )
+
+    params = result.stages[-1].params or {}
+    assert params["policy_fingerprint"] == policy.fingerprint(override)
+    assert params["policy_fingerprint"] != policy.fingerprint()
+    assert params["n_explore"] == sum(item.is_exploration for item in result.items)
+    assert params["top_k"] == 20 and params["max_missing_final"] == 4
+    assert result.stages[0].params == result.stages[1].params
+
+
+def test_zero_candidates_do_not_flag_a_fallback(
+    recipes: dict[int, RecipeFeature],
+    corpus: CorpusStats,
+    policy: RankingPolicy,
+    make_context: Callable[..., UserContext],
+) -> None:
+    service.reset_counters()
+    ctx = make_context(pantry=range(1, 61))
+
+    result = service.rank_candidates([], recipes, ctx, corpus, policy)
+
+    assert result.items == []
+    assert "explore_fallback" not in (result.stages[-1].params or {})
+    assert "explore_uniform_fallback" not in service.counters()
+
+
+def test_the_logged_seed_reproduces_the_list(
+    recipes: dict[int, RecipeFeature],
+    corpus: CorpusStats,
+    policy: RankingPolicy,
+    make_context: Callable[..., UserContext],
+) -> None:
+    """같은 시드면 탐색 칸과 자리까지 같고, 다른 시드면 개인화는 그대로인 채 탐색만 바뀝니다."""
+    ctx = make_context(pantry=range(1, 61))
+    candidates = _plain(list(recipes)[:60])
+
+    first = service.rank_candidates(candidates, recipes, ctx, corpus, policy, rng_seed=7)
+    again = service.rank_candidates(candidates, recipes, ctx, corpus, policy, rng_seed=7)
+    other = service.rank_candidates(candidates, recipes, ctx, corpus, policy, rng_seed=8)
+
+    def dump(result: service.RankingResult) -> list[dict[str, Any]]:
+        return [item.model_dump() for item in result.items]
+
+    def personal(result: service.RankingResult) -> list[int]:
+        return [item.recipe_id for item in result.items if not item.is_exploration]
+
+    def explored(result: service.RankingResult) -> list[tuple[int, int]]:
+        return [(item.final_rank, item.recipe_id) for item in result.items if item.is_exploration]
+
+    assert dump(first) == dump(again)
+    assert personal(first) == personal(other)
+    assert explored(first) != explored(other)
+    assert (first.stages[-1].params or {})["rng_seed"] == 7
+
+
+def test_penalty_and_score_replay_exactly_from_the_log(
+    recipes: dict[int, RecipeFeature],
+    corpus: CorpusStats,
+    policy: RankingPolicy,
+    make_context: Callable[..., UserContext],
+) -> None:
+    """로그의 penalty(소수 6자리)로 점수를 다시 곱해도 로그의 score 와 같아야 합니다."""
+    ids = list(recipes)[:40]
+    history = UserHistory(
+        recent_recipe_ids=frozenset(ids[:10]),
+        cooked_recipe_ids=frozenset(ids[5:15]),
+        avoid_ingredient_ids=frozenset(range(1, 8)),
+    )
+    ctx = make_context(pantry=range(1, 61), history=history)
+
+    result = service.rank_candidates(_plain(ids), recipes, ctx, corpus, policy)
+
+    assert {row.penalty for row in result.scored} != {1.0}
+    for row in result.scored:
+        assert row.score == round(weighted_score(row.features, DEFAULT_WEIGHTS) * row.penalty, 6)
+
+
+def test_score_stats_are_the_quartiles_of_the_scored_pool() -> None:
+    scores = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+    rows = [
+        ScoredCandidate(
+            recipe_id=i,
+            missing_count=0,
+            missing_ids=[],
+            coverage=1.0,
+            features=dict.fromkeys(FEATURE_KEYS),
+            score=score,
+        )
+        for i, score in enumerate(reversed(scores))
+    ]
+
+    assert service._score_stats(rows) == {
+        "min": 0.1,
+        "p25": 0.3,
+        "p50": 0.5,
+        "p75": 0.7,
+        "max": 0.8,
+    }

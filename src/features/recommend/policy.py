@@ -79,7 +79,39 @@ class RankingPolicy:
     cold_exploration_ratio: float = 0.4
 
     def __post_init__(self) -> None:
-        """페르소나 손잡이의 범위. 벗어나면 예외 없이 모델이 뒤집히거나(세기 > 1) 0 으로 나눕니다"""
+        """손잡이의 범위. 벗어나면 예외 없이 모델이 뒤집히거나 0 으로 나누거나 로그가 틀립니다."""
+        for name in (
+            "penalty_recent",
+            "penalty_cooked",
+            "avoid_cap",
+            "mmr_lambda",
+            "uniform_share",
+            "exploration_ratio",
+            "cold_exploration_ratio",
+        ):
+            share = getattr(self, name)
+            if not 0.0 <= share <= 1.0:
+                raise ValueError(f"{name} 은 0~1 이어야 합니다: {share}")
+        for name in ("avoid_multiplier", "taste_min_norm"):
+            if not (math.isfinite(getattr(self, name)) and getattr(self, name) >= 0.0):
+                raise ValueError(f"{name} 은 0 이상의 유한한 수여야 합니다: {getattr(self, name)}")
+        for name in (
+            "min_candidates",
+            "candidate_limit",
+            "mmr_pool_size",
+            "explore_pool_size",
+            "exploration_min_pool_ratio",
+            "propensity_mc",
+        ):
+            if getattr(self, name) < 1:
+                raise ValueError(f"{name} 은 1 이상이어야 합니다: {getattr(self, name)}")
+        if not 0 <= self.max_missing <= self.max_missing_relaxed:
+            raise ValueError(
+                f"max_missing({self.max_missing}) 은 0 이상이고 "
+                f"max_missing_relaxed({self.max_missing_relaxed}) 이하여야 합니다"
+            )
+        if max(self.mmr_pool_size, self.explore_pool_size) > self.candidate_limit:
+            raise ValueError("MMR 풀과 탐색 풀은 후보 조회 상한(candidate_limit)을 넘지 못합니다")
         for name in ("picks_prior_weight", "scales_prior_weight"):
             weight = getattr(self, name)
             if not (math.isfinite(weight) and weight > 0.0):
@@ -95,10 +127,6 @@ class RankingPolicy:
         if self.persona_max_events < 1 or self.persona_max_event_age_days < 1:
             raise ValueError(
                 "persona_max_events 와 persona_max_event_age_days 는 1 이상이어야 합니다"
-            )
-        if not 0.0 < self.cold_exploration_ratio < 1.0:
-            raise ValueError(
-                f"cold_exploration_ratio 는 0 과 1 사이여야 합니다: {self.cold_exploration_ratio}"
             )
 
     def fingerprint(self, weights: dict[str, float] | None = None) -> str:

@@ -16,7 +16,6 @@ import argparse
 import importlib.util
 import json
 import math
-import random
 import statistics
 import sys
 from collections.abc import Iterable, Mapping, Sequence
@@ -284,7 +283,6 @@ def evaluate(
     corpus: CorpusStats,
     allergen_groups: Mapping[str, list[int]],
     policy: RankingPolicy,
-    rng: random.Random,
     presented: Sequence[tuple[float | None, ...]],
 ) -> dict[str, Any]:
     user_id = int(profile["user_id"])
@@ -302,7 +300,6 @@ def evaluate(
         ctx,
         corpus,
         policy,
-        rng,
         top_k=top_k,
         rng_seed=user_id,
         max_missing_final=max_missing,
@@ -391,13 +388,12 @@ def penalty_scenario(
     clusters: Mapping[int, int],
     corpus: CorpusStats,
     policy: RankingPolicy,
-    rng: random.Random,
     presented: Sequence[tuple[float | None, ...]],
 ) -> None:
     """1위 레시피를 최근 조리로 표시하면 점수가 절반이 되는지."""
     ctx = context_of(profile, policy, presented)
     candidates, _, _ = retrieve_with_fallback(recipes, clusters, ctx, policy, DEFAULT_TOP_K)
-    before = service.rank_candidates(candidates, recipes, ctx, corpus, policy, rng)
+    before = service.rank_candidates(candidates, recipes, ctx, corpus, policy)
     top = next(i for i in before.items if not i.is_exploration)
     warm = build_context(
         user_id=ctx.user_id,
@@ -408,7 +404,7 @@ def penalty_scenario(
         max_cook_minutes=ctx.max_cook_minutes,
         preferred_cuisines=ctx.preferred_cuisines,
     )
-    after = service.rank_candidates(candidates, recipes, warm, corpus, policy, rng)
+    after = service.rank_candidates(candidates, recipes, warm, corpus, policy)
     scored = next(s for s in after.scored if s.recipe_id == top.recipe_id)
     rank_after = next((i.final_rank for i in after.items if i.recipe_id == top.recipe_id), None)
     title = recipes[top.recipe_id].title
@@ -424,7 +420,6 @@ def feedback_scenario(
     clusters: Mapping[int, int],
     corpus: CorpusStats,
     policy: RankingPolicy,
-    rng: random.Random,
     presented: Sequence[tuple[float | None, ...]],
 ) -> None:
     """매운 레시피를 조리하면 상위 목록의 매운맛이 오르고, 그 조리가 오래되면 다시 내려갑니다.
@@ -449,7 +444,7 @@ def feedback_scenario(
     def top_spicy(events: Sequence[TasteEvent]) -> tuple[float, UserContext]:
         ctx = context_of(profile, policy, presented, events)
         candidates, _, _ = retrieve_with_fallback(recipes, clusters, ctx, policy, DEFAULT_TOP_K)
-        result = service.rank_candidates(candidates, recipes, ctx, corpus, policy, rng)
+        result = service.rank_candidates(candidates, recipes, ctx, corpus, policy)
         personal = [i for i in result.items if not i.is_exploration][:TOP_N_FOR_TASTE]
         return statistics.fmean([axis_of(recipes[i.recipe_id], 0) for i in personal]), ctx
 
@@ -503,7 +498,7 @@ def load_generator() -> ModuleType:
     return module
 
 
-def latency_benchmark(corpus: CorpusStats, policy: RankingPolicy, rng: random.Random) -> None:
+def latency_benchmark(corpus: CorpusStats, policy: RankingPolicy) -> None:
     """후보 500건에서 랭킹과 재정렬의 지연시간. DB 왕복은 포함하지 않습니다."""
     generator = load_generator()
     rows = [generator.build_recipe(i) for i in range(1, LATENCY_POOL + 1)]
@@ -522,7 +517,7 @@ def latency_benchmark(corpus: CorpusStats, policy: RankingPolicy, rng: random.Ra
     timings: list[float] = []
     for _ in range(LATENCY_RUNS):
         started = perf_counter()
-        service.rank_candidates(candidates, recipes, ctx, corpus, policy, rng, top_k=DEFAULT_TOP_K)
+        service.rank_candidates(candidates, recipes, ctx, corpus, policy, top_k=DEFAULT_TOP_K)
         timings.append((perf_counter() - started) * 1000)
     timings.sort()
     print(f"\n=== latency: pool {LATENCY_POOL} -> candidates {len(candidates)}", end="")
@@ -532,9 +527,10 @@ def latency_benchmark(corpus: CorpusStats, policy: RankingPolicy, rng: random.Ra
 
 
 def report_dead_weight(results: Sequence[Mapping[str, Any]]) -> None:
-    """순위를 바꾸지 못하는 가중치를 냅니다.
+    """점수 순서를 바꾸지 못하는 가중치를 냅니다. 노출된 아이템 기준입니다.
 
-    전건 None 이거나 값이 하나뿐인 피처는 가중치가 아무리 커도 순서를 못 바꿉니다.
+    전건 None 이거나 값이 하나뿐인 피처는 가중치가 아무리 커도 점수 순서를 못 바꿉니다. 다만
+    MMR 은 점수 크기를 그대로 쓰므로 상수 피처의 가중치도 목록의 순서에는 닿을 수 있습니다.
     에러가 나지 않으므로 이 줄이 없으면 아무도 알아채지 못합니다 (검증 기록 F-28).
     """
     seen: dict[str, set[float]] = {key: set() for key in FEATURE_KEYS}
@@ -550,7 +546,7 @@ def report_dead_weight(results: Sequence[Mapping[str, Any]]) -> None:
     }
     live = {key: len(values) for key, values in seen.items() if len(values) > 1}
     print(f"    값이 변하는 피처 {len(live)}/17 = {dict(sorted(live.items()))}")
-    print(f"    순위를 못 바꾸는 가중치 {sum(dead.values()):.2f}/1.00 = {dead}")
+    print(f"    점수 순서를 못 바꾸는 가중치 {sum(dead.values()):.2f}/1.00 = {dead}")
 
 
 def percentile(values: Sequence[float], share: float) -> float:
@@ -569,10 +565,9 @@ def main() -> None:
     clusters = {int(r["recipe_id"]): int(r["cluster_id"]) for r in catalog["recipes"]}
     corpus = build_corpus(catalog, recipes)
     policy = RankingPolicy()
-    rng = random.SystemRandom()
 
     if args.only_latency:
-        latency_benchmark(corpus, policy, rng)
+        latency_benchmark(corpus, policy)
         return
 
     profiles = load_profiles()
@@ -583,7 +578,7 @@ def main() -> None:
     print(f"active weights={sorted(k for k, w in DEFAULT_WEIGHTS.items() if w > 0)}")
     print(f"unavailable={sorted(UNAVAILABLE_FEATURES)}")
     results = [
-        evaluate(p, recipes, clusters, corpus, catalog["allergen_groups"], policy, rng, presented)
+        evaluate(p, recipes, clusters, corpus, catalog["allergen_groups"], policy, presented)
         for p in profiles
     ]
 
@@ -618,10 +613,10 @@ def main() -> None:
 
     if args.user is None:
         by_id = {p["user_id"]: p for p in profiles}
-        penalty_scenario(by_id[1005], recipes, clusters, corpus, policy, rng, presented)
-        feedback_scenario(by_id[1002], recipes, clusters, corpus, policy, rng, presented)
+        penalty_scenario(by_id[1005], recipes, clusters, corpus, policy, presented)
+        feedback_scenario(by_id[1002], recipes, clusters, corpus, policy, presented)
         season_scenario(policy)
-        latency_benchmark(corpus, policy, rng)
+        latency_benchmark(corpus, policy)
 
 
 if __name__ == "__main__":

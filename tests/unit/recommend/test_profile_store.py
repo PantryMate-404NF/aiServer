@@ -113,6 +113,7 @@ def test_a_file_holding_another_user_is_refused(tmp_path: Path) -> None:
         '{"schema": 1, "user_id": 9, "scales": [2.0, 0, 0]}',
         '{"schema": 1, "user_id": 9, "pick_flavors": [[0.1, 0.2, 0.3, 0.4, 0.5]]}',
         '{"schema": 1, "user_id": 9, "pick_flavors": [[NaN, 0, 0, 0, 0, 0]]}',
+        '{"schema": 1, "user_id": 9, "pick_flavors": [5]}',
         '{"schema": 1, "user_id": 9, "picks": [0, 1], "pick_flavors": [[0, 0, 0, 0, 0, 0]]}',
         '{"schema": 1, "user_id": 9, "events": [{"recipe_id": 1, "kind": "cook",'
         ' "at": "2026-09-11T12:00:00+09:00", "flavor": [0, 0, 0, 0, 0, 0], "value": "x"}]}',
@@ -166,4 +167,20 @@ def test_presented_loader_refuses_a_different_axis_order(tmp_path: Path) -> None
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="축 순서"):
+        profile_store.load_presented_flavors(bad)
+
+
+def test_presented_loader_refuses_an_entry_with_fewer_axes(tmp_path: Path) -> None:
+    """축이 모자란 항목은 채워 넣지 않고 거부합니다.
+
+    채우면 그 음식만 뒤 축이 비어 조용히 기웁니다.
+    """
+    bad = tmp_path / "onboarding.yaml"
+    bad.write_text(
+        "axes: [매움, 짠맛, 단맛, 신맛, 감칠맛, 기름짐]\n"
+        "presented:\n"
+        "  - {name: x, flavor: [0, 0, 0, 0, 0]}\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="6축이 아닌"):
         profile_store.load_presented_flavors(bad)

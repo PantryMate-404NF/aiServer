@@ -57,7 +57,7 @@ from features.recommend.engine import rerank, score
 from features.recommend.engine.context import CorpusStats, RecipeFeature, UserContext
 from features.recommend.engine.persona import Persona, TasteEvent, TasteProfile
 from features.recommend.engine.taste import FlavorVector
-from features.recommend.enums import EventType, Stage
+from features.recommend.enums import FEATURE_KEYS, EventType, Stage
 from features.recommend.policy import RankingPolicy, with_trace_extra
 from features.recommend.profile_store import ProfileStore
 from features.recommend.schema import EventIn
@@ -176,9 +176,9 @@ class PersonaService:
     ) -> int:
         """긍정 신호를 취향 이벤트로 저장합니다. 저장한 수를 돌려줍니다.
 
-        무시·저장 취소처럼 무게가 0 인 종류, 레시피가 없는 이벤트, 범위 밖 별점, 맛을 모르는
-        레시피, 한 배치 안의 같은 이벤트는 저장하지 않고 **셉니다.** 삼키기만 하면 취향이 안
-        쌓이는 것을 아무도 모릅니다.
+        무시·저장 취소처럼 무게가 0 인 종류, 레시피 없이 온 조리·저장·클릭·별점, 범위 밖 별점,
+        맛을 모르는 레시피, 한 배치 안의 같은 이벤트는 저장하지 않고 **셉니다.** 삼키기만 하면
+        취향이 안 쌓이는 것을 아무도 모릅니다. 검색처럼 레시피가 없는 것이 정상인 종류는 지나갑니다.
 
         시각은 서버 수신 시각 `now` 입니다 - `EventIn` 에 시각이 없습니다. 사용자마다
         읽고-합치고-쓰기를 하며 프로세스 안에서는 잠금으로 직렬화합니다. 프로세스가 여럿이면
@@ -189,6 +189,11 @@ class PersonaService:
         seen: set[tuple[int, int, EventType, UUID | None]] = set()
         for event in events:
             if event.recipe_id is None:
+                # 검색·노출처럼 레시피가 없는 것이 정상인 종류는 지나갑니다. 조리·저장·클릭·별점이
+                # 레시피 없이 오면 잘못된 이벤트로 셉니다. 조용히 버리면 취향이 안 쌓이는 이유를
+                # 아무도 모릅니다.
+                if _carries_taste(event.event_type):
+                    bump("persona_event_invalid")
                 continue
             key = (event.user_id, event.recipe_id, event.event_type, event.request_id)
             if key in seen:
@@ -211,8 +216,9 @@ class PersonaService:
     def persona_for(self, user_id: int, now: datetime) -> Persona:
         """저장된 원본에서 페르소나를 만듭니다. 원본이 없으면 취향 없는 사용자입니다.
 
-        원본 파일이 깨져 있으면 추천을 실패시키지 않고 취향 없는 사용자로 다루되
-        **셉니다.** 저장소는 예외를 올리고(조용한 빈 취향 금지), 서빙은 여기서 받습니다.
+        원본 파일이 깨져 있거나(ValueError) 저장소를 읽을 수 없으면(OSError) 추천을
+        실패시키지 않고 취향 없는 사용자로 다루되 **셉니다.** 저장소는 예외를 올리고(조용한
+        빈 취향 금지), 서빙은 여기서 받습니다. 둘은 이름을 달리 세어 원인을 가릅니다.
         """
         try:
             with _PROFILE_LOCK:
@@ -220,10 +226,18 @@ class PersonaService:
         except ValueError:
             bump("persona_profile_unreadable")
             return persona_engine.cold_persona()
+        except OSError:
+            bump("persona_store_error")
+            return persona_engine.cold_persona()
         if profile is None:
             bump("persona_missing")
             return persona_engine.cold_persona()
         return persona_engine.derive_persona(profile, now, self.policy)
+
+
+def _carries_taste(kind: EventType) -> bool:
+    """레시피가 있어야 뜻이 있는 종류인가. 별점은 값에 따라 무게가 달라 따로 봅니다."""
+    return kind is EventType.RATING or persona_engine.kind_weight(kind, None) > 0.0
 
 
 def _taste_event(
@@ -271,7 +285,6 @@ def rank_candidates(
     ctx: UserContext,
     corpus: CorpusStats,
     policy: RankingPolicy,
-    rng: random.Random,
     *,
     top_k: int = 20,
     weights: Mapping[str, float] | None = None,
@@ -279,10 +292,20 @@ def rank_candidates(
     max_missing_final: int | None = None,
     serving_mode: str = "real",
 ) -> RankingResult:
-    """② 점수 계산 → ③ 재정렬. 제외는 하지 않습니다 - 그것은 ① 의 일입니다."""
+    """② 점수 계산 → ③ 재정렬. 정책으로 거르지는 않습니다 - 그것은 ① 의 일입니다.
+
+    난수원은 추적에 적는 `rng_seed` 로 여기서 만듭니다. 호출자가 난수원을 따로 넘기면 추적의
+    시드가 실제 난수와 무관해져 로그가 "재현 가능" 이라고 거짓말을 합니다.
+
+    ① 이 준 후보 가운데 레시피 피처가 없는 것과 중복은 점수를 매기지 않고 세어 추적의
+    `filters` 에 남깁니다. 피처가 없는 후보는 갖춘 재료 하나만으로 만점이 되어 1위로 나갑니다.
+    """
+    _validate_weights(weights)
+    rng = random.Random(rng_seed)  # noqa: S311  # 재현용 시드 RNG. 암호 용도가 아닙니다
+    usable, filters = _rankable(candidates, recipes)
     started = perf_counter()
     scored = score.score_all(
-        candidates, recipes, ctx, corpus, policy, weights, max_missing=max_missing_final
+        usable, recipes, ctx, corpus, policy, weights, max_missing=max_missing_final
     )
     ranking_ms = _elapsed(started)
 
@@ -291,8 +314,10 @@ def rank_candidates(
     rerank_ms = _elapsed(started)
 
     n_explore = sum(1 for item in items if item.is_exploration)
+    # 재정렬이 쓴 것과 같은 규격입니다. 부족분과 폴백을 여기서 따로 정하면 로그가 갈라집니다.
+    spec = rerank.exploration_spec(scored, ctx, policy, len(items))
     # 후보가 모자라 탐색이 줄어든 만큼입니다. 0 이 아니면 ① 이 덜 가져온 것입니다.
-    shortfall = max(0, round(len(items) * rerank.exploration_ratio(ctx, policy)) - n_explore)
+    shortfall = max(0, spec.count - n_explore)
     if shortfall:
         bump("explore_shortfall", shortfall)
     params = policy.trace_params(
@@ -302,7 +327,15 @@ def rank_candidates(
         max_missing_final=(policy.max_missing if max_missing_final is None else max_missing_final),
         serving_mode=serving_mode,
     )
-    params = with_trace_extra(params, {**_persona_params(ctx), **_explore_params(scored, policy)})
+    params = with_trace_extra(
+        params,
+        {
+            **_persona_params(ctx),
+            **_explore_params(spec, policy),
+            # 어느 손잡이·가중치로 만든 목록인지. policy_id 는 값이 바뀌어도 그대로입니다.
+            "policy_fingerprint": policy.fingerprint(None if weights is None else dict(weights)),
+        },
+    )
     stages = [
         StageInfo(
             name=Stage.RANKING,
@@ -310,6 +343,7 @@ def rank_candidates(
             out_count=len(scored),
             latency_ms=ranking_ms,
             strategy="linear-weighted",
+            filters=filters,
             score_stats=_score_stats(scored),
             params=params,
         ),
@@ -330,6 +364,46 @@ def rank_candidates(
     return RankingResult(items=items, scored=scored, stages=stages)
 
 
+def _validate_weights(weights: Mapping[str, float] | None) -> None:
+    """디버거가 넘기는 가중치 덮어쓰기를 검사합니다.
+
+    오타 키는 조용히 그 피처의 몫을 없애고, 음수는 0 으로 읽히며, 합이 0 이면 전원 0 점인
+    목록이 그대로 나갑니다. 셋 다 에러가 없습니다.
+    """
+    if weights is None:
+        return
+    unknown = sorted(set(weights) - set(FEATURE_KEYS))
+    if unknown:
+        raise ValueError(f"FEATURE_KEYS 에 없는 가중치입니다: {unknown}")
+    negative = sorted(key for key, weight in weights.items() if weight < 0.0)
+    if negative:
+        raise ValueError(f"음의 가중치는 쓸 수 없습니다: {negative}")
+    if sum(weights.values()) <= 0.0:
+        raise ValueError("가중치 합이 0 이면 점수를 매길 수 없습니다")
+
+
+def _rankable(
+    candidates: Sequence[Candidate], recipes: Mapping[int, RecipeFeature]
+) -> tuple[list[Candidate], dict[str, int]]:
+    """점수를 매길 수 있는 후보만 남기고 뺀 이유를 셉니다. 같은 레시피는 먼저 온 것만 둡니다."""
+    usable: list[Candidate] = []
+    seen: set[int] = set()
+    filters = {"recipe_feature_missing": 0, "candidate_duplicate": 0}
+    for candidate in candidates:
+        if candidate.recipe_id in seen:
+            filters["candidate_duplicate"] += 1
+            continue
+        seen.add(candidate.recipe_id)
+        if candidate.recipe_id not in recipes:
+            filters["recipe_feature_missing"] += 1
+            continue
+        usable.append(candidate)
+    for key, count in filters.items():
+        if count:
+            bump(key, count)
+    return usable, {key: count for key, count in filters.items() if count}
+
+
 def _persona_params(ctx: UserContext) -> dict[str, object]:
     """평가가 취향 유무로 갈라 볼 수 있게 출처와 상태를 추적에 싣습니다."""
     if ctx.persona is None:
@@ -342,13 +416,13 @@ def _persona_params(ctx: UserContext) -> dict[str, object]:
     }
 
 
-def _explore_params(scored: Sequence[ScoredCandidate], policy: RankingPolicy) -> dict[str, object]:
+def _explore_params(spec: rerank.ExplorationSpec, policy: RankingPolicy) -> dict[str, object]:
     """군집 없이 균등으로 폴백했으면 로그에 남기고 셉니다.
 
     `uniform_share` 는 동결 키라 덮지 않습니다. 평가는 `explore_fallback` 이 있으면 그 요청의
     실효 균등 비율을 1.0 으로 읽습니다.
     """
-    if rerank.effective_uniform_share(scored, policy) == policy.uniform_share:
+    if spec.uniform_share == policy.uniform_share:
         return {}
     bump("explore_uniform_fallback")
     return {"explore_fallback": "uniform"}

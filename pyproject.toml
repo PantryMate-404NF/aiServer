@@ -138,7 +138,7 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 #
 # 🔴 파일마다 **실제로 필요한 코드만** 적습니다. 디렉터리 통째로 끄면 나중에 들어올
 #    파일까지 조용히 덮습니다. 특히 `tests/unit/recommend/` 에는 추천 엔진의 pytest
-#    검사 63건이 함께 있고 그쪽은 규칙을 전부 지킵니다.
+#    검사가 함께 있고 그쪽은 규칙을 전부 지킵니다.
 # 🔴 이 예외들은 01의 3.3 에 따라 Tech Lead 승인이 필요합니다. 근거와 해소 계획은
 #    docs/decisions/2026-09-10_merge_data_track_gate_exceptions.md 에 있습니다.
 "seeds/validate.py" = ["ANN", "T20", "N802"]

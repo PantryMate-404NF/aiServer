@@ -160,15 +160,6 @@ def test_negative_and_zero_kinds_do_not_build_taste(kind: EventType) -> None:
     assert result.n_events == 0 and result.is_cold
 
 
-def test_rating_uses_the_label_mapping_clipped_at_zero() -> None:
-    assert persona.kind_weight(EventType.RATING, 5.0) == pytest.approx(1.0)
-    assert persona.kind_weight(EventType.RATING, 4.0) == pytest.approx(0.5)
-    assert persona.kind_weight(EventType.RATING, 1.0) == 0.0
-    assert persona.kind_weight(EventType.RATING, None) == 0.0
-    assert persona.kind_weight(EventType.COOK, None) == 1.0
-    assert persona.kind_weight(EventType.CLICK, None) == pytest.approx(0.3)
-
-
 # ─────────────────────────────────────────────────────────────────
 # 시간 감쇠
 # ─────────────────────────────────────────────────────────────────
@@ -297,12 +288,18 @@ def test_prune_keeps_the_newest_within_age_and_count() -> None:
 
 
 def test_persona_is_a_value() -> None:
-    """같은 입력이면 같은 값입니다. 추적에 그대로 실어도 됩니다."""
+    """따로 만든 같은 원본에서 같은 값이 나오고, 값이라 해시가 됩니다.
+
+    추적에 그대로 실어도 됩니다.
+    """
     profile = TasteProfile(user_id=1, pick_flavors=(FULL,), events=(cook(EMPTY, NOW - DAY),))
-    assert derive_persona(profile, NOW, RankingPolicy()) == derive_persona(
-        profile, NOW, RankingPolicy()
+    rebuilt = TasteProfile(user_id=1, pick_flavors=(FULL,), events=(cook(EMPTY, NOW - DAY),))
+    made = derive_persona(profile, NOW, RankingPolicy())
+    assert made == derive_persona(rebuilt, NOW, RankingPolicy())
+    assert isinstance(made, Persona) and hash(made) == hash(
+        derive_persona(rebuilt, NOW, RankingPolicy())
     )
-    assert isinstance(derive_persona(profile, NOW, RankingPolicy()), Persona)
+    assert made != derive_persona(replace(rebuilt, events=()), NOW, RankingPolicy())
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -315,6 +312,8 @@ def test_a_rating_never_outweighs_a_cook_and_is_zero_outside_its_range() -> None
     assert persona.kind_weight(EventType.RATING, 2.0) == 0.0
     assert persona.kind_weight(EventType.RATING, 180.0) == 0.0
     assert persona.kind_weight(EventType.RATING, None) == 0.0
+    assert persona.kind_weight(EventType.COOK, None) == 1.0
+    assert persona.kind_weight(EventType.CLICK, None) == pytest.approx(0.3)
 
 
 def test_an_event_with_no_known_flavor_is_not_behavior() -> None:
@@ -351,6 +350,8 @@ def test_profiles_and_events_refuse_shapes_the_engine_would_misread() -> None:
         TasteEvent(recipe_id=1, kind=EventType.COOK, at=NOW, flavor=(float("nan"), *EMPTY[1:]))
     with pytest.raises(ValueError, match="6축"):
         TasteProfile(user_id=1, pick_flavors=((0.0,) * 5,))
+    with pytest.raises(ValueError, match="유한한"):
+        TasteEvent(recipe_id=1, kind=EventType.RATING, at=NOW, flavor=FULL, value=float("nan"))
 
 
 def test_policy_refuses_knobs_that_invert_or_break_the_model() -> None:
@@ -362,4 +363,4 @@ def test_policy_refuses_knobs_that_invert_or_break_the_model() -> None:
     with pytest.raises(ValueError, match="persona_max_events"):
         RankingPolicy(persona_max_events=0)
     with pytest.raises(ValueError, match="cold_exploration_ratio"):
-        RankingPolicy(cold_exploration_ratio=1.0)
+        RankingPolicy(cold_exploration_ratio=1.5)

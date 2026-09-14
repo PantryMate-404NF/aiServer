@@ -59,6 +59,9 @@ class UserHistory:
     cooked_recipe_ids: frozenset[int] = frozenset()
     #: 최근 조리한 레시피의 재료 집합. f_cooccur 가 이것과의 유사도를 봅니다.
     cooked_ingredient_sets: tuple[frozenset[int], ...] = ()
+    #: 위 집합과 같은 순서의 레시피 제목. 사유 문구("지난번 만드신 X 와 비슷해요")가 씁니다.
+    #: 없으면 그 사유는 쓰지 않습니다 - 제목 없이 "지난번 만드신 와 비슷해요" 를 내지 않습니다.
+    cooked_titles: tuple[str, ...] = ()
     #: 클러스터별 노출·반응 관측. 탐색 슬롯의 Thompson 이 씁니다 (`user_cluster_stat`).
     cluster_seen: Mapping[int, int] = field(default_factory=dict)
     cluster_hits: Mapping[int, int] = field(default_factory=dict)

@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import importlib
 import inspect
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -31,6 +32,7 @@ from config import get_settings
 from features.recommend import service
 from features.recommend.engine import rerank
 from features.recommend.policy import RankingPolicy
+from features.recommend.schema import HealthOut
 
 #: 점검표에 있는 항목 전부. 문서와 이 목록이 어긋나면 아래 검사가 잡습니다.
 CUTOVER_IDS = tuple(f"M-{n:02d}" for n in range(1, 16))
@@ -84,12 +86,16 @@ def test_no_repository_function_fills_the_user_history() -> None:
     assert not loaders, HOWTO.format(item="M-03") + f" (발견: {loaders})"
 
 
-def test_rng_seed_is_recorded_but_not_used() -> None:
-    """M-06. `rng_seed` 는 추적에만 실리고 난수를 만들지 않습니다.
+def test_the_logged_seed_is_the_seed_that_was_used() -> None:
+    """M-06. `rank_candidates` 는 추적의 `rng_seed` 로 난수원을 직접 만듭니다.
 
-    `rank_candidates` 는 `rng` 와 `rng_seed` 를 따로 받고, 재정렬은 `rng` 만
-    씁니다. 호출부가 `SystemRandom` 을 넘기면 로그의 시드로는 재현이 안 됩니다.
+    호출자가 난수원을 따로 넘기던 때는 로그의 시드로 재현이 안 됐습니다(평가 스크립트가
+    실제로 `SystemRandom` 을 넘기며 `rng_seed=user_id` 를 적었습니다). 남은 것은 라우터가
+    요청마다 시드를 정해 넘기고 응답과 함께 남기는 일입니다.
     """
+    assert "rng" not in inspect.signature(service.rank_candidates).parameters, HOWTO.format(
+        item="M-06"
+    )
     assert "rng_seed" in inspect.signature(service.rank_candidates).parameters
     assert "rng_seed" not in inspect.signature(rerank.rerank).parameters, HOWTO.format(item="M-06")
 
@@ -158,3 +164,26 @@ def test_features_without_a_data_source_stay_weighted(name: str) -> None:
     from features.recommend.enums import DEFAULT_WEIGHTS
 
     assert DEFAULT_WEIGHTS[name] > 0, HOWTO.format(item="M-03")
+
+
+def test_health_redis_is_still_an_unverified_true() -> None:
+    """M-11. `HealthOut.redis` 의 기본값이 참인 채입니다.
+
+    실제로 확인하거나 필드를 빼면 여기가 깨지고, 그때 점검표 M-11 을 닫습니다.
+    """
+    assert HealthOut.model_fields["redis"].default is True, HOWTO.format(item="M-11")
+
+
+def test_coverage_still_omits_the_four_tool_files() -> None:
+    """M-13. 커버리지 측정 범위에서 뺀 네 파일입니다.
+
+    하나라도 되돌리면 점검표 M-13 과 함께 봅니다.
+    """
+    root = Path(__file__).resolve().parents[3]
+    config = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    omitted = [str(entry) for entry in config["tool"]["coverage"]["run"]["omit"]]
+    names = {Path(entry).name for entry in omitted}
+    assert {"repository.py", "repository_ingest.py", "mock.py"} <= names, HOWTO.format(item="M-13")
+    assert any(entry.rstrip("*").endswith("ingest/") for entry in omitted), HOWTO.format(
+        item="M-13"
+    )

@@ -17,10 +17,11 @@ from __future__ import annotations
 import random
 import statistics
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 
 from features.recommend.engine import explore, rank, reason, serendipity, taste
 from features.recommend.engine.context import CorpusStats, RecipeFeature, UserContext
-from features.recommend.engine.feature import DEFAULT_IDF
+from features.recommend.engine.feature import DEFAULT_IDF, jaccard_idf
 from features.recommend.enums import DEFAULT_WEIGHTS
 from features.recommend.policy import RankingPolicy
 from features.recommend.stage import RankedItem, ScoredCandidate
@@ -60,7 +61,7 @@ def rerank(
     shown = {item.recipe_id for item, _ in personal_full}
     rest = [item for item in ranked if item.recipe_id not in shown]
     explored = pick_exploration(
-        rest, ctx, policy, rng, round(total * exploration_ratio(ctx, policy))
+        rest, ctx, policy, rng, exploration_spec(ranked, ctx, policy, total)
     )
     personal = personal_full[: total - len(explored)]
 
@@ -80,17 +81,41 @@ def exploration_ratio(ctx: UserContext, policy: RankingPolicy) -> float:
     return policy.exploration_ratio
 
 
-def effective_uniform_share(pool: Sequence[ScoredCandidate], policy: RankingPolicy) -> float:
-    """군집이 하나도 없으면 탐색을 전부 균등으로 채웁니다.
+def effective_uniform_share(scored: Sequence[ScoredCandidate], policy: RankingPolicy) -> float:
+    """후보 전체에 군집이 하나도 없으면 탐색을 전부 균등으로 채웁니다.
 
     `Candidate.cluster_id` 의 계약은 "None 이면 균등 탐색으로 폴백" 인데
     `serendipity.mixed_exploration` 은 군집이 없으면 Thompson 몫을 그냥 비웁니다. 그대로 두면
-    클러스터링 배치가 돌기 전까지 탐색 슬롯의 절반이 예외 없이 사라집니다. 폴백했는지는
-    서비스가 추적에 `explore_fallback` 으로 남깁니다.
+    클러스터링 배치가 돌기 전까지 탐색 슬롯의 절반이 예외 없이 사라집니다.
+
+    기준은 탐색 풀이 아니라 **후보 전체**입니다. 군집은 배치 단위로 붙으므로 후보 어딘가에
+    하나라도 있으면 배치가 돈 것이고, 그때 풀에 군집 후보가 없어 못 채운 칸은 폴백이 아니라
+    부족분(`explore_shortfall`)입니다. 폴백 여부는 서비스가 추적에 `explore_fallback` 으로 남깁니다.
     """
-    if any(item.cluster_id is not None for item in pool):
+    if not scored or any(item.cluster_id is not None for item in scored):
         return policy.uniform_share
     return 1.0
+
+
+@dataclass(frozen=True)
+class ExplorationSpec:
+    """이 요청의 탐색 칸 수와 균등 비율. 재정렬과 서비스가 같은 값을 보게 한 곳에서 정합니다."""
+
+    count: int
+    uniform_share: float
+
+
+def exploration_spec(
+    scored: Sequence[ScoredCandidate], ctx: UserContext, policy: RankingPolicy, total: int
+) -> ExplorationSpec:
+    """재정렬은 이것으로 뽑고 서비스는 이것으로 부족분과 폴백을 기록합니다.
+
+    두 곳이 따로 정하면 군집이 일부 후보에만 있을 때 로그와 실제가 조용히 갈라집니다.
+    """
+    return ExplorationSpec(
+        count=round(total * exploration_ratio(ctx, policy)),
+        uniform_share=effective_uniform_share(scored, policy),
+    )
 
 
 def mmr_select(
@@ -134,7 +159,7 @@ def pick_exploration(
     ctx: UserContext,
     policy: RankingPolicy,
     rng: random.Random,
-    count: int,
+    spec: ExplorationSpec,
 ) -> list[tuple[ScoredCandidate, float, str]]:
     """개인화에 들지 못한 후보에서 탐색 슬롯을 뽑습니다.
 
@@ -142,10 +167,10 @@ def pick_exploration(
     입니다. 균등이 없으면 Thompson 이 외면한 클러스터는 IPS 로 영원히 평가할 수 없습니다.
     돌려주는 것은 (아이템, 노출확률, 어느 경로가 뽑았는가) 입니다.
     """
-    if count <= 0 or not rest:
+    if spec.count <= 0 or not rest:
         return []
     pool = _explorable(rest, policy)
-    count = min(count, len(pool) // policy.exploration_min_pool_ratio)
+    count = min(spec.count, len(pool) // policy.exploration_min_pool_ratio)
     if count <= 0:
         return []
     stats = serendipity.ClusterStats(
@@ -155,7 +180,7 @@ def pick_exploration(
         {"recipe_id": item.recipe_id, "score": item.score, "cluster_id": item.cluster_id}
         for item in pool
     ]
-    share = effective_uniform_share(pool, policy)
+    share = spec.uniform_share
     chosen, propensities = serendipity.mixed_exploration(
         rows,
         stats,
@@ -190,14 +215,11 @@ def reason_context(
     없는 키는 그 피처를 사유 후보에서 빼므로, 모르는 값을 지어내지 않고 빼 둡니다.
     """
     values: dict[str, object] = {}
-    expiring = sorted(recipe.essential_ids & ctx.expiring_ids)
-    named = [corpus.ingredient_names[i] for i in expiring if i in corpus.ingredient_names]
+    named = _named(sorted(recipe.essential_ids & ctx.expiring_ids), corpus)
     if named:
         values["expiring_name"] = named[0]
         values["expiring_days"] = EXPIRING_DAYS
-    missing_named = [
-        corpus.ingredient_names[i] for i in item.missing_ids if i in corpus.ingredient_names
-    ]
+    missing_named = _named(item.missing_ids, corpus)
     if len(item.missing_ids) == 1 and missing_named:
         values["missing_name"] = missing_named[0]
     used = len(recipe.all_ids & ctx.pantry_ids)
@@ -206,10 +228,12 @@ def reason_context(
     axis = _taste_axis(recipe, ctx, corpus)
     if axis is not None:
         values["taste_axis"] = axis
-    liked = sorted(recipe.all_ids & ctx.history.liked_ingredient_ids)
-    liked_named = [corpus.ingredient_names[i] for i in liked if i in corpus.ingredient_names]
+    liked_named = _named(sorted(recipe.all_ids & ctx.history.liked_ingredient_ids), corpus)
     if liked_named:
         values["pref_ing"] = liked_named[0]
+    similar = _similar_cooked_title(recipe, ctx, corpus)
+    if similar is not None:
+        values["similar_title"] = similar
     if recipe.cuisine is not None:
         values["cuisine"] = recipe.cuisine
     if recipe.dish_type is not None:
@@ -221,6 +245,28 @@ def reason_context(
 
 #: 임박 재료의 남은 일수. 요청이 D-3 목록을 주므로 문구에도 그 값을 씁니다.
 EXPIRING_DAYS = 3
+
+
+def _named(ids: Sequence[int], corpus: CorpusStats) -> list[str]:
+    """이름을 아는 재료의 이름. 빈 문자열은 모르는 것과 같습니다 - "(D-3)을 소진" 을 막습니다."""
+    names = (corpus.ingredient_names.get(i, "") for i in ids)
+    return [name for name in names if name.strip()]
+
+
+def _similar_cooked_title(
+    recipe: RecipeFeature, ctx: UserContext, corpus: CorpusStats
+) -> str | None:
+    """최근 조리한 레시피 가운데 재료가 가장 비슷한 것의 제목. f_cooccur 사유가 씁니다.
+
+    제목이 없으면 None 입니다. 이 값이 없으면 f_cooccur 가 두드러져도 사유로 쓰이지 못하고
+    조용히 다음 피처로 넘어갑니다.
+    """
+    pairs = zip(ctx.history.cooked_ingredient_sets, ctx.history.cooked_titles, strict=False)
+    titled = [(ids, title) for ids, title in pairs if title.strip() and recipe.all_ids]
+    if not titled:
+        return None
+    best = max(titled, key=lambda pair: jaccard_idf(recipe.all_ids, pair[0], corpus.ingredient_idf))
+    return best[1]
 
 
 def _taste_axis(recipe: RecipeFeature, ctx: UserContext, corpus: CorpusStats) -> str | None:
