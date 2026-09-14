@@ -4,7 +4,7 @@
 
 **적용 대상**: 이 저장소에 기여하는 모든 인원 및 AI 코딩 에이전트
 
-**버전**: 1.8.1 · **최종 수정**: 2026-09-12 · **작성자**: 김민경
+**버전**: 1.8.2 · **최종 수정**: 2026-09-14 · **작성자**: 김민경
 
 ---
 
@@ -33,6 +33,7 @@
 | `recommend/` | [recommend_engine_verification.md](recommend/recommend_engine_verification.md) | 파트 B 검증 기록. 명세 정합, Mock 동작, 수정 반영. 에이전트용 정본 |
 | `recommend/` | [recommend_engine_meeting_agenda.md](recommend/recommend_engine_meeting_agenda.md) | 파트 B 통합 회의 안건. 안건마다 상태(결정·반영 · 일부 반영 · 결정 필요 등)와 결정일·반영 커밋·반영 코드. 에이전트용 정본 |
 | `recommend/` | [recommend_engine_db_cutover.md](recommend/recommend_engine_db_cutover.md) | 실 DB 를 붙일 때 반드시 처리할 항목과 확인 근거. `tests/unit/recommend/test_db_cutover.py` 가 건너뛰지 못하게 막습니다 |
+| `recommend/` | [recommend_sim_seed_runbook.md](recommend/recommend_sim_seed_runbook.md) | 기획측 가상운영데이터(v0.4)를 시드로 바꿔 적재하고, DB 없이(`scripts/sim/scenario_engine.py`) 또는 API 로 이용 시나리오를 돌리는 순서와 판정 기준 |
 | `recommend/human/` | [recommend_engine_work_log.md](recommend/human/recommend_engine_work_log.md) · [recommend_engine_verification.md](recommend/human/recommend_engine_verification.md) · [recommend_engine_meeting_agenda.md](recommend/human/recommend_engine_meeting_agenda.md) · [recommend_engine_db_cutover.md](recommend/human/recommend_engine_db_cutover.md) | 위 네 기록의 사람용 서술본 |
 
 ### 1.1 추천 파트의 계약은 코드와 DDL 이 정합니다
