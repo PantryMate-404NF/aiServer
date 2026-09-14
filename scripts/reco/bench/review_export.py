@@ -37,9 +37,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 BENCH_OUT = ROOT / "scripts" / "reco" / "bench" / "out"
-SRC = BENCH_OUT / "review_sheet.tsv"
-OUT = BENCH_OUT / "review_sheet.csv"
-GUIDE = BENCH_OUT / "review_guide.txt"
+REVIEW_DIR = ROOT / "review"
+SRC = REVIEW_DIR / "review_sheet.tsv"
+OUT = REVIEW_DIR / "review_sheet.csv"
+GUIDE = REVIEW_DIR / "review_guide.txt"
 
 
 def main() -> None:
@@ -62,7 +63,7 @@ def main() -> None:
     GUIDE.write_text(
         "검수 시트 안내\n\n"
         + "".join(ln.lstrip("# ").rstrip() + "\n" for ln in guide)
-        + "\n쓸 수 있는 재료 이름 목록: bench/out/dictionary.tsv (536종)\n"
+        + "\n쓸 수 있는 재료 이름 목록: review/dictionary.tsv (536종)\n"
         "\n다 채운 뒤:\n"
         "  1. 구글 스프레드시트에서 파일 → 다운로드 → 쉼표로 구분된 값(.csv)\n"
         "  2. make review-apply SHEET=<받은파일>        (미리보기)\n"

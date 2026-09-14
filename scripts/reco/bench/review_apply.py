@@ -29,7 +29,10 @@ from features.recommend.ingest.match import Dictionary
 ROOT = Path(__file__).resolve().parents[3]
 BENCH_OUT = ROOT / "scripts" / "reco" / "bench" / "out"
 
-SHEET = BENCH_OUT / "review_sheet.tsv"
+#: 검수 작업물은 저장소에 올리지 않는다 (review/README.md). bench/out 은
+#: 문서가 인용하는 수치의 기준선이라 커밋하지만, 사람이 채우는 시트는 다르다.
+REVIEW_DIR = ROOT / "review"
+SHEET = REVIEW_DIR / "review_sheet.tsv"
 ALIAS = Path("seeds/ingredient_alias.csv")
 NONING = Path("seeds/non_ingredient.yaml")
 NEWOUT = BENCH_OUT / "new_ingredients.tsv"

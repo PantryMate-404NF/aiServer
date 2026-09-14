@@ -35,7 +35,10 @@ from features.recommend.ingest.preprocess import non_ingredient_kind
 ROOT = Path(__file__).resolve().parents[3]
 BENCH_OUT = ROOT / "scripts" / "reco" / "bench" / "out"
 
-OUT = BENCH_OUT / "review_sheet.tsv"
+#: 검수 작업물은 저장소에 올리지 않는다 (review/README.md). bench/out 은
+#: 문서가 인용하는 수치의 기준선이라 커밋하지만, 사람이 채우는 시트는 다르다.
+REVIEW_DIR = ROOT / "review"
+OUT = REVIEW_DIR / "review_sheet.tsv"
 
 
 def main() -> None:
@@ -86,7 +89,7 @@ def main() -> None:
 
     # 검수자가 "쓸 수 있는 이름" 을 찾아볼 수 있게 사전을 함께 낸다
     import csv as _csv
-    dic = BENCH_OUT / "dictionary.tsv"
+    dic = REVIEW_DIR / "dictionary.tsv"
     with open("seeds/ingredient.csv", encoding="utf-8") as f, \
          open(dic, "w", encoding="utf-8") as w:
         w.write("재료명\t카테고리\t기본양념\n")
