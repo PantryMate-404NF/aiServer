@@ -18,7 +18,7 @@
 | `scripts_sim/convert_planning_data.py` | `scripts/sim/convert_planning_data.py` | xlsx → reco 스키마 SQL 시드 |
 | `scripts_sim/scenario_run.py` | `scripts/sim/scenario_run.py` | API 로 시나리오 실행 · 종료 코드로 판정 |
 | `scripts_sim/scenario_engine.py`, `scripts_sim/sim_seed.py` | `scripts/sim/scenario_engine.py`, `scripts/sim/sim_seed.py` | DB 없이 시드를 엔진에 직접 넣어 시나리오 실행 · 종료 코드로 판정. `sim_seed.py` 는 시드 SQL·Mock 카탈로그 읽기 |
-| `planning_data_original/*.xlsx` | `tests/fixtures/sim/planning_v0.4/` | 기획 원본 12개. 단위 검사의 입력 |
+| `planning_data_original/*.xlsx` | `tests/fixtures/sim/planning_v0.4/` | 기획 원본 11개. 단위 검사의 입력 |
 | `planning_data_amplified/*.xlsx` | (저장소에 넣지 않음) | 증폭본. 기획측 공유용. 재생성 가능 |
 | `sim_seed/*.sql`, `load_sim.sh`, `README.md` | `deploy/seed/sim/` | 적재 SQL · 적재기 · 매핑 규칙 |
 | `tests/test_sim_seed.py` | `tests/unit/sim/test_sim_seed.py` (`__init__.py` 함께) | DB 없이 도는 검사 6건 (변환기 불변식 5 + 엔진 시나리오 1) |

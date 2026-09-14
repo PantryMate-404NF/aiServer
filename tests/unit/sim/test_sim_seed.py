@@ -1,7 +1,7 @@
 """기획 xlsx → 시뮬 시드 변환기의 불변식 검사. DB 없이 돕니다.
 
 검사 대상: scripts/sim/amplify_events.py · scripts/sim/convert_planning_data.py
-픽스처: tests/fixtures/sim/planning_v0.4 (기획 v0.4 원본 12개 파일)
+픽스처: tests/fixtures/sim/planning_v0.4 (기획 v0.4 원본 11개 파일)
 """
 
 from __future__ import annotations
