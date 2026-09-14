@@ -44,6 +44,10 @@ uv run ruff check . && uv run ruff format --check . && uv run mypy src && uv run
 uv run pytest -m integration --no-cov
 ```
 
+**추천 데이터**: 레시피가 늘거나 식재료 사전(`seeds/`)이 바뀌면 `make renormalize` 한 번이면 됩니다.
+정규화·피처·맛 벡터·클러스터를 순서대로 다시 만들고 회귀 게이트까지 돌립니다 (약 11분).
+명령 목록은 `make help` 에 있습니다.
+
 ---
 
 ## 3. 개발 규칙

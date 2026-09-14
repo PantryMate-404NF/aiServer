@@ -36,9 +36,11 @@ P4 가 이미 staple 을 seasoning 으로 보내지만 SQL 에서 한 번 더 �
 from __future__ import annotations
 
 import argparse
+import hashlib
 import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 
 from features.recommend.ingest.run_log import batch_run
 from features.recommend.repository_ingest import (
@@ -50,9 +52,32 @@ from features.recommend.repository_ingest import (
 
 logger = logging.getLogger(__name__)
 
+#: 사전(seeds/)의 지문 6자리. 사전이 바뀌면 값이 저절로 바뀝니다.
+SEEDS = Path(__file__).resolve().parents[4] / "seeds"
+
+
+def _seed_fingerprint() -> str:
+    """사전 파일들의 내용 해시 앞 6자리.
+
+    주의: 이걸 안 붙이고 "v1" 로 굳히면 조용히 틀립니다. 검수를 반영해
+       재정규화한 2회차 피처가 1회차와 **같은 판 번호**를 달고 나가서,
+       B·C 가 캐시한 옛 값과 새 값을 구분할 방법이 없습니다. 에러가 아니라
+       점수만 조금씩 어긋나므로 아무도 알아채지 못합니다.
+
+       사람이 기억해서 올리는 규칙으로 두지 않고 사전에서 끌어냅니다.
+    """
+    h = hashlib.sha256()
+    for f in sorted(SEEDS.glob("*.yaml")) + sorted(SEEDS.glob("*.csv")):
+        h.update(f.name.encode())
+        h.update(f.read_bytes())
+    return h.hexdigest()[:6]
+
+
 #: 조회에 나가는 산출물임을 표시합니다. `test-` 로 시작하면 조회가 자동으로
 #: 뺍니다 — B·C 가 넣는 합성 피처와 섞이지 않게 하는 격리 장치입니다.
-FEATURE_VERSION = "v1"
+#:
+#: 스키마 제약이 `^(v[0-9]|test-)` 이고 VARCHAR(16) 이라 `v1-abc123`(9자)이 들어갑니다.
+FEATURE_VERSION = f"v1-{_seed_fingerprint()}"
 
 #: D-10 — 미매칭 비율이 이 값을 넘으면 정규화 실패로 봅니다.
 #: 임시값입니다. 실제 분포를 보고 조정하며, 조정해도 다시 만들면 되므로

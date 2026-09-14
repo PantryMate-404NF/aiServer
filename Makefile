@@ -11,9 +11,11 @@ PSQL    := $(COMPOSE) exec -T postgres psql -U reco -d recodb
         install \
         validate dry-run seed seed-reset verify smoke ddl-test review-sheet review-apply unmatched post-index bootstrap clean
 
+# 주의: 폭이 14 였는데 normalize-batch·popularity-build 처럼 긴 이름이
+#    설명과 붙어 버렸다. 가장 긴 이름이 16자라 18 로 둔다.
 help:  ## 명령 목록
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) \
-	  | awk -F':.*?## ' '{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
+	  | awk -F':.*?## ' '{printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
 # EXTRA= 로 묶음을 하나 더 얹는다 (예: make install TRACK=B EXTRA=rank-v1).
 # 🔴 EXTRA 는 트랙 묶음에 **더하는** 것이다. 다음번에 빼먹으면 uv sync 가 도로 지운다 —

@@ -225,7 +225,7 @@ def build(n_ingredients: int = 536) -> ClusterStats:
 
     st.recipes, st.assigned, st.n_clusters, st.max_share = load_cluster_stats()
     # 고르게 퍼진 10개를 봅니다. 앞에서 10개만 보면 한쪽에 쏠린 것을 놓칩니다.
-    picked = sorted({int(round(i * (K - 1) / 9)) for i in range(10)})
+    picked = sorted({round(i * (K - 1) / 9) for i in range(10)})
     for cid, title in load_cluster_samples(picked):
         st.samples.setdefault(cid, []).append(title)
     return st
