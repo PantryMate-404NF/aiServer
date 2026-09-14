@@ -716,3 +716,83 @@ def load_last_full_coverage() -> float | None:
         cur.execute(_LAST_COVERAGE_SQL)
         row = cur.fetchone()
         return float(row[0]) if row and row[0] is not None else None
+
+
+# ─────────────────────────────────────────────────────────────────
+# k-means cluster_id — ingest/cluster_build.py 가 쓴다 (A-12)
+# ─────────────────────────────────────────────────────────────────
+#: 클러스터링 입력. essential_ids 로 멀티핫을 만들고 flavor_vec 을 덧붙인다.
+#: recipe_id 순으로 고정해 실행마다 같은 행 순서가 나오게 한다 — Lloyd 는
+#: 초기 중심을 행 순서로 고르므로 순서가 흔들리면 배정도 흔들린다.
+_CLUSTER_SRC_SQL = """
+SELECT recipe_id, essential_ids, flavor_vec
+FROM recipe_feature
+ORDER BY recipe_id
+"""
+
+_CLUSTER_UPD_SQL = """
+UPDATE recipe_feature rf
+SET    cluster_id = u.cid, cluster_version = %s, updated_at = now()
+FROM   (SELECT unnest(%s::BIGINT[]) AS rid, unnest(%s::SMALLINT[]) AS cid) u
+WHERE  rf.recipe_id = u.rid
+"""
+
+_CLUSTER_STATS_SQL = """
+SELECT count(*), count(cluster_id), count(DISTINCT cluster_id),
+       max(c)::real / sum(c) AS max_share
+FROM recipe_feature,
+     LATERAL (SELECT count(*) OVER (PARTITION BY cluster_id) AS c) x
+"""
+
+#: 클러스터마다 대표 제목. 눈으로 보는 것이 유일한 방어라 함께 뽑는다 —
+#: 균형 지표가 전부 초록인데 '재료 개수'로 갈린 경우를 숫자로는 못 잡는다.
+_CLUSTER_SAMPLE_SQL = """
+SELECT rf.cluster_id, r.title
+FROM recipe_feature rf JOIN recipe r ON r.id = rf.recipe_id
+WHERE rf.cluster_id = ANY(%s) AND rf.n_total > 0
+ORDER BY rf.cluster_id, rf.popularity_score DESC, rf.recipe_id
+"""
+
+
+def load_cluster_source() -> list[tuple[int, list[int], list[float]]]:
+    """(recipe_id, essential_ids, flavor_vec) 을 recipe_id 순으로."""
+    with cursor() as cur:
+        cur.execute(_CLUSTER_SRC_SQL)
+        return cur.fetchall()
+
+
+def set_cluster_ids(pairs: Sequence[tuple[int, int]], version: str) -> int:
+    """레시피별 클러스터 배정을 쓴다. 판 번호를 함께 남긴다.
+
+    주의: cluster_version 을 빼먹고 다시 클러스터링하면 과거 로그의 cluster_id 가
+       다른 것을 가리키게 되어 Thompson belief 가 조용히 오염된다 (D-12).
+    """
+    if not pairs:
+        return 0
+    with cursor(commit=True) as cur:
+        cur.execute(_CLUSTER_UPD_SQL, (version, [p[0] for p in pairs], [p[1] for p in pairs]))
+        return max(cur.rowcount, 0)
+
+
+def load_cluster_stats() -> tuple[int, int, int, float]:
+    """(전체, 배정된 수, 서로 다른 클러스터 수, 최대 비중)."""
+    with cursor() as cur:
+        cur.execute("SELECT count(*), count(cluster_id) FROM recipe_feature")
+        row = cur.fetchone()
+        total, assigned = (int(row[0]), int(row[1])) if row else (0, 0)
+        cur.execute(
+            "SELECT count(*), max(c), sum(c) FROM "
+            "(SELECT count(*) AS c FROM recipe_feature "
+            " WHERE cluster_id IS NOT NULL GROUP BY cluster_id) t"
+        )
+        row = cur.fetchone()
+        n_clusters = int(row[0]) if row and row[0] else 0
+        share = float(row[1]) / float(row[2]) if row and row[2] else 0.0
+        return (total, assigned, n_clusters, share)
+
+
+def load_cluster_samples(cluster_ids: Sequence[int]) -> list[tuple[int, str]]:
+    """고른 클러스터의 제목. 인기순으로 준다."""
+    with cursor() as cur:
+        cur.execute(_CLUSTER_SAMPLE_SQL, (list(cluster_ids),))
+        return cur.fetchall()

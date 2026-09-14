@@ -149,6 +149,9 @@ renormalize:  ## 검수 반영부터 게이트까지 한 번에 (A-11. 약 11분
 feature-test:  ## 회귀 게이트 — 피처 체크 8개. 스키마·배치를 건드렸으면 이것부터 (A-8)
 	$(PY) -m features.recommend.ingest.feature_test
 
+cluster-build:  ## k-means cluster_id — 재정렬의 다양성 축 (A-12). 3초
+	$(PY) -m features.recommend.ingest.cluster_build
+
 freq-build:  ## ingredient.freq_count 채우기 — f_cooccur 의 IDF 분모 (A-14). 1초
 	$(PY) -m features.recommend.ingest.freq_build
 

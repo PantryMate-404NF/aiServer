@@ -7,7 +7,7 @@
 검수로 사전이 바뀌면 그 아래가 전부 다시 만들어져야 합니다. 순서는 이렇습니다.
 
     검수 반영 → 시드 검증 → DB 사전 갱신 → 정규화 배치 → 피처 →
-    맛 벡터와 μ → 재료 빈도 → 회귀 게이트 → 전후 커버리지
+    맛 벡터와 μ → 재료 빈도 → 클러스터 → 회귀 게이트 → 전후 커버리지
 
 ## 왜 하나로 묶나
 
@@ -43,7 +43,14 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from features.recommend.ingest import batch, feature_build, feature_test, flavor_build, freq_build
+from features.recommend.ingest import (
+    batch,
+    cluster_build,
+    feature_build,
+    feature_test,
+    flavor_build,
+    freq_build,
+)
 from features.recommend.repository_ingest import load_last_full_coverage
 
 logger = logging.getLogger(__name__)
@@ -133,7 +140,12 @@ def run(sheet: Path | None = None) -> RenormStats:
     logger.info("  ── 재료 빈도")
     freq_build.build()
 
-    # ⑦ 회귀 게이트
+    # ⑦ 클러스터. 재료 구성이 바뀌면 군집도 바뀐다. 안 다시 매기면 B 의
+    #    재정렬이 옛 판 번호의 cluster_id 를 읽어 Thompson belief 가 어긋난다.
+    logger.info("  ── 클러스터")
+    cluster_build.build()
+
+    # ⑧ 회귀 게이트
     logger.info("  ── 회귀 게이트")
     gate = feature_test.run_gate()
     st.gate_failed = [c.n for c in gate.failed] if not gate.passed else None
