@@ -693,3 +693,26 @@ def load_feature_columns() -> list[str]:
             "ORDER BY ordinal_position"
         )
         return [r[0] for r in cur.fetchall()]
+
+
+# ─────────────────────────────────────────────────────────────────
+# 재정규화 — ingest/renormalize.py 가 읽는다 (A-11)
+# ─────────────────────────────────────────────────────────────────
+#: 직전 전량 실행의 커버리지. 부분 실행(limit 이 있는 것)은 뺀다 — 2,000건만
+#: 돌린 값과 46,353건을 돌린 값을 나란히 놓으면 오르내림이 검수 때문인지
+#: 표본 때문인지 알 수 없다.
+_LAST_COVERAGE_SQL = """
+SELECT params ->> 'coverage'
+FROM batch_run
+WHERE job_name = 'normalize' AND status = 'success'
+  AND params ->> 'limit' IS NULL
+ORDER BY id DESC LIMIT 1
+"""
+
+
+def load_last_full_coverage() -> float | None:
+    """직전 전량 정규화의 매칭 커버리지. 없으면 None."""
+    with cursor() as cur:
+        cur.execute(_LAST_COVERAGE_SQL)
+        row = cur.fetchone()
+        return float(row[0]) if row and row[0] is not None else None

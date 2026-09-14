@@ -140,6 +140,12 @@ flavor-check:  ## 중심화가 실제로 낫다는 검증 — 판별력 게이�
 popularity-build:  ## popularity_score 백분위 순위 + quality_score 0 (A-6). 1초
 	$(PY) -m features.recommend.ingest.popularity_build
 
+renormalize:  ## 검수 반영부터 게이트까지 한 번에 (A-11. 약 11분. SHEET= 로 시트 지정)
+# 주의: 단계를 나누지 않는다. recipe_ingredient 만 다시 만들고 recipe_feature 를
+#    안 만들면 조회가 옛 배열을 읽는데 화면은 멀쩡히 돈다 — 어긋난 사실을
+#    어떤 쿼리도 알려주지 않는다.
+	$(PY) -m features.recommend.ingest.renormalize $(if $(SHEET),--sheet "$(SHEET)",)
+
 feature-test:  ## 회귀 게이트 — 피처 체크 8개. 스키마·배치를 건드렸으면 이것부터 (A-8)
 	$(PY) -m features.recommend.ingest.feature_test
 
