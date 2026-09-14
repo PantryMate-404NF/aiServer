@@ -4,7 +4,7 @@
 
 **적용 대상**: 수정 여부를 결정하는 유재현과 수정을 반영할 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 9.0.0 · **최종 수정**: 2026-09-14 · **작성자**: 유재현
+**버전**: 11.1.0 · **최종 수정**: 2026-09-14 · **작성자**: 유재현
 
 ---
 
@@ -28,6 +28,8 @@
 | 취향 페르소나 | 2차 회의 결정 구현 뒤 (13절). 새 검사 46건, 게이트 252 passed / 89.74%, Mock 에서 우선순위·감쇠·주기·탐색 확대 확인. 새 발견 1건(F-35) |
 | 3회차 복기 | 검토자 셋으로 다시 읽은 뒤 (14절). 발견 15건(F-36~F-50) 중 14건 수정, 새 검사 24건, 게이트 276 passed / 90.23%. Mock 탐색 칸이 전부 설계값 |
 | 4회차 복기 | 검사·수정·재검사 3회 (15절). 발견 20건(F-51~F-70) 중 17건 코드·3건 기록, 새 검사 16건, 게이트 292 passed / 90.64%. 평가 스크립트가 비결정적이던 것을 고쳐 두 번 실행이 같음 |
+| 시뮬 시드 시나리오 | 기획측 가상운영데이터 1,600명을 DB 없이 엔진에 넣음 (16절). 발견 8건(F-71~F-78) 중 코드 5·문서 3, 전원 불변식 위반 0, 콜드 → 웜 전환·행동·냉장고 반응 확인, 게이트 298 passed / 90.64% |
+| 시뮬 DB 경로 | Docker Desktop 설치 뒤 적재 · 검증 쿼리 · `/health` 포함 API 시나리오 (17절). 발견 3건(F-79~F-81) 전부 코드, 건수·분포가 기대값과 일치, 게이트 298 passed / 90.64% |
 | 재현 | `uv run python scripts/eval_recommend_mock.py` (2절) |
 
 ---
@@ -625,3 +627,98 @@ feedback (user 1002): onboarding (0.22, 0.28, 0.23, 0.15, 0.34, 0.03) → recent
 ### 15.4 판정
 
 발견 20건 가운데 17건을 코드로 고치고 검사로 못 박았으며, 3건(F-65 A 함수, F-66 손잡이 정본, F-70 Makefile)은 안건으로 넘겼습니다. 세 회차를 마친 시점의 게이트 4종과 A 게이트 2종이 전부 종료 코드 0 이라 커밋했습니다. 실 DB 없이 확인하지 못한 것은 13.5 와 같습니다(M-14, M-15).
+
+## 16. 기획측 시뮬 시드로 돌린 이용 시나리오 (2026-09-14)
+
+9.16 세션. 유재현이 `data/test_Dataset` 에 둔 패키지(기획 v0.4 xlsx 11개 → 증폭 → SQL 시드 1,600명, 안내서 `recommend_sim_seed_runbook.md`)를 안내서의 위치대로 저장소에 두고 돌렸습니다. 이 PC 에 Docker·postgres 가 없어(E-15) 적재(3-4)와 `/health`(3-5)는 돌리지 못했고, 대신 시드를 엔진에 직접 넣는 `scripts/sim/scenario_engine.py` 를 만들어(D-43) M-01·M-03 이 할 일을 파이썬 안에서 대신했습니다. 판정은 전부 종료 코드입니다(01의 3.4, D-28).
+
+### 16.1 발견과 처리
+
+| ID | 발견 | 실험 근거 | 처리 |
+|---|---|---|---|
+| F-71 | 변환기 출력이 OS 줄바꿈을 따름 | Windows 에서 재생성한 SQL 8개가 저장본과 전부 다름(06 은 20,442줄). `--strip-trailing-cr` 로 비교하면 0줄 — CRLF 뿐 | `write_text(..., newline="\n")` 8곳(E-07). 재생성이 어느 OS 에서든 바이트 단위 동일 |
+| F-72 | 안내서의 의존성 주장이 사실과 다름 | "pandas · openpyxl 은 데이터 트랙 의존성에 이미 있다" — `pyproject.toml` 에 둘 다 없고 pandas 는 `paddlex` 가 끌어오며 openpyxl 은 `uv.lock` 에 없음. 새 환경에서 3-2·3-3 이 `ImportError` | 안내서 2절을 사실대로. 추가 여부는 팀 결정(N-16). 이 PC 에만 `uv pip install openpyxl` |
+| F-73 | API 스크립트가 내부 키를 보내지 않음 | `GET /health → HTTP 401` 로 첫 단계에서 중단. 모든 라우터가 `verify_internal_api_key` 뒤에 있음 | `X-Internal-Api-Key` 헤더. `--api-key` 없으면 `config.get_settings()`(캡처 스크립트와 같은 방식) |
+| F-74 | `/health` 가 DB 접속을 무기한 기다림 | 키를 붙여도 150초 뒤에도 응답 없음. `db.healthy()` 의 DSN 에 접속 시간 제한이 없어 `psycopg` 가 OS 시간 제한을 기다림(127.0.0.1 에도 5초 제한을 걸어야 실패). `/health/live` 는 25ms | A·공용 파일이라 G-29. 스크립트에 `--skip-health` |
+| F-75 | 시드 `taste_vec` 이 D-29 와 어긋남 | `synth_onboarding()` 이 앞 3축을 picks 평균과 척도의 절반씩으로 섞음. 엔진은 picks 가 있으면 척도를 쓰지 않음 | picks 6축 평균만(D-42). 03 파일 재생성(1,600행 변경, 나머지 7개 파일 동일) |
+| F-76 | 시드 README 의 규칙 서술 오류 | "엔진의 모드는 `effective_taste(events_count, n_warm=20)` 이 정한다" — 그런 함수가 없고 모드는 `derive_persona` 의 무게 기준. "B 유저는 후보 0건이 정상" — `user_pantry_ids()` 가 staple 을 합치고 인기순 폴백이 채워 B 800명 전원 후보 있음 | `deploy/seed/sim/README.md` 3절 |
+| F-77 | 시드 `computed_from` 과 엔진 모드가 다름 | 시드 behavior 235명 중 엔진 behavior 195 · blended 40(click 0.3 위주라 무게가 12 에 못 미침). blended 90 은 전원 blended, onboarding 475 는 전원 onboarding | 배치 검증 기대값으로 `computed_from` 을 그대로 쓰지 않도록 안내서 4절 |
+| F-78 | 냉장고 시나리오의 첫 판정 기준 오류 | 고정 재료(두부·콩나물·달걀)를 임박으로 더한 뒤 "임박 재료를 하나라도 쓰는 비율" 로 판정 — 200명 실행(user 184)에서 0.75 → 0.69 로 FAIL, 전원 실행(user 201)에서는 두부가 이미 임박이라 그 재료를 쓰는 레시피 4 → 4건. 달걀은 Mock 에 없음 | 유저가 아직 없는 재료 중 최다 사용 2종을 고르고 "더한 재료를 쓰는 개인화 레시피 수" 로 판정(4 → 8건) |
+
+### 16.2 시나리오 결과 (`scenario_engine.py`, 1,600명, 41초)
+
+```text
+[1] sim_funnel_A 800: 시드 onboarding 475 · behavior 235 · blended 90
+                     엔진 picks/onboarding 475 · picks/behavior 195 · picks/blended 130
+                     냉장고 있음 426 · 임박 재료 있음 414 · 후보 있음 800
+                     완화 단계 none 25 · relax_missing 140 · popularity 635 · 탐색 4칸 796 / 2칸 3 / 0칸 1 · 부족분 9
+    sim_funnel_B 800: 전원 picks/onboarding · 냉장고 0 · 후보 있음 800(staple + 인기순 폴백) · 탐색 4칸 790 · 부족분 22
+    냉장고 재료 4,267건 중 Mock 에 이름 없는 것 1,836건 · 불변식 위반 0명
+[2] user 201 (시드 behavior 52건): 0건 onboarding 0.00 → 1건 blended 0.30 → 20건 blended 8.42 → 50건 behavior 23.42 → 52건 behavior 23.91
+[3] cook 5건 추가: 무게 23.91 → 28.89 · 취향 최대 변화 0.012 · 상위 10 중 9 자리 변동 · 조리한 5건은 전부 상위 10 밖(p_cooked)
+[4] 감자·버섯 임박 추가: 임박 6 → 8종 · 더한 재료를 쓰는 개인화 레시피 4 → 8건 · f_expiring 측정 True
+[5] 같은 시드 두 번 동일 True · onboarding 만 있는 user 1 과 상위 10 겹침 2/10
+판정 {invariants, cold_to_warm, behavior_moves_list, expiring_reaches_list, repeatable} 전부 True → RESULT: PASS, 종료코드 0
+```
+
+`scenario_run.py --skip-health`(목업 라우터, 포트 8765): [2] n=20 · [3] pantry 4 → 6 · [4] accepted 5 rejected 0 · [5] 변동 0(전환 전 정상) · [6] cold 겹침 10 → PASS, 종료코드 0.
+
+### 16.3 저장소 게이트
+
+```text
+uv run ruff check .                          → 0
+uv run ruff format --check .                 → 0 (150 files already formatted)
+uv run python -m mypy src                    → 0 (Success: no issues found in 62 source files)
+uv run pytest tests/unit                     → 0 (298 passed, coverage 90.64%, 측정 2,169문)
+uv run pytest tests/unit/sim --no-cov        → 0 (6 passed)
+python seeds/validate.py                     → 0
+python -m tests.unit.recommend.test_contract → 0 (98건, 설정값 20종을 셸 환경변수로만 채움)
+python -m tests.unit.recommend.{run,test_match,test_role,test_batch} → 0
+시드 재생성(amplify → convert)               → 0, 저장본과 바이트 단위 동일(03 만 D-42 로 갱신)
+```
+
+### 16.4 판정
+
+발견 8건 가운데 5건(F-71·F-73·F-74 의 우회·F-75·F-78)을 코드로, 3건(F-72·F-76·F-77)을 문서로 처리했고 F-74 의 원인은 A 의 파일이라 G-29 로 넘겼습니다. 엔진은 시드에 반응합니다 — 전원 불변식 통과, 콜드 → 웜 전환, 행동과 냉장고 변화가 목록을 움직이며 재현됩니다. Mock 카탈로그(120건, 냉장고 이름 30/51)라 완화 단계가 대부분 인기순 폴백까지 내려가는 것은 시드가 아니라 카탈로그 크기의 문제이며(N-14·N-15 묶음) 실 DB 에서 다시 잽니다. 적재와 API 경로(3-4 · 3-5 의 `/health`)는 DB 가 없어 돌리지 못했습니다(E-15). 패키지 커밋 범위는 N-16 입니다.
+
+## 17. 시뮬 시드의 DB 경로 (2026-09-14, Docker Desktop 설치 뒤)
+
+9.17 세션. 유재현이 WSL2 와 Docker Desktop(29.7.2)을 설치한 뒤 안내서 3-4 · 3-5 를 돌렸습니다. 이 PC 에 `make` 와 `psql` 이 없어 Makefile 이 부르는 명령을 직접 실행했고(E-16), 적재는 컨테이너의 psql 을 stdin 으로 썼습니다. 판정은 전부 종료 코드입니다(01의 3.4, D-28).
+
+### 17.1 발견과 처리
+
+| ID | 발견 | 실험 근거 | 처리 |
+|---|---|---|---|
+| F-79 | 시드의 고정 id 가 기존 사용자와 충돌 | `01_app_user.sql` 이 id 1~1600 을 명시하는데 `make smoke --keep` 의 합성 유저 8명(`smoketest_*`, is_simulated)이 1~8 을 차지 → `duplicate key value violates unique constraint "app_user_pkey"`. 안내서가 권한 경로(합성 레시피)에서 그대로 생김 | id = 1,000,000 + 기획 번호(`SIM_ID_BASE`), `setval` 제거(D-44). `scenario_run.py` 기본 유저 1000184 · 1000001, README·안내서 |
+| F-80 | 검증 쿼리가 스모크 유저를 함께 셈 | `99_verify.sql` 이 `is_simulated` 만으로 걸어 app_user 1608 · user_allergy 94 · pantry_item 4513 으로 보임 | `is_simulated AND username LIKE 'sim_u%'` 로 좁힘 → 1600 · 90 · 4442 |
+| F-81 | 합성 값의 해시 키가 id 라 id 를 옮기면 내용이 바뀜 | 오프셋만 넣은 첫 재생성에서 알러지 90 → 89, 냉장고 4,442 → 4,474 (해시 입력이 `u`) | 해시 키를 기획 번호(`hkey(u) = u - SIM_ID_BASE`)로. 재생성 결과가 id 만 다르고 내용은 이전과 같음(id 정규화 뒤 02·04·05·06 동일, `stats.json` 동일) |
+
+### 17.2 DB 경로 결과
+
+```text
+docker compose up -d (postgres pgvector/pgvector:pg16 · redis)  → healthy. init 01~04 자동 적용(확장 5 · reco 테이블 31 · retrieve_for_user 등)
+uv run python scripts/reco/migrate.py                           → 0 (재료 536 · staple 39)
+uv run python tests/integration/test_smoke.py --keep            → 0 (13건 통과, 합성 published 레시피 10,007건, p95 10.9ms)
+PSQL_VIA_COMPOSE=1 bash deploy/seed/sim/load_sim.sh             → 0
+  99_verify: app_user 1600 · user_preference 1600 · user_vector 1600 · user_allergy 90 · pantry_item 4442 · event_log 10195
+             sim_funnel_A behavior 235(평균 38.4건) · blended 90(13.1) · onboarding 475 / sim_funnel_B onboarding 800
+             상위 10 전부 sim_funnel_A · behavior · pantry_n 9~14 · cooks 11~16 (1위 1000184, 53건)
+             users_with_candidates 0 / 426 (합성 레시피 feature_version test-smoke 라 정상)
+uv run python scripts/sim/scenario_run.py --api-key ... (/health 포함) → 0, RESULT: PASS
+  [1] /health 0.11초 db true · redis true  [4] accepted 5 rejected 0  [5] 변동 0(전환 전 정상)  [6] cold 겹침 8
+uv run python scripts/sim/scenario_engine.py                    → 0, RESULT: PASS (id 오프셋 뒤 재실행)
+```
+
+### 17.3 저장소 게이트
+
+```text
+uv run ruff check .                     → 0
+uv run ruff format --check .            → 0 (151 files already formatted)
+uv run python -m mypy src               → 0 (62 source files)
+uv run pytest tests/unit                → 0 (298 passed, coverage 90.64%)
+uv run pytest tests/unit/sim --no-cov   → 0 (6 passed)
+```
+
+### 17.4 판정
+
+시드 SQL 이 실제 DDL(외래키 · CHECK · `sim_persona`)을 통과하고 건수와 분포가 기대값과 같습니다. 발견 3건은 전부 코드로 처리했고, F-79 는 안내서가 권한 경로에서 재현되는 결함이라 시뮬 id 범위를 바꿨습니다(D-44). API 시나리오의 변동 0 은 M-01 · M-03 전환 전 상태 그대로이며, `/health` 는 DB 가 있으면 0.11초에 답해 G-29 는 DB 부재 시의 대기에 한정됩니다. 패키지는 (a)안으로 커밋했습니다(N-16, `cdf656e` · `3633ed7`).

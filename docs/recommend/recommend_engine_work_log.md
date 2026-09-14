@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 B 추천 엔진을 이어서 작업하는 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 1.8.0 · **최종 수정**: 2026-09-14 · **작성자**: 유재현
+**버전**: 1.11.0 · **최종 수정**: 2026-09-14 · **작성자**: 유재현
 
 ---
 
@@ -14,11 +14,11 @@
 |---|---|
 | 정본 | 이 파일. 사람용 서술본 `human/recommend_engine_work_log.md` 는 식별자로 대응하는 파생본 |
 | 계획서 | `recommend_engine_design.md` (구현 명세 2.0.0, 현재 구현 기준, 사람용 정본 · 노션 공유용) · `recommend_engine_design_digest.md` (에이전트용 압축본 3.0.0, 어긋나면 원본이 이기고 코드가 이김) |
-| 브랜치 | `feat/recommend-engine-core`. `origin/main` 병합 완료. `origin/develop-data-part` 는 두 번 병합했습니다 — 658d79a(9.6), def3d5b(9.10). `main` 병합은 PR #8 로 올렸고 **2026-09-11 11:52(KST) kmk9259 가 병합**했습니다(`5846a72`, `80cc832` 까지). 그 뒤 커밋 5개(`d35b619`~`e853277`, 44 파일 +2,781/-253, `main` 과 충돌 없음)는 미병합이며 새 PR 은 보류입니다(유재현, 2026-09-12) |
-| 단계 | ② Ranking 과 ③ Re-ranking 을 A 계약 위에서 구현 완료. **취향 페르소나**(고른 음식 → 3축 척도 → 없음, 시간 감쇠·주기 가중, 사용자당 JSON 저장)를 9.11 에서 구현. ① Retrieval·로그 적재·DDL·배치는 A 것이 브랜치에 있습니다. 라우터에 `rank_candidates`·`PersonaService` 를 끼우는 것(M-01·M-15)과 DB 연결이 남았습니다. 9.12 에서 세 방향 복기(명세 · 무음 실패 · 규약)로 구멍 15개(F-36~F-50)를 찾아 14개를 코드로 고쳤습니다(D-34~D-38). 9.15 의 4회차 복기는 20건(F-51~F-70)을 더 찾아 코드 17건·기록 3건으로 닫았습니다(D-39~D-41) |
-| 검증 (2026-09-14, 9.15) | ruff check OK · ruff format OK · mypy **62 files** OK · `pytest tests/unit` **292 passed / 0 failed** / coverage **90.64%**. `seeds/validate` 0 · `contract` 98건 0 — 설정값 20종을 셸 환경변수로만 채워야 끝까지 돕니다(E-13). 평가 스크립트는 두 번 돌려 지연시간을 뺀 출력이 같습니다. 출력은 `recommend_engine_verification.md` 15절 |
-| 다음 행동 | 미병합 커밋 5개의 새 PR(보류 해제 시) → N-01(.env) → 라우터 실연결(M-01·M-15) → G-24(3축 척도 범위)·G-25(월별 주기 해석)·G-26(`EventIn` 시각)·G-27(A 함수의 균등 폴백) 확인. 남은 회의 안건은 `recommend_engine_meeting_agenda.md` 2절 |
-| 병합 정책 | `main` 은 PR 로만 병합합니다(첫 PR #8 은 `5846a72` 로 병합됨). 브랜치 커밋·push 는 자유. `origin/main` 은 merge 로 따라감(rebase 금지, 01의 2.1). 병합된 브랜치 `feat/recommend-engine-core` 는 01의 2.1 대로 삭제 대상이나 미병합 커밋 5개가 있어 새 PR 전까지 둡니다 |
+| 브랜치 | `feat/recommend-engine-core`. `origin/main` 병합 완료. `origin/develop-data-part` 는 두 번 병합했습니다 — 658d79a(9.6), def3d5b(9.10). `main` 병합은 PR #8 로 올렸고 **2026-09-11 11:52(KST) kmk9259 가 병합**했습니다(`5846a72`, `80cc832` 까지). 그 뒤 커밋 12개(`d35b619`~ 시뮬 패키지 `cdf656e` · `3633ed7` 와 기록, `main` 과 충돌 없음)는 미병합이며 새 PR 은 보류입니다(유재현, 2026-09-12). 시뮬 패키지는 (a)안(전부)으로 커밋했습니다(N-16, 2026-09-14) |
+| 단계 | ② Ranking 과 ③ Re-ranking 을 A 계약 위에서 구현 완료. **취향 페르소나**(고른 음식 → 3축 척도 → 없음, 시간 감쇠·주기 가중, 사용자당 JSON 저장)를 9.11 에서 구현. ① Retrieval·로그 적재·DDL·배치는 A 것이 브랜치에 있습니다. 라우터에 `rank_candidates`·`PersonaService` 를 끼우는 것(M-01·M-15)과 DB 연결이 남았습니다. 9.12 에서 세 방향 복기(명세 · 무음 실패 · 규약)로 구멍 15개(F-36~F-50)를 찾아 14개를 코드로 고쳤습니다(D-34~D-38). 9.15 의 4회차 복기는 20건(F-51~F-70)을 더 찾아 코드 17건·기록 3건으로 닫았습니다(D-39~D-41). 9.16 은 기획측 시뮬 시드(1,600명)를 DB 없이 엔진에 넣는 도구 `scripts/sim/scenario_engine.py` 를 만들어 전원 불변식 · 콜드 → 웜 전환 · 행동·냉장고 반응을 확인했습니다(D-42·D-43). 9.17 은 유재현이 Docker Desktop 을 설치한 뒤 DB 경로(적재 · 검증 쿼리 · `/health` 포함 API 시나리오)까지 통과시켰습니다(D-44) |
+| 검증 (2026-09-14, 9.17) | ruff check OK · ruff format OK(151 files) · mypy **62 files** OK · `pytest tests/unit` **298 passed / 0 failed** / coverage **90.64%**(시뮬 검사 6건 포함). A 게이트 6종 전부 종료코드 0(9.16, `contract` 98건). 시뮬 DB 경로 — `load_sim.sh` 종료코드 0, `99_verify.sql` 여섯 건수·집단 × 모드 분포가 안내서 기대값과 일치, `scenario_run.py`(`/health` 포함, db true 0.11초) PASS, `scenario_engine.py` 1,600명 PASS. 출력은 `recommend_engine_verification.md` 16·17절 |
+| 다음 행동 | 공유 경로(`deploy/seed/sim`·`tests/fixtures/sim`·`dev` 의존성) 변경을 A 에 알림 → 미병합 커밋 12개의 새 PR(보류 해제 시) → N-01(.env) → 라우터 실연결(M-01·M-15) → G-24(3축 척도 범위)·G-25(월별 주기 해석)·G-26(`EventIn` 시각)·G-27(A 함수의 균등 폴백) 확인. 남은 회의 안건은 `recommend_engine_meeting_agenda.md` 2절 |
+| 병합 정책 | `main` 은 PR 로만 병합합니다(첫 PR #8 은 `5846a72` 로 병합됨). 브랜치 커밋·push 는 자유. `origin/main` 은 merge 로 따라감(rebase 금지, 01의 2.1). 병합된 브랜치 `feat/recommend-engine-core` 는 01의 2.1 대로 삭제 대상이나 미병합 커밋 12개가 있어 새 PR 전까지 둡니다 |
 | DB 전환 | `recommend_engine_db_cutover.md` 의 M-01~M-15. DB 와 닿는 변경을 시작할 때 먼저 엽니다. `tests/unit/recommend/test_db_cutover.py` 가 못을 박아 두어 건너뛰면 검사가 깨집니다 |
 | 갱신 규칙 | 세션마다 1절·3절·9절 갱신. 새 항목은 다음 번호, 번호 재사용 금지. 사람용 서술본 동시 갱신 (2절). **3.3 의 수치는 그 세션의 실행에서 다시 잽니다** — 앞 세션 값을 옮기지 않습니다 (01의 3.4, D-28). 9절의 세션별 수치는 그 시점 기록이므로 고치지 않습니다 |
 
@@ -95,27 +95,33 @@
 | D-39 | 난수원은 호출자가 넘기고 시드는 추적에 적는다 | `rank_candidates` 가 추적의 `rng_seed` 로 `random.Random(rng_seed)` 를 직접 만듭니다. `rng` 인자를 없앴습니다 | 둘이 따로 있으면 로그의 시드가 실제 난수와 무관해집니다. 평가 스크립트가 실제로 `SystemRandom` 을 넘기며 `rng_seed=user_id` 를 적어, 같은 명령이 실행마다 다른 목록을 냈습니다(F-51, F-52) | 라우터가 요청마다 시드를 정해 넘기는 것이 남았습니다(M-06). `noqa: S311` 한 줄은 A 의 목업·Thompson 과 같은 사유입니다(G-16 묶음) |
 | D-40 | ② 는 받은 후보를 전부 매긴다(빼지 않음) | 피처 행이 없는 후보와 같은 레시피의 중복은 서비스가 점수 전에 빼고 세어 ranking 단계의 `filters` 에 남깁니다. `score_all` 자체는 그대로 전부 매깁니다 | 피처가 없는 후보는 갖춘 재료 하나만으로 만점이 되어 1위로 나가고 제목도 비어 있습니다(F-53). 정책으로 거르는 것이 아니라 볼 수 없는 것을 세는 것이라 "제외는 ① 에서만" 과 충돌하지 않습니다 | 실 DB 에서 피처 행이 빠지는 일이 없다고 확인되면 카운터만 남기고 제외를 뺄 수 있습니다 |
 | D-41 | 균등 폴백 판정은 탐색 풀 기준 | **후보 전체** 기준이며 `rerank.ExplorationSpec` 하나를 재정렬과 서비스가 같이 씁니다. 풀에만 군집이 없으면 폴백이 아니라 부족분입니다 | 두 곳이 따로 판정하면 군집이 일부 후보에만 있을 때 로그와 실제가 갈라집니다(F-62). 군집은 배치 단위라 후보 어딘가에 있으면 배치가 돈 것입니다 | A 가 함수 안에 폴백을 넣으면(G-27) 규격의 균등 비율 계산만 남습니다 |
+| D-42 | (시뮬 시드) `user_vector.taste_vec` 은 picks 평균과 척도를 앞 3축에서 절반씩 섞은 값 | **고른 음식의 6축 평균만.** 척도는 `onboarding_scales` 원본으로만 둡니다 | D-29(고른 음식이 있으면 척도는 저장만)와 시드가 어긋나면 배치 검증 때 기대값이 둘이 됩니다(F-75). 변환기 `synth_onboarding()` 을 고치고 03 파일을 재생성했습니다 | 기획이 척도를 계산에 넣기로 하면 D-29 와 함께 |
+| D-43 | (계획에 없음) 시드 검증은 DB 적재 뒤 API 로만 | DB 없이 시드를 엔진에 직접 넣는 `scripts/sim/scenario_engine.py`(읽기는 `sim_seed.py`)를 둡니다. 냉장고·임박은 A 의 SQL 규칙(`user_pantry_ids` staple 합집합, `effective_expiry` 구매일 + 기본 소비기한, D-3 이내와 지난 것)을 파이썬으로 따르고, '지금' 은 유저마다 마지막 활동 한 시간 뒤, 난수 시드는 `user_id` 입니다 | 이 PC 에 Docker 가 없고(E-15) M-01·M-03 전에는 API 가 시드를 읽지 않습니다. 이 도구가 없으면 시드가 엔진과 맞는지 알 수 없습니다 | M-01·M-03 이 붙으면 같은 시나리오를 `scenario_run.py` 로 API 에서 돌리고 이 도구는 회귀 검사(`test_engine_scenario_passes_without_a_db`)로만 남깁니다 |
+| D-44 | (시뮬 시드) `app_user.id` = 기획 번호(1~1600), 적재 뒤 시퀀스를 max(id) 로 올림 | **id = 1,000,000 + 기획 번호**(`SIM_ID_BASE`), 시퀀스는 건드리지 않음. 합성 값의 해시 키는 id 가 아니라 기획 번호(`hkey`) | `make smoke --keep` 의 합성 유저 8명이 id 1~8 을 차지해 `01_app_user.sql` 이 PK 충돌로 멈췄습니다(F-79) — 안내서가 권한 경로에서 그대로 생기는 결함입니다. 해시 키를 id 로 두면 id 를 옮기는 순간 알러지 90 → 89, 냉장고 4,442 → 4,474 로 내용까지 바뀝니다(F-81) | 낮은 id 를 시뮬 몫으로 비워 두기로 A 와 정하면 오프셋을 0 으로 |
 
-### 3.3 검증 출력 (2026-09-14, 세션 9.15 종료 시점)
+### 3.3 검증 출력 (2026-09-14, 세션 9.17 종료 시점)
 
 ```text
 uv run ruff check .                   → All checks passed!
-uv run ruff format --check .          → 142 files already formatted
+uv run ruff format --check .          → 151 files already formatted
 uv run python -m mypy src             → Success: no issues found in 62 source files   (E-01)
-uv run pytest tests/unit              → 292 passed, coverage 90.64% (기준 80%)
+uv run pytest tests/unit              → 298 passed, coverage 90.64% (기준 80%)
 ```
 
-A 자체 게이트(`Makefile`, DB 불필요분). Windows 는 `PYTHONIOENCODING=utf-8` 이 필요합니다 (E-11, G-14).
+A 자체 게이트(`Makefile`, DB 불필요분). Windows 는 `PYTHONIOENCODING=utf-8` 이 필요합니다 (E-11, G-14). 이번 세션은 종료 코드만 확인했고 건수는 `contract` 만 화면에서 읽었습니다.
 
 ```text
-python seeds/validate.py                    → 통과 (경고 13건)
-python -m tests.unit.recommend.test_contract → 98건 전부 통과, 종료코드 0 (설정값을 채운 환경. E-13)
-                                              빈 .env 에서는 92통과 2실패 종료코드 1 로 끝까지 돕니다
-python -m tests.unit.recommend.run           → 74건 전부 통과
-python -m tests.unit.recommend.test_match    → 전부 통과 (23건)
-python -m tests.unit.recommend.test_role     → 전부 통과 (23건)
-python -m tests.unit.recommend.test_batch    → 5건 중 5건 통과
+python seeds/validate.py                    → 종료코드 0
+python -m tests.unit.recommend.test_contract → 종료코드 0, 98건 (설정값을 채운 환경. E-13)
+python -m tests.unit.recommend.run           → 종료코드 0
+python -m tests.unit.recommend.test_match    → 종료코드 0
+python -m tests.unit.recommend.test_role     → 종료코드 0
+python -m tests.unit.recommend.test_batch    → 종료코드 0
 ```
+
+시뮬 시드(9.16). `uv run python scripts/sim/scenario_engine.py` → 종료코드 0, RESULT: PASS (1,600명, 41초). `uv run python scripts/sim/scenario_run.py --base http://127.0.0.1:8765 --api-key ... --skip-health` → 종료코드 0. 시드 재생성(amplify → convert) → 종료코드 0, 저장본과 바이트 단위 동일.
+
+시뮬 DB 경로(9.17, Docker Desktop). `docker compose ... up -d` → postgres healthy, init 01~04 자동 적용. `uv run python scripts/reco/migrate.py` → 0 (재료 536). `uv run python tests/integration/test_smoke.py --keep` → 0 (published 합성 10,007). `PSQL_VIA_COMPOSE=1 bash deploy/seed/sim/load_sim.sh` → 0, `99_verify.sql` app_user 1600 · user_preference 1600 · user_vector 1600 · user_allergy 90 · pantry_item 4442 · event_log 10195, 집단 × 모드 235/90/475/800. `uv run python scripts/sim/scenario_run.py --base ... --api-key ...`(`/health` 포함, db true 0.11초) → 0.
 
 커버리지 측정 범위는 `ingest/*`·`repository.py`·`repository_ingest.py`·`engine/mock.py` 를 뺀 2,169문입니다. 뺀 근거는 D-24 의 결정 기록에 있습니다.
 변경 규모: 병합 커밋 `da6de58` 에서 `main` 대비 194 파일 · +60,961줄. 들어온 A 커밋 21개.
@@ -201,6 +207,7 @@ python -m tests.unit.recommend.test_batch    → 5건 중 5건 통과
 | Thompson 균등 폴백을 A 함수 안으로 | `serendipity.mixed_exploration` 은 A 의 파일입니다. 지금은 B 가 밖에서 우회합니다(D-35, F-42) | A 와 합의 후 | G-27 |
 | Thompson 픽의 확률 귀속 | A 의 `mixed_exploration` 이 묶음의 확률을 점수 최고 후보에만 붙여, 균등이 그것을 먼저 가져가면 두 번째 후보가 Thompson 으로 뽑히는데 확률에는 균등 몫만 남습니다(F-65). A 의 파일입니다 | A 와 합의 후 | G-28 |
 | 월별 주기 해석 확인 | 연 주기 위상으로 읽은 것이 회의 뜻과 맞는지 확인이 필요합니다 | 회의에서 | G-25 |
+| `/health` 의 DB 접속 대기 | `db.healthy()` 가 접속 시간 제한 없이 DB 를 기다려 DB 없는 PC 에서 150초 넘게 응답이 없습니다(DB 가 있으면 0.11초). `infra/db.py`·`config.py` 는 A·공용 파일입니다 | A 와 합의 후 | G-29, F-74 |
 
 ## 5. 고려사항 (C)
 
@@ -256,6 +263,8 @@ uv run ruff check . && uv run python -m mypy src
 | E-14 | `psycopg` 의 `pq.cp312-win_amd64.pyd` 가 어제 그대로인데 앱 제어 정책이 오늘 막기 시작. `tests/conftest.py` 가 `infra.db` 를 import 하므로 **전체 pytest 가 수집 단계에서 죽음** | 같은 버전 재설치(`uv pip install --reinstall --no-deps psycopg-binary==3.3.5`)로 해소. 정책이 파일 인스턴스 단위로 막는 듯합니다(E-12 와 같은 현상). 코드 변경 없음 |
 | E-12 | A `uv.lock` 의 `pillow-heif` 1.7.0 → `_pillow_heif` DLL 이 앱 제어 정책에 차단. 영수증 검사 8건이 수집에서 죽음 | `uv.lock` 항목만 `main` 값 1.6.0 으로 되돌림 (D-25). 1.6.0 은 같은 머신에서 정상 import |
 | E-10 | git 사용자 설정 전무 | 저장소 로컬 `user.name=유재현`, `user.email=yjhorion@gmail.com`. 변경은 `git config --local` 후 push 전 `git rebase --exec 'git commit --amend --no-edit --reset-author' main` |
+| E-15 | 이 PC 에 Docker·postgres 가 없습니다. `/health` 가 `db.healthy()` 로 DB 를 기다려 응답이 없고(F-74) 시뮬 안내서 3-4·3-5 를 돌릴 수 없습니다. `openpyxl` 은 `uv.lock` 에 없습니다(F-72) | DB 없는 단계만 돌리고 못 돌린 것은 못 돌렸다고 적습니다(D-28). API 스크립트는 `--skip-health`. openpyxl 은 `uv pip install openpyxl` 로 이 PC 에만 설치(잠금 밖) |
+| E-16 | Docker Desktop 29.7.2(WSL2 백엔드)·`pgvector/pgvector:pg16` 은 유재현이 관리자 권한으로 설치(2026-09-14 저녁). 이 PC 에 `make` 와 `psql` 은 없습니다 | Makefile 이 부르는 명령을 직접 실행(compose up · `migrate.py` · `test_smoke.py --keep`), 적재는 컨테이너의 psql 을 stdin 으로(`PSQL_VIA_COMPOSE=1`). `deploy/.env` 는 템플릿 복사(값 비어 있어 compose 기본값, `.gitignore` 대상). E-15 의 DB 부재 항목은 해소 |
 
 ---
 
@@ -504,3 +513,43 @@ uv run ruff check . && uv run python -m mypy src
 | 규약 | `service.py` 446줄 · `rerank.py` 348줄 · `persona.py` 340줄 — 검토 문턱(300) 초과, 필수 분리(500) 아님. `rank_candidates` 는 인자 10개(원래 11)로 여전히 초과(N-02). `noqa: S311` 한 줄 추가(D-39, G-16 묶음) |
 | 문서 | 명세 2.1.0 · 압축본 3.1.0 · 설명서 1.3.0 · 결정 기록 1.2.0 · 점검표 1.4.0(M-03·M-06, 못 10개, `--no-cov`) · 검증 기록 15절 · 안건 G-28·G-14 |
 | 넘긴 것 | G-28(Thompson 확률 귀속, A) · G-14 에 `Makefile` 경로 · N-02 묶음의 `candidate_limit` · M-06 의 라우터 몫 |
+
+### 9.16 2026-09-14 - 기획측 시뮬 시드로 이용 시나리오 실행
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 — "`data/test_Dataset` 에 테스트 데이터를 준비했다. 폴더를 읽고 데이터·코드 수정이 필요하면 고쳐서 테스트를 한번 돌려 보고 싶다. 임의 데이터이며 실제 동작을 가정한 가상 데이터" |
+| 패키지 | `sim_warm_package` — 기획 v0.4 xlsx 11개 → `amplify_events.py`(증폭) → `convert_planning_data.py`(SQL 시드: app_user 1,600 · user_preference · user_vector · user_allergy 90 · pantry_item 4,442 · event_log 10,195) → `load_sim.sh` → `scenario_run.py`(API). 안내서 `recommend_sim_seed_runbook.md`. 안내서의 위치대로 `scripts/sim/`·`deploy/seed/sim/`·`tests/fixtures/sim/`·`tests/unit/sim/`·`docs/recommend/` 에 두었습니다(미추적, N-16) |
+| 못 돌린 것 | 3-4 적재와 3-5 의 `/health` — 이 PC 에 Docker·postgres 가 없습니다(E-15). 3-5 는 `--skip-health` 로 목업 라우터 단계 2~6 만 확인했습니다(PASS, 변동 0 = 전환 전 정상) |
+| 결정 | D-42(시드 `taste_vec` 은 picks 평균만) · D-43(DB 없는 엔진 시나리오 도구) |
+| 발견 | 여덟 건 — F-71 변환기가 OS 줄바꿈을 따라 Windows 에서 재생성 diff · F-72 안내서의 의존성 주장(openpyxl 미잠금) · F-73 API 스크립트가 내부 키를 안 보냄(401) · F-74 `/health` 가 DB 접속을 무기한 대기 · F-75 시드 `taste_vec` 이 D-29 와 어긋남 · F-76 시드 README 의 모드 규칙·"B 후보 0건" 서술 오류 · F-77 시드 `computed_from` 과 엔진 모드 불일치(behavior 235 중 blended 40) · F-78 냉장고 시나리오의 첫 판정 기준 오류. 상세는 검증 기록 16절 |
+| 새 코드 | `scripts/sim/sim_seed.py`(시드 SQL 정규식 파싱 → `SimUser`, Mock 카탈로그 → `Catalog`, 기본 소비기한, 알러지 매핑; 행 수를 `stats.json` 과 대조) · `scripts/sim/scenario_engine.py`(페르소나·문맥 → `retrieve_with_fallback`·`rank_candidates`; 전원 집계·불변식·시간순 전환·cook 5건·임박 재료·재현 판정) · `tests/unit/sim/test_sim_seed.py` 에 `test_engine_scenario_passes_without_a_db`(앞 200명) |
+| 고친 코드 | `convert_planning_data.py`(`newline="\n"` 8곳, `synth_onboarding` taste_vec) · `scenario_run.py`(`Api` 헤더 `X-Internal-Api-Key`, `--api-key` 없으면 `config.get_settings`, `--skip-health`) |
+| 문서 | 안내서 1.1.0(의존성 사실, 3-6, 판정 표, 한계 5건, G-29) · `deploy/seed/sim/README.md` 3절 · `docs/README.md` 1.8.2(안내서 등록) · 패키지 사본(`data/test_Dataset/`, 미추적)에 같은 파일 복사. zip 은 갱신하지 않았습니다 |
+| 검증 | ruff·format(150)·mypy(62) 종료코드 0, `pytest tests/unit` **298 passed** / coverage **90.64%**, A 게이트 6종 0. `scenario_engine.py` 1,600명 PASS(41초): 불변식 위반 0 · 콜드 → 웜 전환(user 201, onboarding → blended → behavior, 무게 0 → 23.9) · cook 5건 추가 뒤 상위 10 중 9 자리 변동 · 임박 재료 2종 추가 뒤 그 재료를 쓰는 개인화 레시피 4 → 8건 · 두 번 실행 동일. 재생성 시드 = 저장본(03 만 D-42 로 변경). 분리 전후 출력 동일 |
+| 규약 | `scenario_engine.py` 715줄이 02의 5.1 필수 분리(500)를 넘어 `sim_seed.py`(270) 와 `scenario_engine.py`(491) 로 나눴습니다. 평가 스크립트(624줄)는 그대로입니다(N-16 에서 함께) |
+| 넘긴 것 | N-16(패키지 커밋 범위·openpyxl·평가 스크립트 분리, 유재현) · G-29(`/health` 접속 시간 제한, A) |
+
+### 9.17 2026-09-14 - Docker Desktop 설치 뒤 시뮬 DB 경로
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 — "docker-postgres 를 설치해서 못 한 부분을 진행하고 싶다. 네가 대행할 수 있는지, 내가 할 부분이 있는지 알려 달라" → 역할 분담 안내 → WSL2 + Docker Desktop 설치 완료 통보. "덜 진행된 부분이 보이면 멈추고 알려 달라. 이 부분이 끝나면 커밋 범위를 정하자" |
+| 환경 | Docker 29.7.2 / Compose v5.5.1, `docker run hello-world` 통과, 사용자가 `docker-users` 그룹. `make`·`psql` 없음(E-16). `deploy/.env` 를 템플릿에서 생성(값 비어 있음) |
+| 한 일 | compose 로 postgres·redis 기동(init 01~04 자동 적용: 확장 5 · reco 테이블 31 · `retrieve_for_user` 등) → `migrate.py` 재료 536 → `test_smoke.py --keep` 합성 published 10,007 → `load_sim.sh` 적재 → `99_verify.sql` → DB 를 가리키는 서버로 `scenario_run.py`(`/health` 포함) |
+| 발견 | 세 건 — F-79 시드 고정 id(1~1600)가 스모크 합성 유저(1~8)와 PK 충돌 · F-80 `99_verify.sql` 이 스모크 유저를 함께 셈(1608 · 94 · 4513) · F-81 합성 값의 해시 키가 id 라 오프셋을 넣자 알러지·냉장고 내용까지 변함. 상세는 검증 기록 17절 |
+| 결정 | D-44(시뮬 id = 1,000,000 + 기획 번호, 시퀀스 미변경, 해시 키는 기획 번호) |
+| 고친 코드 | `convert_planning_data.py`(`SIM_ID_BASE`·`hkey`, `setval` 제거) · `load_sim.sh`(`PSQL_VIA_COMPOSE` — psql 없는 PC 는 컨테이너 psql 을 stdin 으로) · `99_verify.sql`(`sim_u%` 필터) · `scenario_run.py`(기본 유저 1000184 · 1000001) · 시드 재생성(01~06 은 id 만 변경 — id 정규화 뒤 파일 동일, `stats.json` 동일) |
+| 문서 | 안내서 1.2.0(make·psql 없는 PC 절차, id 범위, DB 실행 결과, G-29 보충) · `deploy/seed/sim/README.md` 매핑 · 패키지 사본 동기화(zip 제외) |
+| 검증 | 적재 종료코드 0 · `99_verify` 건수·분포가 기대값과 일치 · `scenario_run.py` PASS(`/health` db true 0.11초, [5] 변동 0 = 전환 전 정상) · `scenario_engine.py` PASS · ruff·format(151)·mypy(62) 0 · `pytest tests/unit` 298 passed / 90.64% |
+| 넘긴 것 | N-16(커밋 범위 — 이제 유재현과 정함) · G-29(DB 없을 때의 대기. DB 있으면 0.11초) |
+
+### 9.18 2026-09-14 - 시뮬 패키지 커밋 (N-16 결정)
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 — "(a)안으로. 의존성이 필요하면 환경 파일 등에 포함해서 진행" |
+| 결정 | N-16 → (a) 전부 커밋. openpyxl·pandas 를 `dev` 묶음에 `uv add --group dev --no-sync` (F-72 해소. 가상환경은 같은 버전이 이미 있어 lock 만 갱신, `uv lock --check` 0) |
+| 커밋 | `cdf656e` build(deps: pyproject·uv.lock) · `3633ed7` feat(sim): 31 파일 +21,435 — `scripts/sim` 5 · `tests/unit/sim` 2 · `tests/fixtures/sim/planning_v0.4` xlsx 11 · `deploy/seed/sim` 11 · 안내서 1.3.0 · `docs/README.md`. 기록은 그다음 `docs(recommend)` 커밋 |
+| 검증 | 커밋 직전 ruff check · ruff format --check(151) · `uv lock --check` 종료코드 0. 코드는 9.17 이후 변경 없음(pytest 298 passed) |
+| 넘긴 것 | 공유 경로(`deploy/`·`tests/fixtures/`)와 `dev` 의존성 변경을 A 에 알림 · 미병합 커밋 12개의 새 PR(보류) |
