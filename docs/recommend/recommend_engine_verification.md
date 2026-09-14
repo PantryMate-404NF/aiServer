@@ -4,7 +4,7 @@
 
 **적용 대상**: 수정 여부를 결정하는 유재현과 수정을 반영할 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 8.0.0 · **최종 수정**: 2026-09-12 · **작성자**: 유재현
+**버전**: 9.0.0 · **최종 수정**: 2026-09-14 · **작성자**: 유재현
 
 ---
 
@@ -27,6 +27,7 @@
 | 5차 재검증 | A 최신 내용(def3d5b) 병합 뒤 (12절). 게이트 4종·A 자체 게이트·Mock 종단 전부 이전과 같고 새 발견 1건(F-34) |
 | 취향 페르소나 | 2차 회의 결정 구현 뒤 (13절). 새 검사 46건, 게이트 252 passed / 89.74%, Mock 에서 우선순위·감쇠·주기·탐색 확대 확인. 새 발견 1건(F-35) |
 | 3회차 복기 | 검토자 셋으로 다시 읽은 뒤 (14절). 발견 15건(F-36~F-50) 중 14건 수정, 새 검사 24건, 게이트 276 passed / 90.23%. Mock 탐색 칸이 전부 설계값 |
+| 4회차 복기 | 검사·수정·재검사 3회 (15절). 발견 20건(F-51~F-70) 중 17건 코드·3건 기록, 새 검사 16건, 게이트 292 passed / 90.64%. 평가 스크립트가 비결정적이던 것을 고쳐 두 번 실행이 같음 |
 | 재현 | `uv run python scripts/eval_recommend_mock.py` (2절) |
 
 ---
@@ -564,3 +565,63 @@ allergy clean · cook cap · propensity (0,1] · reason filled  → 전부 참
 ### 14.4 판정
 
 발견 15건 중 14건을 코드로 고치고 검사로 못 박았으며 1건(F-50)은 문서 문구였습니다. 게이트 4종과 A 게이트 2종이 전부 종료 코드 0 입니다. 실 DB 없이 확인하지 못한 것은 13.5 와 같습니다(M-14, M-15).
+
+## 15. 4회차 복기 — 오류 없이 잘못 실행되는 것 (2026-09-13~14)
+
+9.15 세션. 검사·수정·재검사를 3회 반복했습니다. 1회차는 게이트 4종·A 게이트 6종·평가 스크립트를 돌린 뒤 검토자 둘(랭킹 경로 무음 실패 · 문서 드리프트와 검사 품질)과 직접 탐침으로 찾고, 2회차는 고친 뒤 전체를 다시 돌리고 변경분을 직접 읽었으며(셋째 검토자는 세션 한도 HTTP 429), 3회차는 문서 정합 뒤 전체를 다시 돌렸습니다. 판정은 전부 종료 코드입니다(01의 3.4).
+
+### 15.1 발견과 처리
+
+| ID | 발견 | 실험 근거 | 처리 |
+|---|---|---|---|
+| F-51 | 평가 스크립트가 시드 없는 난수원을 씀 | `random.SystemRandom()` 을 넘기며 추적에 `rng_seed=user_id`. 같은 명령 두 번의 출력이 다름(탐색 칸 446줄 차이), `PYTHONHASHSEED` 고정으로도 다름 | 사용자마다 시드 → 이어서 D-39 로 조립 함수가 시드로 난수원 생성. 두 번 실행 동일 |
+| F-52 | `rank_candidates` 가 `rng` 와 `rng_seed` 를 따로 받음 | 시드 2 를 적고 `Random(1)` 을 넘기면 탐색 [16,22,28,12], 시드로 재현하면 [14,91,28,108] | `rng` 인자 제거. `random.Random(rng_seed)` 를 안에서 생성(D-39). M-06 검사 교체 |
+| F-53 | 피처 행 없는 유령 후보가 1위 | `recipes` 에 없는 99999 가 `f_coverage`·`f_missing` 만으로 0.659, `final_rank=1`, 카운터 비어 있음. 12명 전원에서 상위 10 안 | 서비스가 점수 전에 빼고 `recipe_feature_missing` 을 세어 ranking `filters` 에 남김(D-40). 재료를 모르는 레시피의 `f_expiring`·`f_pantry_use` 는 None |
+| F-54 | 정책 지문이 로그에 없음 | `fingerprint()` 는 검사에서만 호출. `mmr_lambda` 0.7→0.1 로 순서가 바뀌어도 `params` 동일, `policy_id` 동일 | `policy_fingerprint` 를 추적에 덧붙임(실효 가중치 포함) |
+| F-55 | 가중치 덮어쓰기 미검증 | 오타 키 `f_covrage` 가 예외 없이 통과해 순서가 바뀜, 전부 0 이면 전원 0 점 목록, 음수는 0 으로 읽힘 | 모르는 키·음수·합 0 을 거부 |
+| F-56 | `f_cooccur` 사유가 절대 나오지 않음 | 조리 이력 5건 사용자에서 두드러짐 상위 2 에 60번 올랐으나 문구 0번 — 템플릿의 `similar_title` 을 `reason_context` 가 만들지 않음 | `UserHistory.cooked_titles` 를 두고 가장 비슷한 조리 레시피 제목을 채움. M-03 에 제목 적재 추가 |
+| F-57 | 후보 0건에 `explore_fallback: uniform` | `any([])` 가 거짓이라 폴백으로 세어짐 | 후보가 없으면 정책 비율 |
+| F-58 | 감점 반올림 재현 오차 | 로그의 `penalty` 0.714286 으로 다시 곱하면 점수가 1e-6 어긋남(600건 중 17) | 반올림한 감점으로 점수를 계산. 재현 검사 |
+| F-59 | 랭킹 손잡이 미검증 | `uniform_share=1.5` 가 균등 6칸을 뽑아 4칸 노출하고 확률 6/23 을 적음, `penalty_cooked=-0.5`·`max_missing=6 > relaxed` 통과 | 비율 [0,1], 크기 >= 1, `max_missing <= relaxed`, 풀 <= 조회 상한 |
+| F-60 | 빈 재료명이 깨진 문구 | 이름이 `""` 이면 "(D-3)을 소진할 수 있어요" | 공백 이름은 모르는 것으로 |
+| F-61 | 중복 후보 이중 노출 | 같은 `recipe_id` 두 번, `top_k=100` 에서 9위·64위에 둘 다 노출 | 먼저 온 것만 남기고 `candidate_duplicate` 로 셈(D-40) |
+| F-62 | 폴백 판정이 두 곳에서 다름 | 재정렬은 탐색 풀, 서비스는 후보 전체 기준. 군집이 상위 후보에만 있으면 실효 균등 1.0 인데 로그는 0.5 | `rerank.ExplorationSpec` 하나를 둘이 공유. 판정은 후보 전체(D-41) |
+| F-63 | 레시피 없는 조리·별점이 무음 폐기 | `COOK(recipe_id=None)` 3건 → 카운터 `{}` | 취향을 만드는 종류는 `persona_event_invalid`, 검색·노출은 지나감 |
+| F-64 | 저장소 OS 오류가 추천을 죽임 | 파일 자리에 디렉터리 → `persona_for` 가 `PermissionError` 를 올림 | `persona_store_error` 로 세고 취향 없는 사용자로 |
+| F-65 | Thompson 픽의 확률 귀속 | 500회 시드에서 Thompson 픽 1,000건 중 66건이 묶음 최고 후보가 아니어서 확률에 균등 몫만 남음 | A 의 함수라 G-28 로 |
+| F-66 | `candidate_limit` 이 엔진에서 죽은 손잡이 | 12명 전원에서 바꿔도 결과 불변, 지문만 변함. 조회 상한은 `config` 가 정함 | N-02(손잡이 정본) 묶음. 코드 변경 없음 |
+| F-67 | `report_dead_weight` 문구 | 상수 피처의 가중치도 MMR 에는 닿음(`f_time_fit` 0.03→0 에서 개인화 순서 변함) | "점수 순서를 못 바꾸는" 으로 |
+| F-68 | 문서 드리프트 10건 | 예비 4→20개 · 기피 감점 0.8배→최대 80%(0.2배) · `recipe_feature.cuisine`→`cuisine_family` · `data/` 기본값 없음 · `tombstone_failed`·`failed:<예외>` 누락 · 0.23→0.21 · 인자 초과 6→7곳 · 못 박은 항목 15→10 · 점검표 검사 명령이 커버리지 문턱으로 종료코드 1 · 척도 저장 형식 | 명세 2.1.0 · 압축본 3.1.0 · 설명서 1.3.0 · 점검표 1.4.0 · 결정 기록 1.2.0 |
+| F-69 | 검사가 못 잡던 행동 | 돌연변이 검사: MMR λ 교환, 노출 확률 1e-6 고정, 추적 `n_explore`·`top_k` 0, `score_stats` 상수, `max_missing_final` 무시 — 전부 통과 | 새 검사 16건, 동어반복 3건 교체, 커버리지 미달 분기 3곳 검사(`persona.py`·`profile_store.py` 100%) |
+| F-70 | `Makefile` 의 `PY := .venv/bin/python` | Windows 에는 `.venv/Scripts/python.exe` 만 있어 `make contract` 가 뜨지 않음 | G-14 에 덧붙임. 계약 검사는 `python -m` 으로 직접 실행 |
+
+### 15.2 저장소 게이트 (3회차)
+
+```text
+uv run ruff check .                   → 0
+uv run ruff format --check .          → 0 (142 files already formatted)
+uv run python -m mypy src             → 0 (Success: no issues found in 62 source files)
+uv run pytest tests/unit              → 0 (292 passed, coverage 90.64%, 측정 2,169문)
+python seeds/validate.py              → 0 (통과, 경고 13건)
+python -m tests.unit.recommend.test_contract → 0 (98건. 설정값 20종을 셸 환경변수로만 채움)
+python scripts/eval_recommend_mock.py → 0, 두 번 실행의 출력이 지연시간을 빼고 동일
+```
+
+파트 B 검사 함수 151개, 수집 165건. `persona.py`·`profile_store.py`·`score.py`·`candidate.py`·`context.py` 100%, `service.py` 99%, `feature.py` 98%, `rerank.py` 97%, `policy.py` 96%.
+
+### 15.3 Mock 종단
+
+```text
+stages {none: 3, popularity: 7, relax_missing: 2}
+persona sources {none: 1, picks: 10, scales: 1}
+exploration counts [4, 4, 4, 4, 4, 4, 4, 4, 2, 4, 10, 8]
+taste lift = [0.032, 0.115, -0.075, 0.09, 0.071, 0.053, 0.021, 0.11, 0.163, 0.124, 0.109, None]  (실효 11/12)
+ILD mean 0.903 · 점수 순서를 못 바꾸는 가중치 0.26 = {f_ing_pref .11, f_cooccur .10, f_time_fit .03, f_season .02}
+feedback (user 1002): onboarding (0.22, 0.28, 0.23, 0.15, 0.34, 0.03) → recent behavior 15.07 → stale blended 0.91
+```
+
+집계 수치는 14절과 같습니다. 달라진 것은 이 수치가 이제 **실행마다 같다**는 점입니다.
+
+### 15.4 판정
+
+발견 20건 가운데 17건을 코드로 고치고 검사로 못 박았으며, 3건(F-65 A 함수, F-66 손잡이 정본, F-70 Makefile)은 안건으로 넘겼습니다. 세 회차를 마친 시점의 게이트 4종과 A 게이트 2종이 전부 종료 코드 0 이라 커밋했습니다. 실 DB 없이 확인하지 못한 것은 13.5 와 같습니다(M-14, M-15).

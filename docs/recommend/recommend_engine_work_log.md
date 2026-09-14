@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 B 추천 엔진을 이어서 작업하는 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 1.7.0 · **최종 수정**: 2026-09-12 · **작성자**: 유재현
+**버전**: 1.8.0 · **최종 수정**: 2026-09-14 · **작성자**: 유재현
 
 ---
 
@@ -15,8 +15,8 @@
 | 정본 | 이 파일. 사람용 서술본 `human/recommend_engine_work_log.md` 는 식별자로 대응하는 파생본 |
 | 계획서 | `recommend_engine_design.md` (구현 명세 2.0.0, 현재 구현 기준, 사람용 정본 · 노션 공유용) · `recommend_engine_design_digest.md` (에이전트용 압축본 3.0.0, 어긋나면 원본이 이기고 코드가 이김) |
 | 브랜치 | `feat/recommend-engine-core`. `origin/main` 병합 완료. `origin/develop-data-part` 는 두 번 병합했습니다 — 658d79a(9.6), def3d5b(9.10). `main` 병합은 PR #8 로 올렸고 **2026-09-11 11:52(KST) kmk9259 가 병합**했습니다(`5846a72`, `80cc832` 까지). 그 뒤 커밋 5개(`d35b619`~`e853277`, 44 파일 +2,781/-253, `main` 과 충돌 없음)는 미병합이며 새 PR 은 보류입니다(유재현, 2026-09-12) |
-| 단계 | ② Ranking 과 ③ Re-ranking 을 A 계약 위에서 구현 완료. **취향 페르소나**(고른 음식 → 3축 척도 → 없음, 시간 감쇠·주기 가중, 사용자당 JSON 저장)를 9.11 에서 구현. ① Retrieval·로그 적재·DDL·배치는 A 것이 브랜치에 있습니다. 라우터에 `rank_candidates`·`PersonaService` 를 끼우는 것(M-01·M-15)과 DB 연결이 남았습니다. 9.12 에서 세 방향 복기(명세 · 무음 실패 · 규약)로 구멍 15개(F-36~F-50)를 찾아 14개를 코드로 고쳤습니다(D-34~D-38) |
-| 검증 (2026-09-12, 9.12) | ruff check OK · ruff format OK · mypy **62 files** OK · `pytest tests/unit` **276 passed / 0 failed** / coverage **90.23%**. `seeds/validate` 0 · `contract` 98건 0 — 설정값 20종을 셸 환경변수로만 채워야 끝까지 돕니다(E-13). 출력은 `recommend_engine_verification.md` 14절 |
+| 단계 | ② Ranking 과 ③ Re-ranking 을 A 계약 위에서 구현 완료. **취향 페르소나**(고른 음식 → 3축 척도 → 없음, 시간 감쇠·주기 가중, 사용자당 JSON 저장)를 9.11 에서 구현. ① Retrieval·로그 적재·DDL·배치는 A 것이 브랜치에 있습니다. 라우터에 `rank_candidates`·`PersonaService` 를 끼우는 것(M-01·M-15)과 DB 연결이 남았습니다. 9.12 에서 세 방향 복기(명세 · 무음 실패 · 규약)로 구멍 15개(F-36~F-50)를 찾아 14개를 코드로 고쳤습니다(D-34~D-38). 9.15 의 4회차 복기는 20건(F-51~F-70)을 더 찾아 코드 17건·기록 3건으로 닫았습니다(D-39~D-41) |
+| 검증 (2026-09-14, 9.15) | ruff check OK · ruff format OK · mypy **62 files** OK · `pytest tests/unit` **292 passed / 0 failed** / coverage **90.64%**. `seeds/validate` 0 · `contract` 98건 0 — 설정값 20종을 셸 환경변수로만 채워야 끝까지 돕니다(E-13). 평가 스크립트는 두 번 돌려 지연시간을 뺀 출력이 같습니다. 출력은 `recommend_engine_verification.md` 15절 |
 | 다음 행동 | 미병합 커밋 5개의 새 PR(보류 해제 시) → N-01(.env) → 라우터 실연결(M-01·M-15) → G-24(3축 척도 범위)·G-25(월별 주기 해석)·G-26(`EventIn` 시각)·G-27(A 함수의 균등 폴백) 확인. 남은 회의 안건은 `recommend_engine_meeting_agenda.md` 2절 |
 | 병합 정책 | `main` 은 PR 로만 병합합니다(첫 PR #8 은 `5846a72` 로 병합됨). 브랜치 커밋·push 는 자유. `origin/main` 은 merge 로 따라감(rebase 금지, 01의 2.1). 병합된 브랜치 `feat/recommend-engine-core` 는 01의 2.1 대로 삭제 대상이나 미병합 커밋 5개가 있어 새 PR 전까지 둡니다 |
 | DB 전환 | `recommend_engine_db_cutover.md` 의 M-01~M-15. DB 와 닿는 변경을 시작할 때 먼저 엽니다. `tests/unit/recommend/test_db_cutover.py` 가 못을 박아 두어 건너뛰면 검사가 깨집니다 |
@@ -92,14 +92,17 @@
 | D-36 | 사전 취향이 없으면 이벤트 하나로 `behavior` | 기준을 `scales_prior_weight`(6.0)로 둡니다. 그 아래는 `blended` | 클릭 하나(0.3)로 '행동' 사용자가 되면 탐색이 줄고 로그가 그렇게 적힙니다(F-43) | 기준값은 손잡이와 함께 재조정(N-05). `b7b25b4` |
 | D-37 | 온보딩 입력은 받아서 맞춘다(범위 밖 척도는 잘라 넣고 중복은 그대로) | 범위 밖 척도는 거부하고 셉니다. 중복 인덱스는 하나로 두고 셉니다. 3개 미만은 거부하지 않고 셉니다(`MIN_PICKS`) | 잘라 넣으면 5 가 4 와 같아지고 에러가 없습니다(F-48). 개수는 계약이 프론트의 일로 두어 서버가 거부하지 않습니다 | 계약이 개수를 서버 몫으로 바꾸면 거부로 전환. `b7b25b4` |
 | D-38 | 별점은 0 아래만 자른다 | 1.0 위도 자르고 1~5 밖의 별점은 잘못된 이벤트로 셉니다(`RATING_MIN`·`RATING_MAX`) | 별점 180 하나(무게 88.5)가 온보딩 전체(무게 12)를 덮었습니다(F-36). `EventIn.value` 에 범위가 없고 체류 시간과 필드를 같이 씁니다 | A 계약이 `value` 에 범위를 넣으면 서비스 검사는 이중이 됩니다. `b7b25b4` |
+| D-39 | 난수원은 호출자가 넘기고 시드는 추적에 적는다 | `rank_candidates` 가 추적의 `rng_seed` 로 `random.Random(rng_seed)` 를 직접 만듭니다. `rng` 인자를 없앴습니다 | 둘이 따로 있으면 로그의 시드가 실제 난수와 무관해집니다. 평가 스크립트가 실제로 `SystemRandom` 을 넘기며 `rng_seed=user_id` 를 적어, 같은 명령이 실행마다 다른 목록을 냈습니다(F-51, F-52) | 라우터가 요청마다 시드를 정해 넘기는 것이 남았습니다(M-06). `noqa: S311` 한 줄은 A 의 목업·Thompson 과 같은 사유입니다(G-16 묶음) |
+| D-40 | ② 는 받은 후보를 전부 매긴다(빼지 않음) | 피처 행이 없는 후보와 같은 레시피의 중복은 서비스가 점수 전에 빼고 세어 ranking 단계의 `filters` 에 남깁니다. `score_all` 자체는 그대로 전부 매깁니다 | 피처가 없는 후보는 갖춘 재료 하나만으로 만점이 되어 1위로 나가고 제목도 비어 있습니다(F-53). 정책으로 거르는 것이 아니라 볼 수 없는 것을 세는 것이라 "제외는 ① 에서만" 과 충돌하지 않습니다 | 실 DB 에서 피처 행이 빠지는 일이 없다고 확인되면 카운터만 남기고 제외를 뺄 수 있습니다 |
+| D-41 | 균등 폴백 판정은 탐색 풀 기준 | **후보 전체** 기준이며 `rerank.ExplorationSpec` 하나를 재정렬과 서비스가 같이 씁니다. 풀에만 군집이 없으면 폴백이 아니라 부족분입니다 | 두 곳이 따로 판정하면 군집이 일부 후보에만 있을 때 로그와 실제가 갈라집니다(F-62). 군집은 배치 단위라 후보 어딘가에 있으면 배치가 돈 것입니다 | A 가 함수 안에 폴백을 넣으면(G-27) 규격의 균등 비율 계산만 남습니다 |
 
-### 3.3 검증 출력 (2026-09-12, 세션 9.12 종료 시점)
+### 3.3 검증 출력 (2026-09-14, 세션 9.15 종료 시점)
 
 ```text
 uv run ruff check .                   → All checks passed!
 uv run ruff format --check .          → 142 files already formatted
 uv run python -m mypy src             → Success: no issues found in 62 source files   (E-01)
-uv run pytest tests/unit              → 276 passed, coverage 90.23% (기준 80%)
+uv run pytest tests/unit              → 292 passed, coverage 90.64% (기준 80%)
 ```
 
 A 자체 게이트(`Makefile`, DB 불필요분). Windows 는 `PYTHONIOENCODING=utf-8` 이 필요합니다 (E-11, G-14).
@@ -114,7 +117,7 @@ python -m tests.unit.recommend.test_role     → 전부 통과 (23건)
 python -m tests.unit.recommend.test_batch    → 5건 중 5건 통과
 ```
 
-커버리지 측정 범위는 `ingest/*`·`repository.py`·`repository_ingest.py`·`engine/mock.py` 를 뺀 2,098문입니다. 뺀 근거는 D-24 의 결정 기록에 있습니다.
+커버리지 측정 범위는 `ingest/*`·`repository.py`·`repository_ingest.py`·`engine/mock.py` 를 뺀 2,169문입니다. 뺀 근거는 D-24 의 결정 기록에 있습니다.
 변경 규모: 병합 커밋 `da6de58` 에서 `main` 대비 194 파일 · +60,961줄. 들어온 A 커밋 21개.
 
 ---
@@ -179,7 +182,7 @@ python -m tests.unit.recommend.test_batch    → 5건 중 5건 통과
 | 로그 실패 카운터 노출 | 로그를 아직 쓰지 않아 셀 것이 없습니다 | M-05 와 같은 변경에서 | M-07, F-33 |
 | 손잡이 정본 통일 | `Settings` 와 `RankingPolicy` 중 어느 쪽인지 정해야 합니다. 지문에 들어갈 값 집합이 바뀝니다 | N-02 결정 후 | M-08, F-32 |
 | `f_time_fit` 재정의 | 값을 바꾸는 결정이라 혼자 정할 수 없습니다. 실데이터 분포도 필요합니다 | W3 가중치 학습에서 | M-10, N-13, F-27 |
-| 죽은 가중치 0.26 재배분 | 같은 이유입니다. 이력이 붙으면 0.23 이 저절로 살아납니다 | M-03 이후 재측정 → W3 | F-28, N-04, N-05 |
+| 죽은 가중치 0.26 재배분 | 같은 이유입니다. 이력이 붙으면 0.21 이 저절로 살아납니다 | M-03 이후 재측정 → W3 | F-28, N-04, N-05 |
 | `/health` 의 `redis` | 저장소에 redis 클라이언트가 없어 찔러 볼 대상이 없습니다 | A 가 붙이거나 필드를 뺄 때 | M-11, G-19, F-31 |
 | DB 가 필요한 A 게이트 4종 | `make smoke`·`log-test`·`ddl-test`·`feature-test` 는 실 DB 를 씁니다. 병합 시 못 돌렸습니다 | DB 기동 후 | M-12 |
 | 커버리지 `omit` 되돌리기 | A 의 단독 스크립트를 pytest 로 옮겨야 합니다. A 의 파일이라 단독 결정 불가 | G-08 결정 후 | M-13, D-24 |
@@ -188,7 +191,7 @@ python -m tests.unit.recommend.test_batch    → 5건 중 5건 통과
 | 규약 개정 2건 | `docs/recommend/` 배치와 `stage.py`·`enums.py`·`policy.py` 가 규약에 없습니다 | 회의에서 | G-09, G-10 |
 | `.env` 채우기 | 값이 팀 비밀 저장소에 있고 유재현이 직접 넣습니다. 비면 서버도 `make contract` 도 못 돕니다 | 유재현 | N-01, E-13 |
 | `repository_ingest.py` 629줄 분리 | A 가 904줄이던 `repository.py` 를 365줄과 이 파일로 나눴지만(`5d41e8f`) 이 파일이 다시 02의 5.1 상한 500줄을 넘습니다. 도메인 루트도 9개 파일로 같은 절의 디렉터리 상한 8개를 넘습니다(F-34). A 의 파일이라 단독 결정 불가 | A 와 합의 후 | G-10 묶음 |
-| B 함수 인자 5개 초과 6곳 | 02의 5.1 의 확정 기준입니다. 요청·문맥 dataclass 로 묶는 것이 N-02 와 겹칩니다 | N-02 와 함께 | N-02 |
+| B 함수 인자 5개 초과 7곳 | 02의 5.1 의 확정 기준입니다. 요청·문맥 dataclass 로 묶는 것이 N-02 와 겹칩니다 | N-02 와 함께 | N-02 |
 | 상대 import 차단이 꺼져 있음 | `ban-relative-imports` 가 설정돼 있으나 `select` 에 `TID` 가 없습니다. `main` 의 설정이라 단독 수정 불가 | 회의에서 | G-16 묶음 |
 | 취향 원본 JSON → DB 이전 | `user_vector`·`event_log` 가 준비돼야 합니다. 옮긴 뒤 두 저장소의 페르소나를 대조해야 합니다. JSON 은 배치 간 재시도 중복을 흡수하지 않고 `event_log` 는 흡수하므로(F-47) 중복이 있는 사용자는 따로 봅니다 | DB 기동 후 | M-14, D-31 |
 | 온보딩·이벤트 라우트 실연결 | 라우터가 목업을 부릅니다. `PersonaService` 는 있으나 쓰는 곳이 없습니다 | M-01 과 같은 변경에서 | M-15 |
@@ -196,6 +199,7 @@ python -m tests.unit.recommend.test_batch    → 5건 중 5건 통과
 | Mock 카탈로그 맛 스케일 | 시드(실집계)와 분포가 달라 고른 음식으로 만든 취향이 Mock 평균 아래에 놓입니다. 맛 정합 lift 가 작게 나옵니다 | 생성기 수정 | N-14, F-35 |
 | `EventIn` 발생 시각 필드 | 계약이 A 것이라 혼자 못 더합니다. 없으면 오프라인 배치 전체가 수신 시각을 받아 주·일 주기가 헛돕니다 | A 와 합의 후 | G-26 |
 | Thompson 균등 폴백을 A 함수 안으로 | `serendipity.mixed_exploration` 은 A 의 파일입니다. 지금은 B 가 밖에서 우회합니다(D-35, F-42) | A 와 합의 후 | G-27 |
+| Thompson 픽의 확률 귀속 | A 의 `mixed_exploration` 이 묶음의 확률을 점수 최고 후보에만 붙여, 균등이 그것을 먼저 가져가면 두 번째 후보가 Thompson 으로 뽑히는데 확률에는 균등 몫만 남습니다(F-65). A 의 파일입니다 | A 와 합의 후 | G-28 |
 | 월별 주기 해석 확인 | 연 주기 위상으로 읽은 것이 회의 뜻과 맞는지 확인이 필요합니다 | 회의에서 | G-25 |
 
 ## 5. 고려사항 (C)
@@ -485,3 +489,18 @@ uv run ruff check . && uv run python -m mypy src
 | 한 일 | `recommend_engine_design.md` 를 1.2.0(착수본 + 대체 표시) → **2.0.0** 으로 다시 썼습니다. 착수본의 8절 구조(아키텍처·원칙 → 계약 → 알고리즘·수식 → 저장소·관측 → 배치 → 단계·상태 → 손잡이·지표 → 검증)를 유지하고 9절(열린 결정)을 더했습니다. 내용은 전부 현재 코드에서 읽었습니다 — ① SQL 함수의 조건 7개와 완화 계획, 페르소나 식과 무게, 17 피처의 계산·모름 조건·가중치, 중심화 코사인, MMR·혼합 탐색·노출 확률·이유, 동결 키 10종과 덧붙임 키, 테이블별 읽고 쓰는 칸, JSON 원본 형식, 카운터 목록, 파일 배치와 소유, Step 0~6 상태와 실제 검사, DB 전환 15항목, 손잡이 25개, 검증 수치, 열린 결정 7건. LaTeX 대신 텍스트 블록. 식별자는 쓰지 않았습니다 |
 | 함께 | `recommend_engine_design_digest.md` 3.0.0(새 명세의 압축본) · `docs/README.md` 두 행(1.8.1) · 설명서 12절의 "회의 이전 판" 표기(1.2.0) |
 | 검증 | 04 형식 검사(명세·압축본 포함) 위반 없음 · 식별자 대조 4쌍 일치 · `ruff format --check` 0 |
+
+### 9.15 2026-09-13~14 - 4회차 복기 (오류 없이 잘못 실행되는 것)
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 — "오류 없이 잘못 실행되고 있을 가능성을 포함해서 전체 테스트를 꼼꼼하게. 테스트·수정·재테스트를 3회 반복하고 오류가 모두 수정됐을 때만 커밋" |
+| 방법 | 1회차: 게이트 4종·A 게이트 6종·평가 스크립트 + 검토자 둘(랭킹 경로 무음 실패 · 문서 드리프트와 검사 품질) + 직접 탐침(손잡이 생존, 결정론, 레시피 없는 이벤트, 저장소 OS 오류). 2회차: 수정 뒤 전체 재실행 + diff 자체 검토(검토자 셋째는 세션 한도 429 로 시작하지 못함). 3회차: 문서 정합 뒤 전체 재실행 |
+| 발견 | 스무 건 — F-51 평가 스크립트가 시드 없는 난수원을 쓰며 추적에는 `rng_seed=user_id` 를 적음(실행마다 목록이 다름) · F-52 `rank_candidates` 가 `rng` 와 `rng_seed` 를 따로 받음 · F-53 피처 행 없는 유령 후보가 1위 · F-54 정책 지문이 로그에 없음 · F-55 가중치 덮어쓰기 미검증(오타 키가 24% 를 조용히 없앰) · F-56 `f_cooccur` 사유 템플릿의 `similar_title` 을 아무도 만들지 않음 · F-57 후보 0건에 `explore_fallback` 표시 · F-58 감점 반올림으로 로그 재현이 1e-6 어긋남 · F-59 랭킹 손잡이 미검증(세기 1.5·음수 감점 통과) · F-60 빈 재료명이 "(D-3)을 소진" 문구를 만듦 · F-61 중복 후보가 두 번 노출 · F-62 균등 폴백 판정이 재정렬(풀)과 서비스(전체)에서 다름 · F-63 레시피 없는 조리·별점 이벤트가 카운트 없이 버려짐 · F-64 저장소 OS 오류가 추천을 500 으로 죽임 · F-65 Thompson 픽의 확률 귀속(A 함수) · F-66 `candidate_limit` 은 엔진에서 죽은 손잡이 · F-67 `report_dead_weight` 문구가 MMR 을 무시 · F-68 문서 드리프트 묶음(예비 20개, 기피 감점 0.2배, `cuisine_family`, `data/` 기본값 없음, 로그 카운터 누락, 0.21, 7곳, 못 박은 항목 10개, 점검표 검사 명령 종료코드 1, 척도 저장 형식) · F-69 검사가 못 잡던 행동(MMR λ, 균등 노출 확률 값, 추적 값, score_stats, 출처 라벨)과 동어반복 검사 3건 · F-70 `Makefile` 의 `PY := .venv/bin/python` 이 Windows 에 없음 |
+| 결정 | D-39(시드로 난수원 생성) · D-40(유령·중복 후보 제외와 `filters`) · D-41(폴백 판정은 후보 전체) |
+| 고친 코드 | `service.py`(`rank_candidates` 서명 — `rng` 제거·`_validate_weights`·`_rankable`·`policy_fingerprint`·`filters`·`ExplorationSpec` 사용, `record_events` 레시피 없는 이벤트, `persona_for` OSError) · `engine/rerank.py`(`ExplorationSpec`·`exploration_spec`, 빈 후보, `_named`, `_similar_cooked_title`) · `engine/score.py`(감점 반올림) · `engine/feature.py`(재료를 모르는 레시피는 None) · `engine/context.py`(`cooked_titles`) · `policy.py`(범위·관계 검증 확대) · `profile_store.py`(문구) · `scripts/eval_recommend_mock.py`(rng 인자 제거, 문구) · `pyproject.toml`·`tests/conftest.py`(낡은 건수 주석) |
+| 검사 | 새 16건, 교체 4건 — `test_service.py` 10(유령·중복, 가중치, 지문·추적 값, 후보 0건, 시드 재현, 감점 재현, 분위수, 레시피 없는 이벤트, OS 오류, 폴백·부족분 한 판정), `test_rerank.py` 3(MMR λ, 균등 확률 4/20, 빈 이름·유사 제목) + 출처 라벨 강화, `test_persona.py`(NaN 값, 값 동일성 강화, 중복 검사 병합), `test_profile_store.py` 2(배열 아닌 flavor, 축 모자란 제시 항목), `test_db_cutover.py`(M-06 교체, M-11·M-13 못 추가). 파트 B 검사 함수 151개, 수집 165건 |
+| 검증 | ruff·format(142)·mypy(62) 종료코드 0, `pytest tests/unit` **292 passed** / coverage **90.64%**(2,169문. `persona.py`·`profile_store.py`·`score.py`·`candidate.py`·`context.py` 100%). `seeds/validate` 0, `contract` 98건 0. Mock 종단 — 두 번 실행 동일, 탐색 [4,4,4,4,4,4,4,4,2,4,10,8], 인기순 폴백 7/12, 피드백 15.07 / 0.91, 취향 없는 사용자 lift None |
+| 규약 | `service.py` 446줄 · `rerank.py` 348줄 · `persona.py` 340줄 — 검토 문턱(300) 초과, 필수 분리(500) 아님. `rank_candidates` 는 인자 10개(원래 11)로 여전히 초과(N-02). `noqa: S311` 한 줄 추가(D-39, G-16 묶음) |
+| 문서 | 명세 2.1.0 · 압축본 3.1.0 · 설명서 1.3.0 · 결정 기록 1.2.0 · 점검표 1.4.0(M-03·M-06, 못 10개, `--no-cov`) · 검증 기록 15절 · 안건 G-28·G-14 |
+| 넘긴 것 | G-28(Thompson 확률 귀속, A) · G-14 에 `Makefile` 경로 · N-02 묶음의 `candidate_limit` · M-06 의 라우터 몫 |

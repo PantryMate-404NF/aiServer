@@ -4,7 +4,7 @@
 
 **적용 대상**: 팀 전원. 파트 A(데이터)와 C(평가), 백엔드는 2절(계약)·4절(저장소와 로그)·9절(열린 결정)을 먼저 봅니다. 파트 B 구현자와 AI 코딩 에이전트는 전체를 봅니다
 
-**버전**: 2.0.0 · **최종 수정**: 2026-09-12 · **작성자**: 유재현
+**버전**: 2.1.0 · **최종 수정**: 2026-09-14 · **작성자**: 유재현
 
 ---
 
@@ -111,7 +111,7 @@ Layer 1 은 끝났고 검사 276건과 가상 사용자 12명의 종단 실행�
 | 모델 | 출처 | 필드 |
 |---|---|---|
 | `RecipeFeature` | `recipe_feature` 한 행 | `recipe_id`, `title`, `essential_ids`(필수 재료 집합), `all_ids`(전체 재료 집합), `flavor_vec`(6축), `popularity_score`, `quality_score`, `cook_minutes`, `cuisine`, `dish_type`, `season_score`, `difficulty`, `product_ids`. 데이터가 없는 칸은 None |
-| `UserHistory` | `user_ingredient_pref`·`event_log`·`user_cluster_stat` | `liked_ingredient_ids`, `avoid_ingredient_ids`, `recent_recipe_ids`(최근 7일 노출), `cooked_recipe_ids`(최근 14일 조리), `cooked_ingredient_sets`, `cluster_seen`, `cluster_hits` |
+| `UserHistory` | `user_ingredient_pref`·`event_log`·`user_cluster_stat` | `liked_ingredient_ids`, `avoid_ingredient_ids`, `recent_recipe_ids`(최근 7일 노출), `cooked_recipe_ids`(최근 14일 조리), `cooked_ingredient_sets`, `cooked_titles`(사유 문구용 제목), `cluster_seen`, `cluster_hits` |
 | `CorpusStats` | `feature_stats`·`ingredient.freq_count` | `flavor_mean`(코퍼스 6축 평균), `ingredient_idf`, `ingredient_names` |
 | `Persona` | 취향 페르소나 계산 결과(3.2절) | `vec`(6축, 모르는 축 None), `prior_source`(picks · scales · none), `mode`(onboarding · blended · behavior), `prior_weight`, `behavior_weight`, `n_events`, `axis_weights` |
 | `UserContext` | 위 넷을 모은 것 | `user_id`, `pantry_ids`, `expiring_ids`(임박 재료), `taste_vec`(= persona.vec), `max_cook_minutes`, `preferred_cuisines`, `preferred_dish_types`, `skill_level`, `history`, `persona` |
@@ -142,7 +142,7 @@ Layer 1 은 끝났고 검사 276건과 가상 사용자 12명의 종단 실행�
 
 ### 2.4 온보딩 제시 음식 목록
 
-취향의 측정 도구입니다. 데이터 파트가 `seeds/onboarding_recipes.yaml` 에 음식 20개와 각각의 6축 맛을 둡니다(예비 4개는 따로). 엔진은 이 파일을 읽을 때 축 순서가 (매움, 짠맛, 단맛, 신맛, 감칠맛, 기름짐)인지, 항목마다 축이 여섯 개인지 검사합니다 — 값이 전부 0~1 이라 순서가 어긋나도 다른 어떤 검사에도 걸리지 않기 때문입니다.
+취향의 측정 도구입니다. 데이터 파트가 `seeds/onboarding_recipes.yaml` 에 음식 20개와 각각의 6축 맛을 둡니다(예비 20개는 따로). 엔진은 이 파일을 읽을 때 축 순서가 (매움, 짠맛, 단맛, 신맛, 감칠맛, 기름짐)인지, 항목마다 축이 여섯 개인지 검사합니다 — 값이 전부 0~1 이라 순서가 어긋나도 다른 어떤 검사에도 걸리지 않기 때문입니다.
 
 | 요리군 | 음식 (6축 예 — 매움, 짠맛, 단맛, 신맛, 감칠맛, 기름짐) |
 |---|---|
@@ -216,7 +216,7 @@ w = 종류 무게 × 시간 감쇠 × 연 주기 친화도 × 주 주기 친화�
 
 종류 무게   조리 1.0 · 저장 0.6 · 클릭 0.3 · 별점 (별점 - 3) / 2 를 0~1 로 자름 (5점 = 1.0, 3점 이하 = 0)
             무시·저장 취소·노출·검색 = 0 (취향은 좋아한 것으로만 만듭니다)
-            1~5 밖의 별점은 무게가 아니라 잘못된 이벤트로 세고 저장하지 않습니다
+            1~5 밖의 별점, 레시피 없이 온 조리·저장·클릭·별점은 무게가 아니라 잘못된 이벤트로 세고 저장하지 않습니다
 시간 감쇠   0.5 ^ (경과일 / 반감기),  반감기 90일 (예시값, 실제 데이터로 대체 필요). 0 이하면 감쇠 끔
 주기 친화도 1 - s × (1 - cos(2π × 위상 차이)) / 2
             위상 = 연중 경과 비율(연) · 요일+시각(주) · 하루 경과 비율(일)
@@ -239,7 +239,7 @@ prior 가 없는 축은 behavior 만, behavior 가 없는 축은 prior 만, 둘 
 
 **취향이 없는 사용자.** 6축이 전부 모름이면 맛 피처가 계산에서 빠지고(Zero-Drop) 새로운 시도 비율이 20% 에서 40% 로 올라갑니다. 임의의 취향을 넣지 않습니다 — 넣으면 일관되게 엉뚱한 추천이 되고, 비우면 다양성 장치가 대신 일합니다.
 
-**저장.** 실 DB 전까지 사용자당 JSON 파일 하나에 **원본**을 둡니다 — 고른 음식의 인덱스와 그때의 6축 스냅숏, 3축 척도 원본, 이벤트 목록(레시피, 종류, 시각, 6축 스냅숏, 값). 결과가 아니라 원본을 두어 시드나 계산식이 바뀌어도 다시 계산할 수 있습니다. 파일은 사용자 ID 로 256개 폴더에 나누고, 호출마다 다른 임시 파일에 쓴 뒤 이름을 바꾸며(쓰다가 죽어도 이전 파일이 남음), 파일 안의 사용자와 요청한 사용자가 다르면 읽기를 거부하고, 같은 사용자의 읽고-합치고-쓰기는 프로세스 안에서 잠금으로 직렬화합니다. 저장 전에 730일보다 오래되거나 2,000건을 넘는 이벤트를 잘라냅니다(예시값, 실제 데이터로 대체 필요) — 기본값에서는 잘리는 이벤트의 무게가 0.4% 이하입니다. JSON 으로는 멀쩡해도 축이 모자라거나 NaN 이거나 범위 밖인 파일은 읽기 실패 한 종류로 다루고, 서빙은 그것을 받아 취향 없는 사용자로 응답하며 실패를 셉니다. DB 가 붙으면 같은 내용을 `user_vector` 와 `event_log` 에서 읽습니다(6.8절).
+**저장.** 실 DB 전까지 사용자당 JSON 파일 하나에 **원본**을 둡니다 — 고른 음식의 인덱스와 그때의 6축 스냅숏, 3축 척도 원본, 이벤트 목록(레시피, 종류, 시각, 6축 스냅숏, 값). 결과가 아니라 원본을 두어 시드나 계산식이 바뀌어도 다시 계산할 수 있습니다. 파일은 사용자 ID 로 256개 폴더에 나누고, 호출마다 다른 임시 파일에 쓴 뒤 이름을 바꾸며(쓰다가 죽어도 이전 파일이 남음), 파일 안의 사용자와 요청한 사용자가 다르면 읽기를 거부하고, 같은 사용자의 읽고-합치고-쓰기는 프로세스 안에서 잠금으로 직렬화합니다. 저장 전에 730일보다 오래되거나 2,000건을 넘는 이벤트를 잘라냅니다(예시값, 실제 데이터로 대체 필요) — 기본값에서는 잘리는 이벤트의 무게가 0.4% 이하입니다. JSON 으로는 멀쩡해도 축이 모자라거나 NaN 이거나 범위 밖인 파일은 읽기 실패 한 종류로 다루고, 서빙은 그것을 받아 취향 없는 사용자로 응답하며 실패를 셉니다. 저장소 자체를 읽을 수 없는 OS 오류도 추천을 죽이지 않고 따로 셉니다. DB 가 붙으면 같은 내용을 `user_vector` 와 `event_log` 에서 읽습니다(6.8절).
 
 ### 3.3 ② 점수 매기기 (Ranking)
 
@@ -254,8 +254,8 @@ score  = raw × P_recent × P_cooked × (1 - P_avoid)
 |---|---|---|---|---|
 | 재료 | `f_coverage` | ① 이 준 coverage = 1 − 부족 수 / 필수 수 | 없음 | 0.24 |
 | 재료 | `f_missing` | 1 − 부족 수 / (max_missing + 1) | 없음 | 0.05 |
-| 재료 | `f_expiring` | 임박 재료 가운데 필수 재료에 쓰이는 비율 | 임박 재료가 없음 | 0.15 |
-| 재료 | `f_pantry_use` | 보유 재료 가운데 레시피에 쓰이는 비율 | 보유 재료가 없음 | 0 |
+| 재료 | `f_expiring` | 임박 재료 가운데 필수 재료에 쓰이는 비율 | 임박 재료가 없음 · 레시피 재료를 모름 | 0.15 |
+| 재료 | `f_pantry_use` | 보유 재료 가운데 레시피에 쓰이는 비율 | 보유 재료가 없음 · 레시피 재료를 모름 | 0 |
 | 취향 | `f_taste` | 중심화 코사인(아래) | 코퍼스 평균 없음 · 공통 축 없음 · 방향 없음 | 0.16 |
 | 취향 | `f_ing_pref` | 레시피 재료 가운데 선호 재료 비율 | 선호 재료 이력이 없음 | 0.11 |
 | 취향 | `f_cuisine` | 선호 요리군이면 1, 아니면 0 | 레시피 요리군 없음 · 선호 없음 | 0.04 |
@@ -267,7 +267,7 @@ score  = raw × P_recent × P_cooked × (1 - P_avoid)
 | 상황 | `f_season` | 제철 점수 그대로 | 값 없음 | 0.02 |
 | 상황 | `f_skill_fit` | 1 − abs(난이도 − 실력) | 둘 중 하나 없음 | 0 |
 
-가중치 0 인 피처는 재기만 하고 순위에 쓰지 않습니다. 가중치의 합은 1.00 이고, 그 가운데 이력이 있어야 재는 `f_ing_pref`·`f_cooccur`(0.21)와 데이터가 아직 없는 `f_cuisine`·`f_season`(0.06)은 지금 Mock 에서 대부분 모름이라 순위에 관여하지 않습니다. 데이터가 오면 코드를 고치지 않아도 켜집니다. 가중치는 실제 사용자 데이터로 쌍대비교 학습을 해 다시 정합니다.
+가중치 0 인 피처는 재기만 하고 순위에 쓰지 않습니다. 가중치의 합은 1.00 이고, 그 가운데 이력이 있어야 재는 `f_ing_pref`·`f_cooccur`(0.21)와 데이터가 아직 없는 `f_cuisine`·`f_season`(0.06)은 지금 Mock 에서 대부분 모름이라 순위에 관여하지 않습니다. 데이터가 오면 코드를 고치지 않아도 켜집니다. 가중치는 실제 사용자 데이터로 쌍대비교 학습을 해 다시 정합니다. 디버거가 요청에 실어 보내는 가중치 덮어쓰기는 모르는 키·음수·합 0 을 거부합니다 — 오타 하나가 조용히 한 피처의 몫을 없애기 때문입니다.
 
 **맛 피처(중심화 코사인)**
 
@@ -289,7 +289,7 @@ f_taste    = 0.5 + (similarity - 0.5) × confidence
 | `P_cooked` | 최근 14일 안에 조리한 레시피 | × 0.5 |
 | `P_avoid` | 기피 재료 비율 × 2.0, 상한 0.8 | × (1 − P_avoid), 최저 × 0.2 |
 
-곱한 계수는 `penalty` 로 남겨 로그에서 되계산됩니다. 후보는 점수 내림차순, 같은 점수는 `recipe_id` 순으로 고정합니다.
+곱한 계수는 소수 여섯 자리로 반올림한 값을 점수에 곱하고 그대로 `penalty` 로 남겨, 로그의 두 값만으로 점수가 정확히 재현됩니다. 후보는 점수 내림차순, 같은 점수는 `recipe_id` 순으로 고정합니다. ① 이 준 후보 가운데 피처 행이 없는 것과 같은 레시피가 두 번 온 것은 점수를 매기지 않고 세어 ranking 단계의 `filters`(`recipe_feature_missing`, `candidate_duplicate`)에 남깁니다 — 피처가 없는 후보는 갖춘 재료 하나만으로 만점이 되어 1위로 나가기 때문입니다.
 
 ### 3.4 ③ 목록 다듬기 (Re-ranking)
 
@@ -310,7 +310,8 @@ sim(r, s)   = Σ_{공통 재료} IDF / Σ_{합집합 재료} IDF          (소�
 슬롯 조정     = min(n, |후보 풀| // 2)     → 채우지 못한 칸 수는 dropped.explore_shortfall 에 남김
 균등 몫       = max(1, round(n × 0.5))   → 풀에서 균등 무작위. 모든 후보에 최소 노출 확률을 보장
 Thompson 몫   = 나머지                   → 레시피 묶음(cluster)별 Beta 사후분포를 뽑아 상위 묶음에서 점수 최고 후보
-군집이 없으면 → 전부 균등 (계약대로), 추적에 explore_fallback = uniform
+후보 전체에 군집이 하나도 없으면 → 전부 균등 (계약대로), 추적에 explore_fallback = uniform
+              (풀에만 없으면 폴백이 아니라 부족분. 군집은 배치 단위로 붙기 때문)
 ```
 
 균등 몫이 없으면 Thompson 이 외면한 묶음의 레시피는 노출 확률이 0 이 되어 나중에 어떤 방법으로도 평가할 수 없습니다. 반대로 Thompson 이 없으면 우연한 발견이 없습니다. 그래서 반씩입니다(예시값, 실제 데이터로 대체 필요).
@@ -347,10 +348,11 @@ Thompson 으로 뽑힐 확률 = 몬테카를로 200회로 추정한 "그 묶음�
 | `persona_source` · `persona_mode` | 취향 출처(picks · scales · none) · 상태(onboarding · blended · behavior) |
 | `persona_events` · `persona_behavior_weight` | 세어진 이벤트 수 · 행동 무게 합 |
 | `explore_fallback` | 군집이 없어 탐색을 전부 균등으로 채웠으면 `uniform`. 있으면 그 요청의 실효 균등 비율은 1.0 |
+| `policy_fingerprint` | 손잡이 25개와 실효 가중치의 지문. `policy_id` 는 절차 이름이라 값이 바뀌어도 그대로이므로 이것이 있어야 그때의 손잡이를 되찾습니다 |
 
 rerank 단계의 `dropped` 에는 `mmr_or_cap`(다양성·상한으로 빠진 수)과 `explore_shortfall`(채우지 못한 탐색 칸 수)이, ranking 단계의 `score_stats` 에는 점수의 min·p25·p50·p75·max 가 실립니다. 점수 분포가 납작해지는 것을 이 값으로 알아챕니다.
 
-**로그 적재**(파트 A 의 `write_recommendation`). 응답 직후 `recommendation_log` 1행과 노출 아이템마다 `event_log` 의 `impression` 1행을 씁니다. 저장하는 후보는 점수 상위 50건에 **실제 노출분을 합집합**한 것입니다 — 새로운 시도 아이템은 상위 200 풀에서 뽑혀 50 밖으로 떨어질 수 있는데, 그것이 노출 확률 1 미만인 유일한 행이라 잘리면 평가에 필요한 것만 정확히 사라집니다. 점수 재현에 필요한 세 값(`config_hash`, `warm_alpha`, `stats_version`)이 없으면 행에 `not_reproducible` 표시를 남깁니다. 쓰기는 300ms 안에 끝나야 하고, 실패하면 예외를 올리지 않고 `failed` 를 세며 최소 행(묘비)만이라도 남깁니다. 세는 값은 `written` · `promoted` · `duplicate` · `failed` · `impressions` · `tombstoned` · `contract_violation` 입니다.
+**로그 적재**(파트 A 의 `write_recommendation`). 응답 직후 `recommendation_log` 1행과 노출 아이템마다 `event_log` 의 `impression` 1행을 씁니다. 저장하는 후보는 점수 상위 50건에 **실제 노출분을 합집합**한 것입니다 — 새로운 시도 아이템은 상위 200 풀에서 뽑혀 50 밖으로 떨어질 수 있는데, 그것이 노출 확률 1 미만인 유일한 행이라 잘리면 평가에 필요한 것만 정확히 사라집니다. 점수 재현에 필요한 세 값(`config_hash`, `warm_alpha`, `stats_version`)이 없으면 행에 `not_reproducible` 표시를 남깁니다. 쓰기는 300ms 안에 끝나야 하고, 실패하면 예외를 올리지 않고 `failed` 를 세며 최소 행(묘비)만이라도 남깁니다. 세는 값은 `written` · `promoted` · `duplicate` · `failed` · `failed:<예외 이름>` · `impressions` · `tombstoned` · `tombstone_failed` · `contract_violation` 입니다.
 
 ---
 
@@ -362,7 +364,7 @@ DDL 은 데이터 파트가 `deploy/init/02_schema.sql` 로 소유합니다. 여
 
 | 테이블 | 엔진이 읽는 것 | 엔진이 쓰는 것 |
 |---|---|---|
-| `recipe_feature` | `essential_ids`, `all_ids`, `n_essential`, `n_total`, `n_unmatched`, `flavor_vec`(6축), `popularity_score`, `quality_score`, `cook_minutes`, `difficulty`, `cuisine`, `dish_type`, `season_vec`, `cluster_id`, `feature_version` | 없음 |
+| `recipe_feature` | `essential_ids`, `all_ids`, `n_essential`, `n_total`, `n_unmatched`, `flavor_vec`(6축), `popularity_score`, `quality_score`, `cook_minutes`, `difficulty`, `cuisine_family`(엔진의 `cuisine`), `dish_type`, `season_vec`, `cluster_id`, `feature_version` | 없음 |
 | `feature_stats` | `flavor_mu`(코퍼스 6축 평균), `n_recipes` → 로그의 `stats_version` | 없음 |
 | `ingredient` | `freq_count`(IDF 의 원천), `is_staple`, `name` | 없음 |
 | `user_ingredient_pref` | `score`(−1~1)로 선호·기피 재료 | 없음 (온보딩의 기피 재료는 A 함수가 −0.8 로 저장) |
@@ -375,7 +377,7 @@ DDL 은 데이터 파트가 `deploy/init/02_schema.sql` 로 소유합니다. 여
 ### 4.2 취향 원본 JSON 저장소 (실 DB 전까지)
 
 ```text
-data/<user_id % 256 을 16진수 두 자리>/<user_id>.json
+<저장 위치, 예: data/>/<user_id % 256 을 16진수 두 자리>/<user_id>.json
 {
   "schema": 1,
   "user_id": 1001,
@@ -388,7 +390,7 @@ data/<user_id % 256 을 16진수 두 자리>/<user_id>.json
 }
 ```
 
-시각은 반드시 시간대가 있어야 합니다(없으면 거부). `data/` 는 개인의 행동 이력이 들어 있어 저장소에 커밋되지 않습니다.
+시각은 반드시 시간대가 있어야 합니다(없으면 거부). 저장 위치는 라우터를 잇는 시점에 정하며 `data/` 를 권합니다 — 개인의 행동 이력이 들어 있고 `.gitignore` 가 `data/*` 를 막고 있어 커밋되지 않습니다.
 
 ### 4.3 관측
 
@@ -401,9 +403,10 @@ data/<user_id % 256 을 16진수 두 자리>/<user_id>.json
 | `persona_pick_duplicate` · `persona_picks_under_min` | 같은 음식 중복 · 3개 미만 선택 |
 | `persona_event_ignored` · `persona_event_invalid` · `persona_event_duplicate` | 무게 0 인 종류 · 범위 밖·값 없는 별점 · 한 배치 안의 같은 이벤트 |
 | `persona_recipe_unknown` | 맛을 모르는 레시피의 이벤트 |
-| `persona_missing` · `persona_profile_unreadable` | 원본 없음 · 원본 파일을 읽을 수 없음(둘 다 취향 없는 사용자로 응답) |
+| `persona_missing` · `persona_profile_unreadable` · `persona_store_error` | 원본 없음 · 원본 파일이 깨짐 · 저장소를 읽을 수 없음(OS 오류). 셋 다 취향 없는 사용자로 응답 |
 | `explore_shortfall` · `explore_uniform_fallback` | 채우지 못한 탐색 칸 수 · 군집 없이 균등으로 채운 요청 수 |
-| `written` · `promoted` · `duplicate` · `failed` · `impressions` · `tombstoned` · `contract_violation` | 로그 적재 결과 |
+| `recipe_feature_missing` · `candidate_duplicate` | ① 이 준 후보에 피처 행이 없음 · 같은 레시피가 두 번 옴(둘 다 ② 전에 빼고 셈) |
+| `written` · `promoted` · `duplicate` · `failed` · `failed:<예외 이름>` · `impressions` · `tombstoned` · `tombstone_failed` · `contract_violation` | 로그 적재 결과 |
 
 `/health` 의 `db` 는 실제 연결 확인값입니다. `redis` 는 저장소에 클라이언트가 없는데 기본값 참이라 근거가 없습니다(9절).
 
@@ -440,7 +443,7 @@ src/features/recommend/
 scripts/generate_mock_fixtures.py   가상 사용자 12명 · 레시피 120 · 재료 60 · 알레르기 그룹 18 (tests/fixtures/recommend/)
 scripts/eval_recommend_mock.py      12명 종단 실행과 판정 지표, 피드백·계절·지연시간 시나리오
 seeds/onboarding_recipes.yaml       온보딩 제시 음식 20개의 6축
-tests/unit/recommend/               파트 B 검사 136건 + 파트 A 검사 도구(계약 98건 등)
+tests/unit/recommend/               파트 B 검사 함수 151개(수집 항목 165건) + 파트 A 검사 도구(계약 98건 등)
 ```
 
 `[A]` 는 데이터 파트가 만든 파일을 그대로 쓰는 것이고, 파트 B 는 표기·타입 수정과 인자 하나(`mixed_exploration(mc=)`) 외에는 손대지 않았습니다. `engine/` 은 외부 입출력이 없는 순수 함수만 둡니다 — DB 도, 시계도, 전역 난수도 보지 않습니다.
@@ -510,16 +513,16 @@ tests/unit/recommend/               파트 B 검사 136건 + 파트 A 검사 도
 
 ### 6.8 실 DB 를 붙일 때 반드시 함께 처리할 것
 
-라우터가 목업으로 200 을 돌려주므로 아래를 하나 빠뜨려도 에러가 나지 않습니다. 그래서 `tests/unit/recommend/test_db_cutover.py` 가 각 항목에 못을 박아 두었고, 항목 하나를 건드리면 검사가 깨지며 실패 메시지가 번호를 알려 줍니다.
+라우터가 목업으로 200 을 돌려주므로 아래를 하나 빠뜨려도 에러가 나지 않습니다. 그래서 `tests/unit/recommend/test_db_cutover.py` 가 열 항목(라우터 실연결, 사용자 이력, 로그 적재, 난수 시드, 실패 카운터, 손잡이 정본, `redis`, 커버리지 범위, 취향 원본, 온보딩·이벤트 라우트)에 못을 박아 두었고, 그 항목을 건드리면 검사가 깨지며 실패 메시지가 번호를 알려 줍니다. 나머지 다섯(후보 조회 연결, 코퍼스 통계, 합성 피처 격리, `f_time_fit`, A 검사 4종)은 실 DB 가 있어야 확인되는 것이라 점검표 문구로만 남습니다.
 
 | 항목 | 해야 할 일 | 확인 근거 |
 |---|---|---|
 | 라우터 실연결 | `/v1/recommend` → `service.rank_candidates`. 아래 넷과 같은 변경에서 | 응답의 `model_version` 이 정책 이름과 같음 |
 | 후보 조회 연결 | `repository.retrieve()` 산출을 엔진에 넣기. 완화는 `engine/candidate.py` 계획대로 재조회 | 요청당 DB 왕복 1회 |
-| 사용자 이력 적재 | 선호·기피 재료, 최근 노출·조리, 군집 관측을 DB 에서 읽어 `UserHistory` 로 | `f_ing_pref`·`f_cooccur` 가 모름이 아님 |
+| 사용자 이력 적재 | 선호·기피 재료, 최근 노출·조리, 조리 레시피의 재료 집합과 제목, 군집 관측을 DB 에서 읽어 `UserHistory` 로 | `f_ing_pref`·`f_cooccur` 가 모름이 아니고 "지난번 만드신 X 와 비슷해요" 사유가 나옴 |
 | 코퍼스 통계 로드 | `feature_stats.flavor_mu` 와 IDF. `stats_version` 을 로그에 | 맛 코사인이 실제 평균을 차감 |
 | 로그 적재 연결 | 응답 직후 `write_recommendation`. `config_hash`·`warm_alpha`·`stats_version` 을 반드시 넘김 | 저장된 행의 `params` 에 동결 키 10종 |
-| 난수 시드 실사용 | 서빙이 `random.Random(rng_seed)` 를 만들어 넘김 | 같은 시드로 두 번 호출해 탐색 슬롯이 같음 |
+| 난수 시드 실사용 | 조립 함수가 추적의 `rng_seed` 로 난수원을 직접 만듭니다(2026-09-14). 라우터가 요청마다 시드를 정해 넘기고 응답·로그에 남김 | 같은 시드로 두 번 호출해 탐색 슬롯이 같음(단위 검사 있음) |
 | 실패 카운터 노출 | `counters()` 를 `/health` 나 대시보드에 | 적재를 일부러 실패시키고 밖에서 보임 |
 | 손잡이 정본 결정 | `Settings`(환경변수)와 `RankingPolicy` 가운데 하나로 | `.env` 값을 바꾸면 추적 파라미터가 따라 바뀜 |
 | 합성 피처 격리 확인 | `feature_version LIKE 'test-%'` 필터 실측 | 합성 행 0건 |
@@ -580,16 +583,16 @@ tests/unit/recommend/               파트 B 검사 136건 + 파트 A 검사 도
 uv run ruff check . && uv run ruff format --check . && uv run python -m mypy src && uv run pytest tests/unit
 ```
 
-2026-09-12 결과(커밋 `b7b25b4` 트리):
+2026-09-14 결과(4회차 복기를 반영한 트리):
 
 ```text
 ruff check                → 0   All checks passed!
 ruff format --check       → 0   142 files already formatted
 mypy src                  → 0   Success: no issues found in 62 source files
-pytest tests/unit         → 0   276 passed, coverage 90.23% (기준 80%, 측정 2,098문)
+pytest tests/unit         → 0   292 passed, coverage 90.64% (기준 80%, 측정 2,169문)
 python seeds/validate.py  → 0   시드 정합 통과 (경고 13건)
 python -m tests.unit.recommend.test_contract → 0   계약 98건 전부 통과 (설정값 20종을 환경변수로 채운 환경)
-python scripts/eval_recommend_mock.py        → 0   가상 사용자 12명 종단
+python scripts/eval_recommend_mock.py        → 0   가상 사용자 12명 종단. 두 번 돌려 지연시간을 뺀 출력이 같음
 ```
 
 가상 사용자 12명 종단 실행에서 확인한 것입니다.
@@ -604,7 +607,8 @@ python scripts/eval_recommend_mock.py        → 0   가상 사용자 12명 종�
 | 매운 레시피를 최근 16번 만든 뒤 | 취향의 매움 0.22 → 0.57, 상태 behavior(행동 무게 15.07), 상위 5개 매움 평균 0.40 → 0.53 |
 | 같은 16번을 1년 전으로 두면 | 매움 0.26, 상태 blended(행동 무게 0.91) — 잊는 것이 동작 |
 | 계절 세기별 반년 전 이벤트 무게 | 세기 0: 0.246 · 0.5: 0.123 · 1.0: 0.000 (같은 계절 1년 전은 0.060 으로 세기와 무관) |
-| 후보 500건 기준 지연 | p50 15.4ms · p95 17.6ms · 최대 19.5ms |
+| 같은 시드로 다시 돌리면 | 목록·탐색 칸·노출 확률까지 같음. 평가 도구가 시드 없는 난수원을 쓰면서 추적에는 시드를 적던 것을 고쳤습니다 |
+| 후보 500건 기준 지연 | p50 15.4ms · p95 17.6ms · 최대 19.5ms (2026-09-12 측정. 다른 작업이 돌 때는 30ms 대) |
 
 한계도 둘 있습니다. 가상 레시피 120건의 맛 값은 시험용 분포라 고른 음식(실제 시드)으로 만든 취향이 가상 평균 아래에 놓여 맛 정합 효과가 실제보다 작게 나옵니다. 그리고 `needed` 를 36건으로 올린 뒤 가상 카탈로그에서는 인기순 폴백이 12명 중 7명입니다. 둘 다 실데이터에서 다시 잽니다.
 
@@ -622,6 +626,7 @@ python scripts/eval_recommend_mock.py        → 0   가상 사용자 12명 종�
 | 군집 없을 때의 균등 폴백 | 파트 A 의 `mixed_exploration` 이 계약의 폴백을 구현하지 않아 파트 B 가 밖에서 우회 | 파트 A 함수 안으로 옮길지 |
 | 손잡이의 정본 | `Settings`(환경변수)와 `RankingPolicy` 에 같은 값이 두 곳. 엔진은 `RankingPolicy` 만 읽음 | 어느 쪽을 정본으로 할지 |
 | `/health` 의 `redis` | 클라이언트가 없는데 기본값 참 | 필드를 뺄지 붙일지 |
+| Thompson 슬롯의 노출 확률 귀속 | A 의 혼합 탐색은 묶음의 확률을 그 묶음의 점수 최고 후보에만 붙입니다. 균등이 그 후보를 먼저 가져가면 Thompson 은 두 번째 후보를 뽑는데 그 아이템의 확률에는 균등 몫만 남습니다(가상 사용자 12명 500회에서 Thompson 픽의 6.6%) | 두 번째 후보에도 조건부 확률을 나눠 붙일지. 파트 A 함수의 일입니다 |
 | 모든 예시값 | 이 문서의 `(예시값, 실제 데이터로 대체 필요)` 전부 | 실제 사용자 데이터에서 학습·재측정 |
 
 진행 상태·결정 이력·검증 수치의 원본은 `docs/recommend/` 의 작업 기록·검증 기록·회의 안건·DB 전환 점검표에 있고, 개발자가 아닌 독자를 위한 설명은 `recommend_engine_how_it_works.md` 에 있습니다. 이 문서는 그 넷을 읽지 않아도 엔진을 이해할 수 있게 쓴 것이며, 코드와 이 문서가 어긋나면 코드가 맞고 이 문서를 고칩니다.

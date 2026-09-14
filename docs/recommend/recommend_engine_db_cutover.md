@@ -4,7 +4,7 @@
 
 **적용 대상**: `src/features/recommend/` 를 DB 에 연결하는 인원과 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 1.3.0 · **최종 수정**: 2026-09-12 · **작성자**: 유재현
+**버전**: 1.4.0 · **최종 수정**: 2026-09-14 · **작성자**: 유재현
 
 ---
 
@@ -21,13 +21,18 @@
 
 ## 2. 건너뛸 수 없게 하는 장치
 
-`tests/unit/recommend/test_db_cutover.py` 가 아래 항목들이 **아직 전환 전 상태임을
-못 박고 있습니다.** 그중 하나를 건드리면 검사가 깨지고 실패 메시지가 이 문서의
-항목 번호를 가리킵니다.
+`tests/unit/recommend/test_db_cutover.py` 가 아래 항목 가운데 열 항목(M-01 · M-03 · M-05 ·
+M-06 · M-07 · M-08 · M-11 · M-13 · M-14 · M-15)이 **아직 전환 전 상태임을 못 박고 있습니다.**
+그중 하나를 건드리면 검사가 깨지고 실패 메시지가 이 문서의 항목 번호를 가리킵니다. 나머지
+다섯(M-02 · M-04 · M-09 · M-10 · M-12)은 실 DB 가 있어야 확인되는 것이라 못이 없고, 이 문서의
+확인 근거로만 남습니다.
 
 ```bash
-uv run pytest tests/unit/recommend/test_db_cutover.py
+uv run pytest tests/unit/recommend/test_db_cutover.py --no-cov
 ```
+
+`--no-cov` 가 없으면 이 파일만 돌려도 저장소 전체 커버리지 문턱(80%)에 걸려 종료 코드가 1 이 됩니다 —
+검사가 실패한 것이 아닌데 01의 3.4 대로 읽으면 실패입니다.
 
 검사가 깨지면 순서는 이렇습니다.
 
@@ -45,10 +50,10 @@ uv run pytest tests/unit/recommend/test_db_cutover.py
 |---|---|---|---|---|---|
 | M-01 | 라우터 실연결 | `router.py` 의 모든 엔드포인트가 `engine/mock.py` 를 부릅니다. 응답은 200 이고 피처·추적·사유가 다 채워져 실엔진과 구분되지 않습니다 (F-29) | `/v1/recommend` 를 `service.rank_candidates` 로 바꿉니다. M-02·M-05·M-06 을 같은 변경에서 함께 처리합니다 | 실호출 응답의 `model_version` 이 `policy.POLICY_ID` 와 같고, `trace.stages` 가 `service` 가 만든 것과 일치 | 대기 |
 | M-02 | 후보 조회 연결 | 후보를 Mock 카탈로그와 픽스처가 만듭니다. `repository.retrieve()` 는 있으나 서빙 경로가 부르지 않습니다 | `retrieve(user_id, max_missing, max_minutes, limit)` 산출을 `rank_candidates` 에 넣습니다. 완화 계획은 `engine/candidate.py` 가 그대로 냅니다 | `make smoke-py` 통과. 요청당 DB 왕복이 1회인지 확인 | 대기 |
-| M-03 | 사용자 이력 적재 | `UserHistory` 가 항상 비어 있어 `f_ing_pref`(0.11)·`f_cooccur`(0.10)가 **전건 None** 입니다. 클러스터 관측도 비어 Thompson 이 균등 사전분포로만 돕니다 (F-15, F-28) | `user_ingredient_pref`·`event_log`·`user_cluster_stat` 에서 읽는 저장소 함수를 만들고 `build_context` 에 넣습니다 | 12 페르소나 재실행에서 두 피처가 None 이 아니고, 죽은 가중치 합이 0.26 → 0.05 로 줄어듦 | 대기 |
+| M-03 | 사용자 이력 적재 | `UserHistory` 가 항상 비어 있어 `f_ing_pref`(0.11)·`f_cooccur`(0.10)가 **전건 None** 입니다. 클러스터 관측도 비어 Thompson 이 균등 사전분포로만 돕니다 (F-15, F-28) | `user_ingredient_pref`·`event_log`·`user_cluster_stat` 에서 읽는 저장소 함수를 만들고(조리 레시피의 재료 집합과 제목 `cooked_titles` 포함 — 없으면 "지난번 만드신 X 와 비슷해요" 사유가 나오지 않습니다) `build_context` 에 넣습니다 | 12 페르소나 재실행에서 두 피처가 None 이 아니고, 죽은 가중치 합이 0.26 → 0.05 로 줄어듦 | 대기 |
 | M-04 | 코퍼스 통계 로드 | `CorpusStats.flavor_mean` 과 `ingredient_idf` 를 Mock 카탈로그에서 계산합니다. IDF 의 원천인 `ingredient.freq_count` 는 A 가 채우는 배치를 만들었습니다(`def3d5b`, `make freq-build`) | `feature_stats.flavor_mu` 와 실제 IDF 를 읽습니다. `stats_version` 을 함께 받아 로그에 싣습니다 (M-05) | 맛 코사인이 실제 코퍼스 평균을 차감하는지, `stats_version` 이 로그에 남는지 | 대기 |
 | M-05 | 로그 적재 연결 | `service` 가 `write_recommendation` 을 부르지 않습니다. 서빙 로그가 한 행도 쌓이지 않습니다 | 응답 직후 호출합니다. **`config_hash`·`warm_alpha`·`stats_version` 을 반드시 함께 넘깁니다** — 안 넘겨도 행은 저장되고 `not_reproducible` 플래그만 붙어 그 요청의 점수는 영영 재현되지 않습니다 | `make log-test` 통과. 저장된 행의 `policies` 가 `REQUIRED_TRACE_PARAMS` 10종을 전부 가짐 | 대기 |
-| M-06 | 난수 시드 실사용 | `rng_seed` 는 추적에만 실리고 난수를 만들지 않습니다. 호출부가 `SystemRandom` 을 넘기면 로그의 시드로 재현이 안 됩니다 (F-16, N-10) | 서빙 경로가 `random.Random(rng_seed)` 를 만들어 넘깁니다 | 같은 `rng_seed` 로 두 번 호출해 탐색 슬롯의 아이템과 위치가 같음 | 대기 |
+| M-06 | 난수 시드 실사용 | `rank_candidates` 가 추적의 `rng_seed` 로 난수원을 직접 만듭니다(2026-09-14, F-51·F-52). 그 전에는 `rng` 를 따로 받아 평가 스크립트가 `SystemRandom` 을 넘기며 `rng_seed=user_id` 를 적었습니다 (F-16, N-10) | 라우터가 요청마다 시드를 정해 넘기고 응답·로그에 남깁니다 | 같은 `rng_seed` 로 두 번 호출해 탐색 슬롯의 아이템과 위치가 같음 — 검사 `test_the_logged_seed_reproduces_the_list` | 대기 |
 | M-07 | 실패 카운터 노출 | `write_recommendation` 이 모든 예외를 삼키고 `bump()` 만 합니다. **그 카운터를 읽는 곳이 없습니다** — `/health` 도 대시보드도 싣지 않고 `QualityExtra.log_counters` 는 계약만 있고 채우는 코드가 없습니다 (F-33) | `counters()` 를 `/health` 응답이나 대시보드 수집에 싣습니다 | 적재를 일부러 실패시키고 `failed` 가 밖에서 보이는지 | 대기 |
 | M-08 | 손잡이 정본 결정 | `candidate_limit`·`explore_pool_size`·`propensity_mc` 가 `Settings` 와 `RankingPolicy` 두 곳에 같은 값으로 있고 **엔진은 `RankingPolicy` 만 읽습니다.** `.env` 로 바꿔도 아무 일이 없고 에러도 없습니다 (F-32, N-02) | 한쪽을 정본으로 정합니다. `Settings` 쪽이면 `RankingPolicy` 가 그 값을 받아 만들어지도록 바꿉니다 | `.env` 값을 바꿨을 때 `trace.params` 의 값이 따라 바뀜 | 대기 |
 | M-09 | 합성 피처 격리 확인 | `retrieve_for_user` 가 `feature_version LIKE 'test-%'` 를 뺍니다. 실 DB 없이는 그 필터가 도는지 확인할 수 없습니다 | 합성 행을 넣고 서빙 조회에 섞이지 않는지 실측합니다 | `make ddl-test` 통과. `include_test=false` 로 조회했을 때 합성 행이 0건 | 대기 |
