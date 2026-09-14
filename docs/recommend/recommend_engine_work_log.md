@@ -14,11 +14,11 @@
 |---|---|
 | 정본 | 이 파일. 사람용 서술본 `human/recommend_engine_work_log.md` 는 식별자로 대응하는 파생본 |
 | 계획서 | `recommend_engine_design.md` (구현 명세 2.0.0, 현재 구현 기준, 사람용 정본 · 노션 공유용) · `recommend_engine_design_digest.md` (에이전트용 압축본 3.0.0, 어긋나면 원본이 이기고 코드가 이김) |
-| 브랜치 | `feat/recommend-engine-core`. `origin/main` 병합 완료. `origin/develop-data-part` 는 두 번 병합했습니다 — 658d79a(9.6), def3d5b(9.10). `main` 병합은 PR #8 로 올렸고 **2026-09-11 11:52(KST) kmk9259 가 병합**했습니다(`5846a72`, `80cc832` 까지). 그 뒤 커밋 12개(`d35b619`~ 시뮬 패키지 `cdf656e` · `3633ed7` 와 기록, `main` 과 충돌 없음)는 미병합이며 새 PR 은 보류입니다(유재현, 2026-09-12). 시뮬 패키지는 (a)안(전부)으로 커밋했습니다(N-16, 2026-09-14) |
+| 브랜치 | `feat/recommend-engine-core`. `origin/main` 병합 완료. `origin/develop-data-part` 는 두 번 병합했습니다 — 658d79a(9.6), def3d5b(9.10). `main` 병합은 PR #8 로 올렸고 **2026-09-11 11:52(KST) kmk9259 가 병합**했습니다(`5846a72`, `80cc832` 까지). 그 뒤 커밋 13개(`d35b619`~ 시뮬 패키지 `cdf656e` · `3633ed7` · `1865540` 와 기록 `70e3b31`, `main` 과 충돌 없음)는 미병합이며 새 PR 은 보류입니다(유재현, 2026-09-12). 시뮬 패키지는 (a)안(전부)으로 커밋했습니다(N-16, 2026-09-14) |
 | 단계 | ② Ranking 과 ③ Re-ranking 을 A 계약 위에서 구현 완료. **취향 페르소나**(고른 음식 → 3축 척도 → 없음, 시간 감쇠·주기 가중, 사용자당 JSON 저장)를 9.11 에서 구현. ① Retrieval·로그 적재·DDL·배치는 A 것이 브랜치에 있습니다. 라우터에 `rank_candidates`·`PersonaService` 를 끼우는 것(M-01·M-15)과 DB 연결이 남았습니다. 9.12 에서 세 방향 복기(명세 · 무음 실패 · 규약)로 구멍 15개(F-36~F-50)를 찾아 14개를 코드로 고쳤습니다(D-34~D-38). 9.15 의 4회차 복기는 20건(F-51~F-70)을 더 찾아 코드 17건·기록 3건으로 닫았습니다(D-39~D-41). 9.16 은 기획측 시뮬 시드(1,600명)를 DB 없이 엔진에 넣는 도구 `scripts/sim/scenario_engine.py` 를 만들어 전원 불변식 · 콜드 → 웜 전환 · 행동·냉장고 반응을 확인했습니다(D-42·D-43). 9.17 은 유재현이 Docker Desktop 을 설치한 뒤 DB 경로(적재 · 검증 쿼리 · `/health` 포함 API 시나리오)까지 통과시켰습니다(D-44) |
 | 검증 (2026-09-14, 9.17) | ruff check OK · ruff format OK(151 files) · mypy **62 files** OK · `pytest tests/unit` **298 passed / 0 failed** / coverage **90.64%**(시뮬 검사 6건 포함). A 게이트 6종 전부 종료코드 0(9.16, `contract` 98건). 시뮬 DB 경로 — `load_sim.sh` 종료코드 0, `99_verify.sql` 여섯 건수·집단 × 모드 분포가 안내서 기대값과 일치, `scenario_run.py`(`/health` 포함, db true 0.11초) PASS, `scenario_engine.py` 1,600명 PASS. 출력은 `recommend_engine_verification.md` 16·17절 |
-| 다음 행동 | 공유 경로(`deploy/seed/sim`·`tests/fixtures/sim`·`dev` 의존성) 변경을 A 에 알림 → 미병합 커밋 12개의 새 PR(보류 해제 시) → N-01(.env) → 라우터 실연결(M-01·M-15) → G-24(3축 척도 범위)·G-25(월별 주기 해석)·G-26(`EventIn` 시각)·G-27(A 함수의 균등 폴백) 확인. 남은 회의 안건은 `recommend_engine_meeting_agenda.md` 2절 |
-| 병합 정책 | `main` 은 PR 로만 병합합니다(첫 PR #8 은 `5846a72` 로 병합됨). 브랜치 커밋·push 는 자유. `origin/main` 은 merge 로 따라감(rebase 금지, 01의 2.1). 병합된 브랜치 `feat/recommend-engine-core` 는 01의 2.1 대로 삭제 대상이나 미병합 커밋 12개가 있어 새 PR 전까지 둡니다 |
+| 다음 행동 | 공유 경로(`deploy/seed/sim`·`tests/fixtures/sim`·`dev` 의존성) 변경을 A 에 알림 → 미병합 커밋 13개의 새 PR(보류 해제 시) → N-01(.env) → 라우터 실연결(M-01·M-15) → G-24(3축 척도 범위)·G-25(월별 주기 해석)·G-26(`EventIn` 시각)·G-27(A 함수의 균등 폴백) 확인. 남은 회의 안건은 `recommend_engine_meeting_agenda.md` 2절 |
+| 병합 정책 | `main` 은 PR 로만 병합합니다(첫 PR #8 은 `5846a72` 로 병합됨). 브랜치 커밋·push 는 자유. `origin/main` 은 merge 로 따라감(rebase 금지, 01의 2.1). 병합된 브랜치 `feat/recommend-engine-core` 는 01의 2.1 대로 삭제 대상이나 미병합 커밋 13개가 있어 새 PR 전까지 둡니다 |
 | DB 전환 | `recommend_engine_db_cutover.md` 의 M-01~M-15. DB 와 닿는 변경을 시작할 때 먼저 엽니다. `tests/unit/recommend/test_db_cutover.py` 가 못을 박아 두어 건너뛰면 검사가 깨집니다 |
 | 갱신 규칙 | 세션마다 1절·3절·9절 갱신. 새 항목은 다음 번호, 번호 재사용 금지. 사람용 서술본 동시 갱신 (2절). **3.3 의 수치는 그 세션의 실행에서 다시 잽니다** — 앞 세션 값을 옮기지 않습니다 (01의 3.4, D-28). 9절의 세션별 수치는 그 시점 기록이므로 고치지 않습니다 |
 
@@ -550,6 +550,6 @@ uv run ruff check . && uv run python -m mypy src
 |---|---|
 | 입력 | 유재현 — "(a)안으로. 의존성이 필요하면 환경 파일 등에 포함해서 진행" |
 | 결정 | N-16 → (a) 전부 커밋. openpyxl·pandas 를 `dev` 묶음에 `uv add --group dev --no-sync` (F-72 해소. 가상환경은 같은 버전이 이미 있어 lock 만 갱신, `uv lock --check` 0) |
-| 커밋 | `cdf656e` build(deps: pyproject·uv.lock) · `3633ed7` feat(sim): 31 파일 +21,435 — `scripts/sim` 5 · `tests/unit/sim` 2 · `tests/fixtures/sim/planning_v0.4` xlsx 11 · `deploy/seed/sim` 11 · 안내서 1.3.0 · `docs/README.md`. 기록은 그다음 `docs(recommend)` 커밋 |
+| 커밋 | `cdf656e` build(deps: pyproject·uv.lock) · `3633ed7` feat(sim): 31 파일 +21,435 — `scripts/sim` 5 · `tests/unit/sim` 2 · `tests/fixtures/sim/planning_v0.4` xlsx 11 · `deploy/seed/sim` 11 · 안내서 1.3.0 · `docs/README.md`. xlsx 수 문구 수정 `1865540` · 기록 `70e3b31` |
 | 검증 | 커밋 직전 ruff check · ruff format --check(151) · `uv lock --check` 종료코드 0. 코드는 9.17 이후 변경 없음(pytest 298 passed) |
-| 넘긴 것 | 공유 경로(`deploy/`·`tests/fixtures/`)와 `dev` 의존성 변경을 A 에 알림 · 미병합 커밋 12개의 새 PR(보류) |
+| 넘긴 것 | 공유 경로(`deploy/`·`tests/fixtures/`)와 `dev` 의존성 변경을 A 에 알림 · 미병합 커밋 13개의 새 PR(보류) |
