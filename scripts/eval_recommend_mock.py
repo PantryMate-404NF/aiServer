@@ -313,7 +313,9 @@ def evaluate(
     print(f"    taste {fmt(ctx.taste_vec)} | cuisines {sorted(ctx.preferred_cuisines)}", end="")
     print(f" | max_min {ctx.max_cook_minutes} | allergy {profile.get('allergy_group_codes', [])}")
     print(f"    stage={stage} k={max_missing} candidates={len(candidates)}", end="")
-    print(f" latency={result.latency_ms}ms served={len(items)} exploration={len(explored)}")
+    picked = [i for i in items if i.is_cuisine_slot]
+    print(f" latency={result.latency_ms}ms served={len(items)}", end="")
+    print(f" exploration={len(explored)} cuisine={len(picked)}")
     for item in items:
         recipe = recipes[item.recipe_id]
         active = " ".join(
@@ -321,7 +323,8 @@ def evaluate(
             for key in FEATURE_KEYS
             if item.features.get(key) is not None and DEFAULT_WEIGHTS.get(key, 0.0) > 0
         )
-        flag = "X" if item.is_exploration else " "
+        # X 탐색 · C 유형 슬롯. 둘은 다른 칸입니다 - 노출확률이 다릅니다.
+        flag = "X" if item.is_exploration else ("C" if item.is_cuisine_slot else " ")
         propensity = item.propensity or 0.0
         print(f"    {item.final_rank:>2} {flag} {item.score:.3f} p={propensity:.3f}", end="")
         print(f" [{active}] miss={item.missing_count} {recipe.cuisine}", end="")

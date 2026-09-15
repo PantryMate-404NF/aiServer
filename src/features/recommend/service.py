@@ -57,7 +57,13 @@ from features.recommend.engine import rerank, score
 from features.recommend.engine.context import CorpusStats, RecipeFeature, UserContext
 from features.recommend.engine.persona import Persona, TasteEvent, TasteProfile
 from features.recommend.engine.taste import FlavorVector
-from features.recommend.enums import FEATURE_KEYS, EventType, Stage
+from features.recommend.enums import (
+    FEATURE_KEYS,
+    ONBOARDING_CUISINES,
+    EventType,
+    Stage,
+    normalize_cuisine,
+)
 from features.recommend.policy import RankingPolicy, with_trace_extra
 from features.recommend.profile_store import ProfileStore
 from features.recommend.schema import EventIn
@@ -104,12 +110,16 @@ def onboarding_profile(
     scales: Sequence[int] | None,
     presented: Sequence[FlavorVector],
     now: datetime,
+    cuisines: Sequence[str] = (),
 ) -> TasteProfile:
     """온보딩 응답을 취향 원본으로 바꿉니다. 범위 밖 인덱스와 척도는 거부합니다.
 
     조용히 받거나 잘라 넣으면 다른 음식의 맛이 취향이 되고 에러는 나지 않습니다. 같은 음식을
     두 번 고른 것은 한 번으로 둡니다 - 평균이 그쪽으로 두 배 기울 이유가 없습니다. 척도는
     여기서 0~1 로 옮기며, 이 변환은 저장소에도 엔진에도 없습니다.
+
+    음식 유형은 맛 6축과 섞지 않습니다. 고른 유형의 평균 맛을 취향에 더하면 "한식을 좋아함"이
+    "짜고 매운 것을 좋아함"으로 번역되어, 유형을 고른 것만으로 맛 취향이 통째로 움직입니다.
     """
     unique = tuple(dict.fromkeys(int(i) for i in picks))
     if len(unique) != len(picks):
@@ -125,8 +135,29 @@ def onboarding_profile(
         picks=unique,
         pick_flavors=tuple(presented[i] for i in unique),
         scales=None if scales is None else _normalized_scales(scales),
+        cuisines=_normalized_cuisines(cuisines),
         updated_at=now,
     )
+
+
+def _normalized_cuisines(cuisines: Sequence[str]) -> tuple[str, ...]:
+    """라벨로 온 유형을 코드로 맞춥니다. 모르는 값은 거부하고 중복은 한 번으로 둡니다.
+
+    가까운 유형으로 추측하지 않습니다 - 고르지 않은 유형의 음식이 목록에 올라오면
+    사용자는 그것을 자기가 고른 결과로 읽습니다.
+    """
+    seen: list[str] = []
+    unknown: list[str] = []
+    for raw in cuisines:
+        code = normalize_cuisine(str(raw))
+        if code is None or code not in ONBOARDING_CUISINES:
+            unknown.append(str(raw))
+        elif code not in seen:
+            seen.append(code)
+    if unknown:
+        bump("persona_cuisine_unknown", len(unknown))
+        raise ValueError(f"모르는 음식 유형입니다: {unknown}")
+    return tuple(seen)
 
 
 def _normalized_scales(scales: Sequence[int]) -> tuple[float, ...]:
@@ -151,14 +182,20 @@ class PersonaService:
     policy: RankingPolicy
 
     def save_onboarding(
-        self, user_id: int, picks: Sequence[int], scales: Sequence[int] | None, now: datetime
+        self,
+        user_id: int,
+        picks: Sequence[int],
+        scales: Sequence[int] | None,
+        now: datetime,
+        cuisines: Sequence[str] = (),
     ) -> Persona:
         """고른 음식과 척도 원본을 저장하고 페르소나를 돌려줍니다.
 
         이미 있는 이벤트는 지키므로 온보딩을 다시 해도 이력이 사라지지 않습니다. 저장 전에
-        이벤트를 정책 상한으로 잘라냅니다.
+        이벤트를 정책 상한으로 잘라냅니다. 음식 유형은 이벤트로 갱신되지 않으므로 다시
+        온보딩하면 그때 고른 것으로 바뀝니다.
         """
-        profile = onboarding_profile(user_id, picks, scales, self.presented, now)
+        profile = onboarding_profile(user_id, picks, scales, self.presented, now, cuisines)
         with _PROFILE_LOCK:
             before = self.store.load(user_id)
             if before is not None:
@@ -332,6 +369,7 @@ def rank_candidates(
         {
             **_persona_params(ctx),
             **_explore_params(spec, policy),
+            **_cuisine_params(ctx, policy, items, recipes),
             # 어느 손잡이·가중치로 만든 목록인지. policy_id 는 값이 바뀌어도 그대로입니다.
             "policy_fingerprint": policy.fingerprint(None if weights is None else dict(weights)),
         },
@@ -426,6 +464,34 @@ def _explore_params(spec: rerank.ExplorationSpec, policy: RankingPolicy) -> dict
         return {}
     bump("explore_uniform_fallback")
     return {"explore_fallback": "uniform"}
+
+
+def _cuisine_params(
+    ctx: UserContext,
+    policy: RankingPolicy,
+    items: Sequence[RankedItem],
+    recipes: Mapping[int, RecipeFeature],
+) -> dict[str, object]:
+    """유형 슬롯이 몇 칸이었나. 고른 유형이 없으면 아무것도 싣지 않습니다.
+
+    칸 수만으로는 "이미 목록에 있어서 0" 과 "후보에 그 유형이 한 건도 없어서 0" 이 구분되지
+    않습니다. 그래서 목록에 끝내 없는 유형을 함께 남깁니다. 그 값이 계속 차 있으면 ① 이 덜
+    가져왔거나 레시피 쪽 `cuisine_family` 가 비어 있다는 뜻입니다 - 지금 실 DB 는 전수
+    비어 있어(`PENDING_DATA_FEATURES`) 이 칸이 유일한 신호입니다.
+    """
+    if not ctx.preferred_cuisines:
+        return {}
+    served = {recipes[item.recipe_id].cuisine for item in items if item.recipe_id in recipes}
+    unmet = sorted(family for family in ctx.preferred_cuisines if family not in served)
+    params: dict[str, object] = {
+        "n_cuisine": sum(1 for item in items if item.is_cuisine_slot),
+        "cuisine_slot_ratio": policy.cuisine_slot_ratio,
+        "preferred_cuisines": ",".join(sorted(ctx.preferred_cuisines)),
+    }
+    if unmet:
+        bump("cuisine_unmet", len(unmet))
+        params["cuisine_unmet"] = ",".join(unmet)
+    return params
 
 
 def _score_stats(scored: Sequence[ScoredCandidate]) -> dict[str, float]:

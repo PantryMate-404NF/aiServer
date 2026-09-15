@@ -8,8 +8,11 @@
 개인화 결과가 난수에 따라 달라져 같은 입력에 같은 순위라는 성질이 깨지고, 개인화가
 어차피 보여 줄 것을 탐색이 다시 고르면 탐색이 아닙니다.
 
+개인화 → 탐색 → 유형(`engine/cuisine.py`) 순서로 뗍니다. 유형 슬롯을 탐색보다 먼저 떼면
+탐색 풀에서 고른 유형의 후보가 빠져, 탐색이 그 유형을 영영 못 보여 줍니다.
+
 `propensity` 는 확률입니다 (`enums.PROPENSITY_SEMANTICS` = "item"). 아이템이 Top-K
-어딘가에 노출될 주변확률이며, 결정적 슬롯은 1.0 입니다.
+어딘가에 노출될 주변확률이며, 결정적 슬롯(개인화·유형)은 1.0 입니다.
 """
 
 from __future__ import annotations
@@ -19,10 +22,10 @@ import statistics
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from features.recommend.engine import explore, rank, reason, serendipity, taste
+from features.recommend.engine import cuisine, explore, rank, reason, serendipity, taste
 from features.recommend.engine.context import CorpusStats, RecipeFeature, UserContext
 from features.recommend.engine.feature import DEFAULT_IDF, jaccard_idf
-from features.recommend.enums import DEFAULT_WEIGHTS
+from features.recommend.enums import DEFAULT_WEIGHTS, cuisine_label
 from features.recommend.policy import RankingPolicy
 from features.recommend.stage import RankedItem, ScoredCandidate
 
@@ -63,12 +66,32 @@ def rerank(
     explored = pick_exploration(
         rest, ctx, policy, rng, exploration_spec(ranked, ctx, policy, total)
     )
-    personal = personal_full[: total - len(explored)]
+    taken = {item.recipe_id for item, _, _ in explored}
+    spec = cuisine.cuisine_spec(ctx, policy, total)
+    # 유형 슬롯은 탐색이 자리를 뗀 뒤 남는 목록을 기준으로 정합니다.
+    head = personal_full[: max(0, total - len(explored))]
+    families = cuisine.unserved_families(
+        [*(item.recipe_id for item, _ in head), *taken], recipes, ctx
+    )
+    chosen = cuisine.pick_cuisine(
+        worth_showing([item for item in rest if item.recipe_id not in taken]),
+        recipes,
+        families,
+        min(spec.count, len(families)),
+    )
+    # 뺄 자리는 꼬리에서 고르되 고른 유형의 마지막 한 건은 지나칩니다.
+    personal = cuisine.trim_for_slots(head, len(chosen), recipes, ctx)
 
     stats = rank.feature_stats(ranked)
     effective = dict(weights or DEFAULT_WEIGHTS)
     slots = explore.exploration_slots(total, len(explored), rng)
-    return _assemble(personal, explored, slots, recipes, ctx, corpus, stats, effective)
+    # 자리는 실제로 채워지는 길이 안에서 정합니다. total 로 잡으면 후보가 모자란 요청에서
+    # 목록 밖 번호가 나와 그 칸이 조용히 비어 버립니다.
+    filled = len(personal) + len(explored) + len(chosen)
+    picked_slots = cuisine.cuisine_slots(filled, len(chosen), slots)
+    return _assemble(
+        personal, explored, slots, chosen, picked_slots, recipes, ctx, corpus, stats, effective
+    )
 
 
 def exploration_ratio(ctx: UserContext, policy: RankingPolicy) -> float:
@@ -235,7 +258,8 @@ def reason_context(
     if similar is not None:
         values["similar_title"] = similar
     if recipe.cuisine is not None:
-        values["cuisine"] = recipe.cuisine
+        # 코드가 아니라 사람이 읽는 이름입니다 — "즐겨 드시는 korean이에요" 를 막습니다.
+        values["cuisine"] = cuisine_label(recipe.cuisine)
     if recipe.dish_type is not None:
         values["dish_type"] = recipe.dish_type
     if recipe.cook_minutes is not None:
@@ -285,11 +309,19 @@ def _explorable(rest: Sequence[ScoredCandidate], policy: RankingPolicy) -> list[
     상위 자리에 섭니다. 탐색은 "덜 좋은 것"이 아니라 "안 보여 줬을 뿐 괜찮은 것"이어야
     합니다. 슬롯 수의 배수만큼 후보가 없으면 슬롯 자체를 줄입니다.
     """
-    if not rest:
+    return worth_showing(rest)[: policy.explore_pool_size]
+
+
+def worth_showing(items: Sequence[ScoredCandidate]) -> list[ScoredCandidate]:
+    """점수가 후보군 중위수 이상인 것만. 상위 자리에 올릴 후보의 하한입니다.
+
+    개인화에 못 든 후보를 상위에 올리는 슬롯(탐색·유형)이 같은 선을 봐야 합니다. 두 곳이
+    따로 정하면 한쪽 슬롯만 조용히 잔여물로 채워집니다.
+    """
+    if not items:
         return []
-    floor = statistics.median([item.score for item in rest])
-    kept = [item for item in rest if item.score >= floor]
-    return kept[: policy.explore_pool_size]
+    floor = statistics.median([item.score for item in items])
+    return [item for item in items if item.score >= floor]
 
 
 def _uniform_count(count: int, uniform_share: float) -> int:
@@ -303,26 +335,39 @@ def _assemble(
     personal: Sequence[tuple[ScoredCandidate, float]],
     explored: Sequence[tuple[ScoredCandidate, float, str]],
     slots: Sequence[int],
+    chosen: Sequence[ScoredCandidate],
+    cuisine_positions: Sequence[int],
     recipes: Mapping[int, RecipeFeature],
     ctx: UserContext,
     corpus: CorpusStats,
     stats: Mapping[str, tuple[float, float]],
     weights: Mapping[str, float],
 ) -> list[RankedItem]:
-    """탐색 아이템을 주어진 자리에 끼우고 나머지를 개인화로 채웁니다.
+    """탐색·유형 아이템을 주어진 자리에 끼우고 나머지를 개인화로 채웁니다.
 
-    자리가 고정되면 사용자가 그 자리를 학습해 건너뛰고, 위치별 검사확률 곡선을 구할 수
-    없습니다. 그래서 자리는 매 요청 무작위입니다 (`explore.exploration_slots`).
+    탐색의 자리가 고정되면 사용자가 그 자리를 학습해 건너뛰고, 위치별 검사확률 곡선을 구할 수
+    없습니다. 그래서 탐색 자리는 매 요청 무작위입니다 (`explore.exploration_slots`). 유형
+    자리는 결정적입니다 - 노출확률이 1.0 이라 위치를 흔들어도 보정에 쓸 수 없습니다.
     """
     slot_set = set(slots)
+    cuisine_set = set(cuisine_positions)
     personal_iter = iter(personal)
     explored_iter = iter(explored)
+    cuisine_iter = iter(chosen)
     items: list[RankedItem] = []
-    for index in range(len(personal) + len(explored)):
+    for index in range(len(personal) + len(explored) + len(chosen)):
+        is_cuisine_slot = False
         if index in slot_set:
             scored, probability, source = next(explored_iter)
             mmr_penalty = 0.0
             is_exploration = True
+        elif index in cuisine_set:
+            scored = next(cuisine_iter)
+            probability = DETERMINISTIC_PROPENSITY
+            source = None
+            mmr_penalty = 0.0
+            is_exploration = False
+            is_cuisine_slot = True
         else:
             scored, mmr_penalty = next(personal_iter)
             probability = DETERMINISTIC_PROPENSITY
@@ -330,6 +375,10 @@ def _assemble(
             is_exploration = False
         recipe = recipes.get(scored.recipe_id, RecipeFeature(recipe_id=scored.recipe_id))
         keys = rank.top_reasons(scored, dict(weights), dict(stats))
+        if is_cuisine_slot:
+            # 그 칸에 선 이유가 유형이므로 사유도 유형부터 읽습니다. 자리를 뗀 이유와 화면에
+            # 적힌 이유가 다르면 사용자는 목록이 흔들렸다고만 봅니다.
+            keys = ["f_cuisine", *(k for k in keys if k != "f_cuisine")]
         text, used = reason.build_reason(
             keys, reason_context(scored, recipe, ctx, corpus), is_exploration=is_exploration
         )
@@ -341,6 +390,7 @@ def _assemble(
                 reason_features=used,
                 mmr_penalty=mmr_penalty,
                 is_exploration=is_exploration,
+                is_cuisine_slot=is_cuisine_slot,
                 propensity=probability,
                 explore_source=source,
             )

@@ -29,7 +29,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from features.recommend.enums import CONTRACT_VERSION, EventType
+from features.recommend.enums import (
+    CONTRACT_VERSION,
+    ONBOARDING_CUISINES,
+    EventType,
+    normalize_cuisine,
+)
 from features.recommend.stage import RankedItem, StageTrace
 
 
@@ -151,7 +156,7 @@ class PantryItemIn(_Base):
 # 온보딩 — 09-02 신설. 이 계약이 없어서 가중치 0.27 을 저장할 곳이 없었다.
 # ─────────────────────────────────────────────────────────────────
 class OnboardingIn(_Base):
-    """온보딩 5문항 응답 (S0 ② 확정 문항).
+    """온보딩 6문항 응답 (S0 ② 확정 문항 + 09-15 음식 유형).
 
     🔴 **선택한 레시피와 척도 원본을 그대로 받는다.** `taste_vec` 은 이것들의
        평균이라 결과만 저장하면 **다시 계산할 수 없다** — 시드가 바뀌면
@@ -174,6 +179,23 @@ class OnboardingIn(_Base):
     avoid_ingredient_ids: list[int] = Field(default_factory=list, max_length=3)
     #: 가구원 수. 선택 항목이라 없을 수 있다.
     household_size: int | None = Field(default=None, ge=1, le=10)
+    #: 좋아하는 음식 유형 (`enums.ONBOARDING_CUISINES` 의 코드 또는 한글 라벨).
+    #: 저장 위치는 `user_preference.pref_cuisines` 이고 값은 `cuisine_family` 축이다.
+    #: 주의: 모르는 값을 버리지 않고 **거부한다.** 프론트가 라벨을 바꾸거나 오타를 내면
+    #:    그 유저만 조용히 유형 없는 사용자가 되는데, 응답은 200 이라 아무도 모른다.
+    preferred_cuisines: list[str] = Field(default_factory=list, max_length=len(ONBOARDING_CUISINES))
+
+    @field_validator("preferred_cuisines")
+    @classmethod
+    def _known_cuisines(cls, v: list[str]) -> list[str]:
+        codes = [normalize_cuisine(item) for item in v]
+        unknown = [
+            raw for raw, code in zip(v, codes, strict=True) if code not in ONBOARDING_CUISINES
+        ]
+        if unknown:
+            raise ValueError(f"모르는 음식 유형이다: {unknown} — 가능한 값 {ONBOARDING_CUISINES}")
+        # 같은 유형을 두 번 고른 것은 한 번으로 둔다. 순서는 사용자가 고른 순서다.
+        return list(dict.fromkeys(code for code in codes if code is not None))
 
     @field_validator("scales")
     @classmethod
@@ -191,6 +213,8 @@ class OnboardingOut(_Base):
     taste_vec: list[float] = Field(min_length=6, max_length=6)
     #: 알러지로 차단될 재료 수 (그룹 전개 후). 사용자에게 보여주면 신뢰가 는다.
     n_blocked_ingredients: int
+    #: 저장된 음식 유형 코드. 라벨로 보냈어도 코드로 돌려주므로 프론트가 무엇이 저장됐는지 안다.
+    preferred_cuisines: list[str] = Field(default_factory=list)
 
 
 class PantryRemoval(_Base):

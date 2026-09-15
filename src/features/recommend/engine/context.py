@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from features.recommend.engine import taste
 from features.recommend.engine.persona import Persona
 from features.recommend.engine.taste import FlavorVector
+from features.recommend.enums import normalize_cuisine
 
 
 @dataclass(frozen=True)
@@ -36,6 +37,8 @@ class RecipeFeature:
     popularity_score: float | None = None
     quality_score: float | None = None
     cook_minutes: int | None = None
+    #: `recipe_feature.cuisine_family` (`enums.CuisineFamily`). 세분 축이 아니라 거친 축입니다 -
+    #: 사용자가 고르는 것도 거친 축이라, 세분 코드를 넣으면 한 건도 안 맞습니다.
     cuisine: str | None = None
     dish_type: str | None = None
     season_score: float | None = None
@@ -85,6 +88,7 @@ class UserContext:
     expiring_ids: frozenset[int] = frozenset()
     taste_vec: FlavorVector = (None,) * taste.AXIS_COUNT
     max_cook_minutes: int | None = None
+    #: 온보딩에서 고른 음식 유형 코드. `f_cuisine` 과 재정렬의 유형 슬롯이 봅니다.
     preferred_cuisines: frozenset[str] = frozenset()
     preferred_dish_types: frozenset[str] = frozenset()
     skill_level: float | None = None
@@ -92,6 +96,10 @@ class UserContext:
     #: 취향의 출처와 상태. 랭킹은 `taste_vec` 을 보고, 탐색 정책과 로그는 이것을 봅니다.
     #: 검사가 `UserContext` 를 직접 만들 때는 None 이며, 그때는 보통 사용자로 다룹니다.
     persona: Persona | None = None
+
+
+#: `preferred_cuisines` 를 넘기지 않았다는 표시. 빈 목록("고른 유형이 없다")과 구분합니다.
+_FROM_PERSONA: tuple[str, ...] = ("",)
 
 
 def build_context(
@@ -104,7 +112,7 @@ def build_context(
     expiring_ids: Sequence[int] = (),
     history: UserHistory | None = None,
     max_cook_minutes: int | None = None,
-    preferred_cuisines: Sequence[str] = (),
+    preferred_cuisines: Sequence[str] = _FROM_PERSONA,
     preferred_dish_types: Sequence[str] = (),
     skill_level: float | None = None,
 ) -> UserContext:
@@ -112,15 +120,22 @@ def build_context(
 
     맛 취향은 `persona.vec` 그대로입니다. 값이 없는 축은 맛 계산에서 빠지고, 데이터가 오면
     코드를 고치지 않아도 켜집니다.
+
+    음식 유형은 `user_preference.pref_cuisines` 를 읽는 쪽이 넘기고, 넘기지 않으면 페르소나에
+    저장된 온보딩 응답을 씁니다. 빈 목록을 넘기는 것은 "고른 유형이 없다"는 뜻이라 페르소나로
+    되돌아가지 않습니다 - 되돌아가면 유형을 지운 사용자에게 옛 선택이 되살아납니다.
+    모르는 유형은 버립니다. 저장소가 라벨을 담고 있어도 랭킹은 코드로만 비교합니다.
     """
     past = history or UserHistory()
+    given = persona.cuisines if preferred_cuisines is _FROM_PERSONA else preferred_cuisines
+    cuisines = [code for raw in given if (code := normalize_cuisine(str(raw))) is not None]
     return UserContext(
         user_id=user_id,
         pantry_ids=frozenset(pantry_ids),
         expiring_ids=frozenset(expiring_ids),
         taste_vec=persona.vec,
         max_cook_minutes=max_cook_minutes,
-        preferred_cuisines=frozenset(preferred_cuisines),
+        preferred_cuisines=frozenset(cuisines),
         preferred_dish_types=frozenset(preferred_dish_types),
         skill_level=skill_level,
         history=past,

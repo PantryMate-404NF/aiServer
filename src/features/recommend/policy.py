@@ -59,6 +59,11 @@ class RankingPolicy:
     uniform_share: float = 0.5
     #: Thompson 노출확률의 몬테카를로 반복 수.
     propensity_mc: int = 200
+    #: 온보딩에서 고른 음식 유형으로 채우는 칸의 비율(Top-K 대비). 0 이면 유형 슬롯을 끕니다.
+    #: 0.1 은 Top-20 에서 두 칸입니다 — 목록의 성격은 그대로 두고 고른 유형이 보이게 하는 값입니다.
+    cuisine_slot_ratio: float = 0.1
+    #: 그 칸의 절대 상한. top_k 를 크게 부르는 디버거·시뮬에서 유형이 목록을 덮지 않게 막습니다.
+    cuisine_slot_max: int = 2
     # ── 취향 페르소나 (결정 기록 2026-09-11) ──────────────────
     #: 고른 음식으로 만든 사전 취향을 조리 이벤트 몇 건과 같은 무게로 볼지.
     picks_prior_weight: float = 12.0
@@ -88,6 +93,7 @@ class RankingPolicy:
             "uniform_share",
             "exploration_ratio",
             "cold_exploration_ratio",
+            "cuisine_slot_ratio",
         ):
             share = getattr(self, name)
             if not 0.0 <= share <= 1.0:
@@ -105,6 +111,8 @@ class RankingPolicy:
         ):
             if getattr(self, name) < 1:
                 raise ValueError(f"{name} 은 1 이상이어야 합니다: {getattr(self, name)}")
+        if self.cuisine_slot_max < 0:
+            raise ValueError(f"cuisine_slot_max 는 0 이상이어야 합니다: {self.cuisine_slot_max}")
         if not 0 <= self.max_missing <= self.max_missing_relaxed:
             raise ValueError(
                 f"max_missing({self.max_missing}) 은 0 이상이고 "

@@ -17,7 +17,13 @@ from enum import StrEnum
 
 from features.recommend.engine import taste
 from features.recommend.engine.taste import FlavorVector
-from features.recommend.enums import LABEL_WEIGHT, EventType, UserMode, rating_to_label
+from features.recommend.enums import (
+    LABEL_WEIGHT,
+    EventType,
+    UserMode,
+    normalize_cuisine,
+    rating_to_label,
+)
 from features.recommend.policy import RankingPolicy
 
 SECONDS_PER_DAY = 86_400.0
@@ -72,6 +78,10 @@ class TasteProfile:
     pick_flavors: tuple[FlavorVector, ...] = ()
     #: 직접 적은 3축 척도 원본 [매움, 짠맛, 단맛]. 고른 음식이 있으면 계산에 쓰지 않습니다.
     scales: tuple[float, ...] | None = None
+    #: 온보딩에서 고른 음식 유형 (`enums.CuisineFamily` 코드. 온보딩 선택지는 그중 다섯입니다).
+    #: 맛 6축과 별개의 축이라
+    #: `vec` 계산에 들어가지 않습니다 - 재정렬이 이 목록으로 몇 칸을 따로 채웁니다.
+    cuisines: tuple[str, ...] = ()
     events: tuple[TasteEvent, ...] = ()
     updated_at: datetime | None = None
 
@@ -88,6 +98,7 @@ class TasteProfile:
                 raise ValueError(f"scales 는 0~1 로 정규화된 값이어야 합니다: {self.scales}")
         if self.updated_at is not None:
             require_aware(self.updated_at, "TasteProfile.updated_at")
+        require_cuisines(self.cuisines, "TasteProfile.cuisines")
 
 
 @dataclass(frozen=True)
@@ -105,6 +116,8 @@ class Persona:
     n_events: int
     #: 축마다 이벤트 무게 합. 값이 없는 축은 0 입니다.
     axis_weights: tuple[float, ...] = field(default=(0.0,) * taste.AXIS_COUNT)
+    #: 온보딩에서 고른 음식 유형. 맛 6축과 달리 이벤트로 갱신되지 않고 고른 그대로 남습니다.
+    cuisines: tuple[str, ...] = ()
 
     @property
     def is_cold(self) -> bool:
@@ -262,6 +275,7 @@ def derive_persona(profile: TasteProfile, now: datetime, policy: RankingPolicy) 
         behavior_weight=total_weight,
         n_events=n_events,
         axis_weights=axis_weights,
+        cuisines=profile.cuisines,
     )
 
 
@@ -326,6 +340,19 @@ def require_aware(moment: datetime, label: str) -> None:
     """시간대 없는 시각은 거부합니다. 섞이면 감쇠가 조용히 몇 시간씩 틀립니다."""
     if moment.tzinfo is None or moment.utcoffset() is None:
         raise ValueError(f"{label} 은 시간대가 있는 datetime 이어야 합니다: {moment!r}")
+
+
+def require_cuisines(cuisines: tuple[str, ...], label: str) -> None:
+    """정본 코드인지, 같은 유형이 두 번 들어오지 않았는지 봅니다.
+
+    라벨("한식")을 그대로 저장하면 레시피 쪽 `cuisine_family` 와 영영 안 만납니다. 값이
+    전부 0~1 인 맛 벡터와 달리 문자열이라 어떤 수치 검사에도 걸리지 않으므로 입구에서 막습니다.
+    """
+    unknown = [c for c in cuisines if normalize_cuisine(c) != c]
+    if unknown:
+        raise ValueError(f"{label} 은 음식 유형 코드여야 합니다: {unknown}")
+    if len(set(cuisines)) != len(cuisines):
+        raise ValueError(f"{label} 에 같은 유형이 두 번 들어 있습니다: {cuisines}")
 
 
 def require_flavor(flavor: FlavorVector, label: str) -> None:

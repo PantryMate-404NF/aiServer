@@ -158,6 +158,13 @@ class RankedItem(ScoredCandidate):
         le=1.0,
         description="노출 확률. exploration 슬롯은 1/|pool|, 결정적 슬롯은 1.0",
     )
+    #: 온보딩에서 고른 음식 유형으로 채운 칸인가 (`engine/cuisine.py`).
+    #: 주의: 탐색과 구분한다. 둘 다 개인화에 못 든 후보를 상위에 올리지만 탐색은 무작위라
+    #:    propensity < 1 이고, 이 칸은 결정적이라 1.0 이다. 한 칸으로 합치면 IPS 의 분모가
+    #:    섞여 off-policy 평가에서 다시 나눌 수 없다.
+    is_cuisine_slot: bool = Field(
+        default=False, description="온보딩에서 고른 음식 유형 몫으로 채운 결정적 슬롯"
+    )
     #: 🔑 탐색 슬롯을 어느 경로가 채웠는가 (설계 5-3-5).
     #:    'uniform'  — 균등 무작위. support 보장용. propensity 가 모든 후보에 > 0
     #:    'thompson' — 클러스터 Thompson. 우연성용. propensity 가 아이템마다 다르다

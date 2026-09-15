@@ -23,6 +23,7 @@ from features.recommend.engine.context import (
 )
 from features.recommend.engine.persona import derive_persona
 from features.recommend.engine.taste import FlavorVector
+from features.recommend.enums import CuisineFamily
 from features.recommend.policy import RankingPolicy
 from features.recommend.profile_store import load_presented_flavors
 from features.recommend.stage import Candidate
@@ -207,6 +208,7 @@ def context_for(
 
 
 def _cuisines(raw: object) -> list[str]:
+    """백엔드가 보낼 법한 모양을 그대로 받습니다. 코드로 맞추는 것은 `build_context` 가 합니다."""
     if isinstance(raw, str):
         return [part.strip() for part in raw.replace("/", ",").split(",") if part.strip()]
     if isinstance(raw, list):
@@ -235,7 +237,7 @@ def make_recipe() -> Callable[..., RecipeFeature]:
             "popularity_score": 0.5,
             "quality_score": 0.5,
             "cook_minutes": 30,
-            "cuisine": "한식",
+            "cuisine": CuisineFamily.KOREAN.value,
         }
         fields.update(overrides)
         return RecipeFeature(**fields)

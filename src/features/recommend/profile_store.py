@@ -38,7 +38,10 @@ from features.recommend.engine.taste import FlavorVector
 from features.recommend.enums import EventType
 
 #: 파일 형식 버전. 필드를 바꾸면 올리고 읽는 쪽에서 옛 판을 변환합니다.
-SCHEMA_VERSION = 1
+#: 2 — 온보딩 음식 유형(`cuisines`) 추가. 1 은 그 칸이 비어 있는 것으로 읽습니다.
+SCHEMA_VERSION = 2
+#: 읽을 수 있는 판. 못 읽는 판을 조용히 빈 취향으로 만들지 않으려고 목록으로 둡니다.
+READABLE_VERSIONS: frozenset[int] = frozenset({1, SCHEMA_VERSION})
 SHARD_COUNT = 256
 
 
@@ -114,6 +117,7 @@ def _to_json(profile: TasteProfile) -> dict[str, Any]:
         "picks": list(profile.picks),
         "pick_flavors": [list(v) for v in profile.pick_flavors],
         "scales": None if profile.scales is None else list(profile.scales),
+        "cuisines": list(profile.cuisines),
         "updated_at": None if profile.updated_at is None else profile.updated_at.isoformat(),
         "events": [
             {
@@ -132,13 +136,15 @@ def _from_json(raw: object) -> TasteProfile:
     """값의 형은 여기서 맞추고, 축 수와 범위는 `TasteProfile`·`TasteEvent` 가 검사합니다."""
     if not isinstance(raw, dict):
         raise ValueError(f"취향 파일은 객체여야 합니다: {type(raw).__name__}")
-    if raw.get("schema") != SCHEMA_VERSION:
+    if raw.get("schema") not in READABLE_VERSIONS:
         raise ValueError(f"모르는 파일 형식 버전입니다: {raw.get('schema')}")
     return TasteProfile(
         user_id=int(raw["user_id"]),
         picks=tuple(int(i) for i in raw.get("picks", [])),
         pick_flavors=tuple(_flavor(v) for v in raw.get("pick_flavors", [])),
         scales=None if raw.get("scales") is None else tuple(float(s) for s in raw["scales"]),
+        # 판 1 에는 없던 칸입니다. 없으면 고른 유형이 없는 사용자입니다.
+        cuisines=tuple(str(c) for c in raw.get("cuisines", [])),
         events=tuple(
             TasteEvent(
                 recipe_id=int(e["recipe_id"]),
