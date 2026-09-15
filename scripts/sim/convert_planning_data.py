@@ -28,6 +28,8 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
+from features.recommend.enums import normalize_cuisine
+
 SEED = "sim-planning-v0.4"
 ROOT = Path(__file__).resolve().parents[2]
 ONBOARDING_YAML = ROOT / "seeds" / "onboarding_recipes.yaml"
@@ -154,7 +156,13 @@ def synth_onboarding(k: int, group: str, presented: list[dict]) -> dict:
     if group == "A":  # A 집단은 팬트리/레시피 사용자 — 매운맛 약간 높게 (실측 아님)
         scales[0] = min(4, scales[0] + 1)
     mean = [round(sum(presented[p]["flavor"][i] for p in picks) / len(picks), 4) for i in range(6)]
-    families = sorted({presented[p]["family"] for p in picks})
+    # 기획 데이터에는 음식 유형 문항이 없습니다. 고른 음식의 계열을 그 답으로 둡니다 -
+    # 유형을 고르는 사람과 그 유형의 음식을 고르는 사람이 다르지 않다고 보는 것이고, 실제
+    # 응답이 오면 원본으로 바꿉니다. 저장은 라벨이 아니라 코드입니다.
+    codes = {normalize_cuisine(presented[p]["family"]) for p in picks}
+    if None in codes:
+        raise SystemExit(f"제시 목록에 모르는 계열이 있습니다: {picks}")
+    families = sorted(code for code in codes if code is not None)
     return {"picks": picks, "scales": scales, "taste_vec": mean, "families": families}
 
 
@@ -312,6 +320,8 @@ ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description, params = EX
     (out / "02_user_preference.sql").write_text(
         "-- 생성물. spicy/sweet/salty 는 온보딩 scales[매움,짠맛,단맛] 를\n"
         "-- 컬럼 순서에 맞춰 넣는다.\n"
+        "-- pref_cuisines 는 cuisine_family 코드다 (enums.ONBOARDING_CUISINES).\n"
+        "-- 라벨('한식')로 넣으면 recipe.cuisine_family 와 영영 안 만난다.\n"
         "SET search_path TO reco, public;\n"
         "INSERT INTO user_preference (user_id, spicy_level, sweet_level, salty_level, "
         "max_cook_minutes, skill_level, household_size, pref_cuisines, onboarding_version) VALUES\n"

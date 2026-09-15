@@ -6,6 +6,9 @@ DB 가 없는 동안 `recipe_feature` 와 사용자 프로필을 대신합니다
 같은 **6축**(매움, 짠맛, 단맛, 신맛, 감칠맛, 기름짐)이고, 사용자 취향은 온보딩이 지금
 받는 **앞 3축**만 채웁니다. 나머지 축은 랭킹에서 None 으로 들어가 계산에서 빠집니다.
 
+음식 유형은 온보딩 선택지 5종(`enums.ONBOARDING_CUISINES`)의 코드를 씁니다. 사용자 프로필에는
+한글 라벨과 코드를 섞어 둡니다 - 백엔드가 둘 다 보낼 수 있고, 엔진이 코드로 맞추는지 봐야 합니다.
+
 난수 대신 키의 해시를 쓰므로 언제 돌려도 같은 파일이 나옵니다. 값을 바꾸려면 SEED 를 올립니다.
 사용자 프로필에는 백엔드가 보낼 법한 비정형 값(문자열 가구원 수, 규약 밖 필드)을 일부러 섞어 둡니다.
 """
@@ -125,27 +128,47 @@ class CuisineSpec:
     #: 6축 (매움, 짠맛, 단맛, 신맛, 감칠맛, 기름짐).
     #: A 트랙 recipe_feature.flavor_vec 과 같은 순서입니다.
     flavor: tuple[float, float, float, float, float, float]
+    #: 코퍼스에서 차지하는 몫. 균등하게 두면 Top-20 에 5종이 다 들어와, "고른 유형이 목록에
+    #: 한 건도 없다" 는 상황 자체가 만들어지지 않습니다 - 유형 슬롯이 도는 조건이 그것입니다.
+    #: 실제 크롤은 한식 편중이고(02_schema.sql 의 cuisine_family 주석) 그 편중이 곧 이 기능이
+    #: 필요한 이유이므로, 목업도 같은 모양으로 둡니다.
+    share: float
 
 
+#: 키는 `enums.CuisineFamily` 의 코드입니다 - 온보딩이 고르는 축과 같아야 유형이 만납니다.
+#: 순서는 온보딩 화면 순서이고, 바꾸면 해시로 뽑는 레시피의 유형이 통째로 달라집니다.
 CUISINES: dict[str, CuisineSpec] = {
-    "한식": CuisineSpec(
-        ["볶음", "찌개", "국", "무침", "조림", "전", "덮밥"],
+    "korean": CuisineSpec(
+        ["볶음", "찌개", "국", "무침", "조림", "전", "덮밥", "떡볶이", "김밥"],
         [45, 46, 47, 50, 51, 52],
         (0.65, 0.6, 0.35, 0.3, 0.7, 0.45),
+        share=0.70,
     ),
-    "중식": CuisineSpec(
-        ["볶음밥", "탕", "덮밥", "튀김"], [45, 48, 49, 53, 36], (0.55, 0.65, 0.45, 0.35, 0.75, 0.7)
+    "chinese": CuisineSpec(
+        ["볶음밥", "탕", "덮밥", "튀김"],
+        [45, 48, 49, 53, 36],
+        (0.55, 0.65, 0.45, 0.35, 0.75, 0.7),
+        share=0.07,
     ),
-    "일식": CuisineSpec(
-        ["덮밥", "구이", "조림", "우동"], [45, 48, 52], (0.2, 0.55, 0.5, 0.3, 0.65, 0.3)
+    "japanese": CuisineSpec(
+        ["덮밥", "구이", "조림", "우동"],
+        [45, 48, 52],
+        (0.2, 0.55, 0.5, 0.3, 0.65, 0.3),
+        share=0.07,
     ),
-    "양식": CuisineSpec(
+    "western": CuisineSpec(
         ["파스타", "샐러드", "스테이크", "그라탕", "리소토"],
         [52, 53, 57, 49, 13],
         (0.2, 0.5, 0.4, 0.4, 0.55, 0.6),
+        share=0.12,
     ),
-    "분식": CuisineSpec(
-        ["떡볶이", "김밥", "볶음", "전골"], [46, 48, 51, 45], (0.75, 0.6, 0.55, 0.35, 0.6, 0.55)
+    # 09-15 신설. 그 전에는 이 자리가 온보딩 선택지가 아닌 유형이었고, 그래서 아시안을 고른
+    # 사용자에게 줄 레시피가 코퍼스에 한 건도 없었습니다. 그쪽 요리는 한식 dishes 로 옮겼습니다.
+    "asian_other": CuisineSpec(
+        ["팟타이", "쌀국수", "커리", "볶음면", "월남쌈"],
+        [45, 48, 51, 50, 37],
+        (0.5, 0.6, 0.55, 0.5, 0.7, 0.5),
+        share=0.04,
     ),
 }
 COOK_MINUTES_OPTIONS = [10, 15, 20, 25, 30, 40, 45, 60, 90]
@@ -157,7 +180,7 @@ PERSONAS: list[dict[str, object]] = [
         "expiring_ingredient_ids": [11, 21],
         "taste_preference": {"spicy_level": 4, "sweet_level": 1, "salty_level": 3},
         "household_size": 1,
-        "preferred_cuisines": ["한식", "분식"],
+        "preferred_cuisines": ["한식", "아시안"],
         "max_cook_minutes": 30,
         "allergy_group_codes": [],
         "top_k": 20,
@@ -247,7 +270,7 @@ PERSONAS: list[dict[str, object]] = [
         "expiring_ingredient_ids": [17, 18],
         "taste_preference": {"spicy_level": 0, "sweet_level": 2, "salty_level": 4},
         "household_size": 2,
-        "preferred_cuisines": ["일식", "중식"],
+        "preferred_cuisines": ["japanese", "chinese"],
         "max_cook_minutes": None,
         "allergy_group_codes": [],
         "top_k": 10,
@@ -258,7 +281,7 @@ PERSONAS: list[dict[str, object]] = [
         "expiring_ingredient_ids": [26, 27],
         "taste_preference": {"spicy_level": 3, "sweet_level": 3, "salty_level": 2},
         "household_size": "가구원 3명",
-        "preferred_cuisines": ["분식", "한식"],
+        "preferred_cuisines": ["아시안", "한식"],
         "max_cook_minutes": 30,
         "allergy_group_codes": [],
         "top_k": 20,
@@ -312,9 +335,20 @@ def between(key: str, low: float, high: float) -> float:
     return low + (high - low) * unit(key)
 
 
+def pick_cuisine(key: str) -> str:
+    """`share` 에 비례해 유형을 고릅니다. 합이 1 이 아니어도 비율대로 나눕니다."""
+    total = sum(spec.share for spec in CUISINES.values())
+    point = unit(key) * total
+    for name, spec in CUISINES.items():
+        point -= spec.share
+        if point < 0:
+            return name
+    return next(reversed(CUISINES))
+
+
 def build_recipe(index: int) -> dict[str, object]:
     key = f"recipe:{index}"
-    cuisine = pick(f"{key}:cuisine", list(CUISINES))
+    cuisine = pick_cuisine(f"{key}:cuisine")
     spec = CUISINES[cuisine]
 
     essential_count = 2 + int(unit(f"{key}:essential_count") * 3)
