@@ -1,10 +1,10 @@
 # 추천 코어 엔진 구현 명세 요약 (에이전트용)
 
-**정하는 것**: 파트 B 구현 명세 `recommend_engine_design.md`(2.0.0) 의 압축본. 구현·검증에 필요한 계약, 식, 상수, 배치, 상태만
+**정하는 것**: 파트 B 구현 명세 `recommend_engine_design.md`(2.2.0) 의 압축본. 구현·검증에 필요한 계약, 식, 상수, 배치, 상태만
 
 **적용 대상**: 파트 B 를 이어서 구현하는 AI 코딩 에이전트. 원본과 어긋나면 **원본이 이기고**, 원본과 코드가 어긋나면 코드가 이깁니다. 원본이 바뀌면 이 파일을 같은 커밋에서 갱신합니다
 
-**버전**: 3.1.0 · **최종 수정**: 2026-09-14 · **작성자**: 유재현
+**버전**: 3.2.0 · **최종 수정**: 2026-09-15 · **작성자**: 유재현
 
 ---
 
@@ -12,7 +12,7 @@
 
 | 키 | 값 |
 |---|---|
-| 흐름 | ① Retrieval(A 의 DB 함수 `retrieve_for_user`, 최대 500) → ② Ranking(17 피처 가중합 × 감점) → ③ Re-ranking(MMR + 혼합 탐색) → 응답 + 로그. 취향 페르소나가 ② 의 사용자 6축을 공급 |
+| 흐름 | ① Retrieval(A 의 DB 함수 `retrieve_for_user`, 최대 500) → ② Ranking(17 피처 가중합 × 감점) → ③ Re-ranking(MMR + 혼합 탐색 + 음식 유형 슬롯) → 응답 + 로그. 취향 페르소나가 ② 의 사용자 6축을 공급 |
 | 경계 | 계약·DDL·SQL·로그 적재·`rank`·`reason`·`explore`·`serendipity` 는 A. ②③·페르소나·저장소·완화 계획·조립·`policy` 는 B. C 는 로그를 읽음 |
 | 원칙 | Zero-Drop(모름은 분자·분모 동시 제외, 0 과 다름) · 감점은 곱셈 · 알레르기는 ① SQL 하드컷, 제외는 ① 에서만 · 맛은 코퍼스 평균 차감 후 코사인 · 취향은 묻지 않고 계산 · 같은 입력 같은 결과(시각·시드는 호출자) · 서빙 순간 값은 그 순간 기록 · 실패는 세고 범위 밖은 거부 |
 | 상태 | Layer 1(Mock 단위) 완료. Layer 2·3 은 실 DB 대기. 라우터 8경로 전부 목업(`engine/mock.py`) |
@@ -28,7 +28,7 @@
 | `RankedItem` (③→응답) | + `final_rank`, `reason`, `reason_features`, `mmr_penalty`, `is_exploration`, `propensity` 0<p<=1, `explore_source` uniform·thompson·None, `team` |
 | `StageInfo` / `StageTrace` | `name`, `in_count`, `out_count`, `latency_ms`, `strategy`, `filters`, `dropped`, `params`, `score_stats`, `exploration_items` / `stages`, `totals(latency_ms, degraded, user_mode)` |
 | 엔진 입력 | `RecipeFeature`(6축·인기·품질·조리시간·요리군·군집…), `UserHistory`(선호·기피 재료, 최근 7일 노출, 14일 조리, 조리 재료 집합과 제목 `cooked_titles`, 군집 관측), `CorpusStats`(`flavor_mean`, `ingredient_idf`), `Persona`(`vec`, `prior_source`, `mode`, `prior_weight`, `behavior_weight`, `n_events`), `UserContext`(위 합 + pantry·expiring·상한·선호). `build_context(persona=필수)` |
-| HTTP (A) | `POST /v1/recommend` `RecommendRequest{user_id, session_id ^[cgd]-, top_k 1~100, max_missing 0~10, max_minutes, model_version, weight_override, interleave_with, include_trace, context}` → `RecommendResponse{request_id, user_id, model_version, weights, items, trace, served_at}` · `POST /v1/events` `EventBatchIn{events 1~200 of EventIn{user_id, event_type, recipe_id, value, request_id, position, session_id, context}}` (시각 필드 없음 → 수신 시각) → `EventAck` · `POST /v1/onboarding/{user_id}` `OnboardingIn{picks 인덱스 1~20, scales 3축 0~4, allergy_groups, allergy_ingredient_ids, avoid_ingredient_ids<=3, household_size}` → `OnboardingOut{taste_vec 6, n_blocked_ingredients}` · pantry GET/PUT · 검색 2 · `/health` |
+| HTTP (A) | `POST /v1/recommend` `RecommendRequest{user_id, session_id ^[cgd]-, top_k 1~100, max_missing 0~10, max_minutes, model_version, weight_override, interleave_with, include_trace, context}` → `RecommendResponse{request_id, user_id, model_version, weights, items, trace, served_at}` · `POST /v1/events` `EventBatchIn{events 1~200 of EventIn{user_id, event_type, recipe_id, value, request_id, position, session_id, context}}` (시각 필드 없음 → 수신 시각) → `EventAck` · `POST /v1/onboarding/{user_id}` `OnboardingIn{picks 인덱스 1~20, scales 3축 0~4, preferred_cuisines<=5, allergy_groups, allergy_ingredient_ids, avoid_ingredient_ids<=3, household_size}` → `OnboardingOut{taste_vec 6, n_blocked_ingredients, preferred_cuisines}`. 유형은 `korean|chinese|japanese|western|asian_other`(한글 라벨도 받아 코드로 정규화, 모르는 값은 **거부**, `enums.normalize_cuisine`). 정본은 `seeds/cuisine_taxonomy.yaml` 의 family = `recipe.cuisine_family` 축 · pantry GET/PUT · 검색 2 · `/health` |
 | 제시 목록 | `seeds/onboarding_recipes.yaml` `presented` 20개(`reserve` 20). 축 순서 (매움, 짠맛, 단맛, 신맛, 감칠맛, 기름짐) 검사. `picks` 는 이 배열의 인덱스 |
 
 ---
@@ -52,8 +52,8 @@ mode: n_events=0 → onboarding · S >= (k or 6.0) → behavior · else blended
 cold(vec 전부 None) → exploration_ratio 0.4, f_taste None
 ```
 
-- 저장 `profile_store.JsonProfileStore`: `root/<id%256:02x>/<id>.json`, schema 1, 원본(picks·pick_flavors·scales·events·updated_at), `mkstemp` + `os.replace`, `allow_nan=False`, 사용자 대조, 읽기 실패 = ValueError 한 종류 → 서빙은 cold + `persona_profile_unreadable`, OSError → cold + `persona_store_error`. 저장 전 prune(730일 · 2000건, 동률은 뒤쪽 유지). 서비스 잠금으로 RMW 직렬화.
-- `service.onboarding_profile`: 인덱스 범위 밖 거부, 중복 하나로(+카운트), <3 카운트(`MIN_PICKS`), 척도 0~`SCALE_MAX`(4) 밖 거부. `record_events`: 배치 내 (user, recipe, kind, request_id) 중복 카운트, `at = now`(aware 필수), flavor None/전부 None → unknown, recipe None 인 조리·저장·클릭·별점 → invalid.
+- 저장 `profile_store.JsonProfileStore`: `root/<id%256:02x>/<id>.json`, schema 2(1 도 읽음 — `cuisines` 없는 판), 원본(picks·pick_flavors·scales·cuisines·events·updated_at), `mkstemp` + `os.replace`, `allow_nan=False`, 사용자 대조, 읽기 실패 = ValueError 한 종류 → 서빙은 cold + `persona_profile_unreadable`, OSError → cold + `persona_store_error`. 저장 전 prune(730일 · 2000건, 동률은 뒤쪽 유지). 서비스 잠금으로 RMW 직렬화.
+- `service.onboarding_profile`: 인덱스 범위 밖 거부, 중복 하나로(+카운트), <3 카운트(`MIN_PICKS`), 척도 0~`SCALE_MAX`(4) 밖 거부, 음식 유형은 코드로 정규화하고 모르는 값 거부(+`persona_cuisine_unknown`). 유형은 `vec` 계산에 **들어가지 않습니다** — `Persona.cuisines` 로 따로 실려 `build_context` 가 `preferred_cuisines` 를 안 넘겼을 때만 그것을 씁니다(빈 목록을 넘기면 빈 채로 둡니다). `record_events`: 배치 내 (user, recipe, kind, request_id) 중복 카운트, `at = now`(aware 필수), flavor None/전부 None → unknown, recipe None 인 조리·저장·클릭·별점 → invalid.
 
 ### 3.3 ② Ranking (`engine/feature.py`·`score.py`·`taste.py`)
 
@@ -65,11 +65,12 @@ cold(vec 전부 None) → exploration_ratio 0.4, f_taste None
 
 - MMR: 풀 = 점수 상위 `max(mmr_pool_size 200, total)`, `argmax λ·score − (1−λ)·max_sim`, λ 0.7, sim = IDF 자카드(all_ids). `total` 개 뽑은 뒤 `total − n_explore` 개만 개인화.
 - 탐색: `n = round(total × exploration_ratio(ctx))`, 풀 = rest 중 `score >= median`[:200], `n = min(n, |풀| // exploration_min_pool_ratio)`. `serendipity.mixed_exploration(k=n, uniform_share=effective, pool_size=200, mc=200)` — `exploration_spec(scored, ctx, policy, total)` = (`round(total·ratio)`, 균등 비율) 을 재정렬과 서비스가 공유. 균등 비율은 **후보 전체**에 군집이 하나라도 있으면 0.5, 없으면 1.0(계약의 균등 폴백을 B 가 구현. 풀에만 없으면 부족분). propensity = 균등 `n_uniform/|pool|` + Thompson MC 확률(묶음의 최고 후보에 귀속), 하한 1e-6. 위치 `explore.exploration_slots` 무작위.
-- 이유: `rank.top_reasons`(z-salience `w(f−μ)/σ`, σ 하한 0.05, 상위 2) → `reason.build_reason` 템플릿(종결형·연결형, 조사 자동). 탐색은 "새로운 시도는 어떠세요".
+- 음식 유형 슬롯(`engine/cuisine.py`): `n = min(round(total×cuisine_slot_ratio 0.1), cuisine_slot_max 2, total)`, `persona.mode is WARM` 이면 0, 고른 유형 없으면 0. 대상 = 고른 유형 중 개인화 head(`total−n_explore`)와 탐색이 가져간 것에 한 건도 없는 family. 후보 = 탐색이 뺀 나머지 rest 를 `rerank.worth_showing`(중위 점수 이상, 탐색과 같은 선)으로 거른 것, 유형별 정렬 `(−f_taste(None→−1), −score, recipe_id)` 후 `ONBOARDING_CUISINES` 순서로 **유형당 한 칸**. 개인화는 `cuisine.trim_for_slots` 로 꼬리부터 빼되 고른 유형의 마지막 한 건은 건너뜀. 자리 = `filled//2` 부터 균등, 탐색 자리 회피(없으면 앞자리). `propensity = 1.0`, `is_cuisine_slot=True`, 사유는 `f_cuisine` 을 앞에 세움.
+- 이유: `rank.top_reasons`(z-salience `w(f−μ)/σ`, σ 하한 0.05, 상위 2) → `reason.build_reason` 템플릿(종결형·연결형, 조사 자동). 탐색은 "새로운 시도는 어떠세요". `reason_context` 의 `cuisine` 은 `cuisine_label()` 로 한글 라벨.
 
 ### 3.5 추적과 로그 (`service.rank_candidates` · A `repository.write_recommendation`)
 
-- `params` 동결 10키: `policy_id, propensity_semantics(item), explore_pool_size, uniform_share, propensity_mc, rng_seed, max_missing_final, top_k, n_explore, serving_mode`. 덧붙임(`with_trace_extra`, 동결 키 덮으면 ValueError): `persona_source, persona_mode, persona_events, persona_behavior_weight, explore_fallback(uniform), policy_fingerprint`. 난수원은 `rank_candidates` 가 `random.Random(rng_seed)` 로 직접 만듭니다(호출자가 넘기지 않음).
+- `params` 동결 10키: `policy_id, propensity_semantics(item), explore_pool_size, uniform_share, propensity_mc, rng_seed, max_missing_final, top_k, n_explore, serving_mode`. 덧붙임(`with_trace_extra`, 동결 키 덮으면 ValueError): `persona_source, persona_mode, persona_events, persona_behavior_weight, explore_fallback(uniform), policy_fingerprint, n_cuisine, cuisine_slot_ratio, preferred_cuisines, cuisine_unmet`(뒤 넷은 고른 유형이 있을 때만. `cuisine_unmet` 은 끝내 목록에 없는 유형 + `cuisine_unmet` 카운터). 난수원은 `rank_candidates` 가 `random.Random(rng_seed)` 로 직접 만듭니다(호출자가 넘기지 않음).
 - rerank `dropped = {mmr_or_cap, explore_shortfall}`, ranking `score_stats = {min, p25, p50, p75, max}`.
 - 로그: `recommendation_log` 1행(`candidates` = 상위 50 ∪ served, `not_reproducible` 표시) + `impression` N행. 300ms 타임아웃, 실패는 `failed`·`failed:<예외>` 카운트 + 묘비(`tombstoned`·`tombstone_failed`). 카운터 `service.bump/counters`.
 
@@ -79,7 +80,7 @@ cold(vec 전부 None) → exploration_ratio 0.4, f_taste None
 
 ```text
 [A] enums · stage · schema · repository · repository_ingest · router · ingest/ · evaluation/ · engine/{rank,reason,explore,serendipity}
-[B] policy · profile_store · service · engine/{candidate,context,taste,persona,feature,score,rerank,mock}
+[B] policy · profile_store · service · engine/{candidate,context,taste,persona,feature,score,rerank,cuisine,mock}
 scripts/generate_mock_fixtures.py(12명·120·60·18) · scripts/eval_recommend_mock.py(시드 = user_id) · seeds/onboarding_recipes.yaml · tests/unit/recommend/ (B 검사 함수 151, 수집 165)
 ```
 

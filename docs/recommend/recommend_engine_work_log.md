@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 B 추천 엔진을 이어서 작업하는 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 1.11.0 · **최종 수정**: 2026-09-14 · **작성자**: 유재현
+**버전**: 1.12.0 · **최종 수정**: 2026-09-15 · **작성자**: 유재현
 
 ---
 
@@ -13,11 +13,11 @@
 | 키 | 값 |
 |---|---|
 | 정본 | 이 파일. 사람용 서술본 `human/recommend_engine_work_log.md` 는 식별자로 대응하는 파생본 |
-| 계획서 | `recommend_engine_design.md` (구현 명세 2.0.0, 현재 구현 기준, 사람용 정본 · 노션 공유용) · `recommend_engine_design_digest.md` (에이전트용 압축본 3.0.0, 어긋나면 원본이 이기고 코드가 이김) |
+| 계획서 | `recommend_engine_design.md` (구현 명세 2.2.0, 현재 구현 기준, 사람용 정본 · 노션 공유용) · `recommend_engine_design_digest.md` (에이전트용 압축본 3.2.0, 어긋나면 원본이 이기고 코드가 이김) |
 | 브랜치 | `feat/recommend-engine-core`. `origin/main` 병합 완료. `origin/develop-data-part` 는 두 번 병합했습니다 — 658d79a(9.6), def3d5b(9.10). `main` 병합은 PR #8 로 올렸고 **2026-09-11 11:52(KST) kmk9259 가 병합**했습니다(`5846a72`, `80cc832` 까지). 그 뒤 커밋 13개(`d35b619`~ 시뮬 패키지 `cdf656e` · `3633ed7` · `1865540` 와 기록 `70e3b31`, `main` 과 충돌 없음)는 미병합이며 새 PR 은 보류입니다(유재현, 2026-09-12). 시뮬 패키지는 (a)안(전부)으로 커밋했습니다(N-16, 2026-09-14) |
-| 단계 | ② Ranking 과 ③ Re-ranking 을 A 계약 위에서 구현 완료. **취향 페르소나**(고른 음식 → 3축 척도 → 없음, 시간 감쇠·주기 가중, 사용자당 JSON 저장)를 9.11 에서 구현. ① Retrieval·로그 적재·DDL·배치는 A 것이 브랜치에 있습니다. 라우터에 `rank_candidates`·`PersonaService` 를 끼우는 것(M-01·M-15)과 DB 연결이 남았습니다. 9.12 에서 세 방향 복기(명세 · 무음 실패 · 규약)로 구멍 15개(F-36~F-50)를 찾아 14개를 코드로 고쳤습니다(D-34~D-38). 9.15 의 4회차 복기는 20건(F-51~F-70)을 더 찾아 코드 17건·기록 3건으로 닫았습니다(D-39~D-41). 9.16 은 기획측 시뮬 시드(1,600명)를 DB 없이 엔진에 넣는 도구 `scripts/sim/scenario_engine.py` 를 만들어 전원 불변식 · 콜드 → 웜 전환 · 행동·냉장고 반응을 확인했습니다(D-42·D-43). 9.17 은 유재현이 Docker Desktop 을 설치한 뒤 DB 경로(적재 · 검증 쿼리 · `/health` 포함 API 시나리오)까지 통과시켰습니다(D-44) |
-| 검증 (2026-09-14, 9.17) | ruff check OK · ruff format OK(151 files) · mypy **62 files** OK · `pytest tests/unit` **298 passed / 0 failed** / coverage **90.64%**(시뮬 검사 6건 포함). A 게이트 6종 전부 종료코드 0(9.16, `contract` 98건). 시뮬 DB 경로 — `load_sim.sh` 종료코드 0, `99_verify.sql` 여섯 건수·집단 × 모드 분포가 안내서 기대값과 일치, `scenario_run.py`(`/health` 포함, db true 0.11초) PASS, `scenario_engine.py` 1,600명 PASS. 출력은 `recommend_engine_verification.md` 16·17절 |
-| 다음 행동 | 공유 경로(`deploy/seed/sim`·`tests/fixtures/sim`·`dev` 의존성) 변경을 A 에 알림 → 미병합 커밋 13개의 새 PR(보류 해제 시) → N-01(.env) → 라우터 실연결(M-01·M-15) → G-24(3축 척도 범위)·G-25(월별 주기 해석)·G-26(`EventIn` 시각)·G-27(A 함수의 균등 폴백) 확인. 남은 회의 안건은 `recommend_engine_meeting_agenda.md` 2절 |
+| 단계 | ② Ranking 과 ③ Re-ranking 을 A 계약 위에서 구현 완료. **취향 페르소나**(고른 음식 → 3축 척도 → 없음, 시간 감쇠·주기 가중, 사용자당 JSON 저장)를 9.11 에서 구현. ① Retrieval·로그 적재·DDL·배치는 A 것이 브랜치에 있습니다. 라우터에 `rank_candidates`·`PersonaService` 를 끼우는 것(M-01·M-15)과 DB 연결이 남았습니다. 9.12 에서 세 방향 복기(명세 · 무음 실패 · 규약)로 구멍 15개(F-36~F-50)를 찾아 14개를 코드로 고쳤습니다(D-34~D-38). 9.15 의 4회차 복기는 20건(F-51~F-70)을 더 찾아 코드 17건·기록 3건으로 닫았습니다(D-39~D-41). 9.16 은 기획측 시뮬 시드(1,600명)를 DB 없이 엔진에 넣는 도구 `scripts/sim/scenario_engine.py` 를 만들어 전원 불변식 · 콜드 → 웜 전환 · 행동·냉장고 반응을 확인했습니다(D-42·D-43). 9.17 은 유재현이 Docker Desktop 을 설치한 뒤 DB 경로(적재 · 검증 쿼리 · `/health` 포함 API 시나리오)까지 통과시켰습니다(D-44). 9.19 는 온보딩에 추가된 **좋아하는 음식 유형** 문항을 계약 → 페르소나 → 목록까지 이었습니다 — 맛 6축에 섞지 않고 재정렬의 유형 슬롯으로 반영합니다(D-45~D-47, F-82~F-89) |
+| 검증 (2026-09-15, 9.19) | ruff check OK · ruff format OK(154 files) · mypy **63 files** OK · `pytest tests/unit` **315 passed / 0 failed** / coverage **91.02%**(시뮬 검사 6건 · 음식 유형 검사 19건 포함). A 게이트 6종 전부 종료코드 0(9.16, `contract` 98건). 시뮬 DB 경로(9.17) — `load_sim.sh` 종료코드 0, `99_verify.sql` 여섯 건수·집단 × 모드 분포가 안내서 기대값과 일치, `scenario_run.py`(`/health` 포함, db true 0.11초) PASS. `scenario_engine.py` 1,600명 PASS(9.19 기준 판정 6종). 출력은 `recommend_engine_verification.md` 16~18절 |
+| 다음 행동 | 음식 유형 변경분의 커밋 범위를 유재현과 정함(코드·시드·기록) → 레시피 쪽 `cuisine_family` 를 A 에 요청(G-30, 이것이 없으면 실 DB 에서 유형 문항이 목록에 닿지 않음) → 공유 경로(`deploy/seed/sim`·`tests/fixtures/sim`·`dev` 의존성) 변경을 A 에 알림 → 미병합 커밋 13개의 새 PR(보류 해제 시) → N-01(.env) → 라우터 실연결(M-01·M-15) → G-24(3축 척도 범위)·G-25(월별 주기 해석)·G-26(`EventIn` 시각)·G-27(A 함수의 균등 폴백) 확인. 남은 회의 안건은 `recommend_engine_meeting_agenda.md` 2절 |
 | 병합 정책 | `main` 은 PR 로만 병합합니다(첫 PR #8 은 `5846a72` 로 병합됨). 브랜치 커밋·push 는 자유. `origin/main` 은 merge 로 따라감(rebase 금지, 01의 2.1). 병합된 브랜치 `feat/recommend-engine-core` 는 01의 2.1 대로 삭제 대상이나 미병합 커밋 13개가 있어 새 PR 전까지 둡니다 |
 | DB 전환 | `recommend_engine_db_cutover.md` 의 M-01~M-15. DB 와 닿는 변경을 시작할 때 먼저 엽니다. `tests/unit/recommend/test_db_cutover.py` 가 못을 박아 두어 건너뛰면 검사가 깨집니다 |
 | 갱신 규칙 | 세션마다 1절·3절·9절 갱신. 새 항목은 다음 번호, 번호 재사용 금지. 사람용 서술본 동시 갱신 (2절). **3.3 의 수치는 그 세션의 실행에서 다시 잽니다** — 앞 세션 값을 옮기지 않습니다 (01의 3.4, D-28). 9절의 세션별 수치는 그 시점 기록이므로 고치지 않습니다 |
@@ -97,15 +97,18 @@
 | D-41 | 균등 폴백 판정은 탐색 풀 기준 | **후보 전체** 기준이며 `rerank.ExplorationSpec` 하나를 재정렬과 서비스가 같이 씁니다. 풀에만 군집이 없으면 폴백이 아니라 부족분입니다 | 두 곳이 따로 판정하면 군집이 일부 후보에만 있을 때 로그와 실제가 갈라집니다(F-62). 군집은 배치 단위라 후보 어딘가에 있으면 배치가 돈 것입니다 | A 가 함수 안에 폴백을 넣으면(G-27) 규격의 균등 비율 계산만 남습니다 |
 | D-42 | (시뮬 시드) `user_vector.taste_vec` 은 picks 평균과 척도를 앞 3축에서 절반씩 섞은 값 | **고른 음식의 6축 평균만.** 척도는 `onboarding_scales` 원본으로만 둡니다 | D-29(고른 음식이 있으면 척도는 저장만)와 시드가 어긋나면 배치 검증 때 기대값이 둘이 됩니다(F-75). 변환기 `synth_onboarding()` 을 고치고 03 파일을 재생성했습니다 | 기획이 척도를 계산에 넣기로 하면 D-29 와 함께 |
 | D-43 | (계획에 없음) 시드 검증은 DB 적재 뒤 API 로만 | DB 없이 시드를 엔진에 직접 넣는 `scripts/sim/scenario_engine.py`(읽기는 `sim_seed.py`)를 둡니다. 냉장고·임박은 A 의 SQL 규칙(`user_pantry_ids` staple 합집합, `effective_expiry` 구매일 + 기본 소비기한, D-3 이내와 지난 것)을 파이썬으로 따르고, '지금' 은 유저마다 마지막 활동 한 시간 뒤, 난수 시드는 `user_id` 입니다 | 이 PC 에 Docker 가 없고(E-15) M-01·M-03 전에는 API 가 시드를 읽지 않습니다. 이 도구가 없으면 시드가 엔진과 맞는지 알 수 없습니다 | M-01·M-03 이 붙으면 같은 시나리오를 `scenario_run.py` 로 API 에서 돌리고 이 도구는 회귀 검사(`test_engine_scenario_passes_without_a_db`)로만 남깁니다 |
+| D-45 | (신규 문항) 온보딩의 음식 유형을 맛 6축 취향에 합침 | 맛 6축과 **섞지 않습니다.** 유형은 `TasteProfile.cuisines` → `Persona.cuisines` → `UserContext.preferred_cuisines` 로 따로 흐릅니다 | 고른 유형의 평균 맛을 취향에 더하면 "한식을 좋아함" 이 "짜고 매운 것을 좋아함" 으로 번역되어, 문항 하나가 맛 취향 전체를 움직입니다. 담백한 한식만 좋아하는 사람에게 틀린 목록이 나가고 에러는 없습니다 | 유형과 맛의 상관을 실데이터로 재고 W3 학습이 한 항으로 흡수하기로 하면 |
+| D-46 | (신규 문항) 유형 반영은 `f_cuisine` 가중치를 올려서 | 가중치는 0.04 그대로 두고 **재정렬에서 자리를 뗍니다**(`engine/cuisine.py`, Top-20 에 두 칸). 조건은 "고른 유형이 목록에 한 건도 없을 때" 이고 행동이 쌓인 사용자(behavior)는 0칸입니다 | Σw 의 0.44 가 재료 매칭이라 0.04 로는 고른 유형이 Top-K 에 한 건도 안 들어올 수 있고(시뮬 1,600명 중 460명), 가중치를 올리면 반대로 고른 유형 하나가 20칸을 물들입니다. 자리를 떼면 18칸은 그대로이고 그 칸의 이유 문구도 유형으로 적힙니다 | 실데이터에서 유형이 실제로 반응(클릭·조리)을 끌면 W3 학습에서 가중치로 옮깁니다 |
+| D-47 | (신규 문항) 유형 값은 화면 라벨("한식")로 저장 | **`cuisine_family` 코드**(`korean`·`chinese`·`japanese`·`western`·`asian_other`)로 저장하고, 라벨로 와도 코드로 바꿉니다. 모르는 값은 버리거나 추측하지 않고 **거부**합니다 | 레시피 쪽 축이 `recipe.cuisine_family` 코드라 라벨로 저장하면 두 축이 영영 안 만납니다(F-82). 모르는 값을 가까운 유형으로 바꾸면 사용자가 고르지 않은 음식이 목록에 오르는데 응답은 200 입니다 | 없습니다. 값의 정본은 `seeds/cuisine_taxonomy.yaml` 이고 검사가 대조합니다 |
 | D-44 | (시뮬 시드) `app_user.id` = 기획 번호(1~1600), 적재 뒤 시퀀스를 max(id) 로 올림 | **id = 1,000,000 + 기획 번호**(`SIM_ID_BASE`), 시퀀스는 건드리지 않음. 합성 값의 해시 키는 id 가 아니라 기획 번호(`hkey`) | `make smoke --keep` 의 합성 유저 8명이 id 1~8 을 차지해 `01_app_user.sql` 이 PK 충돌로 멈췄습니다(F-79) — 안내서가 권한 경로에서 그대로 생기는 결함입니다. 해시 키를 id 로 두면 id 를 옮기는 순간 알러지 90 → 89, 냉장고 4,442 → 4,474 로 내용까지 바뀝니다(F-81) | 낮은 id 를 시뮬 몫으로 비워 두기로 A 와 정하면 오프셋을 0 으로 |
 
-### 3.3 검증 출력 (2026-09-14, 세션 9.17 종료 시점)
+### 3.3 검증 출력 (2026-09-15, 세션 9.19 종료 시점)
 
 ```text
 uv run ruff check .                   → All checks passed!
-uv run ruff format --check .          → 151 files already formatted
-uv run python -m mypy src             → Success: no issues found in 62 source files   (E-01)
-uv run pytest tests/unit              → 298 passed, coverage 90.64% (기준 80%)
+uv run ruff format --check .          → 154 files already formatted
+uv run python -m mypy src             → Success: no issues found in 63 source files   (E-01)
+uv run pytest tests/unit              → 315 passed, coverage 91.02% (기준 80%)
 ```
 
 A 자체 게이트(`Makefile`, DB 불필요분). Windows 는 `PYTHONIOENCODING=utf-8` 이 필요합니다 (E-11, G-14). 이번 세션은 종료 코드만 확인했고 건수는 `contract` 만 화면에서 읽었습니다.
@@ -119,7 +122,7 @@ python -m tests.unit.recommend.test_role     → 종료코드 0
 python -m tests.unit.recommend.test_batch    → 종료코드 0
 ```
 
-시뮬 시드(9.16). `uv run python scripts/sim/scenario_engine.py` → 종료코드 0, RESULT: PASS (1,600명, 41초). `uv run python scripts/sim/scenario_run.py --base http://127.0.0.1:8765 --api-key ... --skip-health` → 종료코드 0. 시드 재생성(amplify → convert) → 종료코드 0, 저장본과 바이트 단위 동일.
+시뮬 시드(9.19 재실행). `uv run python scripts/sim/scenario_engine.py` → 종료코드 0, RESULT: PASS (1,600명, 33초, 판정 6종). `uv run python scripts/generate_mock_fixtures.py` · `scripts/reco/bench/onboarding_pick20.py` · 시드 재생성(amplify → convert) → 전부 종료코드 0. `uv run python scripts/sim/scenario_run.py --base http://127.0.0.1:8765 --api-key ... --skip-health` → 종료코드 0. 시드 재생성(amplify → convert) → 종료코드 0, 저장본과 바이트 단위 동일.
 
 시뮬 DB 경로(9.17, Docker Desktop). `docker compose ... up -d` → postgres healthy, init 01~04 자동 적용. `uv run python scripts/reco/migrate.py` → 0 (재료 536). `uv run python tests/integration/test_smoke.py --keep` → 0 (published 합성 10,007). `PSQL_VIA_COMPOSE=1 bash deploy/seed/sim/load_sim.sh` → 0, `99_verify.sql` app_user 1600 · user_preference 1600 · user_vector 1600 · user_allergy 90 · pantry_item 4442 · event_log 10195, 집단 × 모드 235/90/475/800. `uv run python scripts/sim/scenario_run.py --base ... --api-key ...`(`/health` 포함, db true 0.11초) → 0.
 
@@ -543,6 +546,20 @@ uv run ruff check . && uv run python -m mypy src
 | 문서 | 안내서 1.2.0(make·psql 없는 PC 절차, id 범위, DB 실행 결과, G-29 보충) · `deploy/seed/sim/README.md` 매핑 · 패키지 사본 동기화(zip 제외) |
 | 검증 | 적재 종료코드 0 · `99_verify` 건수·분포가 기대값과 일치 · `scenario_run.py` PASS(`/health` db true 0.11초, [5] 변동 0 = 전환 전 정상) · `scenario_engine.py` PASS · ruff·format(151)·mypy(62) 0 · `pytest tests/unit` 298 passed / 90.64% |
 | 넘긴 것 | N-16(커밋 범위 — 이제 유재현과 정함) · G-29(DB 없을 때의 대기. DB 있으면 0.11초) |
+
+### 9.19 2026-09-15 - 온보딩 음식 유형 (신규 문항)
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 — "온보딩에 좋아하는 음식 유형(한식·중식·일식·양식·아시안)이 추가됐다. 최초 페르소나에 넣되 추천 목록에 절대적이지 않게 조금 반영하고, 맛 페르소나 기준 좋아할 만한 것을 몇 개 포함해 달라. 목업 데이터도 없으면 추가" |
+| 확인 | 값을 받을 자리는 이미 있었습니다 — `user_preference.pref_cuisines`(DDL) · `f_cuisine` 0.04 · `UserContext.preferred_cuisines`. 없던 것은 ① 계약(`OnboardingIn` 에 문항이 없어 서버가 받지 못함) ② 정본 목록(목업은 분식, 시뮬은 기타, DDL 은 family 코드로 제각각) ③ 목록에 닿는 경로(F-82~F-84) |
+| 결정 | D-45(맛 축과 분리) · D-46(가중치가 아니라 유형 슬롯) · D-47(코드로 저장, 모르는 값 거부) |
+| 코드 | `enums.py`(`CuisineFamily`·`ONBOARDING_CUISINES`·`CUISINE_LABELS`·`normalize_cuisine`) · `schema.py`(`OnboardingIn.preferred_cuisines`·`OnboardingOut`) · `persona.py`(`TasteProfile.cuisines`·`Persona.cuisines`·`require_cuisines`) · `profile_store.py`(schema 2, 판 1 도 읽음) · `service.py`(`onboarding_profile(cuisines=)`·추적 `n_cuisine`·`cuisine_unmet`) · `context.py`(페르소나 폴백·코드 정규화) · **`engine/cuisine.py` 신설** · `rerank.py`(슬롯 배치·사유) · `stage.py`(`RankedItem.is_cuisine_slot`) · `policy.py`(`cuisine_slot_ratio` 0.1 · `cuisine_slot_max` 2) · `mock.py`(레시피 유형 5종·온보딩 반영, 유형당 한 칸) |
+| 데이터 | `seeds/onboarding_recipes.yaml` 재생성 — 다섯째 계열 "기타" 9종을 아시안 5 · 양식 4 로 가름(F-85, 6축 값 불변) · 목업 카탈로그 재생성(유형 코드 · 한식 편중 120건 중 80, F-86) · 시뮬 `02_user_preference.sql` 재생성(라벨 → 코드, 다른 시드 파일과 `stats.json` 은 동일) |
+| 검사 | `tests/unit/recommend/test_cuisine.py` 19건 신설(계약·페르소나·슬롯·목업·시드 대조). `scripts/sim/sim_world.py` 분리(02의 5.1, 500줄) 후 시뮬 시나리오에 [6] 음식 유형 추가 |
+| 3회 검수 | 구현 뒤 세 번 다시 읽어 6건(F-91~F-96)을 더 고쳤습니다. 가장 큰 것은 유형 칸이 다른 유형을 목록에서 지우던 것(F-91)이고, 목업이 실제 구현과 다르게 돌던 것 둘(F-92·F-93), 파트 A 파일에 함수를 더한 것(F-94), 시뮬 판정이 아무 일도 안 해도 통과하던 것(F-95), 불필요한 `sys.path` 조작(F-96)입니다 |
+| 검증 | ruff · format(154) · mypy(63) · `pytest tests/unit` 315 passed / 91.02% 전부 종료코드 0, A 게이트 6종 0(contract 98건). 시뮬 1,600명 RESULT: PASS(판정 6종, 불변식 위반 0) — 고른 유형이 Top-20 에 한 건도 없는 사람이 슬롯을 끄면 460명, 켜면 178명 |
+| 넘긴 것 | G-30(레시피 `cuisine_family` 전수 결측 — 실 DB 에서는 유형 슬롯도 `f_cuisine` 도 돌지 않음) · 계약 때문에 손댄 파트 A 파일 4개(`enums.py` · `schema.py` · `stage.py` · `test_contract.py`)를 A 에 알림(F-90, 18.2절) |
 
 ### 9.18 2026-09-14 - 시뮬 패키지 커밋 (N-16 결정)
 

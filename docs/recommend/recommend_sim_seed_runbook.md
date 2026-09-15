@@ -4,7 +4,7 @@
 
 **적용 대상**: 이 작업을 맡은 Claude Code 및 인원. 첨부된 패키지(`sim_warm_package.zip`)를 저장소에 풀어 넣는 것부터 시작합니다.
 
-**버전**: 1.3.0 · **최종 수정**: 2026-09-14 · **작성자**: 추천 코어 엔진(Track B)
+**버전**: 1.4.0 · **최종 수정**: 2026-09-15 · **작성자**: 추천 코어 엔진(Track B)
 
 ---
 
@@ -17,7 +17,7 @@
 | `scripts_sim/amplify_events.py` | `scripts/sim/amplify_events.py` | 기획 이벤트를 웜 전환 규모로 증폭 (xlsx → xlsx) |
 | `scripts_sim/convert_planning_data.py` | `scripts/sim/convert_planning_data.py` | xlsx → reco 스키마 SQL 시드 |
 | `scripts_sim/scenario_run.py` | `scripts/sim/scenario_run.py` | API 로 시나리오 실행 · 종료 코드로 판정 |
-| `scripts_sim/scenario_engine.py`, `scripts_sim/sim_seed.py` | `scripts/sim/scenario_engine.py`, `scripts/sim/sim_seed.py` | DB 없이 시드를 엔진에 직접 넣어 시나리오 실행 · 종료 코드로 판정. `sim_seed.py` 는 시드 SQL·Mock 카탈로그 읽기 |
+| `scripts_sim/scenario_engine.py`, `scripts_sim/sim_seed.py`, `scripts_sim/sim_world.py` | `scripts/sim/` 아래 같은 이름 | DB 없이 시드를 엔진에 직접 넣어 시나리오 실행 · 종료 코드로 판정. `sim_seed.py` 는 시드 SQL·Mock 카탈로그 읽기, `sim_world.py` 는 시드를 엔진 입력으로 바꿔 한 명을 서빙(09-15 분리, 02의 5.1) |
 | `planning_data_original/*.xlsx` | `tests/fixtures/sim/planning_v0.4/` | 기획 원본 11개. 단위 검사의 입력 |
 | `planning_data_amplified/*.xlsx` | (저장소에 넣지 않음) | 증폭본. 기획측 공유용. 재생성 가능 |
 | `sim_seed/*.sql`, `load_sim.sh`, `README.md` | `deploy/seed/sim/` | 적재 SQL · 적재기 · 매핑 규칙 |
@@ -75,17 +75,18 @@ uv run python scripts/sim/scenario_engine.py
 
 2026-09-14 DB 실행(Docker Desktop 29.7, `pgvector/pgvector:pg16`, 재료 시드 536종, 합성 published 레시피 10,007건): 3-4 의 여섯 건수와 집단 × 모드 분포가 위 표와 같았고 `users_with_candidates` 는 0(합성 레시피가 `test-smoke` 라 정상), 3-5 는 `/health` 가 0.11초에 `db: true` 로 답하고 `RESULT: PASS`, [5] 변동 0, [6] 겹침 8 이었습니다. 첫 적재는 시드 id 1~1600 이 스모크 합성 유저 1~8 과 충돌해 멈췄고, 그래서 시뮬 id 를 100만 대로 옮겼습니다.
 
-3-6 의 `scenario_engine.py` 도 `RESULT: PASS` 와 종료 코드 0 이 판정입니다. 다섯 가지를 봅니다.
+3-6 의 `scenario_engine.py` 도 `RESULT: PASS` 와 종료 코드 0 이 판정입니다. 여섯 가지를 봅니다.
 
 | 판정 | 뜻 |
 |---|---|
-| `invariants` | 1,600명 전원에서 알러지 위반 0 · 중복 없음 · 노출 확률 (0,1] · 사유 문구 채움 · 조리시간 상한 · 순위 연속 |
+| `invariants` | 1,600명 전원에서 알러지 위반 0 · 중복 없음 · 노출 확률 (0,1] · 사유 문구 채움 · 조리시간 상한 · 순위 연속 · 음식 유형 칸이 고른 유형이고 노출 확률 1.0 |
 | `cold_to_warm` | 이벤트가 가장 무거운 A 유저의 이력을 시간순으로 따라가면 모드가 onboarding → blended → behavior 로 바뀜 |
 | `behavior_moves_list` | 개인화 상위 5건을 지금 조리한 것으로 넣으면 페르소나 무게가 오르고 상위 10 이 움직임 |
 | `expiring_reaches_list` | 아직 없는 재료 2종을 임박으로 넣으면 그 재료를 쓰는 개인화 레시피가 늘고 `f_expiring` 이 측정됨 |
 | `repeatable` | 같은 시드로 두 번 돌리면 목록이 같음 |
+| `cuisine_reaches_list` | 유형 슬롯을 끈 정책과 견줘, 고른 음식 유형이 목록에 한 건도 없는 사람이 늘지 않음. 채울 것이 있었는데 한 칸도 안 떼면 실패입니다 — 늘지 않은 것만 보면 슬롯을 꺼도 통과합니다 |
 
-2026-09-14 실행에서는 다섯 가지가 전부 통과했습니다 (36초). 이 시드는 임의 데이터라 수치를 '실측' 으로 쓰지 않습니다.
+2026-09-15 실행에서는 여섯 가지가 전부 통과했습니다 (33초). 음식 유형은 1,600명 가운데 유형 칸이 291개 생겼고, 고른 유형이 Top-20 에 한 건도 없는 사람이 슬롯을 끄면 460명, 켜면 178명이었습니다(A 집단 122명 · B 집단 163명이 칸을 받음). 남은 178명은 Mock 카탈로그 120건에 그 유형의 후보가 아예 없는 경우이며, 대부분 `asian_other` 입니다. 이 시드는 임의 데이터라 수치를 '실측' 으로 쓰지 않습니다.
 
 ## 4. 알아야 하는 한계
 
@@ -103,6 +104,7 @@ uv run python scripts/sim/scenario_engine.py
 - 시드의 `computed_from` 은 이벤트 20건 기준이고, 엔진의 모드는 `engine/persona.derive_persona` 가 무게(cook 1.0 · click 0.3 · 반감기 90일)로 정합니다. 그래서 둘은 같지 않습니다 — 이번 실행에서 시드 behavior 235명 중 엔진 behavior 195 · blended 40 이었습니다. 배치 검증에 `computed_from` 을 그대로 기대값으로 쓰지 않습니다.
 - B 집단(냉장고 없음)도 후보가 0 건이 아닙니다. `user_pantry_ids()` 가 staple 을 합치고, 모자라면 인기순 폴백이 채웁니다. 3-4 의 `users_with_candidates` 는 냉장고 있는 유저만 셉니다.
 - 알러지 그룹 `sesame` 은 Mock 카탈로그에 대응 그룹이 없어 3-6 에서는 검사 대상이 아닙니다. 실 DB 에서는 재료 컬럼으로 잡힙니다.
+- 음식 유형은 시드에 문항이 없어 **고른 음식의 계열**로 대신합니다(`synth_onboarding`). 실제 응답이 오면 원본으로 바꿉니다. 저장 값은 라벨이 아니라 `cuisine_family` 코드이고, Mock 카탈로그는 한식 편중(120건 중 80)이라 실 코퍼스와 같은 모양입니다. 실 DB 에서는 `recipe.cuisine_family` 가 전수 비어 있어 유형 슬롯도 `f_cuisine` 도 돌지 않습니다 — 회의 안건 G-30.
 - `/health` 는 `db.healthy()` 로 DB 에 접속하는데 DSN 에 접속 시간 제한이 없어, DB 가 없는 PC 에서는 150초가 지나도 응답하지 않습니다. 인프라 쪽 항목이며 회의 안건 G-29 입니다. DB 가 있으면 0.11초에 답합니다 — 문제는 DB 부재 시의 대기입니다.
 
 M-03 을 붙일 때 이 시드가 주는 것: `user_vector.n_events` 와 `event_log` 가 있으니, 배치가 `event_log` 에서 행동 벡터를 계산한 뒤 3-6 의 집단별 모드 분포와 대조하면 배치 검증이 됩니다. `taste_vec` 은 고른 음식의 6축 평균이며 행동 반영 전 값입니다.
