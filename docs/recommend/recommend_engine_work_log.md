@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 B 추천 엔진을 이어서 작업하는 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 1.13.0 · **최종 수정**: 2026-09-16 · **작성자**: 유재현
+**버전**: 1.14.0 · **최종 수정**: 2026-09-16 · **작성자**: 유재현
 
 ---
 
@@ -14,11 +14,11 @@
 |---|---|
 | 정본 | 이 파일. 사람용 서술본 `human/recommend_engine_work_log.md` 는 식별자로 대응하는 파생본 |
 | 계획서 | `recommend_engine_design.md` (구현 명세 2.2.0, 현재 구현 기준, 사람용 정본 · 노션 공유용) · `recommend_engine_design_digest.md` (에이전트용 압축본 3.2.0, 어긋나면 원본이 이기고 코드가 이김) |
-| 브랜치 | `feat/recommend-engine-core`. `origin/main` 병합 완료. `origin/develop-data-part` 는 두 번 병합했습니다 — 658d79a(9.6), def3d5b(9.10). `main` 병합은 PR #8 로 올렸고 **2026-09-11 11:52(KST) kmk9259 가 병합**했습니다(`5846a72`, `80cc832` 까지). 그 뒤 커밋 13개(`d35b619`~ 시뮬 패키지 `cdf656e` · `3633ed7` · `1865540` 와 기록 `70e3b31`, `main` 과 충돌 없음)는 미병합이며 새 PR 은 보류입니다(유재현, 2026-09-12). 시뮬 패키지는 (a)안(전부)으로 커밋했습니다(N-16, 2026-09-14) |
+| 브랜치 | `feat/recommend-engine-core`. `origin/main` 병합 완료. `origin/develop-data-part` 는 두 번 병합했습니다 — 658d79a(9.6), def3d5b(9.10). `main` 병합은 PR #8 로 올렸고 **2026-09-11 11:52(KST) kmk9259 가 병합**했습니다(`5846a72`, `80cc832` 까지). 그 뒤 커밋 20개는 **PR #9 로 2026-09-16 병합**했습니다(`77da2bc`, 97 파일 +28,640/-1,897). 리뷰 없이 유재현 지시로 병합했고 규약 예외 둘(라인 상한 초과 · 승인자 0명)은 PR 본문 최상단에 적었습니다. 지금 브랜치와 `origin/main` 은 내용이 같습니다 |
 | 단계 | ② Ranking 과 ③ Re-ranking 을 A 계약 위에서 구현 완료. **취향 페르소나**(고른 음식 → 3축 척도 → 없음, 시간 감쇠·주기 가중, 사용자당 JSON 저장)를 9.11 에서 구현. ① Retrieval·로그 적재·DDL·배치는 A 것이 브랜치에 있습니다. 라우터에 `rank_candidates`·`PersonaService` 를 끼우는 것(M-01·M-15)과 DB 연결이 남았습니다. 9.12 에서 세 방향 복기(명세 · 무음 실패 · 규약)로 구멍 15개(F-36~F-50)를 찾아 14개를 코드로 고쳤습니다(D-34~D-38). 9.15 의 4회차 복기는 20건(F-51~F-70)을 더 찾아 코드 17건·기록 3건으로 닫았습니다(D-39~D-41). 9.16 은 기획측 시뮬 시드(1,600명)를 DB 없이 엔진에 넣는 도구 `scripts/sim/scenario_engine.py` 를 만들어 전원 불변식 · 콜드 → 웜 전환 · 행동·냉장고 반응을 확인했습니다(D-42·D-43). 9.17 은 유재현이 Docker Desktop 을 설치한 뒤 DB 경로(적재 · 검증 쿼리 · `/health` 포함 API 시나리오)까지 통과시켰습니다(D-44). 9.19 는 온보딩에 추가된 **좋아하는 음식 유형** 문항을 계약 → 페르소나 → 목록까지 이었습니다 — 맛 6축에 섞지 않고 재정렬의 유형 슬롯으로 반영합니다(D-45~D-47, F-82~F-89) |
 | 검증 (2026-09-15, 9.19) | ruff check OK · ruff format OK(154 files) · mypy **63 files** OK · `pytest tests/unit` **315 passed / 0 failed** / coverage **91.02%**(시뮬 검사 6건 · 음식 유형 검사 19건 포함). A 게이트 6종 전부 종료코드 0(9.16, `contract` 98건). 시뮬 DB 경로(9.17) — `load_sim.sh` 종료코드 0, `99_verify.sql` 여섯 건수·집단 × 모드 분포가 안내서 기대값과 일치, `scenario_run.py`(`/health` 포함, db true 0.11초) PASS. `scenario_engine.py` 1,600명 PASS(9.19 기준 판정 6종). 출력은 `recommend_engine_verification.md` 16~18절 |
-| 다음 행동 | 음식 유형 변경분의 커밋 범위를 유재현과 정함(코드·시드·기록) → 레시피 쪽 `cuisine_family` 를 A 에 요청(G-30, 이것이 없으면 실 DB 에서 유형 문항이 목록에 닿지 않음) → 공유 경로(`deploy/seed/sim`·`tests/fixtures/sim`·`dev` 의존성) 변경을 A 에 알림 → 미병합 커밋 13개의 새 PR(보류 해제 시) → N-01(.env) → 라우터 실연결(M-01·M-15) → G-24(3축 척도 범위)·G-25(월별 주기 해석)·G-26(`EventIn` 시각)·G-27(A 함수의 균등 폴백) 확인. 남은 회의 안건은 `recommend_engine_meeting_agenda.md` 2절 |
-| 병합 정책 | `main` 은 PR 로만 병합합니다(첫 PR #8 은 `5846a72` 로 병합됨). 브랜치 커밋·push 는 자유. `origin/main` 은 merge 로 따라감(rebase 금지, 01의 2.1). 병합된 브랜치 `feat/recommend-engine-core` 는 01의 2.1 대로 삭제 대상이나 미병합 커밋 13개가 있어 새 PR 전까지 둡니다 |
+| 다음 행동 | 파트 A 소유 파일 6개(`enums.py` · `schema.py` · `stage.py` · `test_contract.py` · `deploy/docker-compose.yml` · `Makefile`)와 공유 경로·`dev` 의존성 변경이 `main` 에 들어갔음을 A 에 알림 → 레시피 쪽 `cuisine_family` 요청(G-30, 이것이 없으면 실 DB 에서 유형 문항이 목록에 닿지 않음) → 미병합 커밋 13개의 새 PR(보류 해제 시) → N-01(.env) → 라우터 실연결(M-01·M-15) → G-24(3축 척도 범위)·G-25(월별 주기 해석)·G-26(`EventIn` 시각)·G-27(A 함수의 균등 폴백) 확인. 남은 회의 안건은 `recommend_engine_meeting_agenda.md` 2절 |
+| 병합 정책 | `main` 은 PR 로만 병합합니다(PR #8 `5846a72` · PR #9 `77da2bc`). 브랜치 커밋·push 는 자유. `origin/main` 은 merge 로 따라감(rebase 금지, 01의 2.1). 병합된 브랜치 `feat/recommend-engine-core` 는 01의 2.1 대로 삭제 대상이며, 이어서 쓸지 삭제할지는 유재현이 정합니다 |
 | DB 전환 | `recommend_engine_db_cutover.md` 의 M-01~M-16(M-16 은 음식 유형을 `user_preference` 에서 읽는 일, 09-15 추가). DB 와 닿는 변경을 시작할 때 먼저 엽니다. `tests/unit/recommend/test_db_cutover.py` 가 못을 박아 두어 건너뛰면 검사가 깨집니다 |
 | 갱신 규칙 | 세션마다 1절·3절·9절 갱신. 새 항목은 다음 번호, 번호 재사용 금지. 사람용 서술본 동시 갱신 (2절). **3.3 의 수치는 그 세션의 실행에서 다시 잽니다** — 앞 세션 값을 옮기지 않습니다 (01의 3.4, D-28). 9절의 세션별 수치는 그 시점 기록이므로 고치지 않습니다 |
 
@@ -546,6 +546,16 @@ uv run ruff check . && uv run python -m mypy src
 | 문서 | 안내서 1.2.0(make·psql 없는 PC 절차, id 범위, DB 실행 결과, G-29 보충) · `deploy/seed/sim/README.md` 매핑 · 패키지 사본 동기화(zip 제외) |
 | 검증 | 적재 종료코드 0 · `99_verify` 건수·분포가 기대값과 일치 · `scenario_run.py` PASS(`/health` db true 0.11초, [5] 변동 0 = 전환 전 정상) · `scenario_engine.py` PASS · ruff·format(151)·mypy(62) 0 · `pytest tests/unit` 298 passed / 90.64% |
 | 넘긴 것 | N-16(커밋 범위 — 이제 유재현과 정함) · G-29(DB 없을 때의 대기. DB 있으면 0.11초) |
+
+### 9.21 2026-09-16 - PR #9 병합
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 — "완료된 코드를 main 에 머지. PR 은 기록으로만 남기고 바로 merge" |
+| 한 일 | PR #9 생성 후 merge commit 으로 병합(`77da2bc`). 20 커밋 · 97 파일 · +28,640/-1,897 |
+| 규약 예외 | 둘 다 PR 본문 최상단에 적었습니다. ① 라인 상한 300줄 초과 — 28,640 중 20,700 이 재생성 가능한 생성물이고 손으로 읽을 표면은 62 파일 7,940 추가(코드만 37 파일 5,326)입니다. ② 최소 승인자 1명 미충족 — 소유자 지시로 리뷰 없이 병합했고, **Tech Lead 사전 승인은 없습니다**. 01의 5.1 이 사후 승인을 인정하지 않으므로 받았다고 적지 않았습니다 |
+| 병합 전 확인 | `git merge-tree` 충돌 0 · `mergeable_state` clean · 3.2 게이트 4종 종료코드 0(318 passed / 91.02%) · 병합 뒤 `git diff origin/main HEAD` 비어 있음 |
+| 넘긴 것 | A 소유 파일 6개 변경이 `main` 에 들어간 사실을 A 에 알림 · 브랜치 삭제 여부는 유재현 결정 |
 
 ### 9.20 2026-09-16 - 클라우드 팀 요청: 서비스 Dockerfile
 
