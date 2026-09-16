@@ -4,7 +4,7 @@
 
 **적용 대상**: 수정 여부를 결정하는 유재현과 수정을 반영할 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 6.0.0 · **최종 수정**: 2026-09-11 · **작성자**: 유재현
+**버전**: 11.2.0 · **최종 수정**: 2026-09-15 · **작성자**: 유재현
 
 ---
 
@@ -25,6 +25,12 @@
 | 조용한 실패 점검 | 에러 없이 기능만 못 하는 자리를 계통적으로 찾음 (10절). 8건 발견, 3건 수정, 5건 미해결 |
 | 2차 점검과 전환 준비 | 설정·관측 축에서 2건 추가 발견, 보이지 않던 실패 3건을 보이게 고침 (11절). DB 전환 점검표 13항목과 못 10건 |
 | 5차 재검증 | A 최신 내용(def3d5b) 병합 뒤 (12절). 게이트 4종·A 자체 게이트·Mock 종단 전부 이전과 같고 새 발견 1건(F-34) |
+| 취향 페르소나 | 2차 회의 결정 구현 뒤 (13절). 새 검사 46건, 게이트 252 passed / 89.74%, Mock 에서 우선순위·감쇠·주기·탐색 확대 확인. 새 발견 1건(F-35) |
+| 3회차 복기 | 검토자 셋으로 다시 읽은 뒤 (14절). 발견 15건(F-36~F-50) 중 14건 수정, 새 검사 24건, 게이트 276 passed / 90.23%. Mock 탐색 칸이 전부 설계값 |
+| 4회차 복기 | 검사·수정·재검사 3회 (15절). 발견 20건(F-51~F-70) 중 17건 코드·3건 기록, 새 검사 16건, 게이트 292 passed / 90.64%. 평가 스크립트가 비결정적이던 것을 고쳐 두 번 실행이 같음 |
+| 시뮬 시드 시나리오 | 기획측 가상운영데이터 1,600명을 DB 없이 엔진에 넣음 (16절). 발견 8건(F-71~F-78) 중 코드 5·문서 3, 전원 불변식 위반 0, 콜드 → 웜 전환·행동·냉장고 반응 확인, 게이트 298 passed / 90.64% |
+| 시뮬 DB 경로 | Docker Desktop 설치 뒤 적재 · 검증 쿼리 · `/health` 포함 API 시나리오 (17절). 발견 3건(F-79~F-81) 전부 코드, 건수·분포가 기대값과 일치, 게이트 298 passed / 90.64% |
+| 온보딩 음식 유형 | 신규 문항을 계약에서 목록까지 이음 (18절). 발견 15건(F-82~F-96) 중 코드 12·데이터 3, 새 검사 19건, 게이트 315 passed / 91.02%. 시뮬 1,600명에서 고른 유형이 목록에 없는 사람 460 → 178명 |
 | 재현 | `uv run python scripts/eval_recommend_mock.py` (2절) |
 
 ---
@@ -441,3 +447,342 @@ python scripts/eval_recommend_mock.py         → 0 (판정 지표 이전과 동
 | ID | 발견 | 판단 |
 |---|---|---|
 | F-34 | A 가 `repository.py`(904줄)를 나눠 365줄이 됐지만, 떼어 낸 `repository_ingest.py` 가 629줄로 02의 5.1 상한 500줄을 넘습니다. A 의 커밋 메시지는 "570줄로 상한 아래" 라고 적었는데 다음 커밋에서 59줄이 붙었고 상한 자체도 500줄입니다. 도메인 루트는 9개 파일이 되어 같은 절의 디렉터리 상한 8개도 넘습니다 | 검사로는 잡히지 않는 규약 위반입니다. A 의 파일이라 나누지 않고 회의 안건 G-10 에 올렸습니다 |
+
+---
+
+## 13. 취향 페르소나 검증 (2026-09-11)
+
+2차 회의 결정(D-29~D-33)을 구현한 `04ec783` 트리에서 쟀습니다. 판정은 전부 종료 코드입니다(01의 3.4).
+
+### 13.1 저장소 게이트
+
+```text
+uv run ruff check .                   → 0
+uv run ruff format --check .          → 0 (142 files already formatted)
+uv run python -m mypy src             → 0 (Success: no issues found in 62 source files)
+uv run pytest tests/unit              → 0 (252 passed, coverage 89.74%, 측정 1,993문)
+```
+
+새 모듈의 커버리지 — `engine/persona.py` 100% · `profile_store.py` 100% · `engine/context.py` 100% · `service.py` 97%.
+
+### 13.2 단위 검사가 못 박은 것
+
+| 회의 결정 | 검사 |
+|---|---|
+| 고른 음식이 있으면 3축 척도는 계산에 쓰지 않는다 | 척도를 (0,0,0)→(1,1,1) 로 바꿔도 페르소나가 같음 |
+| 고른 음식이 없으면 3축, 둘 다 없으면 없음 | 출처가 `scales`·`none` 으로 갈리고 뒤 3축은 None |
+| 합치는 식 `(k·p + S·b)/(k + S)` | k=12, p=0, 조리 1건 b=1 → 1/13. 120건 → 120/132, 모드 `behavior` |
+| 반감기 감쇠 | 90일 전 조리의 무게가 정확히 절반. 반감기 0 이면 끔. 미래 시각은 무게 1 |
+| 잊기 | 같은 16건을 1년 전에 두면 취향이 사전 취향 쪽으로 돌아옴(0.5 → 0.1 미만) |
+| 주기 친화도 | 같은 날짜 1년 전은 무게 1, 반년 전은 세기 1 에서 1e-3 미만. 요일·시간대도 같은 모양 |
+| 음의 신호 | 무시·저장 취소·노출은 취향을 만들지 않음. 별점 3점 아래는 0 |
+| 시각 | 시간대 없는 datetime 거부. 같은 순간을 UTC 와 KST 로 넣어도 같은 무게. 이벤트 순서 무관 |
+| 저장소 | 왕복 보존, 256 샤드, 임시 파일이 남지 않음, 깨진 파일은 예외(조용한 빈 취향 금지), 제시 목록 축 순서 검사 |
+| 서비스 | 범위 밖 인덱스 거부·카운트, 재온보딩 시 이벤트 보존, 무게 0·미지 레시피 카운트, 잘라내기, 깨진 파일은 서빙에서 받아 카운트 |
+| 취향 없으면 탐색 확대 | 20개 중 8개 (보통 4개) |
+| 추적 | `persona_source`·`persona_mode` 가 실리고 동결 키 10종은 덮지 못함 |
+
+### 13.3 Mock 종단
+
+```text
+persona sources {none: 1, picks: 10, scales: 1}
+exploration counts [4, 4, 1, 4, 4, 1, 3, 1, 2, 3, 10, 8]      ← 1012(취향 없음) 8/20
+feedback (user 1002) after 16 spicy cooks
+  onboarding only   (0.22, 0.28, 0.23, 0.15, 0.34, 0.03)  mode=onboarding
+  cooked last 16d   (0.57, 0.48, 0.38, 0.25, 0.48, 0.30)  mode=behavior  weight=15.07
+  cooked a year ago (0.26, 0.31, 0.25, 0.16, 0.36, 0.06)  mode=blended   weight=0.91
+  top-5 spicy mean  0.401 -> 0.534 (recent) / 0.401 (stale)
+season affinity (cook 1y ago vs 6mo ago, half-life 90d)
+  strength 0.0: same-season 0.0601  opposite 0.2462
+  strength 0.5: same-season 0.0601  opposite 0.1231
+  strength 1.0: same-season 0.0601  opposite 0.0000
+latency pool 3000 -> 500: p50 16.2ms p95 19.6ms (target p95 < 58ms)
+allergy clean · cook cap · propensity (0,1] · reason filled  → 전부 참 (실효 4/12 · 9/12)
+```
+
+1년 전 조리 16건의 무게 합 0.91 은 `16 x 0.5^(365/90) x 연 주기 친화도` 에서 나오는 값이고, 16건 무게 15.07 은 최근 16일에 걸친 감쇠의 합입니다. 둘 다 손으로 계산한 값과 맞습니다.
+
+### 13.4 새로 본 것
+
+| ID | 발견 | 판단 |
+|---|---|---|
+| F-35 | 맛 정합 lift 가 이전(10/12 양수, 최대 0.27)보다 작습니다(11/12 양수, 최대 0.16). Mock 카탈로그의 맛 값은 생성기가 0.2~0.75 로 만든 것이고, 고른 음식의 맛은 시드(A 의 실집계, 0~0.6)에서 옵니다. 두 분포가 달라 고른 음식으로 만든 취향이 Mock 코퍼스 평균 아래에 놓이고, 중심화 코사인이 "덜 자극적인 쪽" 을 취향으로 읽습니다 | Mock 만의 현상입니다. 실데이터는 취향과 레시피가 같은 파이프라인에서 나옵니다. 생성기의 맛 분포를 시드에 맞추는 것을 N-14 로 둡니다 |
+
+### 13.5 판정
+
+회의 결정 다섯 가지가 전부 검사로 못 박혔고 게이트 4종과 A 게이트가 통과합니다. 실 DB 없이 검증하지 못한 것은 저장소의 DB 구현(M-14)과 라우트 실연결(M-15)입니다.
+
+## 14. 3회차 복기와 수정 (2026-09-12)
+
+9.12 세션. `5b6043f` 트리를 독립 검토자 셋으로 다시 읽었습니다 — 명세 정합(회의 결정 여덟 항목마다 코드 경로·검사·편차), 무음 실패(경계값·저장소·동시성 실험), 규약과 문서 드리프트. 셋째는 세션 한도(HTTP 429)로 시작하지 못해 04 검사기·제거 심볼 grep·게이트 4종으로 직접 대신했습니다. 검토자가 실험으로 확인한 것만 발견으로 적었고, 판정은 전부 종료 코드입니다(01의 3.4). 수정은 `b7b25b4` 입니다.
+
+### 14.1 발견과 처리
+
+| ID | 발견 | 실험 근거 | 처리 |
+|---|---|---|---|
+| F-36 | 별점 무게에 상한이 없음 | `kind_weight(RATING, 180.0)` = 88.5. 사전 취향 무게 12 인 사용자가 별점 하나로 `behavior` | 1.0 에서 자르고 1~5 밖은 `persona_event_invalid` 로 세고 저장하지 않음(D-38) |
+| F-37 | 저장소가 파일 안의 사용자를 대조하지 않음 | 사용자 5 의 파일을 77 자리에 두면 `load(77).user_id == 5`, 77 의 이벤트가 5 의 파일로 저장됨 | `load()` 가 대조해 ValueError |
+| F-38 | 깨진 파일 약속의 구멍 | `[]`·`null` 은 AttributeError, 문자열 값은 계산 시 TypeError, 범위 밖 척도는 계산 시 ValueError, 5축은 조용히 채움, NaN 은 코사인을 0 으로 | 읽기에서 형을 맞추고 데이터클래스가 축 수·유한성·범위·길이를 검사. 읽기 실패는 ValueError 한 종류(검사 7건 parametrize) |
+| F-39 | 동시 저장이 예외로 끝남 | 임시 파일 이름 고정. 4 스레드 x 40 저장에서 119건 `FileNotFoundError`·`PermissionError`(Windows) | `tempfile.mkstemp` + 서비스의 읽고-합치고-쓰기 잠금. 4 스레드 x 10 배치 40건 무손실 검사 |
+| F-40 | 맛을 전부 모르는 이벤트가 행동으로 집계 | `(None,)*6` 조리 12건이 picks 사용자를 `behavior` 로, 벡터는 그대로 | `_behavior` 가 세지 않고 서비스는 `persona_recipe_unknown` 으로 셈 |
+| F-41 | 완화 종료 기준이 탐색 풀을 반영하지 않음 | 후보 24건에서 탐색 4칸 중 1칸, 취향 없는 사용자는 8칸 중 1칸. 9.11 Mock 의 1·3 칸이 이것 | `needed()` 36 / 취향 없으면 52 (D-34). F-04 의 뿌리 |
+| F-42 | 군집이 없으면 Thompson 몫이 사라짐 | `Candidate.cluster_id` 계약("None 이면 균등 폴백")을 `mixed_exploration` 이 구현하지 않음. 군집 없는 후보 60건에서 8칸 중 4칸 | B 가 균등으로 폴백하고 `explore_fallback`·`dropped.explore_shortfall`·카운터로 남김(D-35). A 함수는 G-27 |
+| F-43 | 사전 취향 없이 미세한 무게로 `behavior` | 729일 전 클릭(무게 0.001)만 있는 사용자가 `behavior`, 탐색 0.4 → 0.2 | 기준을 `scales_prior_weight`(6.0)로(D-36) |
+| F-44 | 정책 손잡이 미검증 | 세기 2.0 → 무게 -0.99996 → 전부 소실, 사전 무게 -1 → ZeroDivisionError, 반감기 NaN → 추적에 NaN | `RankingPolicy.__post_init__` |
+| F-45 | 잘라내기 동률 처리 | 같은 시각 5건에서 상한 3 이면 [0,1,2] 가 남아 배치의 새 이벤트가 먼저 버려짐 | 오름차순 뒤쪽 유지 → [2,3,4] |
+| F-46 | 평가 스크립트가 취향 없는 사용자에게 lift 를 지어냄 | 공통 축이 없을 때 0번(매움) 축으로 +0.062 를 찍어 집계에 섞임 | `taste_lift` None, 실효 수 표기 |
+| F-47 | 배치 안의 같은 이벤트가 중복 집계 | 같은 조리 3건 → 무게 3.0 | `(user, recipe, kind, request_id)` 로 배치 안 중복을 세고 하나만 저장. 배치 간 재시도는 DB 의 `event_log` 가 흡수 — M-14 대조 기준에 반영 |
+| F-48 | 척도 클램프·중복 인덱스·3개 미만 | `[5,0,0]` → 1.0 으로 조용히, `[0,0,0]` 은 한 음식을 세 배로, 3개 미만은 표시 없음 | 거부하고 셈 / 하나로 두고 셈 / `MIN_PICKS` 미만은 셈(D-37) |
+| F-49 | 온보딩 저장 경로가 잘라내지 않음 | 문서는 "저장 시 잘라냄", 코드는 이벤트 저장만. 상한 3 에서 직접 저장한 10건이 재온보딩 뒤 그대로 | 두 경로 모두 잘라냄 |
+| F-50 | 잘라내기 상한이 반감기와 독립인데 문서가 "결과에 영향 없음" | 반감기 3650일이면 731일 이벤트의 무게 0.87 인데 잘림 | 문구를 "기본값에서는" 으로 한정(코드 변경 없음) |
+
+검토자가 편차로 짚었으나 코드가 아니라 기록으로 처리한 것 — 회의의 "월별 주기" 를 연 주기 위상으로 읽은 근거가 어디에도 없었음(G-25), `EventIn` 에 발생 시각이 없어 배치 전체가 수신 시각을 받음(G-26), `persona_mode` 가 취향 유무의 라벨처럼 읽힐 수 있음(결정 기록 5절). 라우터가 여전히 목업의 척도 기반 벡터를 돌려주는 것은 M-15 로 못 박힌 그대로입니다.
+
+### 14.2 저장소 게이트
+
+```text
+uv run ruff check .                   → 0
+uv run ruff format --check .          → 0 (142 files already formatted)
+uv run python -m mypy src             → 0 (Success: no issues found in 62 source files)
+uv run pytest tests/unit              → 0 (276 passed, coverage 90.23%, 측정 2,098문)
+python seeds/validate.py              → 0 (통과, 경고 13건)
+python -m tests.unit.recommend.test_contract → 0 (98건 전부 통과. 설정값 20종을 셸 환경변수로만 채움)
+```
+
+새 검사 24건 — `test_persona.py` 6(별점 상한, 빈 맛 벡터, 모드 기준, 동률, 형태 거부, 손잡이 검증), `test_profile_store.py` 9(사용자 대조, 깨진 형태 7, 문자열 수), `test_service.py` 9(척도 거부, 계약 상한 일치, 중복·미만 카운트, 잘못된 이벤트 카운트, 시간대 없는 시각, 수신 시각과 나이 잘라내기, 동시 배치, 취향 없는 사용자 종단, 탐색 부족 추적)입니다. 바뀐 기대값은 둘입니다 — 사전 취향 없는 조리 1건은 `blended`, `needed(20)` 은 36 입니다.
+
+### 14.3 Mock 종단
+
+```text
+persona sources {none: 1, picks: 10, scales: 1}
+exploration counts [4, 4, 4, 4, 4, 4, 4, 4, 2, 4, 10, 8]      ← 9.11 은 [4,4,1,4,4,1,3,1,2,3,10,8]
+stages {none: 3, popularity: 7, relax_missing: 2}
+taste lift = [0.032, 0.115, -0.075, 0.09, 0.071, 0.053, 0.021, 0.11, 0.163, 0.124, 0.109, None]  (실효 11/12)
+feedback (user 1002): onboarding (0.22, 0.28, 0.23, 0.15, 0.34, 0.03) → recent behavior 15.07 → stale blended 0.91  (9.11 과 동일)
+latency pool 3000 -> 500: p50 15.4ms p95 17.6ms (target p95 < 58ms)
+allergy clean · cook cap · propensity (0,1] · reason filled  → 전부 참
+```
+
+탐색 칸은 전부 설계값(20% · 취향 없으면 40% · top_k 10 은 2칸)이 되었습니다. 대가는 완화입니다 — 36건을 요구하니 인기순 폴백이 7/12 로 늘었습니다. Mock 카탈로그 120건에서의 수치이고 실데이터에서 다시 잽니다(N-15).
+
+### 14.4 판정
+
+발견 15건 중 14건을 코드로 고치고 검사로 못 박았으며 1건(F-50)은 문서 문구였습니다. 게이트 4종과 A 게이트 2종이 전부 종료 코드 0 입니다. 실 DB 없이 확인하지 못한 것은 13.5 와 같습니다(M-14, M-15).
+
+## 15. 4회차 복기 — 오류 없이 잘못 실행되는 것 (2026-09-13~14)
+
+9.15 세션. 검사·수정·재검사를 3회 반복했습니다. 1회차는 게이트 4종·A 게이트 6종·평가 스크립트를 돌린 뒤 검토자 둘(랭킹 경로 무음 실패 · 문서 드리프트와 검사 품질)과 직접 탐침으로 찾고, 2회차는 고친 뒤 전체를 다시 돌리고 변경분을 직접 읽었으며(셋째 검토자는 세션 한도 HTTP 429), 3회차는 문서 정합 뒤 전체를 다시 돌렸습니다. 판정은 전부 종료 코드입니다(01의 3.4).
+
+### 15.1 발견과 처리
+
+| ID | 발견 | 실험 근거 | 처리 |
+|---|---|---|---|
+| F-51 | 평가 스크립트가 시드 없는 난수원을 씀 | `random.SystemRandom()` 을 넘기며 추적에 `rng_seed=user_id`. 같은 명령 두 번의 출력이 다름(탐색 칸 446줄 차이), `PYTHONHASHSEED` 고정으로도 다름 | 사용자마다 시드 → 이어서 D-39 로 조립 함수가 시드로 난수원 생성. 두 번 실행 동일 |
+| F-52 | `rank_candidates` 가 `rng` 와 `rng_seed` 를 따로 받음 | 시드 2 를 적고 `Random(1)` 을 넘기면 탐색 [16,22,28,12], 시드로 재현하면 [14,91,28,108] | `rng` 인자 제거. `random.Random(rng_seed)` 를 안에서 생성(D-39). M-06 검사 교체 |
+| F-53 | 피처 행 없는 유령 후보가 1위 | `recipes` 에 없는 99999 가 `f_coverage`·`f_missing` 만으로 0.659, `final_rank=1`, 카운터 비어 있음. 12명 전원에서 상위 10 안 | 서비스가 점수 전에 빼고 `recipe_feature_missing` 을 세어 ranking `filters` 에 남김(D-40). 재료를 모르는 레시피의 `f_expiring`·`f_pantry_use` 는 None |
+| F-54 | 정책 지문이 로그에 없음 | `fingerprint()` 는 검사에서만 호출. `mmr_lambda` 0.7→0.1 로 순서가 바뀌어도 `params` 동일, `policy_id` 동일 | `policy_fingerprint` 를 추적에 덧붙임(실효 가중치 포함) |
+| F-55 | 가중치 덮어쓰기 미검증 | 오타 키 `f_covrage` 가 예외 없이 통과해 순서가 바뀜, 전부 0 이면 전원 0 점 목록, 음수는 0 으로 읽힘 | 모르는 키·음수·합 0 을 거부 |
+| F-56 | `f_cooccur` 사유가 절대 나오지 않음 | 조리 이력 5건 사용자에서 두드러짐 상위 2 에 60번 올랐으나 문구 0번 — 템플릿의 `similar_title` 을 `reason_context` 가 만들지 않음 | `UserHistory.cooked_titles` 를 두고 가장 비슷한 조리 레시피 제목을 채움. M-03 에 제목 적재 추가 |
+| F-57 | 후보 0건에 `explore_fallback: uniform` | `any([])` 가 거짓이라 폴백으로 세어짐 | 후보가 없으면 정책 비율 |
+| F-58 | 감점 반올림 재현 오차 | 로그의 `penalty` 0.714286 으로 다시 곱하면 점수가 1e-6 어긋남(600건 중 17) | 반올림한 감점으로 점수를 계산. 재현 검사 |
+| F-59 | 랭킹 손잡이 미검증 | `uniform_share=1.5` 가 균등 6칸을 뽑아 4칸 노출하고 확률 6/23 을 적음, `penalty_cooked=-0.5`·`max_missing=6 > relaxed` 통과 | 비율 [0,1], 크기 >= 1, `max_missing <= relaxed`, 풀 <= 조회 상한 |
+| F-60 | 빈 재료명이 깨진 문구 | 이름이 `""` 이면 "(D-3)을 소진할 수 있어요" | 공백 이름은 모르는 것으로 |
+| F-61 | 중복 후보 이중 노출 | 같은 `recipe_id` 두 번, `top_k=100` 에서 9위·64위에 둘 다 노출 | 먼저 온 것만 남기고 `candidate_duplicate` 로 셈(D-40) |
+| F-62 | 폴백 판정이 두 곳에서 다름 | 재정렬은 탐색 풀, 서비스는 후보 전체 기준. 군집이 상위 후보에만 있으면 실효 균등 1.0 인데 로그는 0.5 | `rerank.ExplorationSpec` 하나를 둘이 공유. 판정은 후보 전체(D-41) |
+| F-63 | 레시피 없는 조리·별점이 무음 폐기 | `COOK(recipe_id=None)` 3건 → 카운터 `{}` | 취향을 만드는 종류는 `persona_event_invalid`, 검색·노출은 지나감 |
+| F-64 | 저장소 OS 오류가 추천을 죽임 | 파일 자리에 디렉터리 → `persona_for` 가 `PermissionError` 를 올림 | `persona_store_error` 로 세고 취향 없는 사용자로 |
+| F-65 | Thompson 픽의 확률 귀속 | 500회 시드에서 Thompson 픽 1,000건 중 66건이 묶음 최고 후보가 아니어서 확률에 균등 몫만 남음 | A 의 함수라 G-28 로 |
+| F-66 | `candidate_limit` 이 엔진에서 죽은 손잡이 | 12명 전원에서 바꿔도 결과 불변, 지문만 변함. 조회 상한은 `config` 가 정함 | N-02(손잡이 정본) 묶음. 코드 변경 없음 |
+| F-67 | `report_dead_weight` 문구 | 상수 피처의 가중치도 MMR 에는 닿음(`f_time_fit` 0.03→0 에서 개인화 순서 변함) | "점수 순서를 못 바꾸는" 으로 |
+| F-68 | 문서 드리프트 10건 | 예비 4→20개 · 기피 감점 0.8배→최대 80%(0.2배) · `recipe_feature.cuisine`→`cuisine_family` · `data/` 기본값 없음 · `tombstone_failed`·`failed:<예외>` 누락 · 0.23→0.21 · 인자 초과 6→7곳 · 못 박은 항목 15→10 · 점검표 검사 명령이 커버리지 문턱으로 종료코드 1 · 척도 저장 형식 | 명세 2.1.0 · 압축본 3.1.0 · 설명서 1.3.0 · 점검표 1.4.0 · 결정 기록 1.2.0 |
+| F-69 | 검사가 못 잡던 행동 | 돌연변이 검사: MMR λ 교환, 노출 확률 1e-6 고정, 추적 `n_explore`·`top_k` 0, `score_stats` 상수, `max_missing_final` 무시 — 전부 통과 | 새 검사 16건, 동어반복 3건 교체, 커버리지 미달 분기 3곳 검사(`persona.py`·`profile_store.py` 100%) |
+| F-70 | `Makefile` 의 `PY := .venv/bin/python` | Windows 에는 `.venv/Scripts/python.exe` 만 있어 `make contract` 가 뜨지 않음 | G-14 에 덧붙임. 계약 검사는 `python -m` 으로 직접 실행 |
+
+### 15.2 저장소 게이트 (3회차)
+
+```text
+uv run ruff check .                   → 0
+uv run ruff format --check .          → 0 (142 files already formatted)
+uv run python -m mypy src             → 0 (Success: no issues found in 62 source files)
+uv run pytest tests/unit              → 0 (292 passed, coverage 90.64%, 측정 2,169문)
+python seeds/validate.py              → 0 (통과, 경고 13건)
+python -m tests.unit.recommend.test_contract → 0 (98건. 설정값 20종을 셸 환경변수로만 채움)
+python scripts/eval_recommend_mock.py → 0, 두 번 실행의 출력이 지연시간을 빼고 동일
+```
+
+파트 B 검사 함수 151개, 수집 165건. `persona.py`·`profile_store.py`·`score.py`·`candidate.py`·`context.py` 100%, `service.py` 99%, `feature.py` 98%, `rerank.py` 97%, `policy.py` 96%.
+
+### 15.3 Mock 종단
+
+```text
+stages {none: 3, popularity: 7, relax_missing: 2}
+persona sources {none: 1, picks: 10, scales: 1}
+exploration counts [4, 4, 4, 4, 4, 4, 4, 4, 2, 4, 10, 8]
+taste lift = [0.032, 0.115, -0.075, 0.09, 0.071, 0.053, 0.021, 0.11, 0.163, 0.124, 0.109, None]  (실효 11/12)
+ILD mean 0.903 · 점수 순서를 못 바꾸는 가중치 0.26 = {f_ing_pref .11, f_cooccur .10, f_time_fit .03, f_season .02}
+feedback (user 1002): onboarding (0.22, 0.28, 0.23, 0.15, 0.34, 0.03) → recent behavior 15.07 → stale blended 0.91
+```
+
+집계 수치는 14절과 같습니다. 달라진 것은 이 수치가 이제 **실행마다 같다**는 점입니다.
+
+### 15.4 판정
+
+발견 20건 가운데 17건을 코드로 고치고 검사로 못 박았으며, 3건(F-65 A 함수, F-66 손잡이 정본, F-70 Makefile)은 안건으로 넘겼습니다. 세 회차를 마친 시점의 게이트 4종과 A 게이트 2종이 전부 종료 코드 0 이라 커밋했습니다. 실 DB 없이 확인하지 못한 것은 13.5 와 같습니다(M-14, M-15).
+
+## 16. 기획측 시뮬 시드로 돌린 이용 시나리오 (2026-09-14)
+
+9.16 세션. 유재현이 `data/test_Dataset` 에 둔 패키지(기획 v0.4 xlsx 11개 → 증폭 → SQL 시드 1,600명, 안내서 `recommend_sim_seed_runbook.md`)를 안내서의 위치대로 저장소에 두고 돌렸습니다. 이 PC 에 Docker·postgres 가 없어(E-15) 적재(3-4)와 `/health`(3-5)는 돌리지 못했고, 대신 시드를 엔진에 직접 넣는 `scripts/sim/scenario_engine.py` 를 만들어(D-43) M-01·M-03 이 할 일을 파이썬 안에서 대신했습니다. 판정은 전부 종료 코드입니다(01의 3.4, D-28).
+
+### 16.1 발견과 처리
+
+| ID | 발견 | 실험 근거 | 처리 |
+|---|---|---|---|
+| F-71 | 변환기 출력이 OS 줄바꿈을 따름 | Windows 에서 재생성한 SQL 8개가 저장본과 전부 다름(06 은 20,442줄). `--strip-trailing-cr` 로 비교하면 0줄 — CRLF 뿐 | `write_text(..., newline="\n")` 8곳(E-07). 재생성이 어느 OS 에서든 바이트 단위 동일 |
+| F-72 | 안내서의 의존성 주장이 사실과 다름 | "pandas · openpyxl 은 데이터 트랙 의존성에 이미 있다" — `pyproject.toml` 에 둘 다 없고 pandas 는 `paddlex` 가 끌어오며 openpyxl 은 `uv.lock` 에 없음. 새 환경에서 3-2·3-3 이 `ImportError` | 안내서 2절을 사실대로. 추가 여부는 팀 결정(N-16). 이 PC 에만 `uv pip install openpyxl` |
+| F-73 | API 스크립트가 내부 키를 보내지 않음 | `GET /health → HTTP 401` 로 첫 단계에서 중단. 모든 라우터가 `verify_internal_api_key` 뒤에 있음 | `X-Internal-Api-Key` 헤더. `--api-key` 없으면 `config.get_settings()`(캡처 스크립트와 같은 방식) |
+| F-74 | `/health` 가 DB 접속을 무기한 기다림 | 키를 붙여도 150초 뒤에도 응답 없음. `db.healthy()` 의 DSN 에 접속 시간 제한이 없어 `psycopg` 가 OS 시간 제한을 기다림(127.0.0.1 에도 5초 제한을 걸어야 실패). `/health/live` 는 25ms | A·공용 파일이라 G-29. 스크립트에 `--skip-health` |
+| F-75 | 시드 `taste_vec` 이 D-29 와 어긋남 | `synth_onboarding()` 이 앞 3축을 picks 평균과 척도의 절반씩으로 섞음. 엔진은 picks 가 있으면 척도를 쓰지 않음 | picks 6축 평균만(D-42). 03 파일 재생성(1,600행 변경, 나머지 7개 파일 동일) |
+| F-76 | 시드 README 의 규칙 서술 오류 | "엔진의 모드는 `effective_taste(events_count, n_warm=20)` 이 정한다" — 그런 함수가 없고 모드는 `derive_persona` 의 무게 기준. "B 유저는 후보 0건이 정상" — `user_pantry_ids()` 가 staple 을 합치고 인기순 폴백이 채워 B 800명 전원 후보 있음 | `deploy/seed/sim/README.md` 3절 |
+| F-77 | 시드 `computed_from` 과 엔진 모드가 다름 | 시드 behavior 235명 중 엔진 behavior 195 · blended 40(click 0.3 위주라 무게가 12 에 못 미침). blended 90 은 전원 blended, onboarding 475 는 전원 onboarding | 배치 검증 기대값으로 `computed_from` 을 그대로 쓰지 않도록 안내서 4절 |
+| F-78 | 냉장고 시나리오의 첫 판정 기준 오류 | 고정 재료(두부·콩나물·달걀)를 임박으로 더한 뒤 "임박 재료를 하나라도 쓰는 비율" 로 판정 — 200명 실행(user 184)에서 0.75 → 0.69 로 FAIL, 전원 실행(user 201)에서는 두부가 이미 임박이라 그 재료를 쓰는 레시피 4 → 4건. 달걀은 Mock 에 없음 | 유저가 아직 없는 재료 중 최다 사용 2종을 고르고 "더한 재료를 쓰는 개인화 레시피 수" 로 판정(4 → 8건) |
+
+### 16.2 시나리오 결과 (`scenario_engine.py`, 1,600명, 41초)
+
+```text
+[1] sim_funnel_A 800: 시드 onboarding 475 · behavior 235 · blended 90
+                     엔진 picks/onboarding 475 · picks/behavior 195 · picks/blended 130
+                     냉장고 있음 426 · 임박 재료 있음 414 · 후보 있음 800
+                     완화 단계 none 25 · relax_missing 140 · popularity 635 · 탐색 4칸 796 / 2칸 3 / 0칸 1 · 부족분 9
+    sim_funnel_B 800: 전원 picks/onboarding · 냉장고 0 · 후보 있음 800(staple + 인기순 폴백) · 탐색 4칸 790 · 부족분 22
+    냉장고 재료 4,267건 중 Mock 에 이름 없는 것 1,836건 · 불변식 위반 0명
+[2] user 201 (시드 behavior 52건): 0건 onboarding 0.00 → 1건 blended 0.30 → 20건 blended 8.42 → 50건 behavior 23.42 → 52건 behavior 23.91
+[3] cook 5건 추가: 무게 23.91 → 28.89 · 취향 최대 변화 0.012 · 상위 10 중 9 자리 변동 · 조리한 5건은 전부 상위 10 밖(p_cooked)
+[4] 감자·버섯 임박 추가: 임박 6 → 8종 · 더한 재료를 쓰는 개인화 레시피 4 → 8건 · f_expiring 측정 True
+[5] 같은 시드 두 번 동일 True · onboarding 만 있는 user 1 과 상위 10 겹침 2/10
+판정 {invariants, cold_to_warm, behavior_moves_list, expiring_reaches_list, repeatable} 전부 True → RESULT: PASS, 종료코드 0
+```
+
+`scenario_run.py --skip-health`(목업 라우터, 포트 8765): [2] n=20 · [3] pantry 4 → 6 · [4] accepted 5 rejected 0 · [5] 변동 0(전환 전 정상) · [6] cold 겹침 10 → PASS, 종료코드 0.
+
+### 16.3 저장소 게이트
+
+```text
+uv run ruff check .                          → 0
+uv run ruff format --check .                 → 0 (150 files already formatted)
+uv run python -m mypy src                    → 0 (Success: no issues found in 62 source files)
+uv run pytest tests/unit                     → 0 (298 passed, coverage 90.64%, 측정 2,169문)
+uv run pytest tests/unit/sim --no-cov        → 0 (6 passed)
+python seeds/validate.py                     → 0
+python -m tests.unit.recommend.test_contract → 0 (98건, 설정값 20종을 셸 환경변수로만 채움)
+python -m tests.unit.recommend.{run,test_match,test_role,test_batch} → 0
+시드 재생성(amplify → convert)               → 0, 저장본과 바이트 단위 동일(03 만 D-42 로 갱신)
+```
+
+### 16.4 판정
+
+발견 8건 가운데 5건(F-71·F-73·F-74 의 우회·F-75·F-78)을 코드로, 3건(F-72·F-76·F-77)을 문서로 처리했고 F-74 의 원인은 A 의 파일이라 G-29 로 넘겼습니다. 엔진은 시드에 반응합니다 — 전원 불변식 통과, 콜드 → 웜 전환, 행동과 냉장고 변화가 목록을 움직이며 재현됩니다. Mock 카탈로그(120건, 냉장고 이름 30/51)라 완화 단계가 대부분 인기순 폴백까지 내려가는 것은 시드가 아니라 카탈로그 크기의 문제이며(N-14·N-15 묶음) 실 DB 에서 다시 잽니다. 적재와 API 경로(3-4 · 3-5 의 `/health`)는 DB 가 없어 돌리지 못했습니다(E-15). 패키지 커밋 범위는 N-16 입니다.
+
+## 18. 온보딩 음식 유형 (2026-09-15)
+
+9.19 세션. 온보딩에 "좋아하는 음식 유형" 문항이 추가돼(한식·중식·일식·양식·아시안) 그 값을 목록에 반영했습니다. 판정은 전부 종료 코드입니다(01의 3.4, D-28).
+
+### 18.1 발견과 처리
+
+| ID | 발견 | 실험 근거 | 처리 |
+|---|---|---|---|
+| F-82 | 유형 축이 세 곳에서 서로 다른 어휘였음 | DDL 은 `pref_cuisines`=`cuisine_family` 코드(korean…), 목업 생성기는 한글 라벨 + "분식", 온보딩 제시 목록은 한글 라벨 + "기타", 시뮬 시드는 그 라벨을 그대로 SQL 에 넣음. 어느 조합도 `recipe.cuisine_family` 와 안 만남 | 정본을 `seeds/cuisine_taxonomy.yaml` 의 family 로 두고 `enums.CuisineFamily`·`normalize_cuisine` 을 만든 뒤 세 곳을 코드로 맞춤(D-47). `test_cuisine.py` 가 시드와 상수의 일치를 대조 |
+| F-83 | 계약에 문항 자체가 없었음 | `OnboardingIn` 에 `preferred_cuisines` 가 없어 백엔드가 보내도 서버가 버림. `f_cuisine`(w=0.04)은 구현돼 있었으나 사용자 쪽 값이 영영 비어 항상 `None` | 계약에 필드를 더하고 `OnboardingOut` 이 저장된 코드를 되돌려 줌. 모르는 값은 거부(+`persona_cuisine_unknown`) |
+| F-84 | 가중치만으로는 고른 유형이 목록에 안 나옴 | 시뮬 1,600명에서 유형 슬롯 없이 돌리면 고른 유형이 Top-20 에 한 건도 없는 사람이 460명. Σw 의 0.44 가 재료 매칭이고 유형은 0.04 | `engine/cuisine.py` 의 유형 슬롯(D-46). 켜면 182명 — 남은 182명은 후보 자체에 그 유형이 없는 경우 |
+| F-85 | 제시 목록의 다섯째 계열이 한 묶음이 아니었음 | `onboarding_recipes.yaml` 의 "기타" 9종이 태국·베트남(쌀국수·똠얌꿍·팟타이·월남쌈)과 멕시칸·아메리칸(타코·과카몰리·후라이드치킨)을 함께 담고 있었음. 온보딩 선택지 5종 어느 쪽으로도 매핑 불가 | 생성기 `onboarding_pick20.py` 에서 아시안 5 · 양식 4 로 가르고 재생성. 제시 20개 목록과 6축 값은 그대로(양식 상한 4 → 5) |
+| F-86 | 목업 코퍼스가 균등해 슬롯이 도는 상황이 안 만들어짐 | 유형별 24건씩이라 Top-20 에 5종이 다 들어와, 12 페르소나 전원에서 슬롯 0칸 | 생성기에 `share` 를 넣어 실제 크롤과 같은 한식 편중으로(120건 중 한식 80 · 양식 19 · 일식 9 · 중식 8 · 아시안 4). 재생성 뒤 슬롯이 도는 사용자가 나타남 |
+| F-87 | 유형 슬롯이 탐색과 같은 후보를 놓고 다툼 | 탐색이 `rest` 에서 먼저 뽑아 고른 유형의 후보를 가져가면 슬롯이 빈손이 됨(검사에서 4건 중 3건) | "이미 목록에 있는가" 를 **탐색이 채운 칸까지 포함해** 판정. 탐색이 그 유형을 이미 올렸으면 슬롯을 만들지 않음 |
+| F-88 | 사유 문구가 코드로 나갈 뻔함 | `reason_context` 가 `recipe.cuisine` 을 그대로 넣어 "즐겨 드시는 korean이에요" | `cuisine_label()` 로 라벨 변환. 슬롯 아이템은 `f_cuisine` 을 사유 맨 앞에 세움 |
+| F-89 | 중위 점수 걸러내기가 두 곳에 각각 있었음 | 탐색의 `_explorable` 이 `statistics.median` 을 직접 부르고 유형 슬롯도 같은 선이 필요 | `rerank.worth_showing()` 한 곳으로(파트 B 파일). 두 슬롯이 같은 선을 봅니다 |
+| F-90 | 계약 검사가 노출분의 칸 수를 16 으로 못 박고 있었음 | `RankedItem` 에 `is_cuisine_slot` 이 붙자 `test_contract.py` 의 "노출분은 16키" 가 실패(설정값을 채운 환경에서 98건 중 1건) | 17 로 고치고 사유를 주석에 남김. **파트 A 파일이라 A 에 알립니다** — 칸을 더한 쪽이 B 입니다 |
+
+### 18.2 3회 검수에서 더 찾은 것
+
+구현 뒤 세 번 다시 읽었습니다. 첫 회는 로직과 경계값, 둘째는 계약·규약, 셋째는 "에러 없이 틀리는" 자리입니다.
+
+| ID | 발견 | 실험 근거 | 처리 |
+|---|---|---|---|
+| F-91 | 유형 칸이 다른 유형을 목록에서 지웠음 | 중식이 개인화 20위, 일식이 20위 밖에만 있는 후보에서 일식 칸을 떼자 꼬리가 잘려 **중식이 통째로 사라짐**. 고른 유형 하나가 없어지는데 에러는 없고, 슬롯의 순이익은 0 | 두 곳을 고침 — 한 유형에서 두 개째를 가져오지 않고(`_one_per_family`), 뺄 자리는 고른 유형의 마지막 한 건을 건너뜀(`trim_for_slots`). 회귀 검사 `test_a_cuisine_at_the_truncation_edge_does_not_vanish` |
+| F-92 | 목업에서 한 칸이 탐색이면서 유형 칸이었음 | `build_recommendation` 이 `it.is_exploration` 으로 걸렀는데 그 값은 아래 루프에서야 채워져 그 시점에는 전부 False. 탐색 아이템이 유형 칸 표시를 달고 사유는 "새로운 시도는 어떠세요" 로 나감 | 탐색 선택 결과(`src`)로 거름. 두 칸은 노출 확률이 달라 로그에서 섞이면 못 나눕니다 |
+| F-93 | 목업이 같은 유형으로 두 칸을 채웠음 | 중식·아시안을 고른 사용자에게 마파두부가 두 번(3위·10위). 실제 구현은 유형당 한 칸이라 프론트가 mock 으로 본 모양과 서빙이 어긋남 | 목업도 유형당 한 칸으로. 검사 2건 추가 |
+| F-94 | 파트 A 파일에 함수를 더했음 | 중위 점수 헬퍼를 `engine/rank.py`(A 소유)에 넣었음 | `rerank.worth_showing`(B 소유)으로 옮기고 `rank.py` 는 원복. 계약 때문에 어쩔 수 없이 손댄 A 파일은 따로 적었습니다(아래) |
+| F-95 | 시뮬 판정이 아무 일도 안 해도 통과했음 | `[6]` 의 기준이 "못 닿은 사람이 늘지 않음" 뿐이라, 슬롯을 통째로 끄면 두 값이 같아 PASS | 채울 것이 있었는데 한 칸도 안 떼면 실패로. `slots > 0 or missed_off == 0` |
+| F-96 | 시드 변환기가 `sys.path` 를 건드렸음 | 패키지가 editable 로 설치돼 있어(`_editable_impl_aiserver.pth`) 불필요한데, 0 번에 끼워 설치본을 가림 | 삭제. 다른 시뮬 스크립트와 같은 모양으로 |
+
+**계약 때문에 손댄 파트 A 파일**: `enums.py`(유형 목록·라벨·정규화) · `schema.py`(`OnboardingIn`·`OnboardingOut` 문항) ·
+`stage.py`(`RankedItem.is_cuisine_slot`) · `tests/unit/recommend/test_contract.py`(노출분 16키 → 17키, F-90).
+넷 다 계약 자체가 바뀌어 B 쪽 파일로는 표현할 수 없는 것들이라, A 에 알리는 것으로 갈음합니다.
+
+### 18.3 시나리오 결과 (`scenario_engine.py`, 1,600명, 33초)
+
+```text
+판정 {'invariants': True, 'cuisine_reaches_list': True, 'cold_to_warm': True,
+      'behavior_moves_list': True, 'expiring_reaches_list': True, 'repeatable': True}   → RESULT: PASS
+불변식 위반 0명 (유형 칸이 고른 유형인가 · 노출 확률 1.0 인가 · 탐색과 겹치지 않는가를 더함)
+유형 칸 합 293 · A 집단 122명 · B 집단 163명이 칸을 받음
+고른 유형이 Top-20 에 한 건도 없는 사람: 슬롯 끄면 460명 → 켜면 182명 (남은 것은 대부분 asian_other)
+```
+
+Mock 12 페르소나에서는 1009(중식·일식)가 6위에 유형 칸을 받았고 문구는 "즐겨 드시는 중식이고, 많이 만드는 레시피예요" 였습니다. 나머지 11명은 고른 유형이 이미 목록에 있어 칸이 생기지 않았습니다 — 조건대로입니다.
+
+### 18.4 저장소 게이트
+
+```text
+uv run ruff check .                     → 0
+uv run ruff format --check .            → 0 (154 files already formatted)
+uv run python -m mypy src               → 0 (63 source files)
+uv run pytest tests/unit                → 0 (314 passed, coverage 90.94%)
+uv run python scripts/sim/scenario_engine.py → 0 (RESULT: PASS)
+```
+
+### 18.5 판정
+
+문항이 계약 → 저장 → 페르소나 → 목록까지 닿고, 목록에 닿는 정도가 측정됩니다. 다만 **실 DB 에서는 아직 돌지 않습니다** — `recipe.cuisine_family` 가 46,353건 전수 비어 있어 유형 슬롯도 `f_cuisine` 도 대상 후보를 찾지 못합니다(G-30). 지금 확인한 것은 목업·시뮬 카탈로그 위의 동작이며, 이 시드는 임의 데이터라 수치를 '실측' 으로 쓰지 않습니다.
+
+---
+
+## 17. 시뮬 시드의 DB 경로 (2026-09-14, Docker Desktop 설치 뒤)
+
+9.17 세션. 유재현이 WSL2 와 Docker Desktop(29.7.2)을 설치한 뒤 안내서 3-4 · 3-5 를 돌렸습니다. 이 PC 에 `make` 와 `psql` 이 없어 Makefile 이 부르는 명령을 직접 실행했고(E-16), 적재는 컨테이너의 psql 을 stdin 으로 썼습니다. 판정은 전부 종료 코드입니다(01의 3.4, D-28).
+
+### 17.1 발견과 처리
+
+| ID | 발견 | 실험 근거 | 처리 |
+|---|---|---|---|
+| F-79 | 시드의 고정 id 가 기존 사용자와 충돌 | `01_app_user.sql` 이 id 1~1600 을 명시하는데 `make smoke --keep` 의 합성 유저 8명(`smoketest_*`, is_simulated)이 1~8 을 차지 → `duplicate key value violates unique constraint "app_user_pkey"`. 안내서가 권한 경로(합성 레시피)에서 그대로 생김 | id = 1,000,000 + 기획 번호(`SIM_ID_BASE`), `setval` 제거(D-44). `scenario_run.py` 기본 유저 1000184 · 1000001, README·안내서 |
+| F-80 | 검증 쿼리가 스모크 유저를 함께 셈 | `99_verify.sql` 이 `is_simulated` 만으로 걸어 app_user 1608 · user_allergy 94 · pantry_item 4513 으로 보임 | `is_simulated AND username LIKE 'sim_u%'` 로 좁힘 → 1600 · 90 · 4442 |
+| F-81 | 합성 값의 해시 키가 id 라 id 를 옮기면 내용이 바뀜 | 오프셋만 넣은 첫 재생성에서 알러지 90 → 89, 냉장고 4,442 → 4,474 (해시 입력이 `u`) | 해시 키를 기획 번호(`hkey(u) = u - SIM_ID_BASE`)로. 재생성 결과가 id 만 다르고 내용은 이전과 같음(id 정규화 뒤 02·04·05·06 동일, `stats.json` 동일) |
+
+### 17.2 DB 경로 결과
+
+```text
+docker compose up -d (postgres pgvector/pgvector:pg16 · redis)  → healthy. init 01~04 자동 적용(확장 5 · reco 테이블 31 · retrieve_for_user 등)
+uv run python scripts/reco/migrate.py                           → 0 (재료 536 · staple 39)
+uv run python tests/integration/test_smoke.py --keep            → 0 (13건 통과, 합성 published 레시피 10,007건, p95 10.9ms)
+PSQL_VIA_COMPOSE=1 bash deploy/seed/sim/load_sim.sh             → 0
+  99_verify: app_user 1600 · user_preference 1600 · user_vector 1600 · user_allergy 90 · pantry_item 4442 · event_log 10195
+             sim_funnel_A behavior 235(평균 38.4건) · blended 90(13.1) · onboarding 475 / sim_funnel_B onboarding 800
+             상위 10 전부 sim_funnel_A · behavior · pantry_n 9~14 · cooks 11~16 (1위 1000184, 53건)
+             users_with_candidates 0 / 426 (합성 레시피 feature_version test-smoke 라 정상)
+uv run python scripts/sim/scenario_run.py --api-key ... (/health 포함) → 0, RESULT: PASS
+  [1] /health 0.11초 db true · redis true  [4] accepted 5 rejected 0  [5] 변동 0(전환 전 정상)  [6] cold 겹침 8
+uv run python scripts/sim/scenario_engine.py                    → 0, RESULT: PASS (id 오프셋 뒤 재실행)
+```
+
+### 17.3 저장소 게이트
+
+```text
+uv run ruff check .                     → 0
+uv run ruff format --check .            → 0 (151 files already formatted)
+uv run python -m mypy src               → 0 (62 source files)
+uv run pytest tests/unit                → 0 (298 passed, coverage 90.64%)
+uv run pytest tests/unit/sim --no-cov   → 0 (6 passed)
+```
+
+### 17.4 판정
+
+시드 SQL 이 실제 DDL(외래키 · CHECK · `sim_persona`)을 통과하고 건수와 분포가 기대값과 같습니다. 발견 3건은 전부 코드로 처리했고, F-79 는 안내서가 권한 경로에서 재현되는 결함이라 시뮬 id 범위를 바꿨습니다(D-44). API 시나리오의 변동 0 은 M-01 · M-03 전환 전 상태 그대로이며, `/health` 는 DB 가 있으면 0.11초에 답해 G-29 는 DB 부재 시의 대기에 한정됩니다. 패키지는 (a)안으로 커밋했습니다(N-16, `cdf656e` · `3633ed7`).

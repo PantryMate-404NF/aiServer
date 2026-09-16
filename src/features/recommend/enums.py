@@ -60,6 +60,70 @@ class UserMode(StrEnum):
     WARM = "behavior"
 
 
+# ── 음식 유형 (온보딩 문항 · 설계 2-3-1) ─────────────────────────
+class CuisineFamily(StrEnum):
+    """`cuisine_taxonomy.family` 와 같은 값. `recipe.cuisine_family` 와 대조된다.
+
+    정본은 `seeds/cuisine_taxonomy.yaml` 이고 여기는 그 family 축의 사본이다.
+    두 곳이 갈라지면 유저가 고른 유형과 레시피의 유형이 영영 안 만나므로
+    계약 검사가 일치를 강제한다.
+    """
+
+    KOREAN = "korean"
+    CHINESE = "chinese"
+    JAPANESE = "japanese"
+    WESTERN = "western"
+    ASIAN_OTHER = "asian_other"
+    #: 파생 전용. 분류기가 붙일 수는 있어도 온보딩 선택지가 아니다.
+    FUSION = "fusion"
+
+
+#: 온보딩이 보여주는 선택지. 순서가 화면 순서이고 `OnboardingIn.preferred_cuisines` 의 값 목록이다.
+#: 주의: 열거형 멤버가 아니라 `.value` 로 둔다. 그대로 두면 계약 위반 메시지와 로그에
+#:    `<CuisineFamily.KOREAN: 'korean'>` 이 찍혀 프론트가 무엇을 보내야 하는지 못 읽는다.
+ONBOARDING_CUISINES: tuple[str, ...] = (
+    CuisineFamily.KOREAN.value,
+    CuisineFamily.CHINESE.value,
+    CuisineFamily.JAPANESE.value,
+    CuisineFamily.WESTERN.value,
+    CuisineFamily.ASIAN_OTHER.value,
+)
+
+#: 화면과 추천 사유에 쓰는 이름. 엔진은 코드로만 비교한다 — 라벨로 비교하면
+#: 프론트가 문구를 바꾸는 순간 조용히 한 건도 안 맞는다.
+CUISINE_LABELS: dict[str, str] = {
+    CuisineFamily.KOREAN.value: "한식",
+    CuisineFamily.CHINESE.value: "중식",
+    CuisineFamily.JAPANESE.value: "일식",
+    CuisineFamily.WESTERN.value: "양식",
+    CuisineFamily.ASIAN_OTHER.value: "아시안",
+    CuisineFamily.FUSION.value: "퓨전",
+}
+
+#: 라벨로 온 값을 코드로 되돌린다. 계약은 코드지만 프론트·시드가 한글을 보내는 일이 잦다.
+#: 주의: 모르는 이름을 가까운 유형으로 **추측하지 않는다.** 여기 없는 값은 None 이고
+#:    온보딩은 그것을 거부한다 — 조용히 다른 유형이 되면 사용자가 고르지 않은 음식이 올라온다.
+_CUISINE_BY_LABEL: dict[str, str] = {label: code for code, label in CUISINE_LABELS.items()}
+
+
+def normalize_cuisine(value: str) -> str | None:
+    """음식 유형 한 개를 코드로 맞춥니다. 모르는 값은 None 입니다."""
+    text = value.strip()
+    if not text:
+        return None
+    if text in _CUISINE_BY_LABEL:
+        return _CUISINE_BY_LABEL[text]
+    lowered = text.lower()
+    return lowered if lowered in CUISINE_LABELS else None
+
+
+def cuisine_label(code: str | None) -> str | None:
+    """코드를 화면에 쓰는 이름으로. 모르는 코드는 그대로 둡니다."""
+    if code is None:
+        return None
+    return CUISINE_LABELS.get(code, code)
+
+
 class MatchMethod(StrEnum):
     """recipe_ingredient.match_method (설계 4-4)."""
 
@@ -159,6 +223,9 @@ SESSION_PREFIXES: tuple[str, ...] = ("c-", "g-", "d-")
 #:   f_cuisine  레시피 쪽 `cuisine_family` 가 46,353건 전수 0건이다.
 #:              만개의레시피 4축이 실제 크롤에 오지 않았고 categories 는
 #:              고유 45,529종 자유 태그다. 태그→유형 매핑(약 12h)이 선행이다.
+#:              사용자 쪽은 09-15 온보딩 문항(`ONBOARDING_CUISINES`)으로 채워졌고
+#:              레시피 쪽만 남았다 — 회의 안건 G-30. 그때까지 이 피처도, 재정렬의
+#:              유형 슬롯도 실 DB 에서는 대상 후보를 찾지 못한다.
 #:   f_season   제철 시드가 없다. `recipe_feature.season_vec` 은 컬럼만 있다.
 #:   f_dish_type 같은 이유다 — 원본에 분류축이 없어 `dish_type` 이 전수 비어 있다.
 #:              `w=0` 인 것은 v0 스코어에서 애초에 안 쓰기 때문이고, 데이터 부재와는

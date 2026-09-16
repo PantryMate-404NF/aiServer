@@ -26,8 +26,10 @@ from features.recommend.enums import (
     FEATURE_KEYS,
     PROPENSITY_SEMANTICS,
     UNAVAILABLE_FEATURES,
+    CuisineFamily,
     Stage,
     UserMode,
+    cuisine_label,
 )
 from features.recommend.schema import (
     EventAck,
@@ -50,17 +52,18 @@ from features.recommend.stage import RankedItem, StageInfo, StageTrace, TraceTot
 
 SEED = 20260827  # 재현성. Date.now() 류를 응답 생성에 쓰지 않는다
 
-#: (제목, 부족재료수, 두드러진 피처, 클러스터) — 이유 문구는 하드코딩하지 않는다.
+#: (제목, 부족재료수, 두드러진 피처, 클러스터, 음식 유형) — 이유 문구는 하드코딩하지 않는다.
 #: v1.9 부터 z-salience 로 실제 계산해서 만든다. 그래야 mock 이 실제와 같은 코드를 탄다.
+#: 유형은 온보딩 5종을 전부 덮는다. 한 종류만 있으면 프론트가 유형 슬롯을 한 번도 못 본다.
 _RECIPES = [
-    ("김치찌개", 0, "f_coverage", 1),  # 1 = 국물류
-    ("두부조림", 0, "f_expiring", 2),  # 2 = 조림
-    ("애호박볶음", 1, "f_missing", 3),  # 3 = 볶음
-    ("제육볶음", 1, "f_taste", 3),
-    ("계란말이", 0, "f_ing_pref", 4),  # 4 = 계란·부침
-    ("된장찌개", 2, "f_popularity", 1),
-    ("콩나물무침", 0, "f_season", 5),  # 5 = 무침
-    ("어묵볶음", 1, "f_cooccur", 3),
+    ("김치찌개", 0, "f_coverage", 1, CuisineFamily.KOREAN),  # 1 = 국물류
+    ("두부조림", 0, "f_expiring", 2, CuisineFamily.KOREAN),  # 2 = 조림
+    ("마파두부", 1, "f_missing", 3, CuisineFamily.CHINESE),  # 3 = 볶음
+    ("제육볶음", 1, "f_taste", 3, CuisineFamily.KOREAN),
+    ("계란말이", 0, "f_ing_pref", 4, CuisineFamily.JAPANESE),  # 4 = 계란·부침
+    ("크림파스타", 2, "f_popularity", 1, CuisineFamily.WESTERN),
+    ("팟타이", 0, "f_season", 5, CuisineFamily.ASIAN_OTHER),  # 5 = 면·무침
+    ("어묵볶음", 1, "f_cooccur", 3, CuisineFamily.KOREAN),
 ]
 
 #: 유저별 클러스터 관측. 실제 구현은 `user_cluster_stat` 테이블에서 읽는다 (설계 5-3-5).
@@ -90,7 +93,6 @@ _CTX = {
     "missing_name": "애호박",
     "taste_axis": "매운맛",
     "pref_ing": "달걀",
-    "cuisine": "한식",
     "similar_title": "김치볶음밥",
     "pantry_used": 3,
     "dish_type": "볶음",
@@ -207,11 +209,15 @@ def build_recommendation(req: RecommendRequest) -> RecommendResponse:
     pool_size = 200
 
     # ── ② Ranking — 피처 원값을 만든다 (contrib 가 아니다) ────────
+    # 온보딩에서 고른 유형. 저장된 것이 없으면 유형 슬롯이 없는 사용자다.
+    chosen_cuisines = _chosen_cuisines(req.user_id)
+    cuisine_of: dict[int, str] = {}
     scored: list[RankedItem] = []
     for i in range(req.top_k):
-        _title, missing, spike, cluster = _RECIPES[i % len(_RECIPES)]
+        _title, missing, spike, cluster, family = _RECIPES[i % len(_RECIPES)]
         if missing > req.max_missing:
             continue
+        cuisine_of[10000 + i] = family
         base = max(0.05, 0.95 - i * 0.03 - rng.random() * 0.05)
 
         # 주의: w 와 무관하게 FEATURE_KEYS 전부를 채운다. None 은 "계산 불가".
@@ -287,13 +293,38 @@ def build_recommendation(req: RecommendRequest) -> RecommendResponse:
             ei += 1
     scored = arranged
 
+    # 고른 유형의 아이템 몇 칸에 표시를 단다. 실제 구현은 개인화에 못 든 후보에서 자리를
+    # 떼지만(engine/cuisine.py), mock 은 계약 칸이 채워지는 것을 보여주는 데까지다.
+    # 주의: `it.is_exploration` 으로 거르지 않는다 — 그 값은 아래 루프에서야 채워지므로
+    #    여기서는 전부 False 라, 탐색 칸이 유형 칸을 겸하고 사유는 탐색 문구가 나간다.
+    #    두 칸은 노출 확률이 달라 로그에서 섞이면 다시 못 나눈다 (stage.RankedItem).
+    # 유형마다 한 칸까지다. 실제 구현과 같은 규칙이라야 프론트가 mock 으로 본 모양과
+    # 서빙이 어긋나지 않는다 (engine/cuisine.py `_one_per_family`).
+    cuisine_slots: list[int] = []
+    filled_families: set[str] = set()
+    for it in scored:
+        # 이름을 위 루프의 `family` 와 나눈다 — 같은 이름을 쓰면 형이 섞여 검사가 잡는다.
+        served = cuisine_of.get(it.recipe_id)
+        if it.recipe_id in src or served not in chosen_cuisines or served in filled_families:
+            continue
+        if len(cuisine_slots) >= _CUISINE_SLOTS:
+            break
+        cuisine_slots.append(it.recipe_id)
+        filled_families.add(str(served))
     for rank, it in enumerate(scored, start=1):
         it.final_rank = rank
         it.is_exploration = it.recipe_id in src
+        it.is_cuisine_slot = it.recipe_id in cuisine_slots
         it.explore_source = src.get(it.recipe_id)
         it.propensity = prop.get(it.recipe_id, 1.0) if it.is_exploration else 1.0
         keys = top_reasons(it, weights, stats, n=2)
-        it.reason, it.reason_features = build_reason(keys, _CTX, it.is_exploration)
+        if it.is_cuisine_slot:
+            keys = ["f_cuisine", *(k for k in keys if k != "f_cuisine")]
+        # 유형을 모르면 키를 넣지 않는다. None 을 넣으면 "즐겨 드시는 None이에요" 가 된다 —
+        # 사유 생성기는 없는 키만 건너뛰고 값이 None 인 키는 그대로 채운다.
+        label = cuisine_label(cuisine_of.get(it.recipe_id))
+        context = _CTX if label is None else {**_CTX, "cuisine": label}
+        it.reason, it.reason_features = build_reason(keys, context, it.is_exploration)
         if req.interleave_with:
             it.team = "A" if rng.random() < 0.5 else "B"
 
@@ -381,7 +412,7 @@ def search_recipes(
     t0 = time.perf_counter()
     rng = random.Random(SEED + len(q))  # noqa: S311  # 목업 재현용 시드 RNG. 암호 용도가 아닙니다
     hits = []
-    for i, (title, missing, _, _cl) in enumerate(_RECIPES):
+    for i, (title, missing, _, _cl, family) in enumerate(_RECIPES):
         if q and not any(c in title for c in q):
             continue
         hits.append(
@@ -389,7 +420,7 @@ def search_recipes(
                 recipe_id=10000 + i,
                 title=title,
                 score=round(max(0.35, 0.92 - i * 0.06 - rng.random() * 0.04), 3),
-                cuisine="korean",
+                cuisine=family,
                 cook_minutes=[10, 20, 30, 45][i % 4],
                 missing_count=missing if user_id else None,
                 missing_names=["애호박"] if (user_id and missing) else [],
@@ -413,6 +444,15 @@ _REMOVED: dict[int, list[tuple[int, str]]] = {}
 #: 온보딩 응답 저장소 (mock). 실제 구현은 user_vector · user_preference · user_allergy.
 _ONBOARDING: dict[int, OnboardingIn] = {}
 
+#: mock 이 유형 몫으로 표시하는 칸 수. 실제 값은 `RankingPolicy.cuisine_slot_max` 다.
+_CUISINE_SLOTS = 2
+
+
+def _chosen_cuisines(user_id: int) -> frozenset[str]:
+    """온보딩에서 고른 음식 유형. 온보딩 전이면 빈 집합이다 — 그 사용자는 유형 슬롯이 없다."""
+    saved = _ONBOARDING.get(user_id)
+    return frozenset() if saved is None else frozenset(saved.preferred_cuisines)
+
 
 def save_onboarding(user_id: int, body: OnboardingIn) -> OnboardingOut:
     """온보딩 5문항을 저장한다.
@@ -430,7 +470,15 @@ def save_onboarding(user_id: int, body: OnboardingIn) -> OnboardingOut:
     # 실제 구현은 고른 레시피들의 flavor_vec 평균을 쓴다.
     tv = [round(x / 4.0, 4) for x in body.scales] + [0.5, 0.5, 0.5]
     n_blocked = len(body.allergy_ingredient_ids) + len(body.allergy_groups) * 12
-    return OnboardingOut(user_id=user_id, taste_vec=tv, n_blocked_ingredients=n_blocked)
+    # 🔴 음식 유형은 맛 6축에 섞지 않는다. 고른 유형의 평균 맛을 taste_vec 에 더하면
+    #    "한식을 골랐다"가 "짜고 매운 것을 좋아한다"로 번역되어, 유형 문항 하나가 맛 취향을
+    #    통째로 움직인다. 유형은 `user_preference.pref_cuisines` 로 따로 간다.
+    return OnboardingOut(
+        user_id=user_id,
+        taste_vec=tv,
+        n_blocked_ingredients=n_blocked,
+        preferred_cuisines=list(body.preferred_cuisines),
+    )
 
 
 def read_pantry(user_id: int) -> PantryOut:

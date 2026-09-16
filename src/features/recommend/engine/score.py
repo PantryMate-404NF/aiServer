@@ -74,7 +74,8 @@ def score_candidate(
         taste_min_norm=policy.taste_min_norm,
     )
     effective = dict(weights or DEFAULT_WEIGHTS)
-    penalty = penalty_factor(candidate.recipe_id, recipe, ctx, policy)
+    # 로그에 남는 값(소수 6자리)으로 점수를 만들어야 로그만으로 점수가 정확히 재현됩니다.
+    penalty = round(penalty_factor(candidate.recipe_id, recipe, ctx, policy), 6)
     return ScoredCandidate(
         recipe_id=candidate.recipe_id,
         missing_count=candidate.missing_count,
@@ -83,7 +84,7 @@ def score_candidate(
         cluster_id=candidate.cluster_id,
         features=features,
         score=round(weighted_score(features, effective) * penalty, 6),
-        penalty=round(penalty, 6),
+        penalty=penalty,
     )
 
 
@@ -100,8 +101,9 @@ def score_all(
     """후보 전체를 점수 내림차순으로. 같은 점수면 recipe_id 순으로 고정합니다.
 
     `recipes` 에 없는 후보는 레시피 피처를 못 읽은 것이므로 빈 피처로 채웁니다.
-    빼지 않는 이유는 ① 이 이미 고른 후보를 ② 가 다시 거르면 왜 빠졌는지를 두 곳에서
-    찾아야 하기 때문입니다 (`stage.py` 책임 경계).
+    여기서 빼지 않는 이유는 ① 이 이미 고른 후보를 ② 가 다시 거르면 왜 빠졌는지를 두 곳에서
+    찾아야 하기 때문입니다 (`stage.py` 책임 경계). 서빙 조립(`service.rank_candidates`)은
+    그런 후보를 점수 전에 세어 추적의 `filters` 에 남기고 빼며, 여기는 받은 것을 전부 매깁니다.
     """
     scored = [
         score_candidate(

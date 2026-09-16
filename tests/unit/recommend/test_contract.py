@@ -527,8 +527,9 @@ check(
     len(next(c for c in _kept if c.recipe_id == 10).model_dump()) == 8,
 )
 check(
-    "노출분은 16키 (propensity·team·mmr_penalty 포함)",
-    len(next(c for c in _kept if c.recipe_id == 0).model_dump()) == 16,
+    # 09-15: 온보딩 음식 유형 슬롯이 생기며 `is_cuisine_slot` 이 붙어 16 → 17 (파트 B).
+    "노출분은 17키 (propensity·team·mmr_penalty·is_cuisine_slot 포함)",
+    len(next(c for c in _kept if c.recipe_id == 0).model_dump()) == 17,
 )
 
 # 동결 키는 ③ 에만 있다 — 전수 검사하면 정상 출력이 반려된다
