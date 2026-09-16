@@ -7,7 +7,7 @@ PY      := .venv/bin/python
 PSQL    := $(COMPOSE) exec -T postgres psql -U reco -d recodb
 
 .DEFAULT_GOAL := help
-.PHONY: help env up down down-v ps logs psql wait \
+.PHONY: help env up up-app down down-v ps logs psql wait \
         install \
         validate dry-run seed seed-reset verify smoke ddl-test review-sheet review-apply unmatched post-index bootstrap clean
 
@@ -50,10 +50,12 @@ up-obs: env  ## + 관측 도구 (grafana mlflow) — 대시보드 트랙 시점
 	$(COMPOSE) --profile obs up -d --build
 	@$(MAKE) --no-print-directory wait
 
-# 🔴 `up-all` 을 없앴다. reco-api·dashboard 서비스가 존재한 적 없는 Dockerfile
-#    (db/app/Dockerfile.api·dashboard)을 가리켜 --profile app 은 언제나 실패했다.
-#    컨테이너로 띄우기로 정하는 시점에 Dockerfile 과 함께 되살린다
-#    (docs/reco/decisions/2026-09-04_app_containers_deferred.md).
+# 2026-09-16: `up-app` 을 되살렸다. 없앴던 이유는 reco-api 가 존재한 적 없는
+#    Dockerfile(db/app/Dockerfile.api)을 가리켜 --profile app 이 언제나 실패했기
+#    때문이고, 이제 저장소 루트에 Dockerfile 이 있다. dashboard 는 아직 없다.
+up-app: env  ## + 앱 (reco-api) — 루트 Dockerfile 로 빌드. 약 2.6GB
+	$(COMPOSE) --profile app up -d --build
+	@$(MAKE) --no-print-directory wait
 
 mlflow-ui:  ## MLflow UI 를 로컬에서 실행 (컨테이너 불필요)
 	@echo "★ backend 는 반드시 mlflowdb. recodb 로 붙이면 reco 스키마가 오염된다."

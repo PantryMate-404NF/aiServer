@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 B 추천 엔진을 이어서 작업하는 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 1.12.0 · **최종 수정**: 2026-09-15 · **작성자**: 유재현
+**버전**: 1.13.0 · **최종 수정**: 2026-09-16 · **작성자**: 유재현
 
 ---
 
@@ -546,6 +546,20 @@ uv run ruff check . && uv run python -m mypy src
 | 문서 | 안내서 1.2.0(make·psql 없는 PC 절차, id 범위, DB 실행 결과, G-29 보충) · `deploy/seed/sim/README.md` 매핑 · 패키지 사본 동기화(zip 제외) |
 | 검증 | 적재 종료코드 0 · `99_verify` 건수·분포가 기대값과 일치 · `scenario_run.py` PASS(`/health` db true 0.11초, [5] 변동 0 = 전환 전 정상) · `scenario_engine.py` PASS · ruff·format(151)·mypy(62) 0 · `pytest tests/unit` 298 passed / 90.64% |
 | 넘긴 것 | N-16(커밋 범위 — 이제 유재현과 정함) · G-29(DB 없을 때의 대기. DB 있으면 0.11초) |
+
+### 9.20 2026-09-16 - 클라우드 팀 요청: 서비스 Dockerfile
+
+파트 B 의 엔진 변경이 아니라 저장소 전체에 걸린 산출물이라 여기 짧게만 남깁니다.
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 클라우드 팀 요청 문서 — CI/CD 를 위해 각 서비스 폴더에 Dockerfile. 예시는 `python:3.11-slim` + `requirements.txt` |
+| 다른 점 | 이 저장소는 ① Python **3.12**(3.11 은 설치 거부) ② `requirements.txt` 없이 `uv.lock` 정본(01의 1절, pip 직접 사용 금지) ③ 소스 루트가 `src/` 라 패키지를 설치해야 `main:create_app` 이 보임. 셋 다 예시대로 쓰면 빌드가 안 되거나 조용히 틀립니다 |
+| 산출물 | 루트 `Dockerfile`(4단계 — base·builder·models·runtime) · `.dockerignore` · `deploy/docker-compose.yml` 의 `reco-api`(profile `app`) · `Makefile` 의 `up-app`(2026-09-04 에 "Dockerfile 과 함께 되살린다" 고 남겨 둔 자리) · `README.md` 3절 |
+| 결정 | OCR 모델 가중치 98MB 를 **빌드 때 굽습니다**(유재현 확인). 런타임에 받게 두면 컨테이너마다 받고, 외부 통신이 막힌 클러스터에서는 `/health/ready` 가 영영 503 인데 에러는 안 납니다. 굽는 명령은 앱이 쓰는 `_load_engine()` 을 그대로 부릅니다 — 인자를 따로 적으면 구운 모델과 실제로 쓰는 모델이 갈라집니다 |
+| 빌드에서 걸린 것 | 시스템 라이브러리를 실행 단계에만 적었더니 모델 굽는 단계에서 `libGL.so.1` 이 없어 실패. 빌드·실행이 같은 `base` 단계를 쓰도록 고쳤습니다 — 따로 적으면 **빌드는 성공한 뒤 첫 OCR 요청에서** 터집니다. `tzdata` 도 함께 깝니다(없으면 `TZ` 를 줘도 조용히 UTC 로 돌아 임박 판정이 하루 어긋납니다) |
+| 검증 | `docker build` 종료코드 0(2.62GB) · 컨테이너 기동 후 `/health/live` 200 · `/health/ready` 200(8초) · 키 없이 `/health` 401 · 키로 `db: true` · `/v1/recommend` 200 · 실행 사용자 uid 10001 · 시간대 KST · 이미지 안에 `.env` 없음. compose 경로(`--profile app`)도 같은 결과 |
+| 넘긴 것 | 공유 파일 넷(`Dockerfile` · `.dockerignore` 는 신규, `deploy/docker-compose.yml` · `Makefile` 은 파트 A 소유)을 A 에 알림 · 이미지 경량화와 보안 스캔은 클라우드 팀 몫 · `deploy/.env` 의 `INTERNAL_API_KEY` · `GEMINI_API_KEY` 가 비어 있으면 `make up-app` 이 기동에 실패합니다(의도된 동작) |
 
 ### 9.19 2026-09-15 - 온보딩 음식 유형 (신규 문항)
 
