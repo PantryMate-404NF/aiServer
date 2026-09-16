@@ -4,7 +4,7 @@
 
 **적용 대상**: 이 저장소에 기여하는 모든 인원 및 AI 코딩 에이전트
 
-**버전**: 1.8.3 · **최종 수정**: 2026-09-15 · **작성자**: 김민경
+**버전**: 1.8.4 · **최종 수정**: 2026-09-15 · **작성자**: 김민경
 
 ---
 
@@ -22,7 +22,7 @@
 충돌 시 번호가 작은 문서가 이깁니다. 규칙을 바꾸려면 01의 9절 개정 절차를 따릅니다.
 설계 결정 기록은 [decisions/](decisions/) 에 날짜별로 있습니다.
 
-파트별 설계 명세와 진행 기록은 아래에 있습니다. 규칙이 아니라 진행 상태를 담습니다. 에이전트용 정본과 사람용 서술본을 함께 두는 이유는 [decisions/2026-09-10_recommend_record_dual_format.md](decisions/2026-09-10_recommend_record_dual_format.md) 에, 추천 엔진이 데이터 파트의 계약을 따르는 이유는 [decisions/2026-09-10_recommend_engine_follows_data_track_contract.md](decisions/2026-09-10_recommend_engine_follows_data_track_contract.md) 에, 데이터 파트 병합에서 검사 예외를 어디까지 허용했는지는 [decisions/2026-09-10_merge_data_track_gate_exceptions.md](decisions/2026-09-10_merge_data_track_gate_exceptions.md) 에, 01의 3.4(통과를 종료 코드로 판정)를 추가한 사례는 [decisions/2026-09-11_report_only_verified_output.md](decisions/2026-09-11_report_only_verified_output.md) 에, 취향 페르소나를 고른 음식에서 만들고 시간에 따라 감쇠시키기로 한 결정은 [decisions/2026-09-11_taste_persona_from_picks_with_time_decay.md](decisions/2026-09-11_taste_persona_from_picks_with_time_decay.md) 에 있습니다. `recommend/` 폴더는 04의 1.1 트리에 아직 없으며 개정 신청 대상입니다.
+파트별 설계 명세와 진행 기록은 아래에 있습니다. 규칙이 아니라 진행 상태를 담습니다. 에이전트용 정본과 사람용 서술본을 함께 두는 이유는 [decisions/2026-09-10_recommend_record_dual_format.md](decisions/2026-09-10_recommend_record_dual_format.md) 에, 추천 엔진이 데이터 파트의 계약을 따르는 이유는 [decisions/2026-09-10_recommend_engine_follows_data_track_contract.md](decisions/2026-09-10_recommend_engine_follows_data_track_contract.md) 에, 데이터 파트 병합에서 검사 예외를 어디까지 허용했는지는 [decisions/2026-09-10_merge_data_track_gate_exceptions.md](decisions/2026-09-10_merge_data_track_gate_exceptions.md) 에, 01의 3.4(통과를 종료 코드로 판정)를 추가한 사례는 [decisions/2026-09-11_report_only_verified_output.md](decisions/2026-09-11_report_only_verified_output.md) 에, 취향 페르소나를 고른 음식에서 만들고 시간에 따라 감쇠시키기로 한 결정은 [decisions/2026-09-11_taste_persona_from_picks_with_time_decay.md](decisions/2026-09-11_taste_persona_from_picks_with_time_decay.md) 에, 온보딩 음식 유형을 맛 취향과 나누고 가중치가 아니라 목록의 자리로 반영하기로 한 결정은 [decisions/2026-09-15_cuisine_choice_as_slots_not_weight.md](decisions/2026-09-15_cuisine_choice_as_slots_not_weight.md) 에 있습니다. `recommend/` 폴더는 04의 1.1 트리에 아직 없으며 개정 신청 대상입니다.
 
 | 폴더 | 문서 | 담는 것 |
 |---|---|---|

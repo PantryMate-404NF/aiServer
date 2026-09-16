@@ -19,7 +19,7 @@
 | 검증 (2026-09-15, 9.19) | ruff check OK · ruff format OK(154 files) · mypy **63 files** OK · `pytest tests/unit` **315 passed / 0 failed** / coverage **91.02%**(시뮬 검사 6건 · 음식 유형 검사 19건 포함). A 게이트 6종 전부 종료코드 0(9.16, `contract` 98건). 시뮬 DB 경로(9.17) — `load_sim.sh` 종료코드 0, `99_verify.sql` 여섯 건수·집단 × 모드 분포가 안내서 기대값과 일치, `scenario_run.py`(`/health` 포함, db true 0.11초) PASS. `scenario_engine.py` 1,600명 PASS(9.19 기준 판정 6종). 출력은 `recommend_engine_verification.md` 16~18절 |
 | 다음 행동 | 음식 유형 변경분의 커밋 범위를 유재현과 정함(코드·시드·기록) → 레시피 쪽 `cuisine_family` 를 A 에 요청(G-30, 이것이 없으면 실 DB 에서 유형 문항이 목록에 닿지 않음) → 공유 경로(`deploy/seed/sim`·`tests/fixtures/sim`·`dev` 의존성) 변경을 A 에 알림 → 미병합 커밋 13개의 새 PR(보류 해제 시) → N-01(.env) → 라우터 실연결(M-01·M-15) → G-24(3축 척도 범위)·G-25(월별 주기 해석)·G-26(`EventIn` 시각)·G-27(A 함수의 균등 폴백) 확인. 남은 회의 안건은 `recommend_engine_meeting_agenda.md` 2절 |
 | 병합 정책 | `main` 은 PR 로만 병합합니다(첫 PR #8 은 `5846a72` 로 병합됨). 브랜치 커밋·push 는 자유. `origin/main` 은 merge 로 따라감(rebase 금지, 01의 2.1). 병합된 브랜치 `feat/recommend-engine-core` 는 01의 2.1 대로 삭제 대상이나 미병합 커밋 13개가 있어 새 PR 전까지 둡니다 |
-| DB 전환 | `recommend_engine_db_cutover.md` 의 M-01~M-15. DB 와 닿는 변경을 시작할 때 먼저 엽니다. `tests/unit/recommend/test_db_cutover.py` 가 못을 박아 두어 건너뛰면 검사가 깨집니다 |
+| DB 전환 | `recommend_engine_db_cutover.md` 의 M-01~M-16(M-16 은 음식 유형을 `user_preference` 에서 읽는 일, 09-15 추가). DB 와 닿는 변경을 시작할 때 먼저 엽니다. `tests/unit/recommend/test_db_cutover.py` 가 못을 박아 두어 건너뛰면 검사가 깨집니다 |
 | 갱신 규칙 | 세션마다 1절·3절·9절 갱신. 새 항목은 다음 번호, 번호 재사용 금지. 사람용 서술본 동시 갱신 (2절). **3.3 의 수치는 그 세션의 실행에서 다시 잽니다** — 앞 세션 값을 옮기지 않습니다 (01의 3.4, D-28). 9절의 세션별 수치는 그 시점 기록이므로 고치지 않습니다 |
 
 ---
@@ -559,6 +559,7 @@ uv run ruff check . && uv run python -m mypy src
 | 검사 | `tests/unit/recommend/test_cuisine.py` 19건 신설(계약·페르소나·슬롯·목업·시드 대조). `scripts/sim/sim_world.py` 분리(02의 5.1, 500줄) 후 시뮬 시나리오에 [6] 음식 유형 추가 |
 | 3회 검수 | 구현 뒤 세 번 다시 읽어 6건(F-91~F-96)을 더 고쳤습니다. 가장 큰 것은 유형 칸이 다른 유형을 목록에서 지우던 것(F-91)이고, 목업이 실제 구현과 다르게 돌던 것 둘(F-92·F-93), 파트 A 파일에 함수를 더한 것(F-94), 시뮬 판정이 아무 일도 안 해도 통과하던 것(F-95), 불필요한 `sys.path` 조작(F-96)입니다 |
 | 검증 | ruff · format(154) · mypy(63) · `pytest tests/unit` 315 passed / 91.02% 전부 종료코드 0, A 게이트 6종 0(contract 98건). 시뮬 1,600명 RESULT: PASS(판정 6종, 불변식 위반 0) — 고른 유형이 Top-20 에 한 건도 없는 사람이 슬롯을 끄면 460명, 켜면 178명 |
+| 문서 | 결정 기록 `docs/decisions/2026-09-15_cuisine_choice_as_slots_not_weight.md` 신설 · DB 전환 점검표 1.5.0(**M-16** — 음식 유형을 `user_preference.pref_cuisines` 에서 읽지 않으면 전환 순간 전원이 "유형을 고른 적 없는 사용자"가 되고 응답은 200 입니다. `test_db_cutover.py` 에 못을 박았습니다) · `deploy/seed/sim/README.md` · `docs/README.md` 1.8.4 |
 | 넘긴 것 | G-30(레시피 `cuisine_family` 전수 결측 — 실 DB 에서는 유형 슬롯도 `f_cuisine` 도 돌지 않음) · 계약 때문에 손댄 파트 A 파일 4개(`enums.py` · `schema.py` · `stage.py` · `test_contract.py`)를 A 에 알림(F-90, 18.2절) |
 
 ### 9.18 2026-09-14 - 시뮬 패키지 커밋 (N-16 결정)

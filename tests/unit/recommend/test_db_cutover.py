@@ -31,11 +31,12 @@ import pytest
 from config import get_settings
 from features.recommend import service
 from features.recommend.engine import rerank
+from features.recommend.engine.context import build_context
 from features.recommend.policy import RankingPolicy
 from features.recommend.schema import HealthOut
 
 #: 점검표에 있는 항목 전부. 문서와 이 목록이 어긋나면 아래 검사가 잡습니다.
-CUTOVER_IDS = tuple(f"M-{n:02d}" for n in range(1, 16))
+CUTOVER_IDS = tuple(f"M-{n:02d}" for n in range(1, 17))
 
 CHECKLIST = Path(__file__).resolve().parents[3] / "docs/recommend/recommend_engine_db_cutover.md"
 
@@ -141,6 +142,25 @@ def test_persona_originals_still_live_in_the_json_store() -> None:
         if not name.startswith("_") and ("profile" in name.lower() or "persona" in name.lower())
     ]
     assert not loaders, HOWTO.format(item="M-14") + f" (발견: {loaders})"
+
+
+def test_the_chosen_cuisines_still_come_from_the_json_store() -> None:
+    """M-16. 음식 유형을 `user_preference.pref_cuisines` 에서 읽는 저장소 함수가 아직 없습니다.
+
+    지금은 취향 원본 JSON 의 `cuisines` 가 유일한 출처이고, `build_context` 는 인자를 안 받으면
+    거기로 되돌아갑니다. DB 를 붙이면 그 JSON 이 없으므로, 읽어 넘기지 않는 순간 **모든 사용자가
+    유형을 고른 적 없는 사람**이 됩니다 — 유형 슬롯도 `f_cuisine` 도 아무 일을 하지 않고 응답은
+    200 입니다. M-14 와 같은 변경에서 처리합니다.
+    """
+    repository = importlib.import_module("features.recommend.repository")
+    loaders = [
+        name for name in dir(repository) if not name.startswith("_") and "cuisine" in name.lower()
+    ]
+    assert not loaders, HOWTO.format(item="M-16") + f" (발견: {loaders})"
+    # 되돌아가는 자리 자체가 사라지면(인자 필수) 그때도 이 못을 갱신합니다.
+    assert "preferred_cuisines" in inspect.signature(build_context).parameters, HOWTO.format(
+        item="M-16"
+    )
 
 
 def test_onboarding_and_events_routes_still_serve_the_mock() -> None:

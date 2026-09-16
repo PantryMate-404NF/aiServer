@@ -22,6 +22,9 @@
 ## 2. 합성한 것 (기획 데이터에 없음)
 
 - 온보딩 picks 3개(제시 20 중) · scales[매움,짠맛,단맛] → user_preference, user_vector.taste_vec
+- 음식 유형(`pref_cuisines`): 기획 데이터에 문항이 없어 **고른 음식의 계열**로 대신한다.
+  값은 라벨이 아니라 `cuisine_family` 코드(korean·chinese·japanese·western·asian_other) —
+  라벨로 넣으면 `recipe.cuisine_family` 와 영영 안 만난다. 실제 응답이 오면 원본으로 바꾼다
 - 냉장고 재료: `PANTRY_POOL` 51종에서 결정론적 추출. 30% 는 소비기한 유저 입력(`user`), 나머지 `estimated`
 - 알러지: 약 6% 유저에 그룹 1개 (`severity='allergy'`)
 - 세션: `d-{user}-{yyyymmdd}` (일 단위). 'd-' 는 시딩 트래픽 표시 — 실유저 지표에서 걸러진다
