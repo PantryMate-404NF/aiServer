@@ -4,7 +4,7 @@
 
 **적용 대상**: 이 저장소에 기여하는 모든 인원 및 AI 코딩 에이전트
 
-**버전**: 1.10.0 · **최종 수정**: 2026-09-16 · **작성자**: 김민경
+**버전**: 1.11.0 · **최종 수정**: 2026-09-17 · **작성자**: 김민경
 
 ---
 
@@ -34,6 +34,7 @@
 | `recommend/` | [recommend_engine_meeting_agenda.md](recommend/recommend_engine_meeting_agenda.md) | 파트 B 통합 회의 안건. 안건마다 상태(결정·반영 · 일부 반영 · 결정 필요 등)와 결정일·반영 커밋·반영 코드. 에이전트용 정본 |
 | `recommend/` | [recommend_engine_db_cutover.md](recommend/recommend_engine_db_cutover.md) | 실 DB 를 붙일 때 반드시 처리할 항목과 확인 근거. `tests/unit/recommend/test_db_cutover.py` 가 건너뛰지 못하게 막습니다 |
 | `recommend/` | [recommend_sim_seed_runbook.md](recommend/recommend_sim_seed_runbook.md) | 기획측 가상운영데이터(v0.4)를 시드로 바꿔 적재하고, DB 없이(`scripts/sim/scenario_engine.py`) 또는 API 로 이용 시나리오를 돌리는 순서와 판정 기준 |
+| `docs/` | [backend_schema_request.md](backend_schema_request.md) | 추천 엔진을 실제 서비스 데이터에 연결하기 위해 백엔드에 요청하는 정보와 함께 정할 결정. 스키마·연동 방식·식별자·규모·개인정보와, 추천 응답과 로그의 경계 |
 | `docs/` | [release_notes.md](release_notes.md) | `main` 에 무엇이 언제 들어갔는지, 영향 범위와 롤백 방법, 파트별 전달 사항. 병합할 때마다 맨 위에 항목을 더합니다 |
 | `docs/` | [container_handover.md](container_handover.md) | 이 저장소를 이미지로 만들어 배포할 때 필요한 것. 클라우드 팀에 전달하는 인수인계 문서이며 빌드·런타임 계약·외부 의존·실측치를 담습니다 |
 | `recommend/human/` | [recommend_engine_work_log.md](recommend/human/recommend_engine_work_log.md) · [recommend_engine_verification.md](recommend/human/recommend_engine_verification.md) · [recommend_engine_meeting_agenda.md](recommend/human/recommend_engine_meeting_agenda.md) · [recommend_engine_db_cutover.md](recommend/human/recommend_engine_db_cutover.md) | 위 네 기록의 사람용 서술본 |
