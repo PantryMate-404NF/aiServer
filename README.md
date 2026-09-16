@@ -73,6 +73,8 @@ curl -s localhost:8000/health/ready # OCR 모델 로딩 완료 (그 전에는 50
 | 이미지 크기 | 2.62GB (paddle 719MB · opencv 182MB · OCR 모델 98MB). OCR 모델은 빌드 때 구워 넣어 기동 즉시 `ready` 이고 외부 통신이 없어도 돕니다 |
 | 사용자 | 비 root (`uid 10001`) |
 
+배포를 맡는 쪽에 필요한 것(런타임 계약·외부 의존·실측 자원·확인하지 못한 것)은 [docs/container_handover.md](docs/container_handover.md) 에 있습니다.
+
 ---
 
 ## 4. 개발 규칙
