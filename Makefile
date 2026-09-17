@@ -11,9 +11,11 @@ PSQL    := $(COMPOSE) exec -T postgres psql -U reco -d recodb
         install \
         validate dry-run seed seed-reset verify smoke ddl-test review-sheet review-apply unmatched post-index bootstrap clean
 
+# 주의: 폭이 14 였는데 normalize-batch·popularity-build 처럼 긴 이름이
+#    설명과 붙어 버렸다. 가장 긴 이름이 16자라 18 로 둔다.
 help:  ## 명령 목록
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) \
-	  | awk -F':.*?## ' '{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
+	  | awk -F':.*?## ' '{printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
 # EXTRA= 로 묶음을 하나 더 얹는다 (예: make install TRACK=B EXTRA=rank-v1).
 # 🔴 EXTRA 는 트랙 묶음에 **더하는** 것이다. 다음번에 빼먹으면 uv sync 가 도로 지운다 —
@@ -142,11 +144,29 @@ flavor-check:  ## 중심화가 실제로 낫다는 검증 — 판별력 게이�
 popularity-build:  ## popularity_score 백분위 순위 + quality_score 0 (A-6). 1초
 	$(PY) -m features.recommend.ingest.popularity_build
 
+renormalize:  ## 검수 반영부터 게이트까지 한 번에 (A-11. 약 11분. SHEET= 로 시트 지정)
+# 주의: 단계를 나누지 않는다. recipe_ingredient 만 다시 만들고 recipe_feature 를
+#    안 만들면 조회가 옛 배열을 읽는데 화면은 멀쩡히 돈다 — 어긋난 사실을
+#    어떤 쿼리도 알려주지 않는다.
+	$(PY) -m features.recommend.ingest.renormalize $(if $(SHEET),--sheet "$(SHEET)",)
+
 feature-test:  ## 회귀 게이트 — 피처 체크 8개. 스키마·배치를 건드렸으면 이것부터 (A-8)
 	$(PY) -m features.recommend.ingest.feature_test
 
+cluster-build:  ## k-means cluster_id — 재정렬의 다양성 축 (A-12). 3초
+	$(PY) -m features.recommend.ingest.cluster_build
+
+cuisine-build:  ## 요리 계열 배정 — cuisine_family (G-30). make cuisine-build DRY=1 로 미리보기
+	$(PY) -m features.recommend.ingest.cuisine_build $(if $(DRY),--dry-run,)
+
 freq-build:  ## ingredient.freq_count 채우기 — f_cooccur 의 IDF 분모 (A-14). 1초
 	$(PY) -m features.recommend.ingest.freq_build
+
+golden-build:  ## B·C 용 골든 픽스처 생성 — 실 recipe_feature 30건 + μ (A-9)
+	$(PY) -m features.recommend.ingest.golden
+
+golden-check:  ## 골든 픽스처가 현재 계약과 맞는지 대조 (DB 필요)
+	$(PY) -m features.recommend.ingest.golden --check
 
 batch-log:  ## 배치 실행 기록 — status·건수·실패 사유 (A-7)
 	@$(PSQL) -c "SET search_path=reco,public; \
@@ -173,8 +193,14 @@ opt={r.is_optional_hint} amb={r.is_ambiguous_qty} subs={r.substitutes}') \
 review-sheet:  ## 검수 시트 생성 — 스프레드시트로 판단 (make review-sheet TOP=300)
 	$(PY) scripts/reco/bench/review_sheet.py --top $(or $(TOP),300)
 
-review-apply:  ## 채운 시트를 시드에 반영 (--write 없이는 미리보기)
-	$(PY) scripts/reco/bench/review_apply.py $(if $(WRITE),--write,)
+review-csv:  ## 검수 시트를 구글 스프레드시트용 CSV 로 내보낸다
+	$(PY) scripts/reco/bench/review_export.py
+
+review-apply:  ## 채운 시트를 시드에 반영 (WRITE=1 없이는 미리보기. SHEET= 로 파일 지정)
+# 주의: SHEET 를 따옴표로 감싼다. 구글 스프레드시트에서 받으면 파일명에
+#    공백이 들어간다 ("시트 이름 - 시트1.csv"). 안 감싸면 argparse 가
+#    뒷부분을 모르는 인자로 보고 죽는다.
+	$(PY) scripts/reco/bench/review_apply.py $(if $(SHEET),--sheet "$(SHEET)",) $(if $(WRITE),--write,)
 
 unmatched:  ## 미매칭 표현을 빈도순으로 덤프 (약 12분)
 	$(PY) scripts/reco/bench/unmatched_dump.py
@@ -220,6 +246,7 @@ data-gate:  ## 데이터 파트 게이트 전부 — 커밋 전에 이것 하나
 	@$(MAKE) --no-print-directory contract
 	@$(MAKE) --no-print-directory normalize-test
 	@$(MAKE) --no-print-directory feature-test
+	@$(MAKE) --no-print-directory golden-check
 	@echo "  ✓ 데이터 파트 게이트 전부 통과"
 
 # ── 한 번에 ─────────────────────────────────────────────────────

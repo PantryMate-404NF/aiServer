@@ -30,6 +30,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from features.recommend.enums import (
+    ALLERGEN_GROUPS,
     CONTRACT_VERSION,
     ONBOARDING_CUISINES,
     EventType,
@@ -196,6 +197,20 @@ class OnboardingIn(_Base):
             raise ValueError(f"모르는 음식 유형이다: {unknown} — 가능한 값 {ONBOARDING_CUISINES}")
         # 같은 유형을 두 번 고른 것은 한 번으로 둔다. 순서는 사용자가 고른 순서다.
         return list(dict.fromkeys(code for code in codes if code is not None))
+
+    @field_validator("allergy_groups")
+    @classmethod
+    def _known_allergens(cls, v: list[str]) -> list[str]:
+        """모르는 값을 요청 단계에서 거부합니다.
+
+        주의: 없으면 `'WHEAT'` 같은 값이 그대로 흘러가 DB CHECK 에서 500 이 되거나,
+           더 나쁘게는 차단 재료 0종으로 **에러 없이** 알러지 필터가 꺼집니다.
+           바로 위 `preferred_cuisines` 와 같은 방어를 답니다.
+        """
+        unknown = [raw for raw in v if raw not in ALLERGEN_GROUPS]
+        if unknown:
+            raise ValueError(f"모르는 알러지 그룹이다: {unknown} — 가능한 값 {ALLERGEN_GROUPS}")
+        return list(dict.fromkeys(v))
 
     @field_validator("scales")
     @classmethod

@@ -26,16 +26,25 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, ".")
-from features.recommend.ingest.match import Dictionary, match  # noqa: E402
-from features.recommend.ingest.preprocess import non_ingredient_kind  # noqa: E402
+from features.recommend.ingest.match import Dictionary, match
+from features.recommend.ingest.preprocess import non_ingredient_kind
 
-OUT = Path("bench/out/review_sheet.tsv")
+#: 저장소 루트 기준. 스크립트를 어디서 돌리든 같은 자리에 쓴다 —
+#: 상대경로 "bench/out" 은 scripts/reco 에서 돌릴 때만 맞고, 루트에서
+#: 돌리면 9분을 계산한 뒤 마지막 쓰기에서 FileNotFoundError 로 죽는다.
+ROOT = Path(__file__).resolve().parents[3]
+BENCH_OUT = ROOT / "scripts" / "reco" / "bench" / "out"
+
+#: 검수 작업물은 저장소에 올리지 않는다 (review/README.md). bench/out 은
+#: 문서가 인용하는 수치의 기준선이라 커밋하지만, 사람이 채우는 시트는 다르다.
+REVIEW_DIR = ROOT / "review"
+OUT = REVIEW_DIR / "review_sheet.tsv"
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--top", type=int, default=300)
-    ap.add_argument("--src", type=Path, default=Path("bench/out/unmatched.tsv"))
+    ap.add_argument("--src", type=Path, default=BENCH_OUT / "unmatched.tsv")
     a = ap.parse_args()
 
     rows = []
@@ -49,7 +58,7 @@ def main() -> None:
     total_un = sum(c for c, _ in rows)
     cum = 0
 
-    OUT.parent.mkdir(exist_ok=True)
+    OUT.parent.mkdir(parents=True, exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as w:
         w.write("# 결정 칸에 셋 중 하나를 적으세요 — 후보는 참고일 뿐 고를 필요 없습니다\n")
         w.write("#   재료명   우리 사전(536종)에 있는 이름. 예) 매실액 → 매실청\n")
@@ -71,12 +80,16 @@ def main() -> None:
                 note = f"이미 {k} 로 분류됨"
             elif r.blocked_by:
                 note = f"구조 차단: {r.blocked_by}"
+            elif not sug[0]:
+                # 후보가 하나도 없으면 검수자가 사전을 뒤지게 된다 — 15초 규약이
+                # 깨지는 자리다. 가짜 후보를 채우는 대신 무엇을 적을지 알려 준다.
+                note = "닮은 이름 없음 — NEW 이거나 재료가 아닐 가능성이 큽니다"
             w.write(f"{i}\t{c}\t{100*cum/total_un:.1f}\t{t}\t{pre}\t"
                     f"{sug[0]}\t{sug[1]}\t{sug[2]}\t{note}\n")
 
     # 검수자가 "쓸 수 있는 이름" 을 찾아볼 수 있게 사전을 함께 낸다
     import csv as _csv
-    dic = Path("bench/out/dictionary.tsv")
+    dic = REVIEW_DIR / "dictionary.tsv"
     with open("seeds/ingredient.csv", encoding="utf-8") as f, \
          open(dic, "w", encoding="utf-8") as w:
         w.write("재료명\t카테고리\t기본양념\n")

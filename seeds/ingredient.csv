@@ -535,3 +535,163 @@ name,category_path,is_staple,is_seasoning,allergen_group,note
 끓는물,water,true,false,,
 미지근한물,water,true,false,,
 얼음,water,true,false,,
+밥,agri.grain.rice,true,false,,쌀의 조리 상태. 쌀이 staple 이라 같은 처지를 물려받는다
+참치액,processed.jeotgal,false,true,fish,멸치액젓 선례. 참치액젓과 동일물로 표제어 통합 검토
+생강가루,season.powder,false,true,,
+쌀뜨물,water,true,false,,쌀을 씻으면 나온다. 쌀이 staple 이라 같은 처지
+버섯,agri.mushroom,false,false,,부류 미상 통칭
+생강술,season.vinegar,false,true,,잡내 제거용 술. 맛술·청주 계열
+육수,season.broth,false,true,fish,베이스 미상 통칭. 멸치 기반 가정으로 fish 를 붙였다 — 사람 확인 필요
+김치국물,processed.kimchi,false,false,shellfish,배추김치에서 shellfish 를 물려받는다(젓갈)
+토마토소스,processed.canned,false,false,,토마토페이스트·토마토홀 선례. 파스타의 주재료라 seasoning 으로 빼지 않는다
+견과류,agri.nutseed.nuts,false,false,nut,부류 미상 통칭
+양상추,agri.veg.leafy,false,false,,
+연겨자,season.sauce,false,true,,튜브형 겨자. 겨자가루(season.powder) 와 형태가 다름
+참치액젓,processed.jeotgal,false,true,fish,멸치액젓 선례. 참치액과 동일물로 표제어 통합 검토
+허브솔트,season.sweetsalt,false,true,,소금 기반 혼합 조미료. 맛소금 선례
+떡,processed.tteok,false,false,,부류 미상 통칭
+쯔유,season.jang,false,true,fish,간장+가쓰오 베이스. soy 는 season.jang 전개로  fish 는 컬럼으로 이중 확보
+다시마육수,season.broth,false,true,,다시마만이면 allergen 없음. 멸치 혼합 표기면 fish — 원문 확인 필요
+초코칩,processed.othproc,false,false,dairy,초콜릿 선례
+와사비,season.sauce,false,true,,튜브형 고추냉이
+순대,processed.meatproc,false,false,,당면 기반이라 gluten 아님
+스테이크소스,season.sauce,false,true,,우스터소스 선례로 allergen 공란. 제품에 따라 fish(앤초비) 가능
+봄동,agri.veg.leafy,false,false,,
+무순,agri.veg.leafy,false,false,,무 새싹. 무(agri.veg.root) 와 별개
+김칫국물,processed.kimchi,false,false,shellfish,김치국물과 같은 것 — 표제어 통합 검토
+어린잎채소,agri.veg.leafy,false,false,,샐러드용 베이비리프 통칭
+매운고추,agri.veg.pepper,false,false,,부류 미상 통칭. 청양고추 계열
+생강청,season.sweetsalt,false,true,,
+딸기잼,season.sweetsalt,false,true,,processed.othproc + is_seasoning=false 도 검토 여지 있음
+핫소스,season.sauce,false,true,,
+땅콩버터,agri.nutseed.nuts,false,false,nut,땅콩 가공품. 들깨가루 선례로 원물 카테고리 유지
+꼬막,seafood.shellfish,false,false,shellfish,
+멸치 다시마 육수,season.broth,false,true,fish,공백 포함 표기 — 멸치다시마육수와 통합 검토
+연두,season.jang,false,true,soy,콩 발효 액상 조미료. 국간장·소금 대체 용도
+사이다,season.sweetsalt,false,true,,갈비찜·무침 단맛용 탄산음료
+아몬드슬라이스,agri.nutseed.nuts,false,false,nut,
+다시육수,season.broth,false,true,fish,멸치·다시마 기반 통칭. 채수 기반이면 fish 아님
+만두피,processed.othproc,false,false,gluten,만두와 별개 재료
+다시마물,season.broth,false,true,,다시마만 우린 물이라 fish 아님
+멸치다시육수,season.broth,false,true,fish,
+참나물,agri.veg.namul,false,false,,
+바닐라 익스트랙,season.herb,false,true,,제과용 향료. 바닐라에센스와 같은 취급
+핫케이크가루,agri.grain.wheat,false,false,gluten,제품에 따라 우유·달걀 성분 포함 가능. allergen 칸이 하나라 gluten 우선
+코인육수,season.broth,false,true,fish,제품별로 채수·사골 기반도 있음. 멸치 기반 가정
+허니머스타드,season.sauce,false,true,egg,마요네즈 베이스 제품 기준. 겨자만으로 만든 제품이면 egg 아님
+쫄면,processed.noodle,false,false,gluten,
+라면스프,season.broth,false,true,soy,제품별로 밀·새우·우유도 흔함. allergen 칸 하나로는 부족해 사람 확인 필요
+곤약,processed.tofu,false,false,,도토리묵과 같은 전분 응고물
+면수,water,false,true,,면을 삶아야 생기는 부산물. 면이 이미 관문이라 필수로 둘 이유가 없다. gluten 은 면이 진다
+꽁치통조림,processed.canned,false,false,fish,생물 꽁치와 별개
+냉면육수,season.broth,false,true,,제품에 따라 간장(대두·밀) 포함 가능. 확인 필요
+돼지등뼈,meat.pork,false,false,,감자탕용 부위
+미역줄기,seafood.seaweed,false,false,,미역과 다른 부위. 대개 염장품
+파뿌리,agri.veg.stem,false,false,,대파 뿌리. 육수용
+원당,season.sweetsalt,false,true,,
+새싹채소,agri.veg.leafy,false,false,,무순 등 샐러드용 새싹 통칭
+다시마 멸치육수,season.broth,false,true,fish,멸치다시육수와 같은 것. 표기 병합 검토
+바닐라에센스,season.herb,false,true,,바닐라 익스트랙과 같은 취급
+해바라기유,season.oil,false,true,,
+메이플시럽,season.sweetsalt,false,true,,
+딸기쨈,processed.othproc,false,false,,딸기잼 표기 흔들림. 표준형과 병합 검토
+커피가루,processed.othproc,false,false,,인스턴트 커피·분쇄 원두 통칭
+두유,processed.othproc,false,false,soy,우유 대체용. 두부류가 아니라 othproc
+커피,processed.othproc,false,false,,원두·인스턴트·내린 커피 중 무엇인지 불명. 커피가루와 병합 검토
+스트링치즈,dairy.cheese,false,false,dairy,
+짜장가루,season.powder,false,true,soy,춘장 기반. 밀 포함 제품이 많아 gluten 병기 검토 필요
+허니머스터드,season.sauce,false,true,egg,난황 들어간 제품이 다수 — egg 여부 사람이 확인 필요
+녹차가루,processed.othproc,false,false,,코코아파우더와 같은 취급. 디저트 주재료라 조미 아님
+아가베시럽,season.sweetsalt,false,true,,
+피클링스파이스,season.herb,false,true,,월계수잎·겨자씨·통후추 등 통향신료 혼합
+쑥,agri.veg.namul,false,false,,쑥갓과 다른 재료
+남은치킨,meat.chicken,false,false,gluten,튀김옷 밀가루 기준 gluten. 전기구이면 해당 없음
+아몬드 슬라이스,agri.nutseed.nuts,false,false,nut,아몬드의 가공 형태. 통아몬드와 용도 다름
+닭육수,season.broth,false,true,,
+다시마 육수,season.broth,false,true,,다시마만 사용. 멸치 들어가면 fish
+누룽지,agri.grain.rice,false,false,,밥을 눌린 것. 쌀로 대체 불가
+해물믹스,seafood,false,false,shellfish,새우·오징어·홍합 혼합. 구성 불명이라 상위 카테고리
+돈까스,processed.meatproc,false,false,gluten,냉동 제품 기준. 달걀 포함 제품 많아 egg 검토 필요
+스파게티소스,processed.canned,false,false,,토마토홀·토마토페이스트 계열로 둠
+무말랭이,agri.veg.root,false,false,,건조품. 불림 필요해 생무와 대체 불가
+쌈무,processed.kimchi,false,false,,
+탄산수,water,false,false,,물과 달리 상비품이 아니라 staple 제외
+햇반,processed.othproc,false,false,,공산품이라 영수증에 찍힌다. staple 로 두면 f_expiring 에서 빠진다
+세발나물,agri.veg.namul,false,false,,
+베트남고추,agri.veg.pepper,false,false,,건고추류
+콜라,season.sweetsalt,false,true,,음료 카테고리가 없어 단맛 조미로 분류. 사람 확인 필요
+현미유,season.oil,false,true,,
+어간장,season.jang,false,true,fish,간장 베이스라 soy 도 해당. 단일 값 제약으로 fish 우선
+참치 액,season.broth,false,true,fish,
+팥앙금,processed.othproc,false,false,,팥과 별개 가공품. 설탕 포함
+즉석밥,processed.othproc,false,false,,햇반과 같음
+럼주,season.vinegar,false,true,,제과용 술
+참외,agri.fruit,false,false,,참외·멜론류 하위 분류가 없어 상위로 둠
+돌나물,agri.veg.namul,false,false,,
+다시물,season.broth,false,true,fish,멸치 기반 가정. 다시마만 쓴 경우면 fish 빼야 함
+오레오,processed.othproc,false,false,gluten,상표명. 디저트 부재료
+토마토 소스,processed.canned,false,false,,토마토홀·토마토페이스트 계열로 둠
+고추냉이,season.sauce,false,true,,튜브 와사비 기준. 분말 제품이면 season.powder
+인삼,agri.veg.root,false,false,,
+참치 액젓,processed.jeotgal,false,true,fish,
+바닐라빈,season.herb,false,true,,통 꼬투리. 바닐라오일과 별개
+백앙금,processed.othproc,false,false,,흰강낭콩 기반 가정. 백태(대두) 제품이면 soy 필요
+멸치다시마 육수,season.broth,false,true,fish,
+허브가루,season.powder,false,true,,허브 종류 미상 통칭
+대파뿌리,agri.veg.stem,false,false,,대파의 뿌리 부분. 주로 육수용
+핫케익가루,agri.grain.wheat,false,false,gluten,제품에 따라 분유·난황분 포함 가능(dairy·egg 확인 필요)
+쌈채소,agri.veg.leafy,false,false,,상추·깻잎 등 잎채소 통칭
+훈제연어,seafood.fish.bluefish,false,false,fish,생연어와 조리법 다름
+보리새우,seafood.crustacean,false,false,shellfish,
+실곤약,processed.noodle,false,false,,곤약 기반. 밀 면과 대체 불가
+바닐라오일,season.oil,false,true,,향미용. 식용유 대체 불가
+돼지고기 불고기용,meat.pork,false,false,,
+다시마우린물,season.broth,false,true,,다시마만 우린 물. 멸치 없어 fish 아님
+피자소스,processed.canned,false,false,,요리의 주재료라 essential 유지
+생와사비,season.sauce,false,true,,튜브형 페이스트 가정
+고추씨,agri.veg.pepper,false,false,,매운맛·육수용
+치킨너겟,processed.meatproc,false,false,gluten,밀 튀김옷. 제품에 따라 egg 포함 가능
+콜라비,agri.veg.root,false,false,,
+불닭소스,season.sauce,false,true,soy,고추장·간장 베이스
+어린잎,agri.veg.leafy,false,false,,어린잎채소 통칭
+연두순,season.sauce,false,true,soy,'연두 순한맛' 잘린 표현 추정. 원문 확인 필요
+돼지고기 불고기,meat.pork,false,false,,'돼지고기 불고기용' 과 같은 재료
+반건조오징어,seafood.fish.driedfish,false,false,,생오징어와 조리법 다름
+인스턴트커피,processed.othproc,false,false,,'인스턴트 커피' 와 같은 재료. 표제어 통합 권장
+바질페스토,season.sauce,false,true,nut,잣 포함. 파마산 든 제품은 dairy 도 해당
+토마토스파게티소스,processed.canned,false,false,,요리의 주재료라 essential 유지
+미숫가루,agri.grain.miscgrain,false,false,gluten,배합에 따라 soy·nut 도 해당 가능. 다중 알러지 검토 필요
+인스턴트 커피,processed.othproc,false,false,,'인스턴트커피' 와 같은 재료. 표제어 통합 권장
+코인 육수,season.broth,false,true,fish,멸치·다시마 기반 가정. 사골·야채 제품이면 fish 제거
+누텔라,processed.othproc,false,false,nut,헤이즐넛 스프레드. 분유 포함이라 dairy 도 해당
+잼,season.sweetsalt,false,true,,종류 미상 통칭(딸기잼 등)
+미더덕,seafood.shellfish,false,false,shellfish,조개가 아닌 피낭동물. 분류와 알러지 모두 재확인 필요
+등심,meat.beef,false,false,,부위 표기만 있는 통칭. 대개 소등심이나 돈까스 레시피면 돼지등심
+베이글,processed.bread,false,false,gluten,
+레몬청,season.sweetsalt,false,true,,매실청·유자청과 같은 청 계열
+신라면,processed.noodle,false,false,gluten,브랜드 봉지라면. 스프 포함이라 라면사리와 별개이며 대두도 들어가나 allergen 은 gluten 으로 둠
+허니머스터드소스,season.sauce,false,true,egg,마요네즈 베이스 제품 기준 egg. 허니머스타드소스와 같은 재료라 표기 통합 필요
+조랭이떡,processed.tteok,false,false,,떡국떡과 모양만 다른 쌀떡
+수박,agri.fruit,false,false,,berry·citrus·pome·stone·tropical 어디에도 안 맞아 상위 agri.fruit 사용
+LA갈비,meat.beef,false,false,,소갈비를 뼈째 얇게 썬 것
+관자,seafood.shellfish,false,false,shellfish,가리비 등의 패주
+멸치다시다,season.broth,false,true,fish,
+곶감,processed.othproc,false,false,,건조 과일. 건포도 선례
+샤브샤브용 소고기,meat.beef,false,false,,소고기샤브샤브·소고기 샤브샤브용과 같은 재료. 표기 통합 필요
+허니머스타드소스,season.sauce,false,true,egg,허니머스터드소스와 같은 재료. 표기 통합 필요
+허브맛솔트,season.sweetsalt,false,true,,맛소금 선례의 가향 소금
+동전육수,season.broth,false,true,fish,코인육수와 같은 제품. 멸치 베이스 기준 fish 이나 채소 베이스 제품이면 빼야 함
+꽁치캔,processed.seafoodproc,false,false,fish,생꽁치와 별개
+짜파게티,processed.noodle,false,false,gluten,브랜드 봉지라면. 짜장 스프의 대두도 있으나 allergen 은 gluten 으로 둠
+도토리가루,agri.grain.starch,false,false,,묵 쑤는 전분 가루. 향신료가 아니라 season.powder 아님
+소고기샤브샤브,meat.beef,false,false,,샤브샤브용 소고기와 같은 재료. 요리명일 가능성도 있음
+아이스크림,processed.othproc,false,false,dairy,초콜릿 선례의 가공 유제품
+면,processed.noodle,false,false,gluten,종류 미상 통칭. 대개 밀면이라 gluten  쌀국수면 레시피는 확인 필요
+단호박가루,agri.veg.fruitveg,false,false,,단호박을 말려 빻은 것
+메이플 시럽,season.sweetsalt,false,true,,표기에 공백 있음. 메이플시럽으로 정규화 필요
+소고기 샤브샤브용,meat.beef,false,false,,샤브샤브용 소고기와 같은 재료. 표기 통합 필요
+레몬제스트,season.herb,false,true,,레몬 껍질 향. 산이 아니라 향이라 레몬즙과 분리
+피넛버터,agri.nutseed.nuts,false,false,nut,
+떡갈비,processed.meatproc,false,false,,완제품으로 팔리나 요리명일 가능성 있음. 사람 확인 필요
+오렌지주스,agri.fruit.citrus,false,false,,양이 많은 주스라 레몬즙과 달리 원물 쪽에 둠
+조개,seafood.shellfish,false,false,shellfish,종류 미상 통칭

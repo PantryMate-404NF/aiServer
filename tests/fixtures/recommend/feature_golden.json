@@ -1,0 +1,1295 @@
+{
+  "note": "실제 recipe_feature 에서 뽑은 골든 픽스처. A 가 계약을 바꾸면 이 파일도 바뀝니다 (A-9).",
+  "stats_version": 7,
+  "flavor_mu": [
+    0.087236,
+    0.219541,
+    0.184355,
+    0.054395,
+    0.282177,
+    0.151275
+  ],
+  "mu_n_recipes": 46353,
+  "keys": [
+    "recipe_id",
+    "essential_ids",
+    "all_ids",
+    "category_ids",
+    "n_essential",
+    "n_total",
+    "n_unmatched",
+    "flavor_vec",
+    "popularity_score",
+    "quality_score",
+    "cook_minutes",
+    "difficulty",
+    "cluster_id",
+    "feature_version"
+  ],
+  "recipes": [
+    {
+      "recipe_id": 2,
+      "essential_ids": [
+        28,
+        55,
+        320,
+        3619
+      ],
+      "all_ids": [
+        28,
+        55,
+        320,
+        431,
+        468,
+        3619
+      ],
+      "category_ids": [
+        25,
+        38,
+        41,
+        47,
+        49,
+        65
+      ],
+      "n_essential": 4,
+      "n_total": 6,
+      "n_unmatched": 1,
+      "flavor_vec": [
+        0.042,
+        0.279,
+        0.055,
+        0.015,
+        0.41,
+        0.219
+      ],
+      "popularity_score": 4.3147153e-05,
+      "quality_score": 0.0,
+      "cook_minutes": 30,
+      "difficulty": 2,
+      "cluster_id": 31,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 3,
+      "essential_ids": [
+        28,
+        187,
+        236,
+        312
+      ],
+      "all_ids": [
+        28,
+        180,
+        187,
+        236,
+        312,
+        419,
+        431,
+        436,
+        468,
+        503,
+        526,
+        3513
+      ],
+      "category_ids": [
+        6,
+        14,
+        18,
+        24,
+        37,
+        38,
+        41,
+        44,
+        47,
+        58,
+        63
+      ],
+      "n_essential": 4,
+      "n_total": 12,
+      "n_unmatched": 1,
+      "flavor_vec": [
+        0.015,
+        0.21267857,
+        0.16017857,
+        0.0,
+        0.30214286,
+        0.12589286
+      ],
+      "popularity_score": 0.17483227,
+      "quality_score": 0.0,
+      "cook_minutes": 60,
+      "difficulty": 2,
+      "cluster_id": 16,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 4,
+      "essential_ids": [
+        44,
+        234,
+        3661
+      ],
+      "all_ids": [
+        44,
+        234,
+        431,
+        457,
+        468,
+        3661
+      ],
+      "category_ids": [
+        18,
+        38,
+        40,
+        41,
+        48,
+        61
+      ],
+      "n_essential": 3,
+      "n_total": 6,
+      "n_unmatched": 0,
+      "flavor_vec": [
+        0.035,
+        0.1075,
+        0.01625,
+        0.0,
+        0.08,
+        0.13
+      ],
+      "popularity_score": 6.472073e-05,
+      "quality_score": 0.0,
+      "cook_minutes": 20,
+      "difficulty": 1,
+      "cluster_id": 35,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 5,
+      "essential_ids": [
+        365,
+        374
+      ],
+      "all_ids": [
+        365,
+        374,
+        439,
+        457,
+        502
+      ],
+      "category_ids": [
+        30,
+        32,
+        38,
+        40,
+        44
+      ],
+      "n_essential": 2,
+      "n_total": 5,
+      "n_unmatched": 1,
+      "flavor_vec": [
+        0.045454547,
+        0.12090909,
+        0.24909091,
+        0.04090909,
+        0.17454545,
+        0.12545455
+      ],
+      "popularity_score": 8.6294305e-05,
+      "quality_score": 0.0,
+      "cook_minutes": 30,
+      "difficulty": 1,
+      "cluster_id": 24,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 6,
+      "essential_ids": [
+        28,
+        234,
+        275,
+        312
+      ],
+      "all_ids": [
+        28,
+        234,
+        275,
+        312,
+        419,
+        445,
+        460,
+        465,
+        480,
+        484,
+        3513
+      ],
+      "category_ids": [
+        18,
+        20,
+        24,
+        37,
+        39,
+        40,
+        41,
+        42,
+        43,
+        47,
+        58
+      ],
+      "n_essential": 4,
+      "n_total": 11,
+      "n_unmatched": 1,
+      "flavor_vec": [
+        0.1284,
+        0.2184,
+        0.0882,
+        0.132,
+        0.3744,
+        0.2358
+      ],
+      "popularity_score": 0.17485385,
+      "quality_score": 0.0,
+      "cook_minutes": 20,
+      "difficulty": 1,
+      "cluster_id": 31,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 7,
+      "essential_ids": [
+        30,
+        227,
+        386
+      ],
+      "all_ids": [
+        30,
+        180,
+        227,
+        386,
+        419,
+        431,
+        436,
+        457,
+        461,
+        465,
+        468
+      ],
+      "category_ids": [
+        16,
+        33,
+        37,
+        38,
+        40,
+        41,
+        47,
+        63
+      ],
+      "n_essential": 3,
+      "n_total": 11,
+      "n_unmatched": 1,
+      "flavor_vec": [
+        0.11,
+        0.15888889,
+        0.13777778,
+        0.0,
+        0.17074074,
+        0.124814816
+      ],
+      "popularity_score": 0.17487541,
+      "quality_score": 0.0,
+      "cook_minutes": 30,
+      "difficulty": 1,
+      "cluster_id": 19,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 8,
+      "essential_ids": [
+        138
+      ],
+      "all_ids": [
+        138,
+        180,
+        420,
+        431,
+        445,
+        457,
+        465,
+        526
+      ],
+      "category_ids": [
+        6,
+        37,
+        38,
+        39,
+        40,
+        41,
+        59,
+        63
+      ],
+      "n_essential": 1,
+      "n_total": 8,
+      "n_unmatched": 0,
+      "flavor_vec": [
+        0.046363637,
+        0.17972727,
+        0.03272727,
+        0.12954545,
+        0.12163636,
+        0.16090909
+      ],
+      "popularity_score": 0.00010786788,
+      "quality_score": 0.0,
+      "cook_minutes": 15,
+      "difficulty": 1,
+      "cluster_id": 22,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 9,
+      "essential_ids": [
+        234,
+        365
+      ],
+      "all_ids": [
+        55,
+        180,
+        234,
+        365,
+        419,
+        425,
+        436,
+        439,
+        445,
+        461,
+        465,
+        480,
+        3513
+      ],
+      "category_ids": [
+        18,
+        30,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        49,
+        58,
+        63
+      ],
+      "n_essential": 2,
+      "n_total": 13,
+      "n_unmatched": 1,
+      "flavor_vec": [
+        0.14492308,
+        0.15184616,
+        0.24307692,
+        0.087692305,
+        0.26692307,
+        0.13753846
+      ],
+      "popularity_score": 0.00012944145,
+      "quality_score": 0.0,
+      "cook_minutes": 20,
+      "difficulty": 1,
+      "cluster_id": 2,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 11,
+      "essential_ids": [
+        17,
+        55
+      ],
+      "all_ids": [
+        17,
+        55,
+        424,
+        465,
+        480,
+        526,
+        3600,
+        3640
+      ],
+      "category_ids": [
+        6,
+        37,
+        41,
+        42,
+        44,
+        46,
+        49
+      ],
+      "n_essential": 2,
+      "n_total": 8,
+      "n_unmatched": 0,
+      "flavor_vec": [
+        0.1425,
+        0.45375,
+        0.05445,
+        0.0,
+        0.67515,
+        0.0
+      ],
+      "popularity_score": 0.17489699,
+      "quality_score": 0.0,
+      "cook_minutes": 20,
+      "difficulty": 1,
+      "cluster_id": 23,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 12,
+      "essential_ids": [
+        3,
+        28,
+        97,
+        275,
+        343
+      ],
+      "all_ids": [
+        3,
+        28,
+        55,
+        97,
+        180,
+        275,
+        343,
+        419,
+        436,
+        461,
+        465,
+        468,
+        488,
+        3630
+      ],
+      "category_ids": [
+        9,
+        20,
+        28,
+        37,
+        38,
+        40,
+        41,
+        43,
+        46,
+        47,
+        49,
+        63
+      ],
+      "n_essential": 5,
+      "n_total": 14,
+      "n_unmatched": 1,
+      "flavor_vec": [
+        0.10474576,
+        0.20033899,
+        0.16955931,
+        0.006101695,
+        0.2980339,
+        0.06610169
+      ],
+      "popularity_score": 0.35753888,
+      "quality_score": 0.0,
+      "cook_minutes": 20,
+      "difficulty": 1,
+      "cluster_id": 2,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 13,
+      "essential_ids": [
+        11,
+        28,
+        234
+      ],
+      "all_ids": [
+        11,
+        28,
+        234,
+        444,
+        450,
+        460,
+        468,
+        488,
+        526,
+        3513,
+        3528
+      ],
+      "category_ids": [
+        6,
+        18,
+        37,
+        38,
+        39,
+        40,
+        41,
+        43,
+        46,
+        47,
+        58
+      ],
+      "n_essential": 3,
+      "n_total": 11,
+      "n_unmatched": 1,
+      "flavor_vec": [
+        0.037777778,
+        0.22,
+        0.14377777,
+        0.1,
+        0.24144444,
+        0.07666667
+      ],
+      "popularity_score": 0.00017258861,
+      "quality_score": 0.0,
+      "cook_minutes": 30,
+      "difficulty": 1,
+      "cluster_id": 21,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 15,
+      "essential_ids": [
+        26,
+        44,
+        234,
+        299
+      ],
+      "all_ids": [
+        26,
+        44,
+        180,
+        234,
+        299,
+        421,
+        434,
+        457,
+        461,
+        501
+      ],
+      "category_ids": [
+        18,
+        23,
+        37,
+        38,
+        40,
+        44,
+        47,
+        48,
+        63
+      ],
+      "n_essential": 4,
+      "n_total": 10,
+      "n_unmatched": 1,
+      "flavor_vec": [
+        0.0,
+        0.22272727,
+        0.028636364,
+        0.0,
+        0.22454545,
+        0.14454545
+      ],
+      "popularity_score": 0.00019416219,
+      "quality_score": 0.0,
+      "cook_minutes": 120,
+      "difficulty": 2,
+      "cluster_id": 35,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 16,
+      "essential_ids": [
+        42,
+        234
+      ],
+      "all_ids": [
+        42,
+        234,
+        420,
+        425,
+        436,
+        445,
+        461,
+        465,
+        468,
+        480
+      ],
+      "category_ids": [
+        18,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        48
+      ],
+      "n_essential": 2,
+      "n_total": 10,
+      "n_unmatched": 1,
+      "flavor_vec": [
+        0.195,
+        0.17653847,
+        0.18807693,
+        0.109615386,
+        0.29538462,
+        0.11769231
+      ],
+      "popularity_score": 0.17491856,
+      "quality_score": 0.0,
+      "cook_minutes": 30,
+      "difficulty": 1,
+      "cluster_id": 7,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 17,
+      "essential_ids": [
+        8,
+        28,
+        88,
+        234,
+        275
+      ],
+      "all_ids": [
+        8,
+        28,
+        88,
+        180,
+        234,
+        275,
+        439,
+        461,
+        488,
+        3513,
+        3611
+      ],
+      "category_ids": [
+        9,
+        18,
+        20,
+        31,
+        38,
+        40,
+        43,
+        46,
+        47,
+        58,
+        63
+      ],
+      "n_essential": 5,
+      "n_total": 11,
+      "n_unmatched": 1,
+      "flavor_vec": [
+        0.0,
+        0.21847826,
+        0.19565217,
+        0.0,
+        0.48065218,
+        0.20869565
+      ],
+      "popularity_score": 0.4524842,
+      "quality_score": 0.0,
+      "cook_minutes": 10,
+      "difficulty": 1,
+      "cluster_id": 31,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 18,
+      "essential_ids": [
+        28,
+        55,
+        208
+      ],
+      "all_ids": [
+        28,
+        55,
+        180,
+        208,
+        420,
+        425,
+        436,
+        443,
+        451,
+        457,
+        461,
+        465,
+        468,
+        480,
+        3513,
+        3515
+      ],
+      "category_ids": [
+        15,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        47,
+        49,
+        58,
+        63
+      ],
+      "n_essential": 3,
+      "n_total": 16,
+      "n_unmatched": 1,
+      "flavor_vec": [
+        0.12928571,
+        0.15285714,
+        0.18485714,
+        0.06428572,
+        0.19185714,
+        0.08642857
+      ],
+      "popularity_score": 0.17494014,
+      "quality_score": 0.0,
+      "cook_minutes": 20,
+      "difficulty": 1,
+      "cluster_id": 2,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 10,
+      "essential_ids": [],
+      "all_ids": [
+        11,
+        30,
+        129,
+        180,
+        461,
+        465,
+        3528
+      ],
+      "category_ids": [
+        37,
+        40,
+        41,
+        46,
+        47,
+        58,
+        63
+      ],
+      "n_essential": 0,
+      "n_total": 7,
+      "n_unmatched": 1,
+      "flavor_vec": [
+        0.196875,
+        0.15,
+        0.06125,
+        0.0,
+        0.23125,
+        0.10125
+      ],
+      "popularity_score": 0.00015101503,
+      "quality_score": 0.0,
+      "cook_minutes": 30,
+      "difficulty": 1,
+      "cluster_id": 19,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 14,
+      "essential_ids": [],
+      "all_ids": [
+        3,
+        5,
+        9,
+        180,
+        419,
+        425,
+        436,
+        439,
+        461,
+        465,
+        480,
+        3513
+      ],
+      "category_ids": [
+        37,
+        38,
+        40,
+        41,
+        42,
+        46,
+        58,
+        63
+      ],
+      "n_essential": 0,
+      "n_total": 12,
+      "n_unmatched": 1,
+      "flavor_vec": [
+        0.1631579,
+        0.1631579,
+        0.2663158,
+        0.0,
+        0.2568421,
+        0.11368421
+      ],
+      "popularity_score": 0.35756046,
+      "quality_score": 0.0,
+      "cook_minutes": 20,
+      "difficulty": 1,
+      "cluster_id": 2,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 35,
+      "essential_ids": [],
+      "all_ids": [
+        434,
+        461,
+        480,
+        3600
+      ],
+      "category_ids": [
+        38,
+        40,
+        42,
+        44
+      ],
+      "n_essential": 0,
+      "n_total": 4,
+      "n_unmatched": 2,
+      "flavor_vec": [
+        0.025,
+        0.4925,
+        0.0425,
+        0.0,
+        0.71,
+        0.225
+      ],
+      "popularity_score": 0.00032360366,
+      "quality_score": 0.0,
+      "cook_minutes": 10,
+      "difficulty": 1,
+      "cluster_id": 23,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 59,
+      "essential_ids": [],
+      "all_ids": [
+        55
+      ],
+      "category_ids": [
+        49
+      ],
+      "n_essential": 0,
+      "n_total": 1,
+      "n_unmatched": 5,
+      "flavor_vec": [
+        0.0,
+        0.0,
+        0.02,
+        0.0,
+        0.04,
+        0.0
+      ],
+      "popularity_score": 0.1752206,
+      "quality_score": 0.0,
+      "cook_minutes": 10,
+      "difficulty": 1,
+      "cluster_id": 39,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 169,
+      "essential_ids": [],
+      "all_ids": [
+        449
+      ],
+      "category_ids": [
+        39
+      ],
+      "n_essential": 0,
+      "n_total": 1,
+      "n_unmatched": 2,
+      "flavor_vec": [
+        0.0,
+        0.0,
+        0.05,
+        0.9,
+        0.0,
+        0.0
+      ],
+      "popularity_score": 0.00060406013,
+      "quality_score": 0.0,
+      "cook_minutes": 60,
+      "difficulty": 2,
+      "cluster_id": 43,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 253,
+      "essential_ids": [
+        55,
+        278,
+        330
+      ],
+      "all_ids": [
+        55,
+        278,
+        330,
+        370,
+        421,
+        424,
+        426,
+        480,
+        3516,
+        3640
+      ],
+      "category_ids": [
+        6,
+        20,
+        27,
+        31,
+        37,
+        42,
+        44,
+        49
+      ],
+      "n_essential": 3,
+      "n_total": 10,
+      "n_unmatched": 6,
+      "flavor_vec": [
+        0.0525,
+        0.674375,
+        0.071875,
+        0.0,
+        0.863125,
+        0.045
+      ],
+      "popularity_score": 0.60047895,
+      "quality_score": 0.0,
+      "cook_minutes": 15,
+      "difficulty": 1,
+      "cluster_id": 3,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 346,
+      "essential_ids": [
+        11,
+        62,
+        234
+      ],
+      "all_ids": [
+        11,
+        62,
+        234,
+        3513
+      ],
+      "category_ids": [
+        18,
+        46,
+        50,
+        58
+      ],
+      "n_essential": 3,
+      "n_total": 4,
+      "n_unmatched": 8,
+      "flavor_vec": [
+        0.225,
+        0.015,
+        0.12,
+        0.0,
+        0.2225,
+        0.06
+      ],
+      "popularity_score": 0.54561734,
+      "quality_score": 0.0,
+      "cook_minutes": 15,
+      "difficulty": 1,
+      "cluster_id": 47,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 470,
+      "essential_ids": [
+        183
+      ],
+      "all_ids": [
+        55,
+        183,
+        480,
+        3600
+      ],
+      "category_ids": [
+        42,
+        44,
+        49,
+        63
+      ],
+      "n_essential": 1,
+      "n_total": 4,
+      "n_unmatched": 6,
+      "flavor_vec": [
+        0.0336,
+        0.2368,
+        0.0648,
+        0.0,
+        0.5136,
+        0.12
+      ],
+      "popularity_score": 0.17623454,
+      "quality_score": 0.0,
+      "cook_minutes": 30,
+      "difficulty": 1,
+      "cluster_id": 30,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 519,
+      "essential_ids": [
+        28,
+        72,
+        343
+      ],
+      "all_ids": [
+        28,
+        72,
+        180,
+        343,
+        423,
+        461,
+        468,
+        480,
+        488
+      ],
+      "category_ids": [
+        28,
+        37,
+        40,
+        41,
+        42,
+        43,
+        47,
+        51,
+        63
+      ],
+      "n_essential": 3,
+      "n_total": 9,
+      "n_unmatched": 5,
+      "flavor_vec": [
+        0.08357143,
+        0.23142858,
+        0.10771429,
+        0.0,
+        0.43314287,
+        0.19285715
+      ],
+      "popularity_score": 0.9292387,
+      "quality_score": 0.0,
+      "cook_minutes": 15,
+      "difficulty": 1,
+      "cluster_id": 31,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 658,
+      "essential_ids": [
+        207
+      ],
+      "all_ids": [
+        70,
+        207,
+        431,
+        461,
+        468
+      ],
+      "category_ids": [
+        15,
+        38,
+        40,
+        41,
+        50
+      ],
+      "n_essential": 1,
+      "n_total": 5,
+      "n_unmatched": 11,
+      "flavor_vec": [
+        0.05047619,
+        0.122857146,
+        0.00095238094,
+        0.0,
+        0.15047619,
+        0.18
+      ],
+      "popularity_score": 0.3585097,
+      "quality_score": 0.0,
+      "cook_minutes": 30,
+      "difficulty": 1,
+      "cluster_id": 9,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 2801,
+      "essential_ids": [],
+      "all_ids": [
+        527
+      ],
+      "category_ids": [
+        6
+      ],
+      "n_essential": 0,
+      "n_total": 1,
+      "n_unmatched": 4,
+      "flavor_vec": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "popularity_score": 0.0053286734,
+      "quality_score": 0.0,
+      "cook_minutes": 20,
+      "difficulty": 1,
+      "cluster_id": 39,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 3835,
+      "essential_ids": [],
+      "all_ids": [
+        527
+      ],
+      "category_ids": [
+        6
+      ],
+      "n_essential": 0,
+      "n_total": 1,
+      "n_unmatched": 3,
+      "flavor_vec": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "popularity_score": 0.0073781633,
+      "quality_score": 0.0,
+      "cook_minutes": 20,
+      "difficulty": 1,
+      "cluster_id": 39,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 3984,
+      "essential_ids": [],
+      "all_ids": [
+        526
+      ],
+      "category_ids": [
+        6
+      ],
+      "n_essential": 0,
+      "n_total": 1,
+      "n_unmatched": 1,
+      "flavor_vec": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "popularity_score": 0.8489418,
+      "quality_score": 0.0,
+      "cook_minutes": 30,
+      "difficulty": 2,
+      "cluster_id": 39,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 1,
+      "essential_ids": [
+        25,
+        26,
+        28,
+        44,
+        88,
+        187
+      ],
+      "all_ids": [
+        25,
+        26,
+        28,
+        44,
+        88,
+        187,
+        457,
+        468,
+        471
+      ],
+      "category_ids": [
+        9,
+        14,
+        40,
+        41,
+        47,
+        48
+      ],
+      "n_essential": 6,
+      "n_total": 9,
+      "n_unmatched": 0,
+      "flavor_vec": [
+        0.118,
+        0.051,
+        0.093,
+        0.0,
+        0.248,
+        0.122
+      ],
+      "popularity_score": 0.1748107,
+      "quality_score": 0.0,
+      "cook_minutes": null,
+      "difficulty": 1,
+      "cluster_id": 19,
+      "feature_version": "v1-bb1854"
+    },
+    {
+      "recipe_id": 150,
+      "essential_ids": [
+        56,
+        234
+      ],
+      "all_ids": [
+        56,
+        234,
+        451,
+        457,
+        3600
+      ],
+      "category_ids": [
+        18,
+        39,
+        40,
+        44,
+        49
+      ],
+      "n_essential": 2,
+      "n_total": 5,
+      "n_unmatched": 0,
+      "flavor_vec": [
+        0.0,
+        0.12136364,
+        0.037727274,
+        0.17181818,
+        0.22818182,
+        0.19090909
+      ],
+      "popularity_score": 0.17554419,
+      "quality_score": 0.0,
+      "cook_minutes": null,
+      "difficulty": null,
+      "cluster_id": 35,
+      "feature_version": "v1-bb1854"
+    }
+  ]
+}

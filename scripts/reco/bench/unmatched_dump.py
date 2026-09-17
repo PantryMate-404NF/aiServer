@@ -13,9 +13,15 @@ from pathlib import Path
 
 sys.path.insert(0, ".")
 from features.recommend.ingest.match import Dictionary, match
-from features.recommend.ingest.parse import normalize  # noqa: E402
+from features.recommend.ingest.parse import normalize
 
-OUT = Path("bench/out/unmatched.tsv")
+#: 저장소 루트 기준. 스크립트를 어디서 돌리든 같은 자리에 쓴다 —
+#: 상대경로 "bench/out" 은 scripts/reco 에서 돌릴 때만 맞고, 루트에서
+#: 돌리면 9분을 계산한 뒤 마지막 쓰기에서 FileNotFoundError 로 죽는다.
+ROOT = Path(__file__).resolve().parents[3]
+BENCH_OUT = ROOT / "scripts" / "reco" / "bench" / "out"
+
+OUT = BENCH_OUT / "unmatched.tsv"
 
 
 def main() -> None:
@@ -47,7 +53,7 @@ def main() -> None:
             if (i + 1) % 10000 == 0:
                 print(f"  … {i+1:,}건", flush=True)
 
-    OUT.parent.mkdir(exist_ok=True)
+    OUT.parent.mkdir(parents=True, exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as w:
         w.write("count\tterm\n")
         for term, c in cnt.most_common():
@@ -64,7 +70,7 @@ def main() -> None:
 
     print(f"\n  언급 {total:,} · 매칭 {matched:,} ({100*matched/total:.1f}%)")
     print(f"  미매칭 고유 {len(cnt):,}종 · 총 {tot_un:,}건")
-    print(f"\n  🔑 누적 빈도 — 몇 종만 잡으면 되는가")
+    print("\n  🔑 누적 빈도 — 몇 종만 잡으면 되는가")
     for p in (50, 70, 80, 90):
         if p in marks:
             print(f"    상위 {marks[p]:>5,}종 → 미매칭의 {p}%")
