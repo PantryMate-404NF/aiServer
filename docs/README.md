@@ -4,7 +4,7 @@
 
 **적용 대상**: 이 저장소에 기여하는 모든 인원 및 AI 코딩 에이전트
 
-**버전**: 1.7.0 · **최종 수정**: 2026-09-10 · **작성자**: 김민경
+**버전**: 1.10.0 · **최종 수정**: 2026-09-16 · **작성자**: 김민경
 
 ---
 
@@ -22,16 +22,20 @@
 충돌 시 번호가 작은 문서가 이깁니다. 규칙을 바꾸려면 01의 9절 개정 절차를 따릅니다.
 설계 결정 기록은 [decisions/](decisions/) 에 날짜별로 있습니다.
 
-파트별 설계 명세와 진행 기록은 아래에 있습니다. 규칙이 아니라 진행 상태를 담습니다. 에이전트용 정본과 사람용 서술본을 함께 두는 이유는 [decisions/2026-09-10_recommend_record_dual_format.md](decisions/2026-09-10_recommend_record_dual_format.md) 에, 추천 엔진이 데이터 파트의 계약을 따르는 이유는 [decisions/2026-09-10_recommend_engine_follows_data_track_contract.md](decisions/2026-09-10_recommend_engine_follows_data_track_contract.md) 에, 데이터 파트 병합에서 검사 예외를 어디까지 허용했는지는 [decisions/2026-09-10_merge_data_track_gate_exceptions.md](decisions/2026-09-10_merge_data_track_gate_exceptions.md) 에, 01의 3.4(통과를 종료 코드로 판정)를 추가한 사례는 [decisions/2026-09-11_report_only_verified_output.md](decisions/2026-09-11_report_only_verified_output.md) 에 있습니다. `recommend/` 폴더는 04의 1.1 트리에 아직 없으며 개정 신청 대상입니다.
+파트별 설계 명세와 진행 기록은 아래에 있습니다. 규칙이 아니라 진행 상태를 담습니다. 에이전트용 정본과 사람용 서술본을 함께 두는 이유는 [decisions/2026-09-10_recommend_record_dual_format.md](decisions/2026-09-10_recommend_record_dual_format.md) 에, 추천 엔진이 데이터 파트의 계약을 따르는 이유는 [decisions/2026-09-10_recommend_engine_follows_data_track_contract.md](decisions/2026-09-10_recommend_engine_follows_data_track_contract.md) 에, 데이터 파트 병합에서 검사 예외를 어디까지 허용했는지는 [decisions/2026-09-10_merge_data_track_gate_exceptions.md](decisions/2026-09-10_merge_data_track_gate_exceptions.md) 에, 01의 3.4(통과를 종료 코드로 판정)를 추가한 사례는 [decisions/2026-09-11_report_only_verified_output.md](decisions/2026-09-11_report_only_verified_output.md) 에, 취향 페르소나를 고른 음식에서 만들고 시간에 따라 감쇠시키기로 한 결정은 [decisions/2026-09-11_taste_persona_from_picks_with_time_decay.md](decisions/2026-09-11_taste_persona_from_picks_with_time_decay.md) 에, 온보딩 음식 유형을 맛 취향과 나누고 가중치가 아니라 목록의 자리로 반영하기로 한 결정은 [decisions/2026-09-15_cuisine_choice_as_slots_not_weight.md](decisions/2026-09-15_cuisine_choice_as_slots_not_weight.md) 에 있습니다. `recommend/` 폴더는 04의 1.1 트리에 아직 없으며 개정 신청 대상입니다.
 
 | 폴더 | 문서 | 담는 것 |
 |---|---|---|
-| `recommend/` | [recommend_engine_design.md](recommend/recommend_engine_design.md) | 파트 B 추천 코어 엔진 설계 명세. 사람용 정본 |
-| `recommend/` | [recommend_engine_design_digest.md](recommend/recommend_engine_design_digest.md) | 위 명세의 에이전트용 압축본. 어긋나면 명세가 이깁니다 |
+| `recommend/` | [recommend_engine_design.md](recommend/recommend_engine_design.md) | 파트 B 추천 코어 엔진 구현 명세(2.2.0, 현재 구현 기준). 흐름·계약·수식·저장소·배치·상태·검증·열린 결정을 이 문서 하나로 읽습니다. 사람용 정본, 노션 공유용 |
+| `recommend/` | [recommend_engine_design_digest.md](recommend/recommend_engine_design_digest.md) | 위 명세의 에이전트용 압축본. 어긋나면 명세가 이기고, 명세와 코드가 어긋나면 코드가 이깁니다 |
+| `recommend/` | [recommend_engine_how_it_works.md](recommend/recommend_engine_how_it_works.md) | 추천 엔진이 어떻게 동작하는지를 내부 식별자 없이 일반 언어로 설명. 노션 공유용이며 평가 파트의 모델 이해 자료 |
 | `recommend/` | [recommend_engine_work_log.md](recommend/recommend_engine_work_log.md) | 파트 B 작업 기록. 결정·가정·남은 일. 에이전트용 정본 |
 | `recommend/` | [recommend_engine_verification.md](recommend/recommend_engine_verification.md) | 파트 B 검증 기록. 명세 정합, Mock 동작, 수정 반영. 에이전트용 정본 |
 | `recommend/` | [recommend_engine_meeting_agenda.md](recommend/recommend_engine_meeting_agenda.md) | 파트 B 통합 회의 안건. 안건마다 상태(결정·반영 · 일부 반영 · 결정 필요 등)와 결정일·반영 커밋·반영 코드. 에이전트용 정본 |
 | `recommend/` | [recommend_engine_db_cutover.md](recommend/recommend_engine_db_cutover.md) | 실 DB 를 붙일 때 반드시 처리할 항목과 확인 근거. `tests/unit/recommend/test_db_cutover.py` 가 건너뛰지 못하게 막습니다 |
+| `recommend/` | [recommend_sim_seed_runbook.md](recommend/recommend_sim_seed_runbook.md) | 기획측 가상운영데이터(v0.4)를 시드로 바꿔 적재하고, DB 없이(`scripts/sim/scenario_engine.py`) 또는 API 로 이용 시나리오를 돌리는 순서와 판정 기준 |
+| `docs/` | [release_notes.md](release_notes.md) | `main` 에 무엇이 언제 들어갔는지, 영향 범위와 롤백 방법, 파트별 전달 사항. 병합할 때마다 맨 위에 항목을 더합니다 |
+| `docs/` | [container_handover.md](container_handover.md) | 이 저장소를 이미지로 만들어 배포할 때 필요한 것. 클라우드 팀에 전달하는 인수인계 문서이며 빌드·런타임 계약·외부 의존·실측치를 담습니다 |
 | `recommend/human/` | [recommend_engine_work_log.md](recommend/human/recommend_engine_work_log.md) · [recommend_engine_verification.md](recommend/human/recommend_engine_verification.md) · [recommend_engine_meeting_agenda.md](recommend/human/recommend_engine_meeting_agenda.md) · [recommend_engine_db_cutover.md](recommend/human/recommend_engine_db_cutover.md) | 위 네 기록의 사람용 서술본 |
 
 ### 1.1 추천 파트의 계약은 코드와 DDL 이 정합니다

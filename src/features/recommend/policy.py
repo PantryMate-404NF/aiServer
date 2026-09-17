@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from typing import Any
 
@@ -57,9 +59,83 @@ class RankingPolicy:
     uniform_share: float = 0.5
     #: Thompson 노출확률의 몬테카를로 반복 수.
     propensity_mc: int = 200
-    # ── 피드백 루프 ──────────────────────────────────────────
-    ema_gamma: float = 0.2
-    warm_event_count: int = 20
+    #: 온보딩에서 고른 음식 유형으로 채우는 칸의 비율(Top-K 대비). 0 이면 유형 슬롯을 끕니다.
+    #: 0.1 은 Top-20 에서 두 칸입니다 — 목록의 성격은 그대로 두고 고른 유형이 보이게 하는 값입니다.
+    cuisine_slot_ratio: float = 0.1
+    #: 그 칸의 절대 상한. top_k 를 크게 부르는 디버거·시뮬에서 유형이 목록을 덮지 않게 막습니다.
+    cuisine_slot_max: int = 2
+    # ── 취향 페르소나 (결정 기록 2026-09-11) ──────────────────
+    #: 고른 음식으로 만든 사전 취향을 조리 이벤트 몇 건과 같은 무게로 볼지.
+    picks_prior_weight: float = 12.0
+    #: 직접 적은 3축 척도는 자기 보고라 그 절반입니다.
+    scales_prior_weight: float = 6.0
+    #: 이벤트 무게가 절반이 되는 경과 일수. 0 이하면 감쇠를 끕니다.
+    persona_half_life_days: float = 90.0
+    #: 주기 친화도의 세기(0~1). 0 이면 그 주기를 보지 않습니다. 1 이면 정반대 시기의
+    #: 이벤트가 사라지므로 권하지 않습니다.
+    season_cycle_strength: float = 0.5
+    weekly_cycle_strength: float = 0.0
+    daily_cycle_strength: float = 0.0
+    #: 저장소가 남기는 이벤트 상한. 기본값에서는 잘리는 이벤트의 무게가 0.4% 이하라 결과에는
+    #: 영향이 없고 파일 크기만 정합니다. 반감기를 상한 근처로 늘리면 결과에도 닿습니다.
+    persona_max_events: int = 2000
+    persona_max_event_age_days: int = 730
+    #: 취향을 전혀 모르는 사용자에게 쓰는 탐색 비율. 목록을 다양하게 만듭니다.
+    cold_exploration_ratio: float = 0.4
+
+    def __post_init__(self) -> None:
+        """손잡이의 범위. 벗어나면 예외 없이 모델이 뒤집히거나 0 으로 나누거나 로그가 틀립니다."""
+        for name in (
+            "penalty_recent",
+            "penalty_cooked",
+            "avoid_cap",
+            "mmr_lambda",
+            "uniform_share",
+            "exploration_ratio",
+            "cold_exploration_ratio",
+            "cuisine_slot_ratio",
+        ):
+            share = getattr(self, name)
+            if not 0.0 <= share <= 1.0:
+                raise ValueError(f"{name} 은 0~1 이어야 합니다: {share}")
+        for name in ("avoid_multiplier", "taste_min_norm"):
+            if not (math.isfinite(getattr(self, name)) and getattr(self, name) >= 0.0):
+                raise ValueError(f"{name} 은 0 이상의 유한한 수여야 합니다: {getattr(self, name)}")
+        for name in (
+            "min_candidates",
+            "candidate_limit",
+            "mmr_pool_size",
+            "explore_pool_size",
+            "exploration_min_pool_ratio",
+            "propensity_mc",
+        ):
+            if getattr(self, name) < 1:
+                raise ValueError(f"{name} 은 1 이상이어야 합니다: {getattr(self, name)}")
+        if self.cuisine_slot_max < 0:
+            raise ValueError(f"cuisine_slot_max 는 0 이상이어야 합니다: {self.cuisine_slot_max}")
+        if not 0 <= self.max_missing <= self.max_missing_relaxed:
+            raise ValueError(
+                f"max_missing({self.max_missing}) 은 0 이상이고 "
+                f"max_missing_relaxed({self.max_missing_relaxed}) 이하여야 합니다"
+            )
+        if max(self.mmr_pool_size, self.explore_pool_size) > self.candidate_limit:
+            raise ValueError("MMR 풀과 탐색 풀은 후보 조회 상한(candidate_limit)을 넘지 못합니다")
+        for name in ("picks_prior_weight", "scales_prior_weight"):
+            weight = getattr(self, name)
+            if not (math.isfinite(weight) and weight > 0.0):
+                raise ValueError(f"{name} 은 0 보다 큰 유한한 수여야 합니다: {weight}")
+        for name in ("season_cycle_strength", "weekly_cycle_strength", "daily_cycle_strength"):
+            strength = getattr(self, name)
+            if not 0.0 <= strength <= 1.0:
+                raise ValueError(f"{name} 은 0~1 이어야 합니다: {strength}")
+        if not math.isfinite(self.persona_half_life_days):
+            raise ValueError(
+                f"persona_half_life_days 는 유한한 수여야 합니다: {self.persona_half_life_days}"
+            )
+        if self.persona_max_events < 1 or self.persona_max_event_age_days < 1:
+            raise ValueError(
+                "persona_max_events 와 persona_max_event_age_days 는 1 이상이어야 합니다"
+            )
 
     def fingerprint(self, weights: dict[str, float] | None = None) -> str:
         """정책과 가중치 조합의 지문. 서빙 로그가 이 값으로 그때의 계산을 되살립니다."""
@@ -76,7 +152,10 @@ class RankingPolicy:
         max_missing_final: int,
         serving_mode: str = "real",
     ) -> dict[str, Any]:
-        """`StageInfo.params` 에 실을 값. `REQUIRED_TRACE_PARAMS` 를 전부 채웁니다."""
+        """`StageInfo.params` 에 실을 값. `REQUIRED_TRACE_PARAMS` 를 전부 채웁니다.
+
+        요청마다 다른 값(페르소나 출처 등)은 `with_trace_extra()` 로 덧붙입니다.
+        """
         return {
             "policy_id": POLICY_ID,
             "propensity_semantics": PROPENSITY_SEMANTICS,
@@ -89,3 +168,14 @@ class RankingPolicy:
             "n_explore": n_explore,
             "serving_mode": serving_mode,
         }
+
+
+def with_trace_extra(params: Mapping[str, Any], extra: Mapping[str, Any]) -> dict[str, Any]:
+    """추적 파라미터에 요청별 값을 덧붙입니다. 동결 키는 덮지 못합니다.
+
+    덮어써지면 로그의 `top_k` 같은 값이 조용히 바뀌어 재현이 틀어집니다.
+    """
+    clash = sorted(set(extra) & set(params))
+    if clash:
+        raise ValueError(f"동결 키를 덮어쓸 수 없습니다: {clash}")
+    return {**params, **extra}

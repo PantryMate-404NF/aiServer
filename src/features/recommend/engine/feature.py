@@ -35,12 +35,17 @@ def compute_features(
     taste_min_norm: float = 0.0,
 ) -> dict[str, float | None]:
     """피처 17종의 원값. `FEATURE_KEYS` 를 하나도 빠뜨리지 않습니다."""
+    # 재료를 하나도 모르는 레시피(피처 행이 없어 빈 모델로 온 것)는 "겹치는 재료가 없다" 가
+    # 아니라 "모른다" 입니다. 실제 레시피는 ① 의 게이트(n_total > 0)로 재료가 반드시 있습니다.
+    known = bool(recipe.all_ids)
     values: dict[str, float | None] = {
         # ── A군: 재료 매칭 ────────────────────────────────────
         "f_coverage": _clamp(candidate.coverage),
         "f_missing": _missing(candidate.missing_count, max_missing),
-        "f_expiring": _ratio(recipe.essential_ids & ctx.expiring_ids, ctx.expiring_ids),
-        "f_pantry_use": _ratio(recipe.all_ids & ctx.pantry_ids, ctx.pantry_ids),
+        "f_expiring": (
+            _ratio(recipe.essential_ids & ctx.expiring_ids, ctx.expiring_ids) if known else None
+        ),
+        "f_pantry_use": _ratio(recipe.all_ids & ctx.pantry_ids, ctx.pantry_ids) if known else None,
         # ── B군: 유저 선호 ────────────────────────────────────
         "f_taste": taste.centered_cosine(
             ctx.taste_vec, recipe.flavor_vec, corpus.flavor_mean, taste_min_norm

@@ -31,5 +31,11 @@
   "allergy_group_codes": [
     "MILK"
   ],
-  "top_k": 20
+  "top_k": 20,
+  "onboarding_picks": [
+    0,
+    2,
+    9,
+    15
+  ]
 }

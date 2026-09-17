@@ -1,0 +1,168 @@
+"""사용자 취향 원본의 JSON 저장소. 사용자당 파일 하나입니다.
+
+실 DB 가 붙기 전까지 페르소나 원본(`engine/persona.TasteProfile`)의 정본입니다. 붙은
+뒤에는 같은 내용을 `user_vector` 와 `event_log` 에서 읽는 것이 DB 전환 점검표의
+항목이고, 그때 이 파일은 이전 도구가 됩니다. SQL 이 아니라서 `repository.py` 에
+두지 않습니다(03 의 5절).
+
+## 사용자가 늘어도 관리되는 형태
+
+- **사용자당 파일 하나.** 파일 하나에 전부 넣으면 쓰기 한 번이 전체를 다시 씁니다.
+- **폴더 256개로 나눕니다.** 한 폴더에 파일 수십만 개가 쌓이면 목록 조회가 느려집니다.
+- **이벤트를 잘라냅니다.** 서비스가 저장하기 전에 `RankingPolicy.persona_max_events` 와
+  `persona_max_event_age_days` 를 넘는 것을 버립니다. 기본값(반감기 90일, 상한 730일)에서는
+  잘린 이벤트의 무게가 0.4% 이하라 결과에 영향이 없습니다.
+- **원자적 쓰기.** 호출마다 다른 이름의 임시 파일에 쓰고 이름을 바꿉니다. 쓰다가 죽어도
+  이전 파일이 남고, 동시에 써도 서로의 임시 파일을 밟지 않습니다.
+- **사용자 대조.** 파일 안의 사용자와 요청한 사용자가 다르면 읽기를 거부합니다. 넘기면
+  한 사용자의 이벤트가 다른 사용자의 파일로 조용히 들어갑니다.
+
+파일 안에는 개인의 행동 이력이 들어 있습니다. 저장 위치는 배선할 때 정하며 `data/` 를
+권합니다 - `.gitignore` 가 `data/*` 를 막고 있어 커밋되지 않습니다.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import tempfile
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Protocol
+
+import yaml
+
+from features.recommend.engine import taste
+from features.recommend.engine.persona import TasteEvent, TasteProfile
+from features.recommend.engine.taste import FlavorVector
+from features.recommend.enums import EventType
+
+#: 파일 형식 버전. 필드를 바꾸면 올리고 읽는 쪽에서 옛 판을 변환합니다.
+#: 2 — 온보딩 음식 유형(`cuisines`) 추가. 1 은 그 칸이 비어 있는 것으로 읽습니다.
+SCHEMA_VERSION = 2
+#: 읽을 수 있는 판. 못 읽는 판을 조용히 빈 취향으로 만들지 않으려고 목록으로 둡니다.
+READABLE_VERSIONS: frozenset[int] = frozenset({1, SCHEMA_VERSION})
+SHARD_COUNT = 256
+
+
+class ProfileStore(Protocol):
+    """페르소나 원본을 읽고 쓰는 곳. JSON 과 DB 구현이 같은 모양이어야 서비스가 바뀌지 않습니다."""
+
+    def load(self, user_id: int) -> TasteProfile | None: ...
+
+    def save(self, profile: TasteProfile) -> None: ...
+
+
+class JsonProfileStore:
+    """`root/<샤드>/<user_id>.json`. 샤드는 `user_id % 256` 입니다."""
+
+    def __init__(self, root: Path) -> None:
+        self.root = root
+
+    def path(self, user_id: int) -> Path:
+        return self.root / f"{user_id % SHARD_COUNT:02x}" / f"{user_id}.json"
+
+    def load(self, user_id: int) -> TasteProfile | None:
+        """없으면 None. 있는데 못 읽으면 예외를 올립니다 — 조용히 빈 취향이 되면 안 됩니다."""
+        target = self.path(user_id)
+        if not target.exists():
+            return None
+        try:
+            raw = json.loads(target.read_text(encoding="utf-8"))
+            profile = _from_json(raw)
+        except (ValueError, KeyError, TypeError) as error:
+            raise ValueError(f"취향 파일을 읽을 수 없습니다: {target}") from error
+        if profile.user_id != user_id:
+            raise ValueError(f"취향 파일의 사용자가 다릅니다: {target} 안은 {profile.user_id}")
+        return profile
+
+    def save(self, profile: TasteProfile) -> None:
+        """호출마다 다른 임시 파일에 쓰고 이름을 바꿉니다. NaN 은 쓰지 않습니다."""
+        target = self.path(profile.user_id)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        payload = json.dumps(_to_json(profile), ensure_ascii=False, indent=1, allow_nan=False)
+        handle, temporary = tempfile.mkstemp(
+            dir=target.parent, prefix=f"{target.stem}.", suffix=".tmp"
+        )
+        try:
+            with os.fdopen(handle, "w", encoding="utf-8") as file:
+                file.write(payload)
+            os.replace(temporary, target)
+        finally:
+            # 성공하면 이미 이름이 바뀌어 없고, 실패하면 반쪽짜리 임시 파일을 치웁니다.
+            Path(temporary).unlink(missing_ok=True)
+
+
+def load_presented_flavors(path: Path) -> tuple[FlavorVector, ...]:
+    """온보딩 제시 목록의 6축. `seeds/onboarding_recipes.yaml` 의 `presented` 순서입니다.
+
+    `OnboardingIn.picks` 는 이 배열의 인덱스입니다(레시피 ID 가 아닙니다). 축 순서가
+    엔진과 같은지 확인합니다 — 어긋나면 값이 전부 0~1 이라 어떤 검사에도 안 걸립니다.
+    """
+    document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    axes = tuple(document.get("axes", ()))
+    if axes != taste.FLAVOR_AXES:
+        raise ValueError(f"제시 목록의 축 순서가 엔진과 다릅니다: {axes} != {taste.FLAVOR_AXES}")
+    presented = document["presented"]
+    short = [entry.get("name") for entry in presented if len(entry["flavor"]) != taste.AXIS_COUNT]
+    if short:
+        raise ValueError(f"제시 목록에 {taste.AXIS_COUNT}축이 아닌 항목이 있습니다: {short}")
+    return tuple(taste.as_vector([float(v) for v in entry["flavor"]]) for entry in presented)
+
+
+def _to_json(profile: TasteProfile) -> dict[str, Any]:
+    return {
+        "schema": SCHEMA_VERSION,
+        "user_id": profile.user_id,
+        "picks": list(profile.picks),
+        "pick_flavors": [list(v) for v in profile.pick_flavors],
+        "scales": None if profile.scales is None else list(profile.scales),
+        "cuisines": list(profile.cuisines),
+        "updated_at": None if profile.updated_at is None else profile.updated_at.isoformat(),
+        "events": [
+            {
+                "recipe_id": e.recipe_id,
+                "kind": e.kind.value,
+                "at": e.at.isoformat(),
+                "flavor": list(e.flavor),
+                "value": e.value,
+            }
+            for e in profile.events
+        ],
+    }
+
+
+def _from_json(raw: object) -> TasteProfile:
+    """값의 형은 여기서 맞추고, 축 수와 범위는 `TasteProfile`·`TasteEvent` 가 검사합니다."""
+    if not isinstance(raw, dict):
+        raise ValueError(f"취향 파일은 객체여야 합니다: {type(raw).__name__}")
+    if raw.get("schema") not in READABLE_VERSIONS:
+        raise ValueError(f"모르는 파일 형식 버전입니다: {raw.get('schema')}")
+    return TasteProfile(
+        user_id=int(raw["user_id"]),
+        picks=tuple(int(i) for i in raw.get("picks", [])),
+        pick_flavors=tuple(_flavor(v) for v in raw.get("pick_flavors", [])),
+        scales=None if raw.get("scales") is None else tuple(float(s) for s in raw["scales"]),
+        # 판 1 에는 없던 칸입니다. 없으면 고른 유형이 없는 사용자입니다.
+        cuisines=tuple(str(c) for c in raw.get("cuisines", [])),
+        events=tuple(
+            TasteEvent(
+                recipe_id=int(e["recipe_id"]),
+                kind=EventType(e["kind"]),
+                at=datetime.fromisoformat(e["at"]),
+                flavor=_flavor(e["flavor"]),
+                value=None if e.get("value") is None else float(e["value"]),
+            )
+            for e in raw.get("events", [])
+        ),
+        updated_at=(
+            None if raw.get("updated_at") is None else datetime.fromisoformat(raw["updated_at"])
+        ),
+    )
+
+
+def _flavor(values: object) -> FlavorVector:
+    """맛 벡터의 값을 수로 맞춥니다. `as_vector` 는 모자란 축을 채우므로 여기서는 쓰지 않습니다."""
+    if not isinstance(values, list):
+        raise TypeError(f"flavor 는 배열이어야 합니다: {type(values).__name__}")
+    return tuple(None if v is None else float(v) for v in values)

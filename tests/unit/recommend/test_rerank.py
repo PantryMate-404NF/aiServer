@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import random
+from collections import Counter
 from collections.abc import Callable, Sequence
 
 import pytest
 
 from features.recommend.engine import rerank
 from features.recommend.engine.context import CorpusStats, RecipeFeature, UserContext, UserHistory
+from features.recommend.engine.persona import cold_persona
 from features.recommend.engine.score import score_all
 from features.recommend.policy import RankingPolicy
 from features.recommend.stage import Candidate, ScoredCandidate
@@ -46,6 +48,21 @@ def test_exploration_is_a_fifth_of_the_list(
     assert sum(item.is_exploration for item in items) == 4
 
 
+def test_a_cold_user_gets_more_exploration(
+    pool: tuple[list[ScoredCandidate], dict[int, RecipeFeature]],
+    make_context: Callable[..., UserContext],
+    policy: RankingPolicy,
+    rng: random.Random,
+) -> None:
+    """취향을 전혀 모르면 개인화할 재료가 없으므로 목록을 더 다양하게 냅니다."""
+    scored, recipes = pool
+    cold = make_context(persona=cold_persona())
+    items = rerank.rerank(scored, recipes, cold, CORPUS, policy, rng, top_k=20)
+    assert sum(item.is_exploration for item in items) == round(20 * policy.cold_exploration_ratio)
+    assert rerank.exploration_ratio(cold, policy) == policy.cold_exploration_ratio
+    assert rerank.exploration_ratio(make_context(), policy) == policy.exploration_ratio
+
+
 def test_propensity_is_a_probability(
     pool: tuple[list[ScoredCandidate], dict[int, RecipeFeature]],
     make_context: Callable[..., UserContext],
@@ -75,8 +92,8 @@ def test_exploration_records_which_path_picked_it(
 
     items = rerank.rerank(scored, recipes, make_context(), CORPUS, policy, rng, top_k=20)
 
-    sources = {item.explore_source for item in items if item.is_exploration}
-    assert sources <= {rerank.SOURCE_UNIFORM, rerank.SOURCE_THOMPSON}
+    sources = Counter(item.explore_source for item in items if item.is_exploration)
+    assert sources == {rerank.SOURCE_UNIFORM: 2, rerank.SOURCE_THOMPSON: 2}
     assert all(item.explore_source is None for item in items if not item.is_exploration)
 
 
@@ -220,11 +237,90 @@ def test_thompson_follows_a_strong_prior(
     by_id = {item.recipe_id: item for item in scored}
 
     hits = 0
+    spec = rerank.ExplorationSpec(count=2, uniform_share=policy.uniform_share)
     for _ in range(RUNS):
-        picked = rerank.pick_exploration(scored, ctx, policy, rng, 2)
+        picked = rerank.pick_exploration(scored, ctx, policy, rng, spec)
         chosen: Sequence[int] = [
             item.recipe_id for item, _, source in picked if source == "thompson"
         ]
         hits += sum(1 for rid in chosen if by_id[rid].cluster_id == 0)
 
     assert hits >= RUNS * 0.5
+
+
+# ─────────────────────────────────────────────────────────────────
+# 4회차 복기에서 찾은 구멍
+# ─────────────────────────────────────────────────────────────────
+def test_mmr_lambda_trades_score_for_diversity(
+    make_recipe: Callable[..., RecipeFeature],
+    make_candidate: Callable[..., Candidate],
+    make_context: Callable[..., UserContext],
+    policy: RankingPolicy,
+) -> None:
+    """λ=1 은 점수 순서 그대로, 0.7 은 재료가 같은 2위를 뒤로 보냅니다.
+
+    후보 3건짜리 검사는 마지막 자리가 강제라 λ 를 어떻게 바꿔도 같은 결과였습니다.
+    """
+    recipes = {
+        1: make_recipe(1, essential=[1, 2, 3]),
+        2: make_recipe(2, essential=[1, 2, 3]),
+        3: make_recipe(3, essential=[7, 8, 9]),
+        4: make_recipe(4, essential=[10, 11, 12]),
+    }
+    candidates = [
+        make_candidate(i, coverage=c) for i, c in [(1, 1.0), (2, 0.98), (3, 0.9), (4, 0.85)]
+    ]
+    scored = score_all(candidates, recipes, make_context(pantry=range(1, 20)), CORPUS, policy)
+    idf = dict.fromkeys(range(1, 13), 1.0)
+
+    pure = [item.recipe_id for item, _ in rerank.mmr_select(scored, recipes, 4, idf, 1.0)]
+    mixed = [item.recipe_id for item, _ in rerank.mmr_select(scored, recipes, 4, idf, 0.7)]
+
+    assert pure == [1, 2, 3, 4]
+    assert mixed[0] == 1 and mixed.index(2) > mixed.index(3)
+
+
+def test_uniform_propensity_is_the_share_of_the_pool(
+    make_recipe: Callable[..., RecipeFeature],
+    make_candidate: Callable[..., Candidate],
+    make_context: Callable[..., UserContext],
+    policy: RankingPolicy,
+    rng: random.Random,
+) -> None:
+    """군집이 없으면 4칸 전부 균등이고, 확률은 정확히 균등 몫 / 풀 크기(4/20)입니다."""
+    recipes = {i: make_recipe(i, essential=[i * 3, i * 3 + 1]) for i in range(60)}
+    candidates = [make_candidate(i, coverage=1.0 - i / 100, cluster_id=None) for i in range(60)]
+    scored = score_all(candidates, recipes, make_context(pantry=range(200)), CORPUS, policy)
+
+    items = rerank.rerank(scored, recipes, make_context(), CORPUS, policy, rng, top_k=20)
+
+    explored = [item for item in items if item.is_exploration]
+    assert len(explored) == 4
+    assert all(item.explore_source == rerank.SOURCE_UNIFORM for item in explored)
+    assert all(item.propensity == pytest.approx(4 / 20) for item in explored)
+
+
+def test_reason_context_ignores_blank_names_and_names_the_similar_dish(
+    make_recipe: Callable[..., RecipeFeature],
+    make_candidate: Callable[..., Candidate],
+    make_context: Callable[..., UserContext],
+    policy: RankingPolicy,
+) -> None:
+    """빈 이름은 "(D-3)을 소진" 을 만들고, 제목이 있어야 "지난번 만드신 X" 를 쓸 수 있습니다."""
+    corpus = CorpusStats(flavor_mean=(0.5,) * 6, ingredient_names={1: " ", 2: "두부"})
+    recipe = make_recipe(1, essential=[1, 2])
+    history = UserHistory(
+        cooked_ingredient_sets=(frozenset({1, 2}), frozenset({9})),
+        cooked_titles=("두부조림", "감자전"),
+    )
+    ctx = make_context(pantry=[1, 2], expiring=[1], history=history)
+    scored = score_all([make_candidate(1)], {1: recipe}, ctx, corpus, policy)[0]
+
+    values = rerank.reason_context(scored, recipe, ctx, corpus)
+
+    assert "expiring_name" not in values
+    assert values["similar_title"] == "두부조림"
+    untitled = make_context(
+        pantry=[1, 2], history=UserHistory(cooked_ingredient_sets=(frozenset({1, 2}),))
+    )
+    assert "similar_title" not in rerank.reason_context(scored, recipe, untitled, corpus)

@@ -96,6 +96,36 @@ services:
       timeout: 3s
       retries: 10
 
+  reco-api:
+    profiles: ["app"]          # `make up` 은 DB 만 띄운다. 앱은 `make up-app`
+    build:
+      # 컨텍스트는 저장소 루트다. Dockerfile 이 pyproject·uv.lock·src·seeds 를 읽는다.
+      context: ..
+      dockerfile: Dockerfile
+    image: reco-ai-server:local
+    container_name: reco-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # 🔴 컨테이너 안에서 DB 주소는 localhost 가 아니라 서비스 이름이다.
+      DB_HOST:     postgres
+      DB_PORT:     5432
+      DB_NAME:     ${POSTGRES_DB:-recodb}
+      DB_USER:     ${POSTGRES_USER:-reco}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-reco}
+      # 🔴 비밀값은 이미지에 굽지 않는다. deploy/.env 에서 읽어 런타임에 주입한다.
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      GEMINI_API_KEY:   ${GEMINI_API_KEY:-}
+      LOG_LEVEL:        ${LOG_LEVEL:-INFO}
+      # 워커 하나가 상주 메모리 약 2.5GB 다. 로컬에서는 1 로 둔다.
+      OCR_WORKERS:      ${OCR_WORKERS:-1}
+    ports:
+      - "${RECO_API_PORT:-8000}:8000"
+    # 헬스체크는 이미지 안에 있다(/health/live). 여기서 다시 적지 않는다 —
+    # 두 곳에 두면 한쪽만 고쳐져 갈라진다.
+
   mlflow:
     profiles: ["obs"]          # 선택. 로컬 `mlflow ui` 로 대체 가능
     build: ./mlflow

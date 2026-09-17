@@ -27,10 +27,16 @@
   },
   "household_size": 2,
   "preferred_cuisines": [
-    "일식",
-    "중식"
+    "japanese",
+    "chinese"
   ],
   "max_cook_minutes": null,
   "allergy_group_codes": [],
-  "top_k": 10
+  "top_k": 10,
+  "onboarding_picks": [
+    2,
+    4,
+    5,
+    14
+  ]
 }

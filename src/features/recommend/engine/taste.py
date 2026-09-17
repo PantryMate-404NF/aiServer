@@ -1,11 +1,12 @@
 """6축 맛 벡터. 축이 비어 있어도 계산이 되도록 축 단위로 결측을 다룹니다.
 
 축 순서와 개수는 A 트랙의 `ingest/flavor.py` 와 `recipe_feature.flavor_vec` 을 따릅니다.
-사용자에게서 받는 값은 지금 앞 3축뿐이고 뒤 3축은 None 으로 들어옵니다. **None 인 축은
+사용자 취향은 `engine/persona.py` 가 고른 음식과 행동에서 만듭니다. 직접 적은 3축 척도로만
+만들면 뒤 3축이 None 입니다. **None 인 축은
 분자와 분모에서 함께 빼며**, 0 으로 채우지 않습니다. 0 은 "그 맛이 없다"이고 None 은
 "모른다"라서, 채우면 신맛을 모르는 사람이 신맛을 싫어하는 사람이 됩니다.
 
-뒤 3축 데이터가 오면 이 파일을 고치지 않아도 그대로 켜집니다.
+값이 없던 축에 데이터가 오면 이 파일을 고치지 않아도 그대로 켜집니다.
 """
 
 from __future__ import annotations
@@ -16,8 +17,6 @@ from collections.abc import Sequence
 #: A 트랙 `ingest/flavor.py` 의 AXES 와 같은 순서입니다. 라벨은 사유 문구에도 씁니다.
 FLAVOR_AXES: tuple[str, ...] = ("매움", "짠맛", "단맛", "신맛", "감칠맛", "기름짐")
 AXIS_COUNT = len(FLAVOR_AXES)
-#: 온보딩이 지금 채우는 축의 수. 나머지는 None 입니다.
-ONBOARDING_AXIS_COUNT = 3
 #: 0 으로 나누는 것을 막는 값입니다. 점수에 보이는 영향은 없습니다.
 EPSILON = 1e-9
 
@@ -93,50 +92,6 @@ def dominant_axis(
         ),
     )
     return FLAVOR_AXES[best], _value(user[best]) >= _value(corpus_mean[best])
-
-
-def update_behavior(
-    current: FlavorVector | None, recipe_flavor: FlavorVector, gamma: float
-) -> FlavorVector:
-    """행동 벡터를 레시피 맛 쪽으로 gamma 만큼 옮깁니다.
-
-    레시피에 값이 없는 축은 움직이지 않습니다. 행동 벡터에만 값이 있으면 그 값을 지킵니다.
-    """
-    base = current if current is not None else (None,) * AXIS_COUNT
-    moved: list[float | None] = []
-    for before, after in zip(base, recipe_flavor, strict=True):
-        if after is None:
-            moved.append(before)
-        elif before is None:
-            moved.append(after)
-        else:
-            moved.append((1.0 - gamma) * before + gamma * after)
-    return tuple(moved)
-
-
-def effective_taste(
-    onboarding: FlavorVector,
-    behavior: FlavorVector | None,
-    events_count: int,
-    warm_event_count: int,
-) -> FlavorVector:
-    """이벤트가 warm_event_count 에 이를 때까지 온보딩에서 행동 쪽으로 선형 전이합니다.
-
-    한쪽에만 값이 있는 축은 그 값을 그대로 씁니다. 콜드 사용자가 행동 이력으로만
-    아는 축(신맛 등)을 잃지 않게 하기 위함입니다.
-    """
-    if behavior is None or events_count <= 0:
-        return onboarding
-    alpha = min(1.0, events_count / warm_event_count)
-    blended: list[float | None] = []
-    for cold, warm in zip(onboarding, behavior, strict=True):
-        if cold is None:
-            blended.append(warm)
-        elif warm is None:
-            blended.append(cold)
-        else:
-            blended.append((1.0 - alpha) * cold + alpha * warm)
-    return tuple(blended)
 
 
 def _value(item: float | None) -> float:

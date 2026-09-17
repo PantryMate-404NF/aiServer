@@ -8,8 +8,11 @@
 개인화 결과가 난수에 따라 달라져 같은 입력에 같은 순위라는 성질이 깨지고, 개인화가
 어차피 보여 줄 것을 탐색이 다시 고르면 탐색이 아닙니다.
 
+개인화 → 탐색 → 유형(`engine/cuisine.py`) 순서로 뗍니다. 유형 슬롯을 탐색보다 먼저 떼면
+탐색 풀에서 고른 유형의 후보가 빠져, 탐색이 그 유형을 영영 못 보여 줍니다.
+
 `propensity` 는 확률입니다 (`enums.PROPENSITY_SEMANTICS` = "item"). 아이템이 Top-K
-어딘가에 노출될 주변확률이며, 결정적 슬롯은 1.0 입니다.
+어딘가에 노출될 주변확률이며, 결정적 슬롯(개인화·유형)은 1.0 입니다.
 """
 
 from __future__ import annotations
@@ -17,11 +20,12 @@ from __future__ import annotations
 import random
 import statistics
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 
-from features.recommend.engine import explore, rank, reason, serendipity, taste
+from features.recommend.engine import cuisine, explore, rank, reason, serendipity, taste
 from features.recommend.engine.context import CorpusStats, RecipeFeature, UserContext
-from features.recommend.engine.feature import DEFAULT_IDF
-from features.recommend.enums import DEFAULT_WEIGHTS
+from features.recommend.engine.feature import DEFAULT_IDF, jaccard_idf
+from features.recommend.enums import DEFAULT_WEIGHTS, cuisine_label
 from features.recommend.policy import RankingPolicy
 from features.recommend.stage import RankedItem, ScoredCandidate
 
@@ -59,13 +63,82 @@ def rerank(
     )
     shown = {item.recipe_id for item, _ in personal_full}
     rest = [item for item in ranked if item.recipe_id not in shown]
-    explored = pick_exploration(rest, ctx, policy, rng, round(total * policy.exploration_ratio))
-    personal = personal_full[: total - len(explored)]
+    explored = pick_exploration(
+        rest, ctx, policy, rng, exploration_spec(ranked, ctx, policy, total)
+    )
+    taken = {item.recipe_id for item, _, _ in explored}
+    spec = cuisine.cuisine_spec(ctx, policy, total)
+    # 유형 슬롯은 탐색이 자리를 뗀 뒤 남는 목록을 기준으로 정합니다.
+    head = personal_full[: max(0, total - len(explored))]
+    families = cuisine.unserved_families(
+        [*(item.recipe_id for item, _ in head), *taken], recipes, ctx
+    )
+    chosen = cuisine.pick_cuisine(
+        worth_showing([item for item in rest if item.recipe_id not in taken]),
+        recipes,
+        families,
+        min(spec.count, len(families)),
+    )
+    # 뺄 자리는 꼬리에서 고르되 고른 유형의 마지막 한 건은 지나칩니다.
+    personal = cuisine.trim_for_slots(head, len(chosen), recipes, ctx)
 
     stats = rank.feature_stats(ranked)
     effective = dict(weights or DEFAULT_WEIGHTS)
     slots = explore.exploration_slots(total, len(explored), rng)
-    return _assemble(personal, explored, slots, recipes, ctx, corpus, stats, effective)
+    # 자리는 실제로 채워지는 길이 안에서 정합니다. total 로 잡으면 후보가 모자란 요청에서
+    # 목록 밖 번호가 나와 그 칸이 조용히 비어 버립니다.
+    filled = len(personal) + len(explored) + len(chosen)
+    picked_slots = cuisine.cuisine_slots(filled, len(chosen), slots)
+    return _assemble(
+        personal, explored, slots, chosen, picked_slots, recipes, ctx, corpus, stats, effective
+    )
+
+
+def exploration_ratio(ctx: UserContext, policy: RankingPolicy) -> float:
+    """취향을 전혀 모르는 사용자는 탐색 비율을 올립니다. 개인화할 재료가 없어서입니다.
+
+    페르소나 없이 만든 문맥(검사 도구)은 보통 사용자로 다룹니다.
+    """
+    if ctx.persona is not None and ctx.persona.is_cold:
+        return policy.cold_exploration_ratio
+    return policy.exploration_ratio
+
+
+def effective_uniform_share(scored: Sequence[ScoredCandidate], policy: RankingPolicy) -> float:
+    """후보 전체에 군집이 하나도 없으면 탐색을 전부 균등으로 채웁니다.
+
+    `Candidate.cluster_id` 의 계약은 "None 이면 균등 탐색으로 폴백" 인데
+    `serendipity.mixed_exploration` 은 군집이 없으면 Thompson 몫을 그냥 비웁니다. 그대로 두면
+    클러스터링 배치가 돌기 전까지 탐색 슬롯의 절반이 예외 없이 사라집니다.
+
+    기준은 탐색 풀이 아니라 **후보 전체**입니다. 군집은 배치 단위로 붙으므로 후보 어딘가에
+    하나라도 있으면 배치가 돈 것이고, 그때 풀에 군집 후보가 없어 못 채운 칸은 폴백이 아니라
+    부족분(`explore_shortfall`)입니다. 폴백 여부는 서비스가 추적에 `explore_fallback` 으로 남깁니다.
+    """
+    if not scored or any(item.cluster_id is not None for item in scored):
+        return policy.uniform_share
+    return 1.0
+
+
+@dataclass(frozen=True)
+class ExplorationSpec:
+    """이 요청의 탐색 칸 수와 균등 비율. 재정렬과 서비스가 같은 값을 보게 한 곳에서 정합니다."""
+
+    count: int
+    uniform_share: float
+
+
+def exploration_spec(
+    scored: Sequence[ScoredCandidate], ctx: UserContext, policy: RankingPolicy, total: int
+) -> ExplorationSpec:
+    """재정렬은 이것으로 뽑고 서비스는 이것으로 부족분과 폴백을 기록합니다.
+
+    두 곳이 따로 정하면 군집이 일부 후보에만 있을 때 로그와 실제가 조용히 갈라집니다.
+    """
+    return ExplorationSpec(
+        count=round(total * exploration_ratio(ctx, policy)),
+        uniform_share=effective_uniform_share(scored, policy),
+    )
 
 
 def mmr_select(
@@ -109,7 +182,7 @@ def pick_exploration(
     ctx: UserContext,
     policy: RankingPolicy,
     rng: random.Random,
-    count: int,
+    spec: ExplorationSpec,
 ) -> list[tuple[ScoredCandidate, float, str]]:
     """개인화에 들지 못한 후보에서 탐색 슬롯을 뽑습니다.
 
@@ -117,10 +190,10 @@ def pick_exploration(
     입니다. 균등이 없으면 Thompson 이 외면한 클러스터는 IPS 로 영원히 평가할 수 없습니다.
     돌려주는 것은 (아이템, 노출확률, 어느 경로가 뽑았는가) 입니다.
     """
-    if count <= 0 or not rest:
+    if spec.count <= 0 or not rest:
         return []
     pool = _explorable(rest, policy)
-    count = min(count, len(pool) // policy.exploration_min_pool_ratio)
+    count = min(spec.count, len(pool) // policy.exploration_min_pool_ratio)
     if count <= 0:
         return []
     stats = serendipity.ClusterStats(
@@ -130,19 +203,20 @@ def pick_exploration(
         {"recipe_id": item.recipe_id, "score": item.score, "cluster_id": item.cluster_id}
         for item in pool
     ]
+    share = spec.uniform_share
     chosen, propensities = serendipity.mixed_exploration(
         rows,
         stats,
         rng,
         k=count,
-        uniform_share=policy.uniform_share,
+        uniform_share=share,
         pool_size=policy.explore_pool_size,
         # 추적에 싣는 값과 실제로 쓰는 값이 같아야 합니다. 안 넘기면 함수 기본값이
         # 쓰이고, 손잡이를 바꾼 순간 로그와 계산이 조용히 갈라집니다.
         mc=policy.propensity_mc,
     )
     by_id = {item.recipe_id: item for item in pool}
-    uniform_slots = _uniform_count(count, policy)
+    uniform_slots = _uniform_count(count, share)
     picked: list[tuple[ScoredCandidate, float, str]] = []
     for index, row in enumerate(chosen):
         recipe_id = int(str(row["recipe_id"]))
@@ -164,14 +238,11 @@ def reason_context(
     없는 키는 그 피처를 사유 후보에서 빼므로, 모르는 값을 지어내지 않고 빼 둡니다.
     """
     values: dict[str, object] = {}
-    expiring = sorted(recipe.essential_ids & ctx.expiring_ids)
-    named = [corpus.ingredient_names[i] for i in expiring if i in corpus.ingredient_names]
+    named = _named(sorted(recipe.essential_ids & ctx.expiring_ids), corpus)
     if named:
         values["expiring_name"] = named[0]
         values["expiring_days"] = EXPIRING_DAYS
-    missing_named = [
-        corpus.ingredient_names[i] for i in item.missing_ids if i in corpus.ingredient_names
-    ]
+    missing_named = _named(item.missing_ids, corpus)
     if len(item.missing_ids) == 1 and missing_named:
         values["missing_name"] = missing_named[0]
     used = len(recipe.all_ids & ctx.pantry_ids)
@@ -180,12 +251,15 @@ def reason_context(
     axis = _taste_axis(recipe, ctx, corpus)
     if axis is not None:
         values["taste_axis"] = axis
-    liked = sorted(recipe.all_ids & ctx.history.liked_ingredient_ids)
-    liked_named = [corpus.ingredient_names[i] for i in liked if i in corpus.ingredient_names]
+    liked_named = _named(sorted(recipe.all_ids & ctx.history.liked_ingredient_ids), corpus)
     if liked_named:
         values["pref_ing"] = liked_named[0]
+    similar = _similar_cooked_title(recipe, ctx, corpus)
+    if similar is not None:
+        values["similar_title"] = similar
     if recipe.cuisine is not None:
-        values["cuisine"] = recipe.cuisine
+        # 코드가 아니라 사람이 읽는 이름입니다 — "즐겨 드시는 korean이에요" 를 막습니다.
+        values["cuisine"] = cuisine_label(recipe.cuisine)
     if recipe.dish_type is not None:
         values["dish_type"] = recipe.dish_type
     if recipe.cook_minutes is not None:
@@ -195,6 +269,28 @@ def reason_context(
 
 #: 임박 재료의 남은 일수. 요청이 D-3 목록을 주므로 문구에도 그 값을 씁니다.
 EXPIRING_DAYS = 3
+
+
+def _named(ids: Sequence[int], corpus: CorpusStats) -> list[str]:
+    """이름을 아는 재료의 이름. 빈 문자열은 모르는 것과 같습니다 - "(D-3)을 소진" 을 막습니다."""
+    names = (corpus.ingredient_names.get(i, "") for i in ids)
+    return [name for name in names if name.strip()]
+
+
+def _similar_cooked_title(
+    recipe: RecipeFeature, ctx: UserContext, corpus: CorpusStats
+) -> str | None:
+    """최근 조리한 레시피 가운데 재료가 가장 비슷한 것의 제목. f_cooccur 사유가 씁니다.
+
+    제목이 없으면 None 입니다. 이 값이 없으면 f_cooccur 가 두드러져도 사유로 쓰이지 못하고
+    조용히 다음 피처로 넘어갑니다.
+    """
+    pairs = zip(ctx.history.cooked_ingredient_sets, ctx.history.cooked_titles, strict=False)
+    titled = [(ids, title) for ids, title in pairs if title.strip() and recipe.all_ids]
+    if not titled:
+        return None
+    best = max(titled, key=lambda pair: jaccard_idf(recipe.all_ids, pair[0], corpus.ingredient_idf))
+    return best[1]
 
 
 def _taste_axis(recipe: RecipeFeature, ctx: UserContext, corpus: CorpusStats) -> str | None:
@@ -213,44 +309,65 @@ def _explorable(rest: Sequence[ScoredCandidate], policy: RankingPolicy) -> list[
     상위 자리에 섭니다. 탐색은 "덜 좋은 것"이 아니라 "안 보여 줬을 뿐 괜찮은 것"이어야
     합니다. 슬롯 수의 배수만큼 후보가 없으면 슬롯 자체를 줄입니다.
     """
-    if not rest:
+    return worth_showing(rest)[: policy.explore_pool_size]
+
+
+def worth_showing(items: Sequence[ScoredCandidate]) -> list[ScoredCandidate]:
+    """점수가 후보군 중위수 이상인 것만. 상위 자리에 올릴 후보의 하한입니다.
+
+    개인화에 못 든 후보를 상위에 올리는 슬롯(탐색·유형)이 같은 선을 봐야 합니다. 두 곳이
+    따로 정하면 한쪽 슬롯만 조용히 잔여물로 채워집니다.
+    """
+    if not items:
         return []
-    floor = statistics.median([item.score for item in rest])
-    kept = [item for item in rest if item.score >= floor]
-    return kept[: policy.explore_pool_size]
+    floor = statistics.median([item.score for item in items])
+    return [item for item in items if item.score >= floor]
 
 
-def _uniform_count(count: int, policy: RankingPolicy) -> int:
+def _uniform_count(count: int, uniform_share: float) -> int:
     """`serendipity.mixed_exploration` 이 균등에 배정하는 슬롯 수와 같은 계산입니다."""
-    if policy.uniform_share <= 0:
+    if uniform_share <= 0:
         return 0
-    return max(1, round(count * policy.uniform_share))
+    return max(1, round(count * uniform_share))
 
 
 def _assemble(
     personal: Sequence[tuple[ScoredCandidate, float]],
     explored: Sequence[tuple[ScoredCandidate, float, str]],
     slots: Sequence[int],
+    chosen: Sequence[ScoredCandidate],
+    cuisine_positions: Sequence[int],
     recipes: Mapping[int, RecipeFeature],
     ctx: UserContext,
     corpus: CorpusStats,
     stats: Mapping[str, tuple[float, float]],
     weights: Mapping[str, float],
 ) -> list[RankedItem]:
-    """탐색 아이템을 주어진 자리에 끼우고 나머지를 개인화로 채웁니다.
+    """탐색·유형 아이템을 주어진 자리에 끼우고 나머지를 개인화로 채웁니다.
 
-    자리가 고정되면 사용자가 그 자리를 학습해 건너뛰고, 위치별 검사확률 곡선을 구할 수
-    없습니다. 그래서 자리는 매 요청 무작위입니다 (`explore.exploration_slots`).
+    탐색의 자리가 고정되면 사용자가 그 자리를 학습해 건너뛰고, 위치별 검사확률 곡선을 구할 수
+    없습니다. 그래서 탐색 자리는 매 요청 무작위입니다 (`explore.exploration_slots`). 유형
+    자리는 결정적입니다 - 노출확률이 1.0 이라 위치를 흔들어도 보정에 쓸 수 없습니다.
     """
     slot_set = set(slots)
+    cuisine_set = set(cuisine_positions)
     personal_iter = iter(personal)
     explored_iter = iter(explored)
+    cuisine_iter = iter(chosen)
     items: list[RankedItem] = []
-    for index in range(len(personal) + len(explored)):
+    for index in range(len(personal) + len(explored) + len(chosen)):
+        is_cuisine_slot = False
         if index in slot_set:
             scored, probability, source = next(explored_iter)
             mmr_penalty = 0.0
             is_exploration = True
+        elif index in cuisine_set:
+            scored = next(cuisine_iter)
+            probability = DETERMINISTIC_PROPENSITY
+            source = None
+            mmr_penalty = 0.0
+            is_exploration = False
+            is_cuisine_slot = True
         else:
             scored, mmr_penalty = next(personal_iter)
             probability = DETERMINISTIC_PROPENSITY
@@ -258,6 +375,10 @@ def _assemble(
             is_exploration = False
         recipe = recipes.get(scored.recipe_id, RecipeFeature(recipe_id=scored.recipe_id))
         keys = rank.top_reasons(scored, dict(weights), dict(stats))
+        if is_cuisine_slot:
+            # 그 칸에 선 이유가 유형이므로 사유도 유형부터 읽습니다. 자리를 뗀 이유와 화면에
+            # 적힌 이유가 다르면 사용자는 목록이 흔들렸다고만 봅니다.
+            keys = ["f_cuisine", *(k for k in keys if k != "f_cuisine")]
         text, used = reason.build_reason(
             keys, reason_context(scored, recipe, ctx, corpus), is_exploration=is_exploration
         )
@@ -269,6 +390,7 @@ def _assemble(
                 reason_features=used,
                 mmr_penalty=mmr_penalty,
                 is_exploration=is_exploration,
+                is_cuisine_slot=is_cuisine_slot,
                 propensity=probability,
                 explore_source=source,
             )
