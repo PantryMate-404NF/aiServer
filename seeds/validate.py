@@ -147,10 +147,26 @@ fams = {t["family"] for t in ct["taxonomy"]}
 for t in ct["taxonomy"]:
     if t["family"] not in fams:
         E(f"[cuisine] family 오류: {t['code']}")
-for fam, ings in ct["rules_draft"]["by_signature_ingredients"].items():
+_rules = ct.get("rules") or ct.get("rules_draft") or {}
+for fam, ings in _rules.get("by_signature_ingredients", {}).get("map", {}).items():
     for n in ings:
         if n not in nameset:
             W(f"[cuisine] 시그니처 재료가 사전에 없음: {n} ({fam})")
+
+# 규칙이 내는 계열이 taxonomy 의 family 축 안에 있는가.
+#
+# 주의: 시드가 한때 southeast_asian(축에 없음)과 italian(계열이 아니라 세분 코드)을
+#    뱉었다. 그대로 배정하면 온보딩이 고른 값과 영영 안 만나는데 UPDATE 는
+#    성공하므로 아무도 모른다. enums.CuisineFamily 도 같은 축을 복사해 두고 있다.
+_used = set()
+if _rules:
+    _used |= set(_rules.get("by_source_tag", {}).get("map", {}).values())
+    _used |= set(_rules.get("by_title_non_korean", {}).get("map", {}))
+    _used |= set(_rules.get("by_signature_ingredients", {}).get("map", {}))
+    if _rules.get("by_title_korean"):
+        _used.add("korean")
+for _f in sorted(_used - fams):
+    E(f"[cuisine] 규칙이 taxonomy 에 없는 계열을 냅니다: {_f} (가능: {sorted(fams)})")
 
 # ── 7. 수식어 화이트리스트 ────────────────────────────────
 mw = load_yaml("modifier_whitelist.yaml")

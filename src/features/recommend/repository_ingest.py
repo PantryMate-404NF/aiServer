@@ -754,6 +754,69 @@ ORDER BY rf.cluster_id, rf.popularity_score DESC, rf.recipe_id
 """
 
 
+#: 요리 계열 배정의 입력 (G-30). 제목·원본 태그·재료를 한 번에 가져온다.
+#:
+#: 주의: 46,353행을 세 번 나눠 조회하면 파이썬에서 다시 맞춰야 하고 그 사이에
+#:    레시피가 늘면 어긋난다. 한 문장으로 끝낸다.
+_CUISINE_SRC_SQL = """
+SELECT r.id,
+       r.title,
+       COALESCE(
+           (SELECT array_agg(t) FROM jsonb_array_elements_text(r.raw_json->'categories') AS t),
+           '{}')::TEXT[]                                            AS tags,
+       COALESCE(agg.names, '{}')::TEXT[]                            AS ingredients
+FROM   recipe r
+LEFT JOIN LATERAL (
+    SELECT array_agg(DISTINCT i.name) AS names
+    FROM   recipe_ingredient ri
+    JOIN   ingredient i ON i.id = ri.ingredient_id
+    WHERE  ri.recipe_id = r.id
+) agg ON TRUE
+ORDER BY r.id
+"""
+
+
+def load_cuisine_source() -> list[tuple[int, str, list[str], list[str]]]:
+    """(recipe_id, title, 원본 태그, 재료명). 계열 판정의 입력이다."""
+    with cursor() as cur:
+        cur.execute(_CUISINE_SRC_SQL)
+        return [(int(r[0]), r[1] or "", list(r[2] or []), list(r[3] or [])) for r in cur.fetchall()]
+
+
+#: 계열과 확신도를 함께 쓴다.
+#:
+#: 주의: recipe_feature 쪽 cuisine_family 도 같이 채운다. 두 테이블이 어긋나면
+#:    조회는 recipe_feature 를 보고 온보딩 대조는 recipe 를 봐서 조용히 갈린다.
+_CUISINE_SET_SQL = """
+UPDATE recipe r
+SET    cuisine_family = v.family,
+       cuisine_conf   = v.conf
+FROM  (SELECT * FROM unnest(%s::INT[], %s::TEXT[], %s::REAL[]) AS t(id, family, conf)) v
+WHERE  r.id = v.id
+"""
+
+_CUISINE_FEATURE_SQL = """
+UPDATE recipe_feature rf
+SET    cuisine_family = r.cuisine_family
+FROM   recipe r
+WHERE  r.id = rf.recipe_id
+"""
+
+
+def set_cuisine_families(pairs: Sequence[tuple[int, str, float]]) -> int:
+    """계열을 기록한다. recipe 와 recipe_feature 를 한 트랜잭션에서 맞춘다."""
+    if not pairs:
+        return 0
+    ids = [p[0] for p in pairs]
+    fams = [p[1] for p in pairs]
+    confs = [p[2] for p in pairs]
+    with cursor(commit=True) as cur:
+        cur.execute(_CUISINE_SET_SQL, (ids, fams, confs))
+        n = cur.rowcount
+        cur.execute(_CUISINE_FEATURE_SQL)
+    return int(n)
+
+
 def load_cluster_source() -> list[tuple[int, list[int], list[float]]]:
     """(recipe_id, essential_ids, flavor_vec) 을 recipe_id 순으로."""
     with cursor() as cur:

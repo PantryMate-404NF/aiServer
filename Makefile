@@ -156,6 +156,9 @@ feature-test:  ## 회귀 게이트 — 피처 체크 8개. 스키마·배치를 
 cluster-build:  ## k-means cluster_id — 재정렬의 다양성 축 (A-12). 3초
 	$(PY) -m features.recommend.ingest.cluster_build
 
+cuisine-build:  ## 요리 계열 배정 — cuisine_family (G-30). make cuisine-build DRY=1 로 미리보기
+	$(PY) -m features.recommend.ingest.cuisine_build $(if $(DRY),--dry-run,)
+
 freq-build:  ## ingredient.freq_count 채우기 — f_cooccur 의 IDF 분모 (A-14). 1초
 	$(PY) -m features.recommend.ingest.freq_build
 
