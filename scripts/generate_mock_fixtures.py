@@ -9,12 +9,16 @@ DB 가 없는 동안 `recipe_feature` 와 사용자 프로필을 대신합니다
 음식 유형은 온보딩 선택지 5종(`enums.ONBOARDING_CUISINES`)의 코드를 씁니다. 사용자 프로필에는
 한글 라벨과 코드를 섞어 둡니다 - 백엔드가 둘 다 보낼 수 있고, 엔진이 코드로 맞추는지 봐야 합니다.
 
+재료 이름과 알러지 그룹은 `seeds/ingredient.csv` 의 것입니다 — 어휘가 실 DB 와 같아야 Mock 으로
+통과한 검사가 실 DB 에서도 뜻이 있습니다(09-18, `allergen_groups_from_seed`).
+
 난수 대신 키의 해시를 쓰므로 언제 돌려도 같은 파일이 나옵니다. 값을 바꾸려면 SEED 를 올립니다.
 사용자 프로필에는 백엔드가 보낼 법한 비정형 값(문자열 가구원 수, 규약 밖 필드)을 일부러 섞어 둡니다.
 """
 
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
 import math
@@ -46,9 +50,9 @@ INGREDIENTS: dict[int, str] = {
     8: "시금치",
     9: "버섯",
     10: "두부",
-    11: "계란",
+    11: "달걀",
     12: "우유",
-    13: "치즈",
+    13: "체다치즈",
     14: "돼지고기",
     15: "소고기",
     16: "닭고기",
@@ -56,7 +60,7 @@ INGREDIENTS: dict[int, str] = {
     18: "오징어",
     19: "고등어",
     20: "참치캔",
-    21: "김치",
+    21: "배추김치",
     22: "쌀",
     23: "밀가루",
     24: "스파게티면",
@@ -71,13 +75,13 @@ INGREDIENTS: dict[int, str] = {
     33: "상추",
     34: "콩나물",
     35: "무",
-    36: "고추",
+    36: "청양고추",
     37: "땅콩",
     38: "호두",
     39: "복숭아",
     40: "사과",
     41: "바지락",
-    42: "게맛살",
+    42: "맛살",
     43: "메밀면",
     44: "잣",
     45: "간장",
@@ -94,31 +98,35 @@ INGREDIENTS: dict[int, str] = {
     56: "카레가루",
     57: "버터",
     58: "생크림",
-    59: "요거트",
+    59: "플레인요거트",
     60: "꿀",
 }
 MAIN_INGREDIENT_IDS = [i for i in INGREDIENTS if i < SEASONING_ID_START]
 
-ALLERGEN_GROUPS: dict[str, list[int]] = {
-    "EGG": [11],
-    "MILK": [12, 13, 57, 58, 59],
-    "WHEAT": [23, 24, 25],
-    "PORK": [14, 28, 29],
-    "BEEF": [15],
-    "CHICKEN": [16],
-    "SHRIMP": [17],
-    "SQUID": [18],
-    "MACKEREL": [19],
-    "SOYBEAN": [10, 45, 47],
-    "TOMATO": [30, 54],
-    "PEANUT": [37],
-    "WALNUT": [38],
-    "PEACH": [39],
-    "SHELLFISH": [41],
-    "CRAB": [42],
-    "BUCKWHEAT": [43],
-    "PINE_NUT": [44],
-}
+#: 알러지 그룹은 여기서 정하지 않습니다. 정본은 DDL(`deploy/init/02_schema.sql` 의 CHECK,
+#: 소문자 10종)이고 `seeds/ingredient.csv` 가 재료마다 그 그룹을 답니다. 09-17 까지 이 파일이
+#: 대문자 18종을 따로 들고 있어 어휘가 세 갈래로 갈렸습니다 — Mock 은 DB 를 안 거쳐 CHECK 에
+#: 안 걸리므로 아무도 못 알아챘습니다. 그래서 Mock 재료 이름을 시드의 이름과 같게 두고
+#: (달걀·체다치즈·배추김치…) 그룹은 시드에서 읽습니다. 시드에 없는 이름이면 멈춥니다.
+INGREDIENT_CSV = Path(__file__).resolve().parents[1] / "seeds" / "ingredient.csv"
+
+
+def allergen_groups_from_seed() -> dict[str, list[int]]:
+    """`seeds/ingredient.csv` 의 `allergen_group` 으로 Mock 재료를 묶습니다.
+
+    시드의 판단을 그대로 따릅니다 — 배추김치가 `shellfish`(젓갈), 마요네즈가 `egg` 인 것도
+    시드의 것입니다. 여기서 고치면 다시 갈립니다. 다르다고 생각하면 시드를 고칩니다.
+    """
+    with INGREDIENT_CSV.open(encoding="utf-8", newline="") as fh:
+        by_name = {row["name"]: row["allergen_group"] for row in csv.DictReader(fh)}
+    missing = [name for name in INGREDIENTS.values() if name not in by_name]
+    if missing:
+        raise SystemExit(f"Mock 재료가 시드 어휘에 없습니다: {missing}")
+    groups: dict[str, list[int]] = {}
+    for ingredient_id, name in INGREDIENTS.items():
+        if group := by_name[name]:
+            groups.setdefault(group, []).append(ingredient_id)
+    return dict(sorted(groups.items()))
 
 
 @dataclass(frozen=True)
@@ -193,7 +201,7 @@ PERSONAS: list[dict[str, object]] = [
         "household_size": "4인 가구",
         "preferred_cuisines": ["한식"],
         "max_cook_minutes": 60,
-        "allergy_group_codes": ["EGG"],
+        "allergy_group_codes": ["egg"],
         "top_k": 20,
     },
     {
@@ -204,7 +212,7 @@ PERSONAS: list[dict[str, object]] = [
         "household_size": 2,
         "preferred_cuisines": ["양식", "일식"],
         "max_cook_minutes": None,
-        "allergy_group_codes": ["MILK"],
+        "allergy_group_codes": ["dairy"],
         "top_k": 20,
     },
     {
@@ -239,7 +247,7 @@ PERSONAS: list[dict[str, object]] = [
         "household_size": 3,
         "preferred_cuisines": ["한식", "중식"],
         "max_cook_minutes": 40,
-        "allergy_group_codes": ["SHRIMP", "SQUID", "SHELLFISH", "CRAB", "MACKEREL"],
+        "allergy_group_codes": ["shellfish", "fish"],
         "top_k": 20,
     },
     {
@@ -309,7 +317,7 @@ PERSONAS: list[dict[str, object]] = [
         "household_size": 1,
         "preferred_cuisines": ["한식"],
         "max_cook_minutes": None,
-        "allergy_group_codes": ["WHEAT", "PEANUT"],
+        "allergy_group_codes": ["gluten", "nut"],
         "top_k": 20,
     },
 ]
@@ -427,7 +435,7 @@ def main() -> None:
     catalog = {
         "seed": SEED,
         "ingredients": {str(i): name for i, name in INGREDIENTS.items()},
-        "allergen_groups": ALLERGEN_GROUPS,
+        "allergen_groups": allergen_groups_from_seed(),
         "cuisines": list(CUISINES),
         "recipes": [build_recipe(index) for index in range(1, RECIPE_COUNT + 1)],
     }

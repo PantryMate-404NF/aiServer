@@ -18,6 +18,7 @@ DDL 주석이 적어 둔 대로 오타 하나가 알러지를 통째로 무력�
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -60,6 +61,20 @@ def test_the_sim_script_copy_matches() -> None:
     match = re.search(r"ALLERGEN_GROUPS = \[(.*?)\]", src, re.S)
     assert match, "convert_planning_data 의 ALLERGEN_GROUPS 를 못 찾았습니다"
     assert set(re.findall(r'"([a-z_]+)"', match.group(1))) == set(ALLERGEN_GROUPS)
+
+
+def test_the_mock_catalog_speaks_the_same_vocabulary() -> None:
+    """09-18 부터 Mock 생성기는 그룹을 `seeds/ingredient.csv` 에서 읽습니다 (파트 B).
+
+    여기가 갈리면 Mock 페르소나의 알러지 컷이 실 DB 와 다른 재료를 자릅니다.
+    """
+    catalog = json.loads(
+        (Path(__file__).resolve().parents[2] / "fixtures" / "recommend" / "catalog.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    groups = set(catalog["allergen_groups"])
+    assert groups and groups <= set(ALLERGEN_GROUPS), groups - set(ALLERGEN_GROUPS)
 
 
 @pytest.mark.parametrize("bad", ["NUT", "nuts", "견과류", "WHEAT", "MILK", ""])
