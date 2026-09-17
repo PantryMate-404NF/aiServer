@@ -47,6 +47,21 @@ def test_no_duplicates() -> None:
     assert len(ALLERGEN_GROUPS) == len(set(ALLERGEN_GROUPS))
 
 
+def test_the_sim_script_copy_matches() -> None:
+    """`scripts/sim/convert_planning_data.py` 는 src 를 import 하지 않아 사본을 듭니다.
+
+    주의: 09-17 에 그 사본에 buckwheat 이 빠져 있었습니다. 값이 전부 정본의
+       부분집합이라 DDL CHECK 를 어기지 않고, 시뮬 유저에게 메밀 알러지가
+       영영 안 생기는 것으로만 나타났습니다 — 아무도 안 알아챕니다.
+    """
+    src = (
+        Path(__file__).resolve().parents[3] / "scripts" / "sim" / "convert_planning_data.py"
+    ).read_text(encoding="utf-8")
+    match = re.search(r"ALLERGEN_GROUPS = \[(.*?)\]", src, re.S)
+    assert match, "convert_planning_data 의 ALLERGEN_GROUPS 를 못 찾았습니다"
+    assert set(re.findall(r'"([a-z_]+)"', match.group(1))) == set(ALLERGEN_GROUPS)
+
+
 @pytest.mark.parametrize("bad", ["NUT", "nuts", "견과류", "WHEAT", "MILK", ""])
 def test_onboarding_rejects_unknown_groups(bad: str) -> None:
     """DDL 주석이 지목한 실패 값들. 요청 단계에서 막아야 사용자가 원인을 압니다."""

@@ -21,8 +21,8 @@
     essential_ids 멀티핫(536차) → TF-IDF → SVD 48차
     ⊕ 중심화한 flavor_vec(6차)  → Lloyd K=50
 
-`sklearn` 없이 numpy 만 씁니다. `cluster_version` 을 `v1-tfidf-svd48` 로 남겨
-나중에 `content_emb` 판이 오면 구분되게 합니다.
+`sklearn` 없이 numpy 만 씁니다. `cluster_version` 을 `v1-svd48-<입력해시 6자>` 로 남겨
+나중에 `content_emb` 판이 오면 앞을 v2- 로 바꿔 구분되게 합니다.
 
 ## L2 정규화를 반드시 합니다
 

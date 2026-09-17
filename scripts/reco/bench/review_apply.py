@@ -46,7 +46,10 @@ REVIEW_DIR = ROOT / "review"
 SHEET = REVIEW_DIR / "review_sheet.tsv"
 ALIAS = Path("seeds/ingredient_alias.csv")
 NONING = Path("seeds/non_ingredient.yaml")
-NEWOUT = BENCH_OUT / "new_ingredients.tsv"
+#: 신규 재료 후보. **사람이 여기에 category_path·is_staple·is_seasoning·
+#: allergen_group 을 채웁니다.** 그래서 검수 작업물과 같은 자리에 둡니다 —
+#: bench/out 에 두면 사람이 채우는 파일과 도구가 읽는 파일이 갈립니다.
+NEWOUT = REVIEW_DIR / "new_ingredients_draft.tsv"
 
 #: 사전에 없는 이름을 적은 행. 반영을 막지 않고 여기로 뺀다.
 BADOUT = REVIEW_DIR / "review_bad.tsv"
@@ -184,22 +187,30 @@ def main() -> None:
         # 주의: "w" 로 덮어쓰면 1회차에 사람이 채워 둔 category_path·is_seasoning 이
         #    2회차 반영에서 통째로 날아간다. 표현을 키로 합치고 채운 칸은 남긴다.
         NEWOUT.parent.mkdir(parents=True, exist_ok=True)
-        head = "빈도\t표현\tcategory_path\tis_staple\tis_seasoning\tallergen_group"
+        default = ["빈도", "표현", "category_path", "is_staple", "is_seasoning", "allergen_group"]
+        head = default
         kept: dict[str, list[str]] = {}
         if NEWOUT.exists():
-            for ln in NEWOUT.read_text(encoding="utf-8").splitlines()[1:]:
+            lines = NEWOUT.read_text(encoding="utf-8").splitlines()
+            if lines:
+                # 주의: 열 수를 6 으로 굳히지 않는다. 검토하며 note·확신도·근거 같은
+                #    칸을 덧붙이는데, 자르면 그 기입이 경고 없이 사라진다.
+                head = lines[0].split("\t")
+            for ln in lines[1:]:
                 if not ln.strip():
                     continue
-                col = (ln.split("\t") + [""] * 6)[:6]
+                col = (ln.split("\t") + [""] * len(head))[: len(head)]
                 kept[col[1]] = col
+        width = len(head)
         for c, t in news:
             if t in kept:
-                kept[t][0] = str(c)          # 빈도만 갱신, 채운 칸은 그대로
+                kept[t][0] = str(c)  # 빈도만 갱신, 채운 칸은 그대로
             else:
-                kept[t] = [str(c), t, "", "", "", ""]
+                kept[t] = [str(c), t] + [""] * (width - 2)
         rows = sorted(kept.values(), key=lambda r: -int(r[0] or 0))
         NEWOUT.write_text(
-            head + "\n" + "".join("\t".join(r) + "\n" for r in rows), encoding="utf-8"
+            "\t".join(head) + "\n" + "".join("\t".join(r) + "\n" for r in rows),
+            encoding="utf-8",
         )
         filled = sum(1 for r in rows if r[2].strip())
         print(

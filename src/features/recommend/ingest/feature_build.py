@@ -108,9 +108,14 @@ def _seed_fingerprint() -> str:
 #: 스키마 제약이 `^(v[0-9]|test-)` 이고 VARCHAR(16) 이라 `v1-abc123`(9자)이 들어갑니다.
 FEATURE_VERSION = f"v1-{_seed_fingerprint()}"
 
-#: D-10 — 미매칭 비율이 이 값을 넘으면 정규화 실패로 봅니다.
-#: 임시값입니다. 실제 분포를 보고 조정하며, 조정해도 다시 만들면 되므로
-#: 소급됩니다. 근거 없이 굳히지 않기 위해 상수로 빼 둡니다.
+#: D-14 가 남겨 둔 몫 — **필수재료가 있는데** 미매칭이 많은 레시피를 세는 데만 씁니다.
+#: 임시값입니다. 실제 분포를 보고 조정하며, 조정해도 다시 만들면 되므로 소급됩니다.
+#:
+#: 주의: 필수재료가 0건인 쪽에는 쓰지 않습니다. 거기서는 미매칭 1건도 판정 불가라
+#:    조회(04_functions.sql 의 ⓪'')가 `n_unmatched = 0` 으로 가릅니다. 09-17 에
+#:    조회만 조이고 이 파일을 안 고쳐서, `make feature-build` 가 "통과 1,498 ·
+#:    실패 1,241" 이라고 찍는 동안 실제로는 59 · 2,680 이었습니다. 1,439건이
+#:    틀린 채로 C 의 품질 화면에 그려질 뻔했습니다 — 두 판정식은 한 뜻이어야 합니다.
 UNMATCHED_FAIL_RATIO = 0.3
 
 
@@ -137,14 +142,28 @@ class BuildStats:
             f"  필수재료 0개 {z:,}건 = "
             f"정상 {self.zero_essential_ok:,} + 정규화 실패 {self.zero_essential_failed:,}\n"
             f"    → 조회에서 빠지는 것은 실패 {self.zero_essential_failed:,}건입니다"
-            f" (미매칭 비율 > {UNMATCHED_FAIL_RATIO})\n"
+            f" (미매칭 > 0 — 조회의 ⓪'' 와 같은 식)\n"
             f"  필수재료는 있으나 미매칭이 많음 {self.dirty_with_essential:,}건"
             f"  (아직 거르지 않습니다 — D-14 가 A-4 분포를 보고 정하라고 남긴 몫)"
         )
 
 
-def _is_dirty(n_total: int, n_unmatched: int) -> bool:
-    """미매칭이 전체의 일정 비율을 넘는가 (D-10 의 판정식).
+def _zero_essential_failed(n_unmatched: int) -> bool:
+    """필수재료가 0건인 레시피가 조회에서 빠지는가 (D-10).
+
+    **조회의 ⓪''(04_functions.sql) 와 같은 식이어야 합니다.** 거기서 통과시키는
+    조건이 `n_essential > 0 OR n_unmatched = 0` 이므로 여기도 미매칭 유무로 가릅니다.
+
+    비율을 쓰지 않는 이유: 필수를 하나도 못 찾았는데 미매칭이 남아 있으면
+    "양념만으로 되는 요리" 가 아니라 "아직 못 읽은 재료 안에 필수가 있다" 는
+    뜻입니다. 비율은 필수가 1건 이상일 때 "얼마나 놓쳤나" 를 재는 값이라
+    이 자리에서는 뜻이 다릅니다.
+    """
+    return n_unmatched > 0
+
+
+def _dirty_with_essential(n_total: int, n_unmatched: int) -> bool:
+    """필수재료는 있는데 미매칭이 많은가. 세기만 하고 거르지 않습니다 (D-14).
 
     분모가 0 이면(붙은 것도 못 붙인 것도 없으면) 판정하지 않습니다. 그런
     레시피는 원문 자체가 비어 있다는 뜻이라 정규화의 잘못이 아니고,
@@ -187,13 +206,13 @@ def build(
         if n_total == 0:
             st.no_ingredient += 1
             continue  # 원문이 빈 것. ⓪ 관문이 따로 거른다
-        dirty = _is_dirty(n_total, n_unm)
         if n_ess == 0:
-            if dirty:
+            # 조회가 쓰는 식과 같아야 한다 (⓪''). 비율이 아니라 미매칭 유무다
+            if _zero_essential_failed(n_unm):
                 st.zero_essential_failed += 1
             else:
                 st.zero_essential_ok += 1
-        elif dirty:
+        elif _dirty_with_essential(n_total, n_unm):
             st.dirty_with_essential += 1
 
     st.status_rows = mark_recipe_status()
