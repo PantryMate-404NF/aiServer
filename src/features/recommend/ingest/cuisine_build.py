@@ -63,7 +63,12 @@ class Rules:
 
     priority: list[str]
     tag_map: dict[str, str]
+    #: 제목 신호가 없을 때만 보는 태그. 퓨전이 여기 있습니다 — 표본 20건 중
+    #: 10건이 다른 계열이라, 작성자의 '퓨전' 과 우리 fusion 은 뜻이 다릅니다.
+    tag_late: dict[str, str]
     non_korean: dict[str, list[str]]
+    #: 키워드별 제외어. `커리` 에 `치커리`(채소)가 걸리는 것을 막습니다.
+    exclude: dict[str, list[str]]
     korean: list[str]
     signature: dict[str, list[str]]
     sig_min: int
@@ -77,7 +82,11 @@ class Rules:
         r = cls(
             priority=list(raw["priority"]),
             tag_map=dict(raw["by_source_tag"]["map"]),
+            tag_late=dict(raw.get("by_source_tag_late", {}).get("map", {})),
             non_korean={k: list(v) for k, v in raw["by_title_non_korean"]["map"].items()},
+            exclude={
+                k: list(v) for k, v in (raw["by_title_non_korean"].get("exclude") or {}).items()
+            },
             korean=list(raw["by_title_korean"]["keywords"]),
             signature={k: list(v) for k, v in raw["by_signature_ingredients"]["map"].items()},
             sig_min=int(raw["by_signature_ingredients"]["min"]),
@@ -94,7 +103,13 @@ class Rules:
            영영 안 만나는데, INSERT 는 성공하므로 아무도 모릅니다.
         """
         valid = {f.value for f in CuisineFamily}
-        used = set(self.tag_map.values()) | set(self.non_korean) | {"korean"} | set(self.signature)
+        used = (
+            set(self.tag_map.values())
+            | set(self.tag_late.values())
+            | set(self.non_korean)
+            | {"korean"}
+            | set(self.signature)
+        )
         unknown = sorted(used - valid)
         if unknown:
             raise ValueError(f"CuisineFamily 에 없는 계열입니다: {unknown} (가능: {sorted(valid)})")
@@ -142,11 +157,18 @@ def judge(title: str, tags: set[str], ingredients: set[str], r: Rules) -> tuple[
 
     t = title or ""
     for family, keywords in r.non_korean.items():
-        if any(k in t for k in keywords):
-            return family, "by_title_non_korean"
+        for k in keywords:
+            # 제외어가 제목에 있으면 이 키워드는 건너뛴다. '치커리' 가 '커리' 에,
+            # '짜파게티' 가 '짜장' 에 걸리는 부분 문자열 함정을 막는다.
+            if k in t and not any(x in t for x in r.exclude.get(k, ())):
+                return family, "by_title_non_korean"
 
     if any(k in t for k in r.korean):
         return "korean", "by_title_korean"
+
+    for tag in tags:
+        if tag in r.tag_late:
+            return r.tag_late[tag], "by_source_tag_late"
 
     best, hits = "", 0
     for family, names in r.signature.items():
