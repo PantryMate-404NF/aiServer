@@ -47,12 +47,14 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 import numpy as np
 
+from features.recommend.ingest.feature_build import FEATURE_VERSION
 from features.recommend.ingest.run_log import batch_run
 from features.recommend.repository_ingest import (
     load_cluster_samples,
@@ -73,9 +75,6 @@ SVD_DIM = 48
 #: 난수 씨앗. 바뀌면 배정이 통째로 달라지므로 판 번호와 함께 고정합니다.
 SEED = 20260914
 
-#: 판 번호. content_emb 판이 오면 v2- 로 시작하게 합니다.
-CLUSTER_VERSION = "v1-tfidf-svd48"
-
 #: Lloyd 반복 상한과 수렴 기준.
 #:
 #: 주의: 실측으로 80회에서 수렴합니다(46,353건 · K=50). 상한을 60 으로 두면
@@ -86,6 +85,28 @@ TOL = 1e-6
 
 #: 완료 기준 — 한 클러스터가 이보다 크면 편중으로 봅니다.
 MAX_SHARE = 0.15
+
+
+def _cluster_version() -> str:
+    """배정을 바꾸는 입력 전부의 해시. 재군집하면 값이 저절로 바뀝니다.
+
+    주의: 고정 문자열로 두면 조용히 틀립니다. 재군집을 해도 판 번호가 그대로라
+       과거 로그의 `cluster_id` 가 **다른 군집을 가리키게 되고**, B 의 Thompson
+       belief 가 엉뚱한 군집에 이어 붙습니다. 에러는 나지 않습니다 —
+       D-12 가 "반드시 기록하라" 고 한 이유가 이것입니다.
+
+       feature_version 을 넣는 이유: 입력이 essential_ids 멀티핫 ⊕ flavor_vec 이라
+       피처가 바뀌면 같은 알고리즘·같은 시드라도 배정이 달라집니다.
+
+    스키마가 VARCHAR(16) 이라 `v1-svd48-abc123`(15자)로 맞춥니다.
+    content_emb 판이 오면 앞을 v2- 로 바꿉니다.
+    """
+    seed = f"{K}|{SVD_DIM}|{SEED}|{MAX_ITER}|{TOL}|{FEATURE_VERSION}"
+    return f"v1-svd48-{hashlib.sha256(seed.encode()).hexdigest()[:6]}"
+
+
+#: 판 번호. 위 입력에서 끌어냅니다 — 사람이 기억해서 올리지 않습니다.
+CLUSTER_VERSION = _cluster_version()
 
 
 @dataclass
