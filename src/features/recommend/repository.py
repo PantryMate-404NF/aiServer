@@ -114,6 +114,39 @@ TOMBSTONE_KEY = "tombstone"
 #
 #    그래서 묘비 위에서만 승격한다. 정본 위에는 절대 덮지 않는다 —
 #    로그는 append-only 이고, 나중 호출이 앞선 정본을 훼손하면 안 된다.
+#: 이번 추천이 어느 배치 산출물 위에서 나왔는지. `StageInfo.params` 에 실어야
+#: 사후에 재현이 됩니다.
+#:
+#: 주의: 값이 아니라 **정의가 소급 불가**입니다. feature_version 은 지금까지
+#:    v1 → v1-15a8c5 → v1-da56de 로 세 번 갈아탔는데 로그에 한 번도 안 남았습니다.
+#:    "이 추천이 어느 피처판으로 나왔지" 를 나중에 물을 방법이 없습니다.
+#:    cluster_version 도 같습니다 — 재군집하면 cluster_id 의 뜻이 달라지므로
+#:    판 번호 없이는 과거 Thompson 관측을 이어 붙일 수 없습니다 (D-12).
+_VER_SQL = """
+SELECT DISTINCT feature_version, cluster_version
+FROM   recipe_feature
+WHERE  feature_version NOT LIKE 'test-%'
+"""
+
+
+def load_batch_versions() -> dict[str, str | None]:
+    """지금 서빙 중인 배치의 판 번호. `REQUIRED_TRACE_PARAMS` 에 실을 값입니다.
+
+    배치가 전량을 한 판으로 만들므로 보통 한 줄입니다. 재정규화 도중이면 두 줄이
+    보일 수 있는데, 그때는 섞였다는 사실 자체가 기록돼야 하므로 join 해서 남깁니다 —
+    조용히 하나만 고르면 그 로그로는 어느 쪽인지 알 수 없습니다.
+    """
+    with cursor() as cur:
+        cur.execute(_VER_SQL)
+        rows = cur.fetchall()
+    if not rows:
+        return {"feature_version": None, "cluster_version": None}
+    return {
+        "feature_version": "+".join(sorted({r[0] for r in rows if r[0]})) or None,
+        "cluster_version": "+".join(sorted({r[1] for r in rows if r[1]})) or None,
+    }
+
+
 _RL_SQL = """
 INSERT INTO recommendation_log (
     request_id, user_id, session_id, model_version, mlflow_run_id, config_hash,

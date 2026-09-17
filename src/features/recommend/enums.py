@@ -259,6 +259,29 @@ ACTIVE_WEIGHT_TODAY: float = round(
 #: 위치 효과는 exploration 슬롯 위치를 매 요청 무작위화해 따로 추정한다 (01 5-3-3).
 PROPENSITY_SEMANTICS: str = "item"
 
+#: 알러지 그룹의 정본. `02_schema.sql` 의 user_allergy CHECK 와 **같아야 합니다.**
+#:
+#: 주의: 오타 하나가 알러지를 통째로 무력화합니다 (09-03 실측). DDL 주석이 적어 둔
+#:    그대로입니다 — '견과류'·'NUT'·'nuts' 는 4갈래 차단 중 둘을 동시에 죽입니다.
+#:    DB 는 CHECK 로 막지만 그건 INSERT 가 에러로 실패한다는 뜻이라 온보딩이 500 을
+#:    뱉습니다. 요청 단계에서 거부해야 사용자가 무엇이 틀렸는지 압니다.
+#:
+#: 09-17: 저장소 안에서 어휘가 세 갈래였습니다 — DDL 소문자 10종(정본) ·
+#:    문서 19종 · scripts/generate_mock_fixtures.py 대문자 18종. 겹치는 셋조차
+#:    대소문자가 달랐습니다. mock 생성기는 DB 를 안 거쳐 CHECK 에 안 걸립니다.
+ALLERGEN_GROUPS: tuple[str, ...] = (
+    "nut",
+    "sesame",
+    "soy",
+    "gluten",
+    "egg",
+    "dairy",
+    "fish",
+    "shellfish",
+    "peach",
+    "buckwheat",
+)
+
 #: `StageInfo.params` 에 반드시 실어야 하는 키. 값이 아니라 정의가 소급 불가다.
 #: 없으면 로그가 있어도 propensity 를 재구성할 수 없다 (07 E-3 ①).
 REQUIRED_TRACE_PARAMS: tuple[str, ...] = (
