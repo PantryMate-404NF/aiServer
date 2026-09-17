@@ -56,6 +56,29 @@ logger = logging.getLogger(__name__)
 SEEDS = Path(__file__).resolve().parents[4] / "seeds"
 
 
+#: recipe_feature 에 영향이 없다고 확인된 시드. 이것만 지문에서 뺍니다.
+#:
+#: 주의: 기본이 '포함' 입니다. 새 시드 파일이 생기면 저절로 지문에 들어갑니다 —
+#:    모르는 파일을 빼면 조용히 낡고, 넣으면 헛된 판 번호가 하나 올라갈 뿐입니다.
+#:    실패 비용이 비대칭이라 넓은 쪽을 기본으로 둡니다.
+#:
+#: 09-17 에 실측으로 정했습니다. main 이 onboarding_recipes.yaml 을 고쳤을 때
+#: 지문이 뒤집혔는데 그 파일은 정규화 경로에 없습니다 — 헛된 전량 재계산이
+#: 될 뻔했습니다. ingest 경로가 읽는지를 기준으로 갈랐습니다.
+_UNRELATED = frozenset(
+    {
+        # 온보딩 taste_vec. profile_store·schema 만 읽습니다
+        "onboarding_recipes.yaml",
+        # 측정용 라벨. ingredient_substitute 는 0행이고 아무도 안 읽습니다
+        "substitutable_pairs.yaml",
+        # 소비기한. effective_expiry 로 가고 recipe_feature 에 안 옵니다
+        "ingredient_shelf_life.yaml",
+        # 요리 계열. recipe.cuisine 이고 recipe_feature 가 아닙니다
+        "cuisine_taxonomy.yaml",
+    }
+)
+
+
 def _seed_fingerprint() -> str:
     """사전 파일들의 내용 해시 앞 6자리.
 
@@ -68,6 +91,8 @@ def _seed_fingerprint() -> str:
     """
     h = hashlib.sha256()
     for f in sorted(SEEDS.glob("*.yaml")) + sorted(SEEDS.glob("*.csv")):
+        if f.name in _UNRELATED:
+            continue
         h.update(f.name.encode())
         h.update(f.read_bytes())
     return h.hexdigest()[:6]
