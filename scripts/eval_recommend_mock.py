@@ -152,7 +152,7 @@ def retrieve_with_fallback(
     allergy: frozenset[int] = frozenset(),
 ) -> tuple[list[Candidate], str, int]:
     """`engine/candidate.py` 의 계획대로 다시 조회합니다. 운영에서는 repository 가 합니다."""
-    plan = plan_module.first_plan(policy)
+    plan = plan_module.first_plan(policy, pantry_is_bare=not ctx.has_own_ingredients)
     rows = retrieve(
         recipes,
         clusters,
@@ -160,6 +160,7 @@ def retrieve_with_fallback(
         allergy=allergy,
         max_missing=plan.max_missing,
         max_minutes=ctx.max_cook_minutes,
+        ignore_missing=plan.stage == plan_module.FALLBACK_POPULARITY,
     )
     ratio = rerank.exploration_ratio(ctx, policy)
     while True:

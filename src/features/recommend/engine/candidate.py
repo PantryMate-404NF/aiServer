@@ -36,8 +36,16 @@ class RetrievalPlan:
         return self.stage != FALLBACK_NONE
 
 
-def first_plan(policy: RankingPolicy) -> RetrievalPlan:
-    """첫 조회. 명세의 k = 2 입니다."""
+def first_plan(policy: RankingPolicy, *, pantry_is_bare: bool = False) -> RetrievalPlan:
+    """첫 조회. 명세의 k = 2 입니다. 냉장고에 상비 재료뿐이면 처음부터 인기순입니다.
+
+    재료 매칭으로 고를 것이 없는데 k 를 2, 3, 4 로 풀어 봐야 나오는 것이 없습니다. 그 대신
+    필수 재료가 0건인 레시피(양념 제조법)만 통과해 상위를 채우고, 그 수(09-18 실측 94건)가
+    완화 기준(취향 없으면 52건)을 넘겨서 **폴백이 안 걸립니다** — 신규 사용자가 쌈장·초고추장
+    목록을 받는데 에러는 없습니다. 인기순으로 바로 가면 그 사다리 자체를 건너뜁니다.
+    """
+    if pantry_is_bare:
+        return RetrievalPlan(max_missing=policy.max_missing_relaxed, stage=FALLBACK_POPULARITY)
     return RetrievalPlan(max_missing=policy.max_missing, stage=FALLBACK_NONE)
 
 

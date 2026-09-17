@@ -220,12 +220,12 @@ SESSION_PREFIXES: tuple[str, ...] = ("c-", "g-", "d-")
 
 #: 주의: 수단은 있는데 데이터가 없다. 위와 구분한다 — 데이터가 오면 코드 변경 없이 켜진다.
 #:
-#:   f_cuisine  레시피 쪽 `cuisine_family` 가 46,353건 전수 0건이다.
-#:              만개의레시피 4축이 실제 크롤에 오지 않았고 categories 는
-#:              고유 45,529종 자유 태그다. 태그→유형 매핑(약 12h)이 선행이다.
-#:              사용자 쪽은 09-15 온보딩 문항(`ONBOARDING_CUISINES`)으로 채워졌고
-#:              레시피 쪽만 남았다 — 회의 안건 G-30. 그때까지 이 피처도, 재정렬의
-#:              유형 슬롯도 실 DB 에서는 대상 후보를 찾지 못한다.
+#:   f_cuisine  레시피 쪽 `cuisine_family` 가 09-17 까지 46,353건 전수 0건이었다.
+#:              09-17 규칙 배정(G-30, `ingest/cuisine_build.py`)으로 28,604건(61.7%)이
+#:              찼고 나머지는 NULL 이다 — 못 정하면 비운다. A 가 표본 정확도를 확인한
+#:              뒤 이 목록에서 뺀다(09-17 결정 기록 8절). 그때까지 ACTIVE_WEIGHT_TODAY 는
+#:              보수적으로 이 피처를 빼고 센다. 사용자 쪽은 09-15 온보딩 문항
+#:              (`ONBOARDING_CUISINES`)으로 채워져 있다.
 #:   f_season   제철 시드가 없다. `recipe_feature.season_vec` 은 컬럼만 있다.
 #:   f_dish_type 같은 이유다 — 원본에 분류축이 없어 `dish_type` 이 전수 비어 있다.
 #:              `w=0` 인 것은 v0 스코어에서 애초에 안 쓰기 때문이고, 데이터 부재와는
@@ -297,6 +297,15 @@ REQUIRED_TRACE_PARAMS: tuple[str, ...] = (
     "n_explore",  # 탐색 슬롯이 몇 칸이었나
     "serving_mode",  # real | sim | load_test — candidates 저장 정책이 다르다.
     # 없으면 "잘려서 없는 것"과 "원래 없던 것"이 구분되지 않는다
+    # ── 09-18 추가 2종 (A 요청). 어느 배치 산출물 위에서 나온 추천인가 ─────────
+    #    feature_version 은 v1 → v1-15a8c5 → … 로 다섯 번 갈아탔는데 로그에 한 칸도
+    #    없었다. 재정규화하면 같은 레시피의 피처 값이 바뀌므로, 이 키 없이는 "이 추천이
+    #    어느 피처판이었나" 를 나중에 물을 방법이 없다. cluster_version 도 같다 —
+    #    재군집하면 cluster_id 의 뜻이 달라져 Thompson 관측을 이어 붙일 수 없다.
+    #    값은 `repository.load_batch_versions()` 가 주고 호출자가 넘긴다. 엔진은 DB 를
+    #    보지 않으므로, 실 DB 전에는 None 으로 키만 실린다.
+    "feature_version",
+    "cluster_version",
 )
 
 #: `serving_mode` 별 `candidates` 저장 개수 (설계 3-6).

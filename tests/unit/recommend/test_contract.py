@@ -335,8 +335,8 @@ check(
     "🔴 propensity 의미론이 'item' 으로 동결됐다 (아이템 주변확률)", PROPENSITY_SEMANTICS == "item"
 )
 check(
-    "🔴 동결 키 10종이 정의돼 있다 (07 E-3 ①)",
-    len(REQUIRED_TRACE_PARAMS) == 10
+    "🔴 동결 키 12종이 정의돼 있다 (07 E-3 ① + 09-18 배치 판 번호 2종)",
+    len(REQUIRED_TRACE_PARAMS) == 12
     and {"top_k", "n_explore", "serving_mode"} <= set(REQUIRED_TRACE_PARAMS),
 )
 
@@ -406,7 +406,7 @@ try:
     if _r.status_code == 200:
         _d = _r.json()
         _p = next(st["params"] for st in _d["trace"]["stages"] if st["name"] == "rerank")
-        check("🔴 실호출 params 가 동결 키 10종을 전부 싣는다", check_trace_params(_p) == [])
+        check("🔴 실호출 params 가 동결 키 12종을 전부 싣는다", check_trace_params(_p) == [])
         check(
             "실호출 propensity 가 전부 0 보다 크다 (support 보장)",
             all(it["propensity"] > 0 for it in _d["items"]),
@@ -536,7 +536,10 @@ check(
 )
 
 # 동결 키는 ③ 에만 있다 — 전수 검사하면 정상 출력이 반려된다
-check("동결 키는 10종이다 (04 문서의 7종은 낡았다)", len(REQUIRED_TRACE_PARAMS) == 10)
+check(
+    "동결 키는 12종이다 (04 문서의 7종은 낡았다 · 09-18 feature_version·cluster_version 추가)",
+    len(REQUIRED_TRACE_PARAMS) == 12,
+)
 
 
 # ── 09-02 신설: 계획에 빠져 있던 셋 ──────────────────────────────

@@ -121,6 +121,19 @@ class EventIn(_Base):
         default=None, pattern=r"^[cgd]-", description="클라이언트가 발급. 30분 무활동 시 갱신"
     )
     context: dict[str, str | int | None] = Field(default_factory=dict)
+    #: 행동이 실제로 일어난 시각. 선택이며 없으면 서버 수신 시각을 씁니다 (G-26 · 09-18).
+    #: 오프라인 동기화 배치는 수신 시각이 전부 같아 시간 감쇠와 주기 가중이 뭉개집니다.
+    #: 🔴 시간대가 없는 값은 거부한다. 섞이면 감쇠가 조용히 몇 시간씩 틀린다.
+    occurred_at: datetime | None = Field(
+        default=None, description="발생 시각(tz 필수). 없으면 서버 수신 시각"
+    )
+
+    @field_validator("occurred_at")
+    @classmethod
+    def _aware(cls, v: datetime | None) -> datetime | None:
+        if v is not None and (v.tzinfo is None or v.utcoffset() is None):
+            raise ValueError("occurred_at 은 시간대가 있는 시각이어야 한다")
+        return v
 
 
 class EventBatchIn(_Base):
