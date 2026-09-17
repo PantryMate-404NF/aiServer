@@ -63,7 +63,7 @@
       "cook_minutes": 20,
       "difficulty": 1,
       "cluster_id": 9,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 5,
@@ -101,7 +101,7 @@
       "cook_minutes": 30,
       "difficulty": 1,
       "cluster_id": 46,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 6,
@@ -151,7 +151,7 @@
       "cook_minutes": 20,
       "difficulty": 1,
       "cluster_id": 39,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 7,
@@ -197,7 +197,7 @@
       "cook_minutes": 30,
       "difficulty": 1,
       "cluster_id": 9,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 8,
@@ -238,7 +238,7 @@
       "cook_minutes": 15,
       "difficulty": 1,
       "cluster_id": 16,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 9,
@@ -288,7 +288,7 @@
       "cook_minutes": 20,
       "difficulty": 1,
       "cluster_id": 2,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 11,
@@ -328,7 +328,7 @@
       "cook_minutes": 20,
       "difficulty": 1,
       "cluster_id": 19,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 16,
@@ -371,7 +371,7 @@
       "cook_minutes": 30,
       "difficulty": 1,
       "cluster_id": 6,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 20,
@@ -404,7 +404,7 @@
       "cook_minutes": 15,
       "difficulty": 1,
       "cluster_id": 45,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 22,
@@ -447,7 +447,7 @@
       "cook_minutes": 20,
       "difficulty": 1,
       "cluster_id": 24,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 23,
@@ -485,7 +485,7 @@
       "cook_minutes": 20,
       "difficulty": 1,
       "cluster_id": 42,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 24,
@@ -524,7 +524,7 @@
       "cook_minutes": 10,
       "difficulty": 1,
       "cluster_id": 39,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 29,
@@ -568,7 +568,7 @@
       "cook_minutes": 10,
       "difficulty": 1,
       "cluster_id": 7,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 30,
@@ -603,7 +603,7 @@
       "cook_minutes": 10,
       "difficulty": 1,
       "cluster_id": 16,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 31,
@@ -641,7 +641,7 @@
       "cook_minutes": 20,
       "difficulty": 1,
       "cluster_id": 16,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 10,
@@ -676,7 +676,7 @@
       "cook_minutes": 30,
       "difficulty": 1,
       "cluster_id": 28,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 14,
@@ -717,7 +717,7 @@
       "cook_minutes": 20,
       "difficulty": 1,
       "cluster_id": 2,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 19,
@@ -752,7 +752,7 @@
       "cook_minutes": 90,
       "difficulty": 1,
       "cluster_id": 45,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 35,
@@ -783,7 +783,7 @@
       "cook_minutes": 10,
       "difficulty": 1,
       "cluster_id": 42,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 59,
@@ -810,7 +810,7 @@
       "cook_minutes": 10,
       "difficulty": 1,
       "cluster_id": 5,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 18,
@@ -857,7 +857,7 @@
       "cook_minutes": 20,
       "difficulty": 1,
       "cluster_id": 32,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 26,
@@ -893,7 +893,7 @@
       "cook_minutes": 20,
       "difficulty": 1,
       "cluster_id": 5,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 27,
@@ -945,7 +945,7 @@
       "cook_minutes": 30,
       "difficulty": 1,
       "cluster_id": 2,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 95,
@@ -979,7 +979,7 @@
       "cook_minutes": 20,
       "difficulty": 1,
       "cluster_id": 7,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 148,
@@ -1010,7 +1010,7 @@
       "cook_minutes": 20,
       "difficulty": 1,
       "cluster_id": 5,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 2801,
@@ -1037,7 +1037,7 @@
       "cook_minutes": 20,
       "difficulty": 1,
       "cluster_id": 5,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 3835,
@@ -1064,7 +1064,7 @@
       "cook_minutes": 20,
       "difficulty": 1,
       "cluster_id": 5,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 4577,
@@ -1091,7 +1091,7 @@
       "cook_minutes": 30,
       "difficulty": 1,
       "cluster_id": 5,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 1,
@@ -1137,7 +1137,7 @@
       "cook_minutes": null,
       "difficulty": 1,
       "cluster_id": 17,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     },
     {
       "recipe_id": 150,
@@ -1171,7 +1171,7 @@
       "cook_minutes": null,
       "difficulty": null,
       "cluster_id": 16,
-      "feature_version": "v1-da56de"
+      "feature_version": "v1-cd752f"
     }
   ]
 }

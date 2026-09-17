@@ -65,6 +65,12 @@ SEEDS = Path(__file__).resolve().parents[4] / "seeds"
 #: 09-17 에 실측으로 정했습니다. main 이 onboarding_recipes.yaml 을 고쳤을 때
 #: 지문이 뒤집혔는데 그 파일은 정규화 경로에 없습니다 — 헛된 전량 재계산이
 #: 될 뻔했습니다. ingest 경로가 읽는지를 기준으로 갈랐습니다.
+#:
+#: 같은 날 cuisine_taxonomy.yaml 을 뺐다가 되돌렸습니다. "recipe.cuisine 이라
+#: recipe_feature 가 아니다" 라고 적었는데 `recipe_feature.cuisine_family` 가
+#: 실재합니다. 오늘은 채우는 코드가 없어 값이 전건 NULL 이라 무해하지만,
+#: G-30 이 그 칸을 채우는 순간 조용히 틀립니다 — 사전이 바뀌어도 판 번호가
+#: 안 움직이는 그 실패입니다. 컬럼이 있으면 포함이 기본입니다.
 _UNRELATED = frozenset(
     {
         # 온보딩 taste_vec. profile_store·schema 만 읽습니다
@@ -73,8 +79,6 @@ _UNRELATED = frozenset(
         "substitutable_pairs.yaml",
         # 소비기한. effective_expiry 로 가고 recipe_feature 에 안 옵니다
         "ingredient_shelf_life.yaml",
-        # 요리 계열. recipe.cuisine 이고 recipe_feature 가 아닙니다
-        "cuisine_taxonomy.yaml",
     }
 )
 

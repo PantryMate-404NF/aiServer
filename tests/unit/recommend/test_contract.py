@@ -528,6 +528,9 @@ check(
 )
 check(
     # 09-15: 온보딩 음식 유형 슬롯이 생기며 `is_cuisine_slot` 이 붙어 16 → 17 (파트 B).
+    # 09-17 A 확인(F-90): 계약 98건 그대로이고 종료 코드 0 이라 승인한다.
+    #    단서 — 이 키가 보는 `cuisine_family` 는 실 DB 에서 46,353건 전수 NULL 이라
+    #    G-30 이 채우기 전까지 **항상 False** 다. 목업에서만 True 가 나온다.
     "노출분은 17키 (propensity·team·mmr_penalty·is_cuisine_slot 포함)",
     len(next(c for c in _kept if c.recipe_id == 0).model_dump()) == 17,
 )
