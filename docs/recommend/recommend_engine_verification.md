@@ -4,7 +4,7 @@
 
 **적용 대상**: 수정 여부를 결정하는 유재현과 수정을 반영할 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 11.2.0 · **최종 수정**: 2026-09-15 · **작성자**: 유재현
+**버전**: 11.3.0 · **최종 수정**: 2026-09-18 · **작성자**: 유재현
 
 ---
 
@@ -31,6 +31,7 @@
 | 시뮬 시드 시나리오 | 기획측 가상운영데이터 1,600명을 DB 없이 엔진에 넣음 (16절). 발견 8건(F-71~F-78) 중 코드 5·문서 3, 전원 불변식 위반 0, 콜드 → 웜 전환·행동·냉장고 반응 확인, 게이트 298 passed / 90.64% |
 | 시뮬 DB 경로 | Docker Desktop 설치 뒤 적재 · 검증 쿼리 · `/health` 포함 API 시나리오 (17절). 발견 3건(F-79~F-81) 전부 코드, 건수·분포가 기대값과 일치, 게이트 298 passed / 90.64% |
 | 온보딩 음식 유형 | 신규 문항을 계약에서 목록까지 이음 (18절). 발견 15건(F-82~F-96) 중 코드 12·데이터 3, 새 검사 19건, 게이트 315 passed / 91.02%. 시뮬 1,600명에서 고른 유형이 목록에 없는 사람 460 → 178명 |
+| A 요청 반영 | A 의 09-17 결정 기록이 B 에 넘긴 5건을 처리 (19절). 발견 10건(F-97~F-106) 중 코드 4·데이터 2·기록 1·A 전달 3, 새 검사 21건, 게이트 358 passed / 91.20%. 빈 팬트리 규칙 뒤 시뮬 B 집단 800명 전원이 첫 조회부터 인기순, 고른 유형이 목록에 없는 사람 450 → 161 |
 | 재현 | `uv run python scripts/eval_recommend_mock.py` (2절) |
 
 ---
@@ -58,7 +59,7 @@ uv run python scripts/eval_recommend_mock.py --only-latency  # 후보 500건 지
 | S-01 | 1.2 원칙 1 Zero-Drop | `rank.weighted_sum` 분자·분모 동시 제외 | 일치 | TC-3-1 |
 | S-02 | 1.2 원칙 2 감점 곱연산 | `penalty.apply_penalties` | 일치 | TC-3-3, V-12 |
 | S-03 | 1.2 원칙 3 알레르기 SQL 하드컷 | SQL 미작성. 파이썬 `candidate.is_eligible` 과 인기순 폴백에서 컷 | 부분 | T-05 에서 SQL. V-01 |
-| S-04 | 1.2 원칙 4 코퍼스 평균 중심화 | `rank.taste_score` | 확장 | 평균 없음·영벡터 → 측정 불가 (D-09) |
+| S-04 | 1.2 원칙 4 코퍼스 평균 중심화 | `rank.taste_score` | 확장 | 평균 없음·영벡터 → 측정 불가 (D-09). 09-18 정정: 실 DB 의 μ 는 실값(`feature_stats`, `stats_version` 7)이라 이 분기는 실 DB 에서 오지 않습니다(F-103) |
 | S-05 | 2.1 `RecommendRequest` 필드·보정 | `schema.RecommendRequest` | 일치 | `max_cook_minutes ge=1` 추가 |
 | S-06 | 2.1 `RecommendedItem`, `RecommendResponse` | `schema` | 확장 | `meta` 고정 5필드 (D-07) |
 | S-07 | 2.1 `FeedbackEventRequest` | `schema` | 확장 | `Literal`, `datetime` (D-08) |
@@ -231,7 +232,7 @@ uv run python scripts/eval_recommend_mock.py --only-latency  # 후보 500건 지
 | ID | 항목 | 결과 | 판정 |
 |---|---|---|---|
 | V-17 | `ScoredCandidate.features` 가 17 키를 전부 채우는가 | 12/12 프로필에서 통과. 빠지면 A 의 검증기가 거기서 터집니다 | 통과 |
-| V-18 | 못 재는 피처가 0 이 아니라 None 인가 | 실제로 값이 나온 것은 9종(`f_coverage`, `f_cuisine`, `f_expiring`, `f_missing`, `f_pantry_use`, `f_popularity`, `f_quality`, `f_taste`, `f_time_fit`). 수단이 없는 3종은 항상 None, 이력이 없어 못 재는 것(`f_cooccur`, `f_ing_pref`)과 데이터가 없는 것(`f_season`, `f_dish_type`, `f_skill_fit`)도 None | 통과 |
+| V-18 | 못 재는 피처가 0 이 아니라 None 인가 | 실제로 값이 나온 것은 9종(`f_coverage`, `f_cuisine`, `f_expiring`, `f_missing`, `f_pantry_use`, `f_popularity`, `f_quality`, `f_taste`, `f_time_fit`). 수단이 없는 3종은 항상 None, 이력이 없어 못 재는 것(`f_cooccur`, `f_ing_pref`)과 데이터가 없는 것(`f_season`, `f_dish_type`, `f_skill_fit`)도 None. 09-18 정정: 9종은 Mock 한정입니다 — 실 DB 는 `f_quality` 전건 0 · `f_cuisine` 은 배정된 61.7% 에서만 값이 나와 A 실측 7종(F-103) | 통과 |
 | V-19 | propensity 가 확률인가 | 12/12 에서 0 < p <= 1. 결정적 슬롯 1.0, 탐색 슬롯 0.04~0.30 | 통과 |
 | V-20 | 탐색 슬롯의 출처가 기록되는가 | `uniform` 과 `thompson` 두 값만 나오고 개인화 슬롯은 None | 통과 |
 | V-21 | 동결 trace 키가 다 있는가 | `check_trace_params` 가 두 스테이지 모두 빈 목록 | 통과 |
@@ -786,3 +787,58 @@ uv run pytest tests/unit/sim --no-cov   → 0 (6 passed)
 ### 17.4 판정
 
 시드 SQL 이 실제 DDL(외래키 · CHECK · `sim_persona`)을 통과하고 건수와 분포가 기대값과 같습니다. 발견 3건은 전부 코드로 처리했고, F-79 는 안내서가 권한 경로에서 재현되는 결함이라 시뮬 id 범위를 바꿨습니다(D-44). API 시나리오의 변동 0 은 M-01 · M-03 전환 전 상태 그대로이며, `/health` 는 DB 가 있으면 0.11초에 답해 G-29 는 DB 부재 시의 대기에 한정됩니다. 패키지는 (a)안으로 커밋했습니다(N-16, `cdf656e` · `3633ed7`).
+
+
+---
+
+## 19. 데이터 파트 요청 반영 (2026-09-18)
+
+9.23 세션. A 의 결정 기록 `docs/decisions/2026-09-17_data_track_dictionary_and_versioning.md` 8절이 B 에 넘긴 5건을 처리했습니다. 먼저 `origin/develop-data-part` 17 커밋을 검수해 우리 브랜치에 합쳤고(`1aa0507`, 게이트 전부 0), 그 위에서 작업했습니다. 결정과 되돌릴 조건은 `docs/decisions/2026-09-18_engine_applies_data_track_requests.md` 에 있습니다. 판정은 전부 종료 코드입니다(01의 3.4, D-28).
+
+### 19.1 발견과 처리
+
+| ID | 발견 | 실험 근거 | 처리 |
+|---|---|---|---|
+| F-97 | 빈 팬트리에서 인기순 폴백이 안 걸림 | A 의 게이트 조임 뒤 상비 재료만 있는 사용자의 후보는 필수 재료 0건인 양념 제조법 94건. 완화 종료 기준(취향 없으면 52)보다 커서 사다리가 첫 칸에서 멈추고 신규 사용자가 쌈장·초고추장 목록을 받음. 에러 없음 | 사용자가 넣은 재료가 없으면 첫 계획이 인기순(D-48, `own_pantry_ids` · `first_plan(pantry_is_bare=)`). 검사 `test_a_bare_pantry_is_served_from_popularity_not_from_sauce_recipes` |
+| F-98 | 저장소의 시뮬 시드가 변환기와 어긋남 | A 가 변환기에 `buckwheat` 을 넣었지만 `deploy/seed/sim/04_user_allergy.sql` 은 재생성하지 않음. 재생성하면 92줄 차이(메밀 알러지 11명) | 재생성(`52aec67`, 다른 파일과 `stats.json` 동일). `test_committed_seed_matches_the_generator` 가 앞으로 어긋남을 잡음 |
+| F-99 | Mock 알러지 어휘가 대문자 18종 | DDL 정본은 소문자 10종. 생성기가 DB 를 안 거쳐 CHECK 에 안 걸리고 조용히 갈림(A 지적). `sesame` 은 대응이 없어 시뮬 검사 대상도 아니었음 | 생성기가 `seeds/ingredient.csv` 에서 그룹을 읽음(D-49). Mock 재료 이름 6종을 시드 이름으로, 페르소나 4명 코드화, `sim_seed.ALLERGEN_MAP` 삭제. 1012 의 컷 72 → 51건, 시드 냉장고 이름 결측 1,836 → 1,577 |
+| F-100 | 동결 키에 배치 판 번호가 없음 | `feature_version` 이 다섯 번 갈아탔는데 로그에 칸이 없어 "이 추천이 어느 피처판이었나" 를 소급할 수 없음 | `feature_version` · `cluster_version` 추가(12종, D-51). `rank_candidates(batch_versions=)`, 목업은 None. `test_contract.py` 10종 → 12종 |
+| F-101 | `EventIn` 에 발생 시각이 없음 (G-26) | 오프라인 동기화 배치 200건이 같은 수신 시각을 받아 감쇠·주기가 뭉개짐 | `occurred_at` 선택 필드, 시간대 없으면 거부, 없으면 수신 시각. `test_an_event_that_brings_its_own_clock_keeps_it` |
+| F-102 | `retrieve()` 가 5칸만 돌려줘 피처 값이 서빙에 닿지 않음 | 맛 6축·인기·조리시간·계열이 없어 실 DB 에서 `f_taste` · `f_expiring` · `f_popularity` 가 전부 None 이 될 자리 | `load_recipe_features()` · `load_corpus_stats()` · `recipe_feature_from_row`(D-50). DB 없는 검사 4건, 골든 30건 변환 검사 |
+| F-103 | 기록 4건이 실측과 다름 (A 5절) | μ 부트스트랩 영벡터 → 실값 · `cluster_id` 폴백 → 전량 배정 · `ingredient_substitute` 0행 → 결정 · "값 나온 9종" → 실 DB 7종 | S-04 · V-18 주석, N-09 · G-27, A-05, `enums.py` 주석(전수 0건 → 61.7%) |
+| F-104 | A 의 `cuisine_build.judge()` 가 태그 순회 순서에 의존 | `for tag in tags` 가 `set` 을 돌아 첫 매핑 태그로 끝냄. `PYTHONHASHSEED` 0 은 chinese, 1·2 는 korean(결정 기록 7절 재현) | A 파일이라 손대지 않음. G-31 로 전달 |
+| F-105 | A 의 배정 건수가 두 곳에서 다름 | 결정 기록 28,604건, `cuisine_taxonomy.yaml` 주석 28,621건 | F-104 를 고친 뒤 다시 세도록 전달 |
+| F-106 | 골든 픽스처에 `cuisine_family` 가 없음 | KEYS 14종에 계열·`dish_type`·`season_vec` 이 없어 로더의 유형 변환을 골든으로 못 봄 | 다음 골든에 넣도록 전달 |
+
+### 19.2 실 DB 대조 (미실행)
+
+로더의 SQL 을 실제 DB 에 대 보려 했으나 이 PC 의 Docker Desktop 데몬이 꺼져 있어 돌리지 못했습니다(E-17). 그래서 19.1 의 F-102 는 **DB 없는 검사만** 통과한 상태입니다. 대조 절차는 컨테이너를 올린 뒤 `load_recipe_features(ids, include_test=True)` 로 `test-smoke` 합성 행을 읽어 `recipe_feature_from_row` 의 결과를 골든 30건과 같은 규칙으로 보는 것이며, 라우터 연결(M-01·M-02·M-04) 때 함께 합니다.
+
+### 19.3 시나리오 결과 (`scenario_engine.py`, 1,600명)
+
+```text
+판정 {'invariants': True, 'cuisine_reaches_list': True, 'cold_to_warm': True,
+      'behavior_moves_list': True, 'expiring_reaches_list': True, 'repeatable': True}   → RESULT: PASS
+불변식 위반 0명
+A 집단(냉장고 있음 426명) 완화 단계 popularity 620 · relax_missing 139 · none 41
+B 집단(냉장고 없음) 완화 단계 popularity 800   ← D-48. 이전에는 사다리를 밟은 뒤 폴백
+냉장고 재료 4,267건 중 Mock 에 이름이 없는 것 1,836 → 1,577 (재료 이름을 시드와 맞춘 효과)
+유형 칸 합 298 · A 집단 129명 · B 집단 163명이 칸을 받음
+고른 유형이 Top-20 에 한 건도 없는 사람: 슬롯 끄면 450명 → 켜면 161명
+```
+
+### 19.4 저장소 게이트
+
+```text
+uv run ruff check .                     → 0
+uv run ruff format --check .            → 0 (168 files already formatted)
+uv run python -m mypy src               → 0 (67 source files)
+uv run pytest tests/unit                → 0 (358 passed, coverage 91.20%)
+python tests/unit/recommend/test_contract.py → 0 (98건, 설정값을 채운 환경. E-13)
+uv run python scripts/eval_recommend_mock.py → 0
+uv run python scripts/sim/scenario_engine.py → 0 (RESULT: PASS)
+```
+
+### 19.5 판정
+
+A 의 요청 다섯은 전부 코드로 닫혔고 검사가 각각 붙어 있습니다. 실 DB 에 닿는 것은 로더뿐인데 그것만 실 DB 대조를 못 했으므로(19.2) M-02 · M-04 는 `진행` 이지 `완료` 가 아닙니다. A 에 돌려주는 것 셋(F-104~F-106)은 A 파일이라 고치지 않았습니다.
