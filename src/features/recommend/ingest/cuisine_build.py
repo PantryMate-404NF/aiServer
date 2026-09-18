@@ -151,9 +151,11 @@ def judge(title: str, tags: set[str], ingredients: set[str], r: Rules) -> tuple[
 
     위에서 걸리면 거기서 끝냅니다 — 순서가 규칙의 절반입니다.
     """
-    for tag in tags:
-        if tag in r.tag_map:
-            return r.tag_map[tag], "by_source_tag"
+    # 규칙에 적힌 순서로 본다. tags(set) 를 순회하면 같은 입력에도 실행마다
+    # 결과가 달라진다 — 태그가 둘 이상 붙은 레시피 3건이 여기서 갈렸다.
+    for tag, family in r.tag_map.items():
+        if tag in tags:
+            return family, "by_source_tag"
 
     t = title or ""
     for family, keywords in r.non_korean.items():
@@ -166,9 +168,11 @@ def judge(title: str, tags: set[str], ingredients: set[str], r: Rules) -> tuple[
     if any(k in t for k in r.korean):
         return "korean", "by_title_korean"
 
-    for tag in tags:
-        if tag in r.tag_late:
-            return r.tag_late[tag], "by_source_tag_late"
+    # 위와 같은 이유로 규칙 순서로 본다. 지금은 키가 하나라 결과가 같지만
+    # 키가 늘면 같은 함정에 빠진다.
+    for tag, family in r.tag_late.items():
+        if tag in tags:
+            return family, "by_source_tag_late"
 
     best, hits = "", 0
     for family, names in r.signature.items():
