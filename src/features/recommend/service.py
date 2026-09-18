@@ -217,7 +217,8 @@ class PersonaService:
         맛을 모르는 레시피, 한 배치 안의 같은 이벤트는 저장하지 않고 **셉니다.** 삼키기만 하면
         취향이 안 쌓이는 것을 아무도 모릅니다. 검색처럼 레시피가 없는 것이 정상인 종류는 지나갑니다.
 
-        시각은 서버 수신 시각 `now` 입니다 - `EventIn` 에 시각이 없습니다. 사용자마다
+        시각은 이벤트가 `occurred_at` 을 실었으면 그것이고, 없으면 서버 수신 시각 `now` 입니다.
+        사용자마다
         읽고-합치고-쓰기를 하며 프로세스 안에서는 잠금으로 직렬화합니다. 프로세스가 여럿이면
         나중 쓰기가 앞 쓰기를 덮습니다 - 실 DB 로 옮기면(M-14) 사라지는 제약입니다.
         """
@@ -298,8 +299,13 @@ def _taste_event(
     if flavor is None or all(v is None for v in flavor):
         bump("persona_recipe_unknown")
         return None
+    # 발생 시각이 왔으면 그것을, 없으면 수신 시각을. 계약이 시간대를 강제하므로 여기서는 믿습니다.
     return TasteEvent(
-        recipe_id=recipe_id, kind=event.event_type, at=now, flavor=flavor, value=event.value
+        recipe_id=recipe_id,
+        kind=event.event_type,
+        at=event.occurred_at or now,
+        flavor=flavor,
+        value=event.value,
     )
 
 
@@ -328,6 +334,7 @@ def rank_candidates(
     rng_seed: int = 0,
     max_missing_final: int | None = None,
     serving_mode: str = "real",
+    batch_versions: Mapping[str, str | None] | None = None,
 ) -> RankingResult:
     """② 점수 계산 → ③ 재정렬. 정책으로 거르지는 않습니다 - 그것은 ① 의 일입니다.
 
@@ -357,12 +364,17 @@ def rank_candidates(
     shortfall = max(0, spec.count - n_explore)
     if shortfall:
         bump("explore_shortfall", shortfall)
+    # 어느 배치 산출물 위에서 나온 추천인지. 호출자가 `repository.load_batch_versions()` 로
+    # 읽어 넘기고, 목업 서빙 동안은 None 으로 키만 실립니다 — 키 자체가 소급 불가입니다.
+    versions = batch_versions or {}
     params = policy.trace_params(
         top_k=top_k,
         n_explore=n_explore,
         rng_seed=rng_seed,
         max_missing_final=(policy.max_missing if max_missing_final is None else max_missing_final),
         serving_mode=serving_mode,
+        feature_version=versions.get("feature_version"),
+        cluster_version=versions.get("cluster_version"),
     )
     params = with_trace_extra(
         params,
@@ -476,8 +488,8 @@ def _cuisine_params(
 
     칸 수만으로는 "이미 목록에 있어서 0" 과 "후보에 그 유형이 한 건도 없어서 0" 이 구분되지
     않습니다. 그래서 목록에 끝내 없는 유형을 함께 남깁니다. 그 값이 계속 차 있으면 ① 이 덜
-    가져왔거나 레시피 쪽 `cuisine_family` 가 비어 있다는 뜻입니다 - 지금 실 DB 는 전수
-    비어 있어(`PENDING_DATA_FEATURES`) 이 칸이 유일한 신호입니다.
+    가져왔거나 레시피 쪽 `cuisine_family` 가 비어 있다는 뜻입니다 - 실 DB 는 09-17 규칙
+    배정으로 61.7% 만 차 있어(`PENDING_DATA_FEATURES`) 이 칸이 유일한 신호입니다.
     """
     if not ctx.preferred_cuisines:
         return {}

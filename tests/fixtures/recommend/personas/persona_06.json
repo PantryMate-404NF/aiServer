@@ -33,11 +33,8 @@
   ],
   "max_cook_minutes": 40,
   "allergy_group_codes": [
-    "SHRIMP",
-    "SQUID",
-    "SHELLFISH",
-    "CRAB",
-    "MACKEREL"
+    "shellfish",
+    "fish"
   ],
   "top_k": 20,
   "onboarding_picks": [

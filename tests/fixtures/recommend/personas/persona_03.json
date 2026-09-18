@@ -29,7 +29,7 @@
   ],
   "max_cook_minutes": null,
   "allergy_group_codes": [
-    "MILK"
+    "dairy"
   ],
   "top_k": 20,
   "onboarding_picks": [

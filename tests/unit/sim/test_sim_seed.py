@@ -95,3 +95,16 @@ def test_engine_scenario_passes_without_a_db() -> None:
     )
     assert done.returncode == 0, (done.stdout + done.stderr)[-3000:]
     assert "RESULT: PASS" in done.stdout
+
+
+def test_committed_seed_matches_the_generator(seed_dir: Path) -> None:
+    """저장소의 `deploy/seed/sim/*.sql` 은 생성물이고, 생성기와 같아야 합니다 (09-18).
+
+    09-17 에 변환기에 `buckwheat` 이 들어갔는데 시드는 재생성되지 않아 11명의 메밀 알러지가
+    저장소 시드에 없었습니다 — 시드가 결과물이라 diff 로는 안 보입니다. 줄 끝은 무시합니다
+    (Windows 체크아웃이 CRLF 로 바꿉니다).
+    """
+    committed = ROOT / "deploy" / "seed" / "sim"
+    for generated in sorted(seed_dir.glob("*.sql")):
+        expected = (committed / generated.name).read_text(encoding="utf-8").splitlines()
+        assert generated.read_text(encoding="utf-8").splitlines() == expected, generated.name

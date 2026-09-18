@@ -11,9 +11,9 @@
     "8": "시금치",
     "9": "버섯",
     "10": "두부",
-    "11": "계란",
+    "11": "달걀",
     "12": "우유",
-    "13": "치즈",
+    "13": "체다치즈",
     "14": "돼지고기",
     "15": "소고기",
     "16": "닭고기",
@@ -21,7 +21,7 @@
     "18": "오징어",
     "19": "고등어",
     "20": "참치캔",
-    "21": "김치",
+    "21": "배추김치",
     "22": "쌀",
     "23": "밀가루",
     "24": "스파게티면",
@@ -36,13 +36,13 @@
     "33": "상추",
     "34": "콩나물",
     "35": "무",
-    "36": "고추",
+    "36": "청양고추",
     "37": "땅콩",
     "38": "호두",
     "39": "복숭아",
     "40": "사과",
     "41": "바지락",
-    "42": "게맛살",
+    "42": "맛살",
     "43": "메밀면",
     "44": "잣",
     "45": "간장",
@@ -59,74 +59,57 @@
     "56": "카레가루",
     "57": "버터",
     "58": "생크림",
-    "59": "요거트",
+    "59": "플레인요거트",
     "60": "꿀"
   },
   "allergen_groups": {
-    "EGG": [
-      11
+    "buckwheat": [
+      43
     ],
-    "MILK": [
+    "dairy": [
       12,
       13,
       57,
       58,
       59
     ],
-    "WHEAT": [
+    "egg": [
+      11,
+      55
+    ],
+    "fish": [
+      19,
+      20,
+      27,
+      42
+    ],
+    "gluten": [
       23,
       24,
       25
     ],
-    "PORK": [
-      14,
-      28,
-      29
+    "nut": [
+      37,
+      38,
+      44
     ],
-    "BEEF": [
-      15
-    ],
-    "CHICKEN": [
-      16
-    ],
-    "SHRIMP": [
-      17
-    ],
-    "SQUID": [
-      18
-    ],
-    "MACKEREL": [
-      19
-    ],
-    "SOYBEAN": [
-      10,
-      45,
-      47
-    ],
-    "TOMATO": [
-      30,
-      54
-    ],
-    "PEANUT": [
-      37
-    ],
-    "WALNUT": [
-      38
-    ],
-    "PEACH": [
+    "peach": [
       39
     ],
-    "SHELLFISH": [
+    "sesame": [
+      50
+    ],
+    "shellfish": [
+      17,
+      21,
       41
     ],
-    "CRAB": [
-      42
-    ],
-    "BUCKWHEAT": [
-      43
-    ],
-    "PINE_NUT": [
-      44
+    "soy": [
+      10,
+      34,
+      45,
+      46,
+      47
     ]
   },
   "cuisines": [
@@ -170,7 +153,7 @@
     },
     {
       "recipe_id": 2,
-      "title": "게맛살 찌개",
+      "title": "맛살 찌개",
       "cuisine": "korean",
       "cluster_id": 7,
       "essential_ids": [
@@ -439,7 +422,7 @@
     },
     {
       "recipe_id": 10,
-      "title": "계란 김밥",
+      "title": "달걀 김밥",
       "cuisine": "korean",
       "cluster_id": 1,
       "essential_ids": [
@@ -701,7 +684,7 @@
     },
     {
       "recipe_id": 18,
-      "title": "고추 구이",
+      "title": "청양고추 구이",
       "cuisine": "japanese",
       "cluster_id": 4,
       "essential_ids": [
@@ -893,7 +876,7 @@
     },
     {
       "recipe_id": 24,
-      "title": "김치 탕",
+      "title": "배추김치 탕",
       "cuisine": "chinese",
       "cluster_id": 3,
       "essential_ids": [
@@ -961,7 +944,7 @@
     },
     {
       "recipe_id": 26,
-      "title": "김치 조림",
+      "title": "배추김치 조림",
       "cuisine": "korean",
       "cluster_id": 2,
       "essential_ids": [
@@ -1196,7 +1179,7 @@
     },
     {
       "recipe_id": 33,
-      "title": "게맛살 찌개",
+      "title": "맛살 찌개",
       "cuisine": "korean",
       "cluster_id": 6,
       "essential_ids": [
@@ -1550,7 +1533,7 @@
     },
     {
       "recipe_id": 44,
-      "title": "고추 찌개",
+      "title": "청양고추 찌개",
       "cuisine": "korean",
       "cluster_id": 6,
       "essential_ids": [
@@ -1918,7 +1901,7 @@
     },
     {
       "recipe_id": 55,
-      "title": "게맛살 떡볶이",
+      "title": "맛살 떡볶이",
       "cuisine": "korean",
       "cluster_id": 2,
       "essential_ids": [
@@ -1957,7 +1940,7 @@
     },
     {
       "recipe_id": 56,
-      "title": "고추 덮밥",
+      "title": "청양고추 덮밥",
       "cuisine": "chinese",
       "cluster_id": 0,
       "essential_ids": [
@@ -2098,7 +2081,7 @@
     },
     {
       "recipe_id": 60,
-      "title": "치즈 떡볶이",
+      "title": "체다치즈 떡볶이",
       "cuisine": "korean",
       "cluster_id": 0,
       "essential_ids": [
@@ -2259,7 +2242,7 @@
     },
     {
       "recipe_id": 65,
-      "title": "김치 전",
+      "title": "배추김치 전",
       "cuisine": "korean",
       "cluster_id": 1,
       "essential_ids": [
@@ -2293,7 +2276,7 @@
     },
     {
       "recipe_id": 66,
-      "title": "김치 국",
+      "title": "배추김치 국",
       "cuisine": "korean",
       "cluster_id": 1,
       "essential_ids": [
@@ -2515,7 +2498,7 @@
     },
     {
       "recipe_id": 73,
-      "title": "고추 무침",
+      "title": "청양고추 무침",
       "cuisine": "korean",
       "cluster_id": 2,
       "essential_ids": [
@@ -2677,7 +2660,7 @@
     },
     {
       "recipe_id": 78,
-      "title": "게맛살 국",
+      "title": "맛살 국",
       "cuisine": "korean",
       "cluster_id": 3,
       "essential_ids": [
@@ -3054,7 +3037,7 @@
     },
     {
       "recipe_id": 90,
-      "title": "게맛살 전",
+      "title": "맛살 전",
       "cuisine": "korean",
       "cluster_id": 1,
       "essential_ids": [
@@ -3315,7 +3298,7 @@
     },
     {
       "recipe_id": 98,
-      "title": "고추 볶음면",
+      "title": "청양고추 볶음면",
       "cuisine": "asian_other",
       "cluster_id": 0,
       "essential_ids": [
@@ -3734,7 +3717,7 @@
     },
     {
       "recipe_id": 111,
-      "title": "게맛살 떡볶이",
+      "title": "맛살 떡볶이",
       "cuisine": "korean",
       "cluster_id": 3,
       "essential_ids": [

@@ -4,7 +4,7 @@
 
 **적용 대상**: 수정 여부를 결정하는 유재현과 수정을 반영할 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 11.2.0 · **최종 수정**: 2026-09-15 · **작성자**: 유재현
+**버전**: 11.4.0 · **최종 수정**: 2026-09-18 · **작성자**: 유재현
 
 ---
 
@@ -31,6 +31,8 @@
 | 시뮬 시드 시나리오 | 기획측 가상운영데이터 1,600명을 DB 없이 엔진에 넣음 (16절). 발견 8건(F-71~F-78) 중 코드 5·문서 3, 전원 불변식 위반 0, 콜드 → 웜 전환·행동·냉장고 반응 확인, 게이트 298 passed / 90.64% |
 | 시뮬 DB 경로 | Docker Desktop 설치 뒤 적재 · 검증 쿼리 · `/health` 포함 API 시나리오 (17절). 발견 3건(F-79~F-81) 전부 코드, 건수·분포가 기대값과 일치, 게이트 298 passed / 90.64% |
 | 온보딩 음식 유형 | 신규 문항을 계약에서 목록까지 이음 (18절). 발견 15건(F-82~F-96) 중 코드 12·데이터 3, 새 검사 19건, 게이트 315 passed / 91.02%. 시뮬 1,600명에서 고른 유형이 목록에 없는 사람 460 → 178명 |
+| A 요청 반영 | A 의 09-17 결정 기록이 B 에 넘긴 5건을 처리 (19절). 발견 10건(F-97~F-106) 중 코드 4·데이터 2·기록 1·A 전달 3, 새 검사 21건, 게이트 358 passed / 91.20%. 빈 팬트리 규칙 뒤 시뮬 B 집단 800명 전원이 첫 조회부터 인기순, 고른 유형이 목록에 없는 사람 450 → 161 |
+| 군집 다양성 | A 의 k-means 가 목록 다양성에 닿는 정도를 잼 (20절). 발견 4건(F-107~F-110), 선택지 4종을 같은 조건에서 측정. 군집은 20칸 중 2칸에만 닿고, 재료 자카드 MMR 은 군집 축을 거의 못 벌림 |
 | 재현 | `uv run python scripts/eval_recommend_mock.py` (2절) |
 
 ---
@@ -58,7 +60,7 @@ uv run python scripts/eval_recommend_mock.py --only-latency  # 후보 500건 지
 | S-01 | 1.2 원칙 1 Zero-Drop | `rank.weighted_sum` 분자·분모 동시 제외 | 일치 | TC-3-1 |
 | S-02 | 1.2 원칙 2 감점 곱연산 | `penalty.apply_penalties` | 일치 | TC-3-3, V-12 |
 | S-03 | 1.2 원칙 3 알레르기 SQL 하드컷 | SQL 미작성. 파이썬 `candidate.is_eligible` 과 인기순 폴백에서 컷 | 부분 | T-05 에서 SQL. V-01 |
-| S-04 | 1.2 원칙 4 코퍼스 평균 중심화 | `rank.taste_score` | 확장 | 평균 없음·영벡터 → 측정 불가 (D-09) |
+| S-04 | 1.2 원칙 4 코퍼스 평균 중심화 | `rank.taste_score` | 확장 | 평균 없음·영벡터 → 측정 불가 (D-09). 09-18 정정: 실 DB 의 μ 는 실값(`feature_stats`, `stats_version` 7)이라 이 분기는 실 DB 에서 오지 않습니다(F-103) |
 | S-05 | 2.1 `RecommendRequest` 필드·보정 | `schema.RecommendRequest` | 일치 | `max_cook_minutes ge=1` 추가 |
 | S-06 | 2.1 `RecommendedItem`, `RecommendResponse` | `schema` | 확장 | `meta` 고정 5필드 (D-07) |
 | S-07 | 2.1 `FeedbackEventRequest` | `schema` | 확장 | `Literal`, `datetime` (D-08) |
@@ -231,7 +233,7 @@ uv run python scripts/eval_recommend_mock.py --only-latency  # 후보 500건 지
 | ID | 항목 | 결과 | 판정 |
 |---|---|---|---|
 | V-17 | `ScoredCandidate.features` 가 17 키를 전부 채우는가 | 12/12 프로필에서 통과. 빠지면 A 의 검증기가 거기서 터집니다 | 통과 |
-| V-18 | 못 재는 피처가 0 이 아니라 None 인가 | 실제로 값이 나온 것은 9종(`f_coverage`, `f_cuisine`, `f_expiring`, `f_missing`, `f_pantry_use`, `f_popularity`, `f_quality`, `f_taste`, `f_time_fit`). 수단이 없는 3종은 항상 None, 이력이 없어 못 재는 것(`f_cooccur`, `f_ing_pref`)과 데이터가 없는 것(`f_season`, `f_dish_type`, `f_skill_fit`)도 None | 통과 |
+| V-18 | 못 재는 피처가 0 이 아니라 None 인가 | 실제로 값이 나온 것은 9종(`f_coverage`, `f_cuisine`, `f_expiring`, `f_missing`, `f_pantry_use`, `f_popularity`, `f_quality`, `f_taste`, `f_time_fit`). 수단이 없는 3종은 항상 None, 이력이 없어 못 재는 것(`f_cooccur`, `f_ing_pref`)과 데이터가 없는 것(`f_season`, `f_dish_type`, `f_skill_fit`)도 None. 09-18 정정: 9종은 Mock 한정입니다 — 실 DB 는 `f_quality` 전건 0 · `f_cuisine` 은 배정된 61.7% 에서만 값이 나와 A 실측 7종(F-103) | 통과 |
 | V-19 | propensity 가 확률인가 | 12/12 에서 0 < p <= 1. 결정적 슬롯 1.0, 탐색 슬롯 0.04~0.30 | 통과 |
 | V-20 | 탐색 슬롯의 출처가 기록되는가 | `uniform` 과 `thompson` 두 값만 나오고 개인화 슬롯은 None | 통과 |
 | V-21 | 동결 trace 키가 다 있는가 | `check_trace_params` 가 두 스테이지 모두 빈 목록 | 통과 |
@@ -786,3 +788,113 @@ uv run pytest tests/unit/sim --no-cov   → 0 (6 passed)
 ### 17.4 판정
 
 시드 SQL 이 실제 DDL(외래키 · CHECK · `sim_persona`)을 통과하고 건수와 분포가 기대값과 같습니다. 발견 3건은 전부 코드로 처리했고, F-79 는 안내서가 권한 경로에서 재현되는 결함이라 시뮬 id 범위를 바꿨습니다(D-44). API 시나리오의 변동 0 은 M-01 · M-03 전환 전 상태 그대로이며, `/health` 는 DB 가 있으면 0.11초에 답해 G-29 는 DB 부재 시의 대기에 한정됩니다. 패키지는 (a)안으로 커밋했습니다(N-16, `cdf656e` · `3633ed7`).
+
+
+---
+
+## 19. 데이터 파트 요청 반영 (2026-09-18)
+
+9.23 세션. A 의 결정 기록 `docs/decisions/2026-09-17_data_track_dictionary_and_versioning.md` 8절이 B 에 넘긴 5건을 처리했습니다. 먼저 `origin/develop-data-part` 17 커밋을 검수해 우리 브랜치에 합쳤고(`1aa0507`, 게이트 전부 0), 그 위에서 작업했습니다. 결정과 되돌릴 조건은 `docs/decisions/2026-09-18_engine_applies_data_track_requests.md` 에 있습니다. 판정은 전부 종료 코드입니다(01의 3.4, D-28).
+
+### 19.1 발견과 처리
+
+| ID | 발견 | 실험 근거 | 처리 |
+|---|---|---|---|
+| F-97 | 빈 팬트리에서 인기순 폴백이 안 걸림 | A 의 게이트 조임 뒤 상비 재료만 있는 사용자의 후보는 필수 재료 0건인 양념 제조법 94건. 완화 종료 기준(취향 없으면 52)보다 커서 사다리가 첫 칸에서 멈추고 신규 사용자가 쌈장·초고추장 목록을 받음. 에러 없음 | 사용자가 넣은 재료가 없으면 첫 계획이 인기순(D-48, `own_pantry_ids` · `first_plan(pantry_is_bare=)`). 검사 `test_a_bare_pantry_is_served_from_popularity_not_from_sauce_recipes` |
+| F-98 | 저장소의 시뮬 시드가 변환기와 어긋남 | A 가 변환기에 `buckwheat` 을 넣었지만 `deploy/seed/sim/04_user_allergy.sql` 은 재생성하지 않음. 재생성하면 92줄 차이(메밀 알러지 11명) | 재생성(`52aec67`, 다른 파일과 `stats.json` 동일). `test_committed_seed_matches_the_generator` 가 앞으로 어긋남을 잡음 |
+| F-99 | Mock 알러지 어휘가 대문자 18종 | DDL 정본은 소문자 10종. 생성기가 DB 를 안 거쳐 CHECK 에 안 걸리고 조용히 갈림(A 지적). `sesame` 은 대응이 없어 시뮬 검사 대상도 아니었음 | 생성기가 `seeds/ingredient.csv` 에서 그룹을 읽음(D-49). Mock 재료 이름 6종을 시드 이름으로, 페르소나 4명 코드화, `sim_seed.ALLERGEN_MAP` 삭제. 1012 의 컷 72 → 51건, 시드 냉장고 이름 결측 1,836 → 1,577 |
+| F-100 | 동결 키에 배치 판 번호가 없음 | `feature_version` 이 다섯 번 갈아탔는데 로그에 칸이 없어 "이 추천이 어느 피처판이었나" 를 소급할 수 없음 | `feature_version` · `cluster_version` 추가(12종, D-51). `rank_candidates(batch_versions=)`, 목업은 None. `test_contract.py` 10종 → 12종 |
+| F-101 | `EventIn` 에 발생 시각이 없음 (G-26) | 오프라인 동기화 배치 200건이 같은 수신 시각을 받아 감쇠·주기가 뭉개짐 | `occurred_at` 선택 필드, 시간대 없으면 거부, 없으면 수신 시각. `test_an_event_that_brings_its_own_clock_keeps_it` |
+| F-102 | `retrieve()` 가 5칸만 돌려줘 피처 값이 서빙에 닿지 않음 | 맛 6축·인기·조리시간·계열이 없어 실 DB 에서 `f_taste` · `f_expiring` · `f_popularity` 가 전부 None 이 될 자리 | `load_recipe_features()` · `load_corpus_stats()` · `recipe_feature_from_row`(D-50). DB 없는 검사 4건, 골든 30건 변환 검사 |
+| F-103 | 기록 4건이 실측과 다름 (A 5절) | μ 부트스트랩 영벡터 → 실값 · `cluster_id` 폴백 → 전량 배정 · `ingredient_substitute` 0행 → 결정 · "값 나온 9종" → 실 DB 7종 | S-04 · V-18 주석, N-09 · G-27, A-05, `enums.py` 주석(전수 0건 → 61.7%) |
+| F-104 | A 의 `cuisine_build.judge()` 가 태그 순회 순서에 의존 | `for tag in tags` 가 `set` 을 돌아 첫 매핑 태그로 끝냄. `PYTHONHASHSEED` 0 은 chinese, 1·2 는 korean(결정 기록 7절 재현) | A 파일이라 손대지 않음. G-31 로 전달 |
+| F-105 | A 의 배정 건수가 두 곳에서 다름 | 결정 기록 28,604건, `cuisine_taxonomy.yaml` 주석 28,621건 | F-104 를 고친 뒤 다시 세도록 전달 |
+| F-106 | 골든 픽스처에 `cuisine_family` 가 없음 | KEYS 14종에 계열·`dish_type`·`season_vec` 이 없어 로더의 유형 변환을 골든으로 못 봄 | 다음 골든에 넣도록 전달 |
+
+### 19.2 실 DB 대조 (미실행)
+
+로더의 SQL 을 실제 DB 에 대 보려 했으나 이 PC 의 Docker Desktop 데몬이 꺼져 있어 돌리지 못했습니다(E-17). 그래서 19.1 의 F-102 는 **DB 없는 검사만** 통과한 상태입니다. 대조 절차는 컨테이너를 올린 뒤 `load_recipe_features(ids, include_test=True)` 로 `test-smoke` 합성 행을 읽어 `recipe_feature_from_row` 의 결과를 골든 30건과 같은 규칙으로 보는 것이며, 라우터 연결(M-01·M-02·M-04) 때 함께 합니다.
+
+### 19.3 시나리오 결과 (`scenario_engine.py`, 1,600명)
+
+```text
+판정 {'invariants': True, 'cuisine_reaches_list': True, 'cold_to_warm': True,
+      'behavior_moves_list': True, 'expiring_reaches_list': True, 'repeatable': True}   → RESULT: PASS
+불변식 위반 0명
+A 집단(냉장고 있음 426명) 완화 단계 popularity 620 · relax_missing 139 · none 41
+B 집단(냉장고 없음) 완화 단계 popularity 800   ← D-48. 이전에는 사다리를 밟은 뒤 폴백
+냉장고 재료 4,267건 중 Mock 에 이름이 없는 것 1,836 → 1,577 (재료 이름을 시드와 맞춘 효과)
+유형 칸 합 298 · A 집단 129명 · B 집단 163명이 칸을 받음
+고른 유형이 Top-20 에 한 건도 없는 사람: 슬롯 끄면 450명 → 켜면 161명
+```
+
+### 19.4 저장소 게이트
+
+```text
+uv run ruff check .                     → 0
+uv run ruff format --check .            → 0 (168 files already formatted)
+uv run python -m mypy src               → 0 (67 source files)
+uv run pytest tests/unit                → 0 (358 passed, coverage 91.20%)
+python tests/unit/recommend/test_contract.py → 0 (98건, 설정값을 채운 환경. E-13)
+uv run python scripts/eval_recommend_mock.py → 0
+uv run python scripts/sim/scenario_engine.py → 0 (RESULT: PASS)
+```
+
+### 19.5 판정
+
+A 의 요청 다섯은 전부 코드로 닫혔고 검사가 각각 붙어 있습니다. 실 DB 에 닿는 것은 로더뿐인데 그것만 실 DB 대조를 못 했으므로(19.2) M-02 · M-04 는 `진행` 이지 `완료` 가 아닙니다. A 에 돌려주는 것 셋(F-104~F-106)은 A 파일이라 고치지 않았습니다.
+
+---
+
+## 20. 군집(k-means) 다양성 검증 (2026-09-18)
+
+9.26 세션. 유재현 질문 — "A 가 벡터화·군집한 데이터로 다양성을 확보하려던 것이 잘 구현됐는가". 코드 경로를 따라간 뒤 **A 의 `ingest/cluster_build.py` 함수를 그대로 불러** 목업 3,000건에 K=50 을 매기고, 그 시험대에서 선택지 넷을 같은 조건으로 측정했습니다. 운영 코드는 고치지 않았고 `rerank.mmr_select` 를 몽키패치해 쟀습니다. 판정은 종료 코드가 아니라 측정값입니다 — 이 절은 검사가 아니라 관측입니다.
+
+### 20.1 무엇이 어디에 닿는가
+
+| 자산 | 상태 | 서빙에 닿는가 |
+|---|---|---|
+| `content_emb` vector(768) | 컬럼만 있고 비어 있음. 만드는 코드가 저장소에 없음 | 아니요. `f_content` 는 `UNAVAILABLE_FEATURES` 이고 **계산 경로 자체가 `feature.py` 에 없습니다** |
+| `cluster_build` 의 중간 벡터 (SVD 48 ⊕ 맛 6 = 54차) | 배치가 계산하고 **버립니다** (`set_cluster_ids` 는 라벨과 판 번호만 저장) | 아니요 |
+| `recipe_feature.cluster_id` (50군집) | 전량 배정 | 예. 단 탐색 슬롯의 Thompson 몫뿐 — 20칸 중 2칸, 취향 없으면 4칸 |
+| `user_cluster_stat` | 비어 있음 (M-03 전) | Thompson 이 사전분포만 써서 **군집을 무작위로 고르는 것과 같습니다** |
+
+개인화 16칸의 MMR 은 군집이 아니라 재료 IDF 자카드를 봅니다. 설계 3.4 도 그렇게 적혀 있어 **구현은 설계와 일치**합니다. 즉 결함이 아니라 설계의 범위입니다.
+
+### 20.2 발견
+
+| ID | 발견 | 실험 근거 | 처리 |
+|---|---|---|---|
+| F-107 | 설계가 요구한 임베딩 위의 k-means 가 아님 | 설계는 `content_emb` 768차 위 K-means. 실제는 재료 멀티핫 536차 → TF-IDF → SVD 48차 ⊕ 중심화 맛 6차. A 가 `cluster_build.py` 첫머리에 그 사실과 이유를 적어 두었고 판 번호도 `v1-svd48-` 로 구분해 두었습니다 | A 의 판단이 맞습니다. 기록만 맞춥니다 — 설계 7절의 "임베딩 기반" 표현이 실제와 다릅니다 |
+| F-108 | 군집이 목록을 거의 바꾸지 않음 | 목업 120건·8군집에서 `cluster_id` 를 전부 지우고 다시 돌리면 20칸 중 평균 1.8칸만 바뀜. 상위 20 의 군집 수 7.2/8 인데 **무작위 20건 기준선이 7.48/8** 이라 기준선보다 낮음 | 20.3 의 선택지로. 지금은 군집이 다양성을 끌어올리지 않습니다 |
+| F-109 | 재료 자카드 MMR 은 군집 축을 벌리지 못함 | 3,000건·50군집에서 선택지 넷을 비교. 군집 가산을 넣으면 군집 수 15.4 → 17.8 인데 **재료 ILD 는 0.877 → 0.880 으로 거의 그대로**. 두 축이 실제로 직교합니다 | 같은 자리. 재료 다양성을 아무리 올려도 군집 다양성은 따라오지 않습니다 |
+| F-110 | Thompson 이 학습하지 않음 | `UserHistory.cluster_seen/hits` 가 `user_cluster_stat` 에서 와야 하는데 M-03 전이라 항상 빈 값. Beta(1,1) 사전분포만 남아 군집 무작위 선택과 같음. 콜드스타트 실측에서 탐색 8칸이 군집을 11 → 16 개로 늘리는데, 그 이득은 **무작위의 이득**입니다 | M-03 묶음에서 닫힙니다. 배치는 A 몫이라 G-33 |
+
+### 20.3 선택지 측정 (목업 3,000건 · 군집 50 · 12 페르소나 · top_k 20)
+
+시험대 자체가 A 의 완료 기준을 통과합니다 — 군집 50개, 최대 비중 0.030(기준 0.15 미만), Lloyd 25회 수렴, 빈 군집 되살림 0회.
+
+```text
+선택지                     군집수   최다군집  ILD_군집  ILD_재료   점수유지  목록변화
+A 현행 (재료 자카드)          15.4      2.8    0.968    0.877   100.0%   기준
+B 쿼터 3 (군집당 3건)         15.6      2.6    0.972    0.878    99.9%   0.2칸
+C 쿼터 2 (군집당 2건)         16.2      2.2    0.979    0.879    99.7%   0.8칸
+D 군집 가산 0.3              17.8      2.1    0.988    0.880    99.3%   4.1칸
+무작위 20건 기준선            16.8      -      0.979    0.893      -      -
+
+한 군집에서 가장 많이 나온 건수(12명 중 최악)  A 6건 · B 4건 · C 3건 · D 3건
+후보 풀이 덮는 군집 평균 48.6개 (상위 20 이 닿을 수 있는 천장)
+```
+
+**쿼터는 값이 작습니다.** A 트랙 벤치가 쓴 쿼터 2 도 군집 수를 0.8 개 늘리는 데 그칩니다. K=50 에 20칸이면 비둘기집 원리로 충돌이 드물어, 상한이 걸릴 일 자체가 적습니다. **가산이 같은 점수로 세 배를 삽니다** — 0.7% 점수를 내주고 군집 2.4 개를 얻습니다.
+
+### 20.4 이 측정의 한계
+
+- 목업 레시피는 필수 재료를 무작위로 뽑아 만듭니다. 실 레시피는 군집 안에서 재료가 훨씬 닮아 있고, 조회가 냉장고 재료로 거르므로 **실 DB 에서는 후보가 지금보다 한쪽으로 몰릴 수 있습니다.** 그러면 쿼터도 가산도 이득이 커집니다. 방향은 같고 크기만 다릅니다.
+- 재료 어휘가 60종입니다(실 DB 536종). 시험대의 군집 경계가 실제보다 거칩니다.
+- 실 DB 대조를 못 했습니다(E-17, Docker 미기동). 같은 하네스를 `load_recipe_features` 위에서 다시 돌리는 것이 M-02 · M-04 개통 때 할 일입니다.
+- 12 페르소나는 표본이 작습니다. 시뮬 1,600명으로 다시 재는 것이 다음 단계입니다.
+
+### 20.5 판정
+
+**A 가 만든 것은 제대로 만들어졌고, B 가 20칸 중 2칸에만 쓰고 있습니다.** 결함은 아닙니다 — 설계가 군집을 탐색에만 쓰라고 했습니다. 다만 그 설계대로면 k-means 를 산 값을 다 쓰지 못합니다. 개인화 칸에 군집을 반영할지가 결정 사항이며(N-18), 선택지와 측정값은 20.3 에 있습니다. 가장 큰 미개발 자산은 배치가 계산하고 버리는 54차 벡터입니다(G-33).

@@ -183,6 +183,9 @@ def _trace(
                     "policy_id": "mock-linear-v0+explore2-randpos",
                     "rng_seed": rng_seed,
                     "max_missing_final": max_missing_final,
+                    # 목업은 배치 위에서 돌지 않는다. 키는 실어야 하고 값은 None 이 사실이다.
+                    "feature_version": None,
+                    "cluster_version": None,
                 },
                 exploration_items=explore or [],
             ),

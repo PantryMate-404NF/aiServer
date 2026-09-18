@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from typing import Any
 
 from features.recommend.engine import taste
 from features.recommend.engine.persona import Persona
@@ -77,6 +78,52 @@ class CorpusStats:
     flavor_mean: FlavorVector | None = None
     ingredient_idf: Mapping[int, float] = field(default_factory=dict)
     ingredient_names: Mapping[int, str] = field(default_factory=dict)
+    #: 어느 μ 였는가. `recommendation_log.stats_version` 에 실립니다.
+    #: μ 가 바뀌면 같은 레시피의 f_taste 가 바뀝니다.
+    stats_version: int | None = None
+
+
+#: `recipe_feature.difficulty` 는 1~5 이고 엔진의 `difficulty` 는 0~1 입니다.
+DIFFICULTY_MIN, DIFFICULTY_MAX = 1, 5
+SEASON_MONTHS = 12
+
+
+def recipe_feature_from_row(row: Mapping[str, Any], *, month: int | None = None) -> RecipeFeature:
+    """`recipe_feature` 한 행(+ `recipe.title`)을 엔진 모델로 바꿉니다. DB 를 모릅니다.
+
+    저장소가 SQL 로 읽은 행이든 골든 픽스처의 행이든 같은 함수를 지나갑니다 — 두 경로가
+    다른 변환을 하면 검사가 통과한 값과 서빙 값이 조용히 갈라집니다. 없는 칸은 None 으로
+    두어 그 피처가 계산에서 빠지게 합니다(0 으로 메우지 않습니다 — 0 은 "계산했더니 0" 입니다).
+
+    `season_vec` 은 달별 12칸이라 지금 달을 알아야 점수 하나가 됩니다. 달을 안 넘기면 None 입니다.
+    """
+    difficulty = row.get("difficulty")
+    season_vec = row.get("season_vec")
+    season_score: float | None = None
+    if season_vec is not None and month is not None and len(season_vec) == SEASON_MONTHS:
+        season_score = float(season_vec[month - 1])
+    return RecipeFeature(
+        recipe_id=int(row["recipe_id"]),
+        title=str(row.get("title") or ""),
+        essential_ids=frozenset(int(i) for i in (row.get("essential_ids") or ())),
+        all_ids=frozenset(int(i) for i in (row.get("all_ids") or ())),
+        flavor_vec=taste.as_vector(row.get("flavor_vec")),
+        popularity_score=_optional_float(row.get("popularity_score")),
+        quality_score=_optional_float(row.get("quality_score")),
+        cook_minutes=None if row.get("cook_minutes") is None else int(row["cook_minutes"]),
+        cuisine=normalize_cuisine(str(row.get("cuisine_family") or "")),
+        dish_type=row.get("dish_type") or None,
+        season_score=season_score,
+        difficulty=(
+            None
+            if difficulty is None
+            else (float(difficulty) - DIFFICULTY_MIN) / (DIFFICULTY_MAX - DIFFICULTY_MIN)
+        ),
+    )
+
+
+def _optional_float(value: float | int | str | None) -> float | None:
+    return None if value is None else float(value)
 
 
 @dataclass(frozen=True)
@@ -84,7 +131,13 @@ class UserContext:
     """랭킹이 보는 사용자. 요청과 이력을 합친 것이며 엔진은 이것만 받습니다."""
 
     user_id: int
+    #: 냉장고 전체 — 사용자가 넣은 것 ∪ 상비 재료(staple). ① 조회와 f_pantry_use 가 보는 집합입니다.
     pantry_ids: frozenset[int] = frozenset()
+    #: 그중 **사용자가 직접 넣은 것.** None 이면 모른다는 뜻이고 그때는 `pantry_ids` 전부를
+    #: 사용자 것으로 봅니다(검사·평가 도구처럼 staple 개념이 없는 호출자). 빈 집합은 "상비 재료
+    #: 말고는 아무것도 없다" 는 뜻이라, 조회 계획이 처음부터 인기순으로 갑니다
+    #: (아래 `has_own_ingredients`).
+    own_pantry_ids: frozenset[int] | None = None
     expiring_ids: frozenset[int] = frozenset()
     taste_vec: FlavorVector = (None,) * taste.AXIS_COUNT
     max_cook_minutes: int | None = None
@@ -96,6 +149,18 @@ class UserContext:
     #: 취향의 출처와 상태. 랭킹은 `taste_vec` 을 보고, 탐색 정책과 로그는 이것을 봅니다.
     #: 검사가 `UserContext` 를 직접 만들 때는 None 이며, 그때는 보통 사용자로 다룹니다.
     persona: Persona | None = None
+
+    @property
+    def has_own_ingredients(self) -> bool:
+        """사용자가 넣은 재료가 하나라도 있는가.
+
+        없으면 ① 이 재료 매칭으로 고를 것이 없습니다. 그런데도 조회하면 필수 재료가 아예 없는
+        레시피(쌈장·초고추장 같은 양념 제조법)만 통과해 그것이 상위를 채웁니다 — 후보 수가
+        완화 기준을 넘겨서 폴백도 안 걸립니다(09-18 실측 94건 ≥ 52). 그래서 이 값이 False 면
+        조회 계획이 처음부터 인기순입니다(`candidate.first_plan`).
+        """
+        own = self.pantry_ids if self.own_pantry_ids is None else self.own_pantry_ids
+        return bool(own)
 
 
 #: `preferred_cuisines` 를 넘기지 않았다는 표시. 빈 목록("고른 유형이 없다")과 구분합니다.
@@ -109,6 +174,7 @@ def build_context(
     #: 달라지는데 에러는 나지 않습니다. 취향이 없으면 `persona.cold_persona()` 를 넘깁니다.
     persona: Persona,
     pantry_ids: Sequence[int] = (),
+    own_pantry_ids: Sequence[int] | None = None,
     expiring_ids: Sequence[int] = (),
     history: UserHistory | None = None,
     max_cook_minutes: int | None = None,
@@ -132,6 +198,7 @@ def build_context(
     return UserContext(
         user_id=user_id,
         pantry_ids=frozenset(pantry_ids),
+        own_pantry_ids=None if own_pantry_ids is None else frozenset(own_pantry_ids),
         expiring_ids=frozenset(expiring_ids),
         taste_vec=persona.vec,
         max_cook_minutes=max_cook_minutes,
