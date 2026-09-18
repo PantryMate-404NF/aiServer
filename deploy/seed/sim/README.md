@@ -6,6 +6,19 @@
 
 생성: `uv run python scripts/sim/convert_planning_data.py --src <xlsx 폴더>` · 적재: `bash deploy/seed/sim/load_sim.sh`
 
+## 0. 적재 범위 — 06 은 지금 돌지 않습니다
+
+`06_event_log.sql` 이 `recipe.status = 'published'` 인 레시피를 요구하는데, 실측으로
+**0건**입니다(전체 46,353건이 `normalized` 상태). 배치가 상태를 `published` 로
+올리는 단계가 아직 없어서, 06 을 돌리면 예외로 멈춥니다.
+
+    bash deploy/seed/sim/load_sim.sh        00~05 만 적재하십시오
+
+콜드→웜 전환 시나리오를 보려면 00~05 로 충분합니다. 사용자·취향·냉장고가 전부
+들어갑니다. 이벤트 로그는 추천 엔진이 실제로 연결된 뒤(파트 B 의 M-03)에 다룹니다.
+
+---
+
 ## 1. 매핑
 
 | 기획 | reco | 규칙 |
