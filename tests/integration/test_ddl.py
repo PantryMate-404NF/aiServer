@@ -351,7 +351,7 @@ def main() -> None:
 
     # 유저 입력이 추정을 이긴다
     cur.execute(
-        "UPDATE pantry_item SET expires_at=%s WHERE user_id=%s",
+        "UPDATE pantry_item SET expires_at=%s, expires_at_source='user' WHERE user_id=%s",
         (_dt.date.today() + _dt.timedelta(days=1), uid),
     )
     cur.execute("SELECT days_left, src FROM effective_expiry(%s)", (uid,))

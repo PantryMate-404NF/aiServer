@@ -243,9 +243,9 @@ LANGUAGE sql STABLE AS $$
            COALESCE(p.expires_at,
                     (COALESCE(p.purchased_at, p.added_at::date)
                      + make_interval(days => i.shelf_life_days))::date) AS expiry,
-           CASE WHEN p.expires_at IS NOT NULL THEN 'user'
-                WHEN i.shelf_life_days IS NOT NULL THEN 'estimated'
-                ELSE 'unknown' END AS src,
+           -- 되계산하지 않고 저장된 출처를 읽는다. 백엔드는 소비기한을 항상
+           -- 채워 보내므로, 되계산하면 추정치까지 전부 'user' 로 찍힌다.
+           p.expires_at_source AS src,
            (COALESCE(p.expires_at,
                      (COALESCE(p.purchased_at, p.added_at::date)
                       + make_interval(days => i.shelf_life_days))::date)
