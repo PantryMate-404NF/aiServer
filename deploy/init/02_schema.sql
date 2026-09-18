@@ -520,6 +520,15 @@ CREATE TABLE event_log (
     source       VARCHAR(16) NOT NULL
                  CHECK (source IN ('served','viewport','client')),
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- 이 행위가 실제로 일어난 시각. created_at 은 우리가 받은 시각이라 뜻이 다르다.
+    -- 오프라인에 쌓였다가 한꺼번에 올라오면 created_at 이 전부 같아져
+    -- 시간 감쇠와 요일·시간대 가중이 뭉개진다.
+    --
+    -- DEFAULT 를 두지 않는다 — 위 source 와 같은 이유다. now() 를 기본값으로 두면
+    -- 안 보낸 것과 정말 지금 일어난 것이 구분되지 않고, 새 삽입 경로가 빠뜨려도
+    -- 그럴듯한 값이 들어가 조용히 틀린다. NULL 은 "보고받지 못했다" 는 뜻이고,
+    -- 읽는 쪽은 COALESCE(occurred_at, created_at) 으로 받는다.
+    occurred_at  TIMESTAMPTZ,
     -- 🔴 session_id 접두어 — 소급 불가. 나중에 못 가른다.
     --      c-  실사용자 (클라이언트)
     --      g-  게스트
