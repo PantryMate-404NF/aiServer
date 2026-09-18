@@ -280,6 +280,9 @@ ALLERGEN_GROUPS: tuple[str, ...] = (
     "shellfish",
     "peach",
     "buckwheat",
+    # 두족류. 갑각류·조개류와는 다른 알러지라 shellfish 에 넣지 않습니다.
+    # 우리 분류 트리도 seafood.mollusk 에 이 6종만 두고 조개류는 따로 둡니다.
+    "mollusk",
 )
 
 #: 알러지 표시 대상 한글 표기 -> 우리 그룹 코드.
@@ -301,6 +304,7 @@ ALLERGEN_LABELS: dict[str, str] = {
     "조개류(굴,전복,홍합 포함)": "shellfish",
     "조개류": "shellfish",
     "복숭아": "peach",
+    "오징어": "mollusk",
     "참깨": "sesame",
     "견과류": "nut",
 }
@@ -314,7 +318,6 @@ ALLERGEN_UNSUPPORTED: dict[str, str] = {
     "돼지고기": "meat.pork 분류 전개가 필요합니다",
     "닭고기": "meat.chicken 분류 전개가 필요합니다",
     "쇠고기": "meat.beef 분류 전개가 필요합니다",
-    "오징어": "seafood.mollusk 분류 전개가 필요합니다",
     "토마토": "재료 한 종이라 allergy_ingredient_ids 로 보내야 합니다",
     "아황산류": "가공 첨가물이라 재료 사전에 표제어가 없습니다",
 }

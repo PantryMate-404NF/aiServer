@@ -103,6 +103,7 @@ ALLERGEN_GROUPS = [
     "shellfish",
     "peach",
     "buckwheat",
+    "mollusk",
 ]
 COOK_CAPS = [20, 30, 45, 60]
 

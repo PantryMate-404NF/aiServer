@@ -296,7 +296,8 @@ CREATE TABLE user_allergy (
     --    에러도 없고 온보딩은 성공으로 보인다 — 견과류 알러지 유저에게
     --    아몬드·호두 레시피가 그대로 추천된다. 4갈래 차단 중 둘이 동시에 죽는다.
     CHECK (allergen_group IS NULL OR allergen_group IN (
-        'nut','sesame','soy','gluten','egg','dairy','fish','shellfish','peach','buckwheat'))
+        'nut','sesame','soy','gluten','egg','dairy','fish','shellfish','peach','buckwheat',
+        'mollusk'))
 );
 
 -- [15] 배치 계산 유저 벡터. taste_vec 은 recipe_feature.flavor_vec 과 동일 축.

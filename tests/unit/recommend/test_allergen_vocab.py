@@ -144,14 +144,16 @@ def test_every_screen_label_is_either_mapped_or_declared_unsupported() -> None:
     assert not missing, f"표에 없는 화면 선택지: {missing}"
 
 
-def test_squid_is_not_mapped_to_shellfish() -> None:
-    """오징어를 shellfish 로 보내면 막혔다고 믿는 사용자에게 두족류가 그대로 나갑니다.
+def test_squid_maps_to_mollusk_not_shellfish() -> None:
+    """두족류는 갑각류·조개류와 다른 알러지라 따로 둡니다.
 
-    shellfish 그룹에 두족류가 한 종도 없어, 두족류 레시피 1,141건 중 841건이
-    차단을 켜도 지나갑니다. 과소차단이라 거부보다 위험합니다.
+    shellfish 그룹에는 두족류가 한 종도 없습니다. 거기에 넣었다면 막혔다고 믿는
+    사용자에게 두족류 레시피 1,141건 중 841건이 그대로 나갔을 것입니다.
+    조개류는 지금도 shellfish 로 막히므로 이 그룹은 두족류 6종만 담습니다.
     """
-    assert normalize_allergen("오징어") is None
-    assert "오징어" in ALLERGEN_UNSUPPORTED
+    assert normalize_allergen("오징어") == "mollusk"
+    assert "mollusk" in ALLERGEN_GROUPS
+    assert "오징어" not in ALLERGEN_UNSUPPORTED
 
 
 def test_unsupported_entries_survive_as_a_report() -> None:
