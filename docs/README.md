@@ -4,7 +4,7 @@
 
 **적용 대상**: 이 저장소에 기여하는 모든 인원 및 AI 코딩 에이전트
 
-**버전**: 1.11.1 · **최종 수정**: 2026-09-18 · **작성자**: 김민경
+**버전**: 1.11.2 · **최종 수정**: 2026-09-18 · **작성자**: 김민경
 
 ---
 
@@ -37,6 +37,7 @@
 | `docs/` | [backend_schema_request.md](backend_schema_request.md) | 백엔드에 **전체 스키마**를 요청하는 문서. 함께 정할 것(연동 방식·식별자·갱신·규모·개인정보)과 추천 응답·로그의 경계 제안을 담습니다 |
 | `docs/` | [release_notes.md](release_notes.md) | `main` 에 무엇이 언제 들어갔는지, 영향 범위와 롤백 방법, 파트별 전달 사항. 병합할 때마다 맨 위에 항목을 더합니다 |
 | `docs/` | [container_handover.md](container_handover.md) | 이 저장소를 이미지로 만들어 배포할 때 필요한 것. 클라우드 팀에 전달하는 인수인계 문서이며 빌드·런타임 계약·외부 의존·실측치를 담습니다 |
+| `docs/` | [env_variables.md](env_variables.md) | 서비스가 읽는 환경변수 전부(이름·기본값·비밀 여부, 정본은 `src/config.py`)와 백엔드·DB 구성 논의 뒤 바뀌는 것(4절 TODO). 클라우드 팀 전달용 |
 | `recommend/human/` | [recommend_engine_work_log.md](recommend/human/recommend_engine_work_log.md) · [recommend_engine_verification.md](recommend/human/recommend_engine_verification.md) · [recommend_engine_meeting_agenda.md](recommend/human/recommend_engine_meeting_agenda.md) · [recommend_engine_db_cutover.md](recommend/human/recommend_engine_db_cutover.md) | 위 네 기록의 사람용 서술본 |
 
 ### 1.1 추천 파트의 계약은 코드와 DDL 이 정합니다
