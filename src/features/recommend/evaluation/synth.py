@@ -39,6 +39,7 @@ UNEXPOSED_CANDIDATES = 10
 EXPLORATION_RATIO = {UserMode.COLD: 0.4, UserMode.BLENDED: 0.2, UserMode.WARM: 0.2}
 INTERLEAVING_SHARE = 0.2
 CUISINE_SLOT_SHARE = 0.3
+CUISINE_UNMET_SHARE = 0.1
 DEV_SESSION_SHARE = 0.05
 SIMULATED_USER_SHARE = 0.1
 NOT_REPRODUCIBLE_SHARE = 0.03
@@ -197,6 +198,7 @@ def generate(spec: SynthSpec) -> tuple[EvalHeader, list[EvalRecord]]:
             events=events,
             user_events=user_events,
             is_simulated=user < n_simulated,
+            cuisine_unmet=rng.random() < CUISINE_UNMET_SHARE,
         )
         records.append(validate(record))
     idf_rng = random.Random(spec.seed)  # noqa: S311  # 검사용 합성 데이터

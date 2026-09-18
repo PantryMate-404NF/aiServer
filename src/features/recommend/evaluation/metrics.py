@@ -78,16 +78,17 @@ def position_ctr(sequences: Sequence[Sequence[float]]) -> list[float]:
     return result
 
 
+def nearest_rank(sorted_values: Sequence[float], share: float) -> float:
+    """최근접 순위 백분위. 부트스트랩 CI 와 지연시간이 같은 정의를 씁니다."""
+    return float(sorted_values[max(0, math.ceil(share * len(sorted_values)) - 1)])
+
+
 def latency_percentiles(values: Sequence[float]) -> dict[str, float | None]:
-    """최근접 순위 백분위. 표본이 없으면 None 입니다."""
+    """표본이 없으면 None 입니다."""
     if not values:
         return {"p50": None, "p95": None}
     ordered = sorted(values)
-
-    def at(share: float) -> float:
-        return float(ordered[max(0, math.ceil(share * len(ordered)) - 1)])
-
-    return {"p50": at(0.50), "p95": at(0.95)}
+    return {"p50": nearest_rank(ordered, 0.50), "p95": nearest_rank(ordered, 0.95)}
 
 
 def exploration_positions(records: Iterable[EvalRecord]) -> dict[int, int]:

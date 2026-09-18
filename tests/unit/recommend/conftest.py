@@ -319,7 +319,11 @@ def make_record(make_item: Callable[..., Any]) -> Callable[..., Any]:
     """`EvalRecord` 한 건. items 를 안 주면 결정적 노출 5개입니다."""
 
     def build(**kw: object) -> EvalRecord:
-        items = kw.pop("items", None) or [make_item(rank) for rank in range(1, 6)]
+        items = kw.pop("items", None)
+        if (
+            items is None
+        ):  # 빈 목록은 빈 목록입니다. falsy 로 기본값을 주면 no_items 를 검사할 수 없습니다
+            items = [make_item(rank) for rank in range(1, 6)]
         defaults: dict[str, Any] = {
             "request_id": uuid4(),
             "model_version": "reco-b-linear-v0",

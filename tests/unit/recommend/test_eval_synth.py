@@ -66,6 +66,7 @@ def test_plants_every_fixture_the_later_stages_need(
     assert interleaved and all({i.team for i in r.items} == {"A", "B"} for r in interleaved)
     assert all(r.candidates and len(r.candidates) > len(r.items) for r in records)
     assert any(cooked_recipes(r) for r in records)
+    assert any(r.cuisine_unmet for r in records)
     assert all(r.ingredients.keys() == {i.recipe_id for i in r.items} for r in records)
 
 
