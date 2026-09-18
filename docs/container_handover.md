@@ -4,7 +4,7 @@
 
 **적용 대상**: 이미지 빌드·경량화·보안 스캔과 배포를 맡는 클라우드 팀. 이 저장소를 처음 여는 분을 기준으로 씁니다
 
-**버전**: 1.0.0 · **최종 수정**: 2026-09-16 · **작성자**: 유재현
+**버전**: 1.1.0 · **최종 수정**: 2026-09-18 · **작성자**: 유재현
 
 ---
 
@@ -156,7 +156,7 @@ startupProbe:
 
 | 대상 | 필수 | 내용 |
 |---|---|---|
-| PostgreSQL 16 | 예 | 확장 네 개가 필요합니다 — `vector` · `intarray` · `pg_trgm` · `ltree`. 스키마는 `reco` 입니다. 로컬 기준 이미지는 `pgvector/pgvector:pg16` 이고 초기화 SQL 은 `deploy/init/` 에 있습니다 |
+| PostgreSQL 16 | 예 | 확장 네 개가 필요합니다 — `vector` · `intarray` · `pg_trgm` · `ltree`. 스키마는 `reco` 입니다. 로컬 기준 이미지는 `pgvector/pgvector:pg16` 이고 초기화 SQL 은 `deploy/init/` 에 있습니다. 통합 전 배치는 **AWS RDS for PostgreSQL 16** 으로 확정됐습니다(12절) |
 | Gemini API | 예(영수증 기능) | 아웃바운드 HTTPS 가 필요합니다. 막히면 기동은 되고 영수증 요청만 실패합니다 |
 | Redis | 아니요 | 앱이 쓰지 않습니다(6절) |
 | 모델 저장소 | 아니요 | 가중치를 이미지에 구워 두어 런타임 다운로드가 없습니다 |
@@ -217,3 +217,30 @@ startupProbe:
 - 비밀값을 `ARG` 나 `ENV` 로 굽지 마십시오. 이미지 레이어에 들어간 값은 저장소에 올라간 뒤 지울 수 없습니다.
 
 바꾸신 Dockerfile 을 저장소에 돌려주시면 저희가 그 위에서 이어 가겠습니다. 두 벌이 되면 어느 쪽이 배포된 것인지 알 수 없어집니다.
+
+---
+
+## 12. 클라우드 팀 회신 (2026-09-18) — DB 배치
+
+이 문서를 드리면서 함께 물었던 네 가지에 대한 답을 그대로 적고, 그 답이 저장소 쪽에 정하는 것을 붙입니다.
+
+| 물은 것 | 회신 |
+|---|---|
+| 통합 전까지 이 DB 를 어디에 두는가 | AWS RDS for PostgreSQL 16 인스턴스로 프로비저닝 |
+| 매니지드가 확장 4종과 C.UTF-8 을 지원하는가 | `vector` · `intarray` · `pg_trgm` · `ltree` 모두 지원 확인. 인스턴스 생성 시 로케일 C.UTF-8 로 배포 |
+| 파트 A 배치 구동과 HNSW 인덱스 생성 권한 | `reco_batch` 역할에 스키마 DDL·TRUNCATE 권한 부여. 인덱스 생성 시 메모리가 모자라지 않게 RDS 파라미터 그룹의 `maintenance_work_mem` 상향 |
+| 백업 주기와 보관 기간 | 매일 1회 자동 스냅샷과 시점 복구 활성화, 7일 보관 |
+
+**이 답이 정하는 것.**
+
+- 앱과 DB 는 다른 호스트입니다. `DB_HOST` 는 RDS 엔드포인트이고 연결은 TCP 입니다. `deploy/docker-compose.yml` 의 `tcp_keepalives_*` 는 로컬 컨테이너에만 적용되므로, 같은 값이 필요하면 RDS 파라미터 그룹에 넣어야 합니다. 헬스체크의 접속 대기 문제(6절, `connect_timeout` 없음)는 원격 배치에서 기본 경로가 됩니다.
+- 로케일 C.UTF-8 은 저장소가 요구하는 값과 같습니다. `C` 나 `en_US.UTF-8` 이면 한글 trigram 매칭이나 정렬이 깨집니다(`deploy/docker-compose.yml` 의 주석에 실측이 있습니다).
+- HNSW 인덱스는 `deploy/post/post_index.sql` 이 세션 단위로 `SET maintenance_work_mem = '1GB'` 을 올려 만듭니다. 파라미터 그룹 값은 그 아래에서의 바닥값이며, 인스턴스 메모리가 그 세션 값을 감당해야 합니다.
+- 백업 7일은 추천 로그(`recommendation_log`)의 사후 평가 창보다 짧을 수 있습니다. 평가에 쓰는 로그는 DB 백업이 아니라 별도 내보내기로 보존한다고 전제합니다.
+
+**적용하실 때 부탁드릴 것.**
+
+- 초기화 SQL 은 `deploy/init/00~05` 순서대로 **마스터 사용자**로 실행해 주십시오. 확장 생성(`01_extensions.sql`)은 RDS 에서 마스터 권한이 필요합니다.
+- `01_extensions.sql` 의 `ALTER DATABASE recodb SET timezone = 'Asia/Seoul'` 이 반드시 적용돼야 합니다. RDS 기본은 UTC 이고, 그러면 한국 자정~오전 9시 사이에 `current_date` 가 하루 전이 되어 소비기한 임박 판정이 하루씩 어긋납니다. 컨테이너의 `TZ` 로는 부족합니다.
+- 역할은 셋입니다 — `reco_app`(앱, 읽기·쓰기) · `reco_batch`(배치, +TRUNCATE·DDL) · `reco_ro`(읽기 전용). `05_roles.sql` 의 비밀번호는 로컬 개발용이므로 원격에서는 다른 값으로 만들어 주십시오. 원격에서는 앱 컨테이너의 `DB_USER` 를 `reco_app` 으로 주는 것이 이 역할 분리의 뜻입니다. 로컬 compose 는 편의상 소유자 계정 `reco` 로 붙습니다.
+- 인스턴스 크기와 `maintenance_work_mem` 값이 정해지면 알려 주십시오. 파트 A 가 HNSW 생성 시간을 그 값으로 다시 잽니다.
