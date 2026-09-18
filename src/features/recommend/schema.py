@@ -27,13 +27,13 @@ from datetime import date, datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from features.recommend.enums import (
-    ALLERGEN_GROUPS,
     CONTRACT_VERSION,
     ONBOARDING_CUISINES,
     EventType,
+    normalize_allergen,
     normalize_cuisine,
 )
 from features.recommend.stage import RankedItem, StageTrace
@@ -174,8 +174,11 @@ class OnboardingIn(_Base):
     #: 알러지 — 그룹명과 재료 ID 를 둘 다 받는다 (안전 관련이라 이중화).
     #: 주의: 서버는 이것을 `severity='allergy'` 로 저장한다. DB 기본값 'avoid' 에
     #:    맡기면 그룹 확산이 조용히 꺼져 본인이 적은 재료만 막힌다.
+    #: 한글 표기(`우유`)와 코드(`dairy`)를 둘 다 받아 코드로 맞춰 저장한다.
     allergy_groups: list[str] = Field(default_factory=list)
     allergy_ingredient_ids: list[int] = Field(default_factory=list)
+    #: 못 맞춘 표기. 서버가 채우므로 요청에 넣어도 덮어쓴다.
+    unmapped_allergens: list[str] = Field(default_factory=list)
     #: 기피 재료 (알러지가 아님). `user_ingredient_pref` 에 score=-0.8 로 저장.
     avoid_ingredient_ids: list[int] = Field(default_factory=list, max_length=3)
     #: 가구원 수. 선택 항목이라 없을 수 있다.
@@ -198,19 +201,32 @@ class OnboardingIn(_Base):
         # 같은 유형을 두 번 고른 것은 한 번으로 둔다. 순서는 사용자가 고른 순서다.
         return list(dict.fromkeys(code for code in codes if code is not None))
 
-    @field_validator("allergy_groups")
-    @classmethod
-    def _known_allergens(cls, v: list[str]) -> list[str]:
-        """모르는 값을 요청 단계에서 거부합니다.
+    @model_validator(mode="after")
+    def _resolve_allergens(self) -> OnboardingIn:
+        """한글 표기를 코드로 맞추고, 못 맞춘 것은 따로 담습니다.
 
-        주의: 없으면 `'WHEAT'` 같은 값이 그대로 흘러가 DB CHECK 에서 500 이 되거나,
-           더 나쁘게는 차단 재료 0종으로 **에러 없이** 알러지 필터가 꺼집니다.
-           바로 위 `preferred_cuisines` 와 같은 방어를 답니다.
+        예전에는 모르는 값 하나에 요청 전체를 거부했습니다. 그러면 알러지만
+        빠지는 것이 아니라 picks·scales 까지 통째로 사라지고, 그 사용자는
+        알러지 0건이 되어 차단이 아예 꺼집니다. 거부보다 나쁩니다 —
+        응답이 본문 없는 400 이라 어느 값이 문제였는지도 알 수 없습니다.
+
+        맞춘 것은 적용하고 못 맞춘 것은 `unmapped_allergens` 로 돌려줍니다.
+        조용히 버리지 않는 것이 핵심입니다 — 부르는 쪽이 무엇이 안 막혔는지
+        알아야 합니다.
         """
-        unknown = [raw for raw in v if raw not in ALLERGEN_GROUPS]
-        if unknown:
-            raise ValueError(f"모르는 알러지 그룹이다: {unknown} — 가능한 값 {ALLERGEN_GROUPS}")
-        return list(dict.fromkeys(v))
+        known: list[str] = []
+        unknown: list[str] = []
+        for raw in self.allergy_groups:
+            if not raw.strip():
+                continue
+            code = normalize_allergen(raw)
+            if code is None:
+                unknown.append(raw)
+            else:
+                known.append(code)
+        self.allergy_groups = list(dict.fromkeys(known))
+        self.unmapped_allergens = list(dict.fromkeys(unknown))
+        return self
 
     @field_validator("scales")
     @classmethod
@@ -230,6 +246,10 @@ class OnboardingOut(_Base):
     n_blocked_ingredients: int
     #: 저장된 음식 유형 코드. 라벨로 보냈어도 코드로 돌려주므로 프론트가 무엇이 저장됐는지 안다.
     preferred_cuisines: list[str] = Field(default_factory=list)
+    #: 저장된 알러지 그룹 코드. 위와 같은 이유로 돌려준다.
+    allergy_groups: list[str] = Field(default_factory=list)
+    #: 해석하지 못해 차단에 반영하지 못한 표기. 비어 있지 않으면 그만큼 안 막힌다.
+    unmapped_allergens: list[str] = Field(default_factory=list)
 
 
 class PantryRemoval(_Base):

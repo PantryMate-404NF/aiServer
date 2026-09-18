@@ -478,6 +478,8 @@ def save_onboarding(user_id: int, body: OnboardingIn) -> OnboardingOut:
         taste_vec=tv,
         n_blocked_ingredients=n_blocked,
         preferred_cuisines=list(body.preferred_cuisines),
+        allergy_groups=list(body.allergy_groups),
+        unmapped_allergens=list(body.unmapped_allergens),
     )
 
 
