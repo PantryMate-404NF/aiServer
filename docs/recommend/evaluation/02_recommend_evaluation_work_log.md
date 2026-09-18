@@ -1,10 +1,10 @@
 # 추천 평가 시스템 작업 기록 (에이전트용)
 
-**정하는 것**: `recommend_evaluation_design.md` 의 실행 이력. 상태, 결정(D), 가정(A), 접점(I), 계획 항목(T), 타 파트 안건(G), 세션 기록
+**정하는 것**: `01_recommend_evaluation_design.md` 의 실행 이력. 상태, 결정(D), 가정(A), 접점(I), 계획 항목(T), 타 파트 안건(G), 세션 기록
 
 **적용 대상**: 파트 C 평가 시스템을 이어서 작업하는 AI 코딩 에이전트와 김민경
 
-**버전**: 1.1.0 · **최종 수정**: 2026-09-17 · **작성자**: 김민경
+**버전**: 1.2.0 · **최종 수정**: 2026-09-17 · **작성자**: 김민경
 
 ---
 
@@ -12,11 +12,11 @@
 
 | 키 | 값 |
 |---|---|
-| 정본 | 이 파일. 설계 명세 `recommend_evaluation_design.md` 1.1.0 이 사람용 정본이며 어긋나면 명세가 이깁니다 |
+| 정본 | 이 파일. 설계 명세 `01_recommend_evaluation_design.md` 1.1.0 이 사람용 정본이며 어긋나면 명세가 이깁니다 |
 | 브랜치 | `feat/recommend-eval-metrics`. 2026-09-17 에 `origin/main`(PR #11 까지)을 fast-forward 로 받아 같은 지점입니다 |
-| 단계 | 설계 1.1.0 완료(리뷰 반영, 파이프라인 추가). 코드 0줄. 기존 `evaluation/threshold.py` 만 있고 검사가 없습니다 |
-| 검증 | 04 의 2.3 형식 점검 4종 출력 없음(2026-09-17). 코드 검사는 실행한 것이 없으므로 수치를 적지 않습니다(01 의 3.4) |
-| 다음 행동 | G-08(IDF 가중 Jaccard 함수 분리)을 파트 B 에 요청한 뒤 T-01(PR 1) 착수. G-08 이 늦으면 `metrics.py` 에 같은 계산을 두고 E-13 으로 동일성을 검사한 채 진행 |
+| 단계 | 오프라인 코어 구현 중. `record.py`, `labels.py`, `metrics.py`, `synth.py` 와 `scripts/reco_eval.py synth`, 검사 4파일(54건) 완료. 통계·추정기·리포트·스냅샷·내보내기 미착수 |
+| 검증 | 2026-09-17 `uv run ruff check . && uv run ruff format --check . && uv run mypy src && uv run pytest tests/unit` 종료 코드 0. 단위 372건 통과, 커버리지 91.92%. `scikit-learn` 대조는 `uv sync --extra ml` 환경에서 실행 |
+| 다음 행동 | T-02(`stats.py`: 순열 baseline, 유저 단위 부트스트랩, Interleaving, 판정). 픽스처는 `synth.generate` 를 씁니다 |
 | 갱신 규칙 | 세션마다 1절과 7절 갱신. 새 항목은 다음 번호, 번호 재사용 금지. 사람용 서술본은 두지 않습니다. 명세가 사람용이고 이 기록은 표만 담습니다 |
 
 ---
@@ -30,8 +30,12 @@
 | D-08 | 스크립트는 `scripts/reco_eval.py` 하나에 서브커맨드 4개 | 파일 수가 적고 공통 인자를 한 곳에서 다룹니다 | 서브커맨드가 각각 300줄을 넘으면 나눕니다 |
 | D-09 | `scripts/eval_recommend_mock.py` 의 `jaccard`, `intra_list_distance` 를 `metrics.py` 로 이관 | 같은 계산이 두 벌이면 한쪽이 조용히 어긋납니다 | 없음 |
 | D-10 | 결정 문서(`docs/decisions/`)는 G-01~G-04 가 회의에서 확정된 뒤 씁니다 | 합의 전 결정을 결정 문서로 올리면 되돌리는 비용이 큽니다 | 없음 |
-| D-17 | 문서 폴더와 파일명을 소스 폴더에 맞춰 `docs/recommend/evaluation/recommend_evaluation_*.md` 로 | 소스 `src/features/recommend/evaluation/` 과 이름이 같아야 찾기 쉽습니다 | 없음 |
+| D-17 | 문서 폴더와 파일명을 소스 폴더에 맞춰 `docs/recommend/evaluation/NN_recommend_evaluation_*.md` 로. 읽는 순서의 두 자리 번호 접두어와 소문자 | 소스 `src/features/recommend/evaluation/` 과 이름이 같아야 찾기 쉽고, 번호가 읽는 순서를 말합니다 | 없음 |
 | D-18 | 명세 1.1.0 의 새 결정은 D-11 부터 번호를 이어 이 파일의 D-08~D-10 과 충돌하지 않게 합니다 | 두 문서가 같은 접두어를 쓰므로 번호가 겹치면 참조가 깨집니다 | 없음 |
+| D-19 | 합성 생성기는 `evaluation/synth.py` 모듈이고 `scripts/reco_eval.py synth` 는 인자만 넘기는 래퍼입니다. 명세 4절의 배치(스크립트 안)와 다릅니다 | 단위 테스트가 subprocess 없이 import 로 픽스처를 만들어야 합니다. 명세 4절은 다음 개정에서 맞춥니다 | 없음 |
+| D-20 | 평가 모듈은 표준 라이브러리만 씁니다. `scikit-learn` 은 외부 대조 검사에서만 `pytest.importorskip` | `numpy` 가 `ml` extra 라 기본 설치의 단위 테스트가 깨집니다 | 부트스트랩이 유저 수천 명에서 느려지면 |
+| D-21 | 헤더의 `label_version`·`metric_version` 이 코드 상수와 다르면 읽기를 거부합니다(명세 2.2 의 6번 불변식 해석) | 다른 버전의 파일을 조용히 같은 지표로 재지 않게 합니다 | 없음 |
+| D-22 | `gains` 는 노출된 레시피만 담고 이벤트가 없으면 0.0 입니다. `request_id` 불일치 제외는 export 의 조인이 맡습니다 | `EvalEvent` 에 `request_id` 가 없으므로 라벨 단계에서는 가를 수 없습니다 | 없음 |
 
 ---
 
@@ -46,7 +50,7 @@
 | A-05 | `app_user.is_simulated` 로 가상 유저를 가를 수 있고 `d-` 접두어가 개발 트래픽을 가릅니다 | `record.py` 제외 규칙 |
 | A-06 | 확인됨(2026-09-15). `engine/score.py` 의 `weighted_score(features, weights)` 가 순수 함수입니다 | `estimator.py`. 서명이 바뀌면 E-06 |
 | A-07 | `recipe_feature.all_ids` 와 `ingredient_idf` 를 `export` 가 조인할 수 있습니다 | G-02 |
-| A-08 | 확인됨(2026-09-17). IDF 가중 Jaccard 는 `engine/rerank.py` 의 `mmr_select` 안에 인라인이며 별도 함수가 없습니다. `corpus.ingredient_idf` 가 IDF 의 출처입니다 | G-08. 분리 전까지는 `metrics.py` 에 같은 계산을 두고 E-13 으로 동일성 검사 |
+| A-08 | 정정(2026-09-17). `engine/feature.py` 에 `jaccard_idf` 가 함수로 있고 `mmr_select` 의 인라인 계산과 같은 식·같은 `DEFAULT_IDF` 폴백입니다. `metrics.ild` 가 그 함수를 import 하며 E-13 이 `mmr_select` 결과와 대조합니다 | 없음. G-08 해소 |
 | A-09 | `recommendation_log.policies` 와 `RankedItem.team` 이 Interleaving 요청에서 채워집니다 | `stats.py` 의 Interleaving. 비어 있으면 `interleaving=null` |
 | A-10 | `data/*` 는 `.gitignore` 에 이미 있습니다(확인됨, 2026-09-17) | 없음 |
 | A-11 | 확인됨(2026-09-17). `RankedItem.is_cuisine_slot` 은 결정적 슬롯이라 `propensity = 1.0` 이고 탐색 슬롯과 배타입니다. 추적에 `n_cuisine`, `cuisine_unmet` 이 실립니다(`service.py`) | `record.py` 불변식, 명세 5.3·5.5·8절 |
@@ -71,7 +75,7 @@
 
 | ID | PR | 내용 | 상태 | 선행 |
 |---|---|---|---|---|
-| T-01 | 1 | `record.py`(불변식), `labels.py`, `metrics.py`, `synth`, `test_eval_metrics.py`, `test_eval_labels.py`, `test_eval_record.py`, mock 스크립트 함수 이관 | 미착수 | G-08 또는 A-08 의 대안 |
+| T-01 | 1 | `record.py`(불변식), `labels.py`, `metrics.py`, `synth.py`, `scripts/reco_eval.py synth`, `test_eval_record.py`, `test_eval_labels.py`, `test_eval_metrics.py`, `test_eval_synth.py`, mock 스크립트 함수 이관 | 완료(2026-09-17). 미커밋 | 없음 |
 | T-02 | 2 | `stats.py`: 순열 baseline, 부트스트랩, Interleaving, 판정. `test_eval_stats.py` | 미착수 | T-01 |
 | T-03 | 3 | `estimator.py`, `test_eval_estimator.py` | 미착수 | T-01 |
 | T-04 | 4 | `run` 서브커맨드, 리포트 JSON, `make eval` | 미착수 | T-02, T-03 |
@@ -80,6 +84,7 @@
 | T-07 | 문서 | `docs/README.md` 등록 | 완료 | 없음 |
 | T-08 | 문서 | 결정 문서(라벨 정의, 스냅샷 저장, 판정 규칙) | 선행 대기 | G-01, G-03 |
 | T-09 | 문서 | 명세 1.1.0: 리뷰 반영과 파이프라인 | 완료(2026-09-17) | 없음 |
+| T-10 | 문서 | 구축 계획 `03_recommend_evaluation_build_plan.md` 1.0.0, 문서 3건 번호 접두어 | 완료(2026-09-17). 미커밋 | 없음 |
 
 ---
 
@@ -94,7 +99,7 @@
 | G-05 | 배치 미처리 레시피의 맛 벡터가 0 인지 null 인지(09-11 보고서 Q5) | 파트 A | | 확인 요청 | `flavor_all_zero_ratio` 해석 |
 | G-06 | 카탈로그 커버리지 분모 | 파트 A | 46,353 또는 46,552 | 도구는 인자로 받고 값은 A 가 정합니다 | 없음 |
 | G-07 | `Makefile` 에 `eval`, `eval-smoke` 추가 | 공용 | | 트랙 C 명령만 넣습니다 | T-04, T-06 |
-| G-08 | `rerank.mmr_select` 안의 IDF 가중 Jaccard 를 함수로 분리 | 파트 B | (a) B 가 분리 (b) C 가 PR 로 분리 (c) C 가 복제하고 E-13 으로 동일성 검사 | (a) 또는 (b). 늦으면 (c) 로 시작 | T-01 |
+| G-08 | 해소(2026-09-17). `engine/feature.py` 의 `jaccard_idf` 가 이미 그 함수입니다(A-08 정정). 요청하지 않습니다 | 파트 B | | | 없음 |
 | G-09 | 백엔드가 Interleaving 요청의 `team` 을 이벤트에 되돌리는 것 | 파트 B → 백엔드 | | 파트 B 의 B-16 전달 항목에 포함 요청 | 명세 6.2 |
 | G-10 | export 파일 보존 기간 30일과 가명화 방식(`REVIEW_SALT` 재사용 여부) | 3인 | (a) 같은 salt (b) 평가 전용 salt | (b). 후기 작성자 가명과 유저 가명이 같은 키로 묶이지 않게 | T-06 |
 | G-11 | Thompson 픽의 노출 확률 귀속(파트 B 안건 G-28, F-65) | 파트 A, B | B 의 (a) 조건부 확률 분배 (b) `explore_source` 구분만 (c) 그대로 | (a). 확률의 정의가 IPS 의 분모이므로 C 는 (a) 를 지지합니다. 반영 전에는 `thompson` 경로 추정치를 인용하지 않습니다(명세 7.2) | 없음. 값이 작게 어긋날 뿐 |
@@ -124,3 +129,10 @@
 - `origin/main` 26커밋을 fast-forward 로 받았습니다(PR #9, #11 병합분). `docs/README.md` 는 main 의 1.10.0 위에 평가 문서 2행을 다시 얹어 1.11.0 으로 올렸습니다.
 - 병합으로 들어온 계약 변경을 명세에 반영했습니다. `is_cuisine_slot`(불변식·슬롯 변형·목록 지표·스냅샷), 취향 출처 보조 세그먼트, `explore_source` 별 오프폴리시 진단, `export --since` 하한. 가정 A-11·A-12 와 안건 G-11·G-12 를 추가했습니다.
 - 코드는 작성하지 않았습니다. 검사는 04 의 2.3 형식 점검만 실행했습니다.
+
+### 7.4 2026-09-17 · 구축 계획과 오프라인 코어 1단계
+
+- 구축 계획 `03_recommend_evaluation_build_plan.md` 를 쓰고 문서 3건에 번호 접두어를 붙였습니다(T-10, D-17 갱신).
+- TDD 로 `record.py`(모델·불변식 5종·제외 3종·JSONL 읽기쓰기), `labels.py`(gain·유저 단위 조리), `metrics.py`(nDCG·Recall·유저 단위 Recall·ILD·커버리지·위치별 CTR·지연 백분위·탐색 위치), `synth.py`(계획 4.3 의 항목 전부 심음), `scripts/reco_eval.py synth` 를 만들었습니다. 검사 54건. `scripts/eval_recommend_mock.py` 의 `intra_list_distance` 를 `metrics.py` import 로 바꿨습니다(D-09).
+- 명세와 다르게 한 것 3건을 D-19~D-21 로 남겼습니다. E-07 의 "Recall@10 이 hit-rate 의 CI 안" 은 K = top_k 에서 정의상 1.0 이라 대신 "전체 양성 비율이 hit-rate 안, 위치별 CTR 이 심은 확률 안" 으로 검사합니다.
+- 검증: 4종 명령 종료 코드 0(1절). 커밋하지 않았습니다.

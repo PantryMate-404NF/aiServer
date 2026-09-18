@@ -4,7 +4,7 @@
 
 **적용 대상**: 이 저장소에 기여하는 모든 인원 및 AI 코딩 에이전트
 
-**버전**: 1.11.0 · **최종 수정**: 2026-09-17 · **작성자**: 김민경
+**버전**: 1.12.0 · **최종 수정**: 2026-09-17 · **작성자**: 김민경
 
 ---
 
@@ -37,8 +37,9 @@
 | `docs/` | [release_notes.md](release_notes.md) | `main` 에 무엇이 언제 들어갔는지, 영향 범위와 롤백 방법, 파트별 전달 사항. 병합할 때마다 맨 위에 항목을 더합니다 |
 | `docs/` | [container_handover.md](container_handover.md) | 이 저장소를 이미지로 만들어 배포할 때 필요한 것. 클라우드 팀에 전달하는 인수인계 문서이며 빌드·런타임 계약·외부 의존·실측치를 담습니다 |
 | `recommend/human/` | [recommend_engine_work_log.md](recommend/human/recommend_engine_work_log.md) · [recommend_engine_verification.md](recommend/human/recommend_engine_verification.md) · [recommend_engine_meeting_agenda.md](recommend/human/recommend_engine_meeting_agenda.md) · [recommend_engine_db_cutover.md](recommend/human/recommend_engine_db_cutover.md) | 위 네 기록의 사람용 서술본 |
-| `recommend/evaluation/` | [recommend_evaluation_design.md](recommend/evaluation/recommend_evaluation_design.md) | 파트 C 추천 평가 시스템 설계 명세. 데이터 계약, 파이프라인, 지표, 판정, 오프폴리시, 품질 스냅샷, 개인정보. 사람용 정본 |
-| `recommend/evaluation/` | [recommend_evaluation_work_log.md](recommend/evaluation/recommend_evaluation_work_log.md) | 파트 C 평가 시스템 작업 기록. 결정·가정·접점·계획·타 파트 안건. 에이전트용 정본 |
+| `recommend/evaluation/` | [01_recommend_evaluation_design.md](recommend/evaluation/01_recommend_evaluation_design.md) | 파트 C 추천 평가 시스템 설계 명세. 데이터 계약, 파이프라인, 지표, 판정, 오프폴리시, 품질 스냅샷, 개인정보. 사람용 정본 |
+| `recommend/evaluation/` | [02_recommend_evaluation_work_log.md](recommend/evaluation/02_recommend_evaluation_work_log.md) | 파트 C 평가 시스템 작업 기록. 결정·가정·접점·계획·타 파트 안건. 에이전트용 정본 |
+| `recommend/evaluation/` | [03_recommend_evaluation_build_plan.md](recommend/evaluation/03_recommend_evaluation_build_plan.md) | 파트 C 평가 관측 파이프라인 구축 계획. 마일스톤·PR 순서·완료 조건·막힌 경로의 대안·타 파트 기한·위험·일정 가정. 명세와 어긋나면 명세가 이깁니다 |
 
 ### 1.1 추천 파트의 계약은 코드와 DDL 이 정합니다
 
