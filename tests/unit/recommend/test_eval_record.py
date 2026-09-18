@@ -16,6 +16,7 @@ from features.recommend.evaluation.record import (
     EvalEvent,
     EvalHeader,
     InvalidRecordError,
+    apply_exclusions,
     count_excluded,
     exclusion_reason,
     read_jsonl,
@@ -121,6 +122,19 @@ def test_missing_reproduction_keys_are_excluded(
 
 def test_clean_record_is_not_excluded(make_record: Callable[..., Any]) -> None:
     assert exclusion_reason(make_record()) is None
+
+
+def test_record_without_items_is_excluded(make_record: Callable[..., Any]) -> None:
+    """candidates 를 저장하지 않는 서빙 모드의 행은 평가 분모에 들어가면 안 됩니다."""
+    assert exclusion_reason(make_record(items=[])) == "no_items"
+
+
+def test_include_simulated_keeps_the_other_reasons(make_record: Callable[..., Any]) -> None:
+    rows = apply_exclusions(
+        [make_record(is_simulated=True), make_record(is_simulated=True, config_hash=None)],
+        include_simulated=True,
+    )
+    assert [r.excluded_reason for r in rows] == [None, "not_reproducible"]
 
 
 # ── JSONL 왕복. 첫 줄은 헤더, 위반은 줄 번호를 담습니다 ─────────────────

@@ -29,6 +29,8 @@ METRIC_VERSION = 1
 EXCLUDED_DEV_SESSION = "d-session"
 EXCLUDED_SIMULATED = "simulated_user"
 EXCLUDED_NOT_REPRODUCIBLE = "not_reproducible"
+#: 노출 항목이 없는 행. `candidates` 를 저장하지 않는 서빙 모드(load_test)의 로그가 여기 옵니다
+EXCLUDED_NO_ITEMS = "no_items"
 
 
 class _Base(BaseModel):
@@ -73,6 +75,8 @@ class EvalRecord(_Base):
     events: list[EvalEvent]
     user_events: list[EvalEvent]
     is_simulated: bool
+    #: `stage_trace` 의 rerank params 에 `cuisine_unmet` 이 있었는가. 고른 유형이 목록에 없었다는 뜻
+    cuisine_unmet: bool = False
     excluded_reason: str | None = None
 
 
@@ -123,14 +127,29 @@ def validate(record: EvalRecord) -> EvalRecord:
     return record
 
 
-def exclusion_reason(record: EvalRecord) -> str | None:
+def exclusion_reason(record: EvalRecord, *, include_simulated: bool = False) -> str | None:
+    """제외 규칙의 유일한 정의. 순서가 곧 우선순위입니다."""
     if record.session_prefix == "d":
         return EXCLUDED_DEV_SESSION
-    if record.is_simulated:
+    if record.is_simulated and not include_simulated:
         return EXCLUDED_SIMULATED
     if record.config_hash is None or record.warm_alpha is None or record.stats_version is None:
         return EXCLUDED_NOT_REPRODUCIBLE
+    if not record.items:
+        return EXCLUDED_NO_ITEMS
     return None
+
+
+def apply_exclusions(
+    records: Iterable[EvalRecord], *, include_simulated: bool = False
+) -> list[EvalRecord]:
+    """제외 사유를 다시 판정한 사본. 파일을 거치지 않은 기록(합성 등)도 같은 규칙을 받습니다."""
+    return [
+        r.model_copy(
+            update={"excluded_reason": exclusion_reason(r, include_simulated=include_simulated)}
+        )
+        for r in records
+    ]
 
 
 def count_excluded(records: Iterable[EvalRecord]) -> dict[str, int]:

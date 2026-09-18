@@ -109,6 +109,9 @@ class Settings(BaseSettings):
     #: 주의: 기본값 없음. 없으면 None — 부르는 쪽이 멈춰야 합니다.
     #:    새로 만들면 이미 적재된 후기의 작성자 해시와 어긋나고 되돌릴 수 없습니다.
     review_salt: str | None = None
+    #: 평가 export 의 user_id 가명화 salt. 후기 salt 와 다른 값을 씁니다 — 후기 작성자 가명과
+    #:    유저 가명이 같은 키로 묶이지 않게 합니다. 없으면 export 가 멈춥니다.
+    eval_salt: str | None = None
 
     @property
     def pool_min(self) -> int:

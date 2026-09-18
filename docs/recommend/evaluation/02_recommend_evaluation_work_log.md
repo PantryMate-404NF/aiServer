@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 C 평가 시스템을 이어서 작업하는 AI 코딩 에이전트와 김민경
 
-**버전**: 1.2.0 · **최종 수정**: 2026-09-17 · **작성자**: 김민경
+**버전**: 1.6.0 · **최종 수정**: 2026-09-18 · **작성자**: 김민경
 
 ---
 
@@ -12,11 +12,11 @@
 
 | 키 | 값 |
 |---|---|
-| 정본 | 이 파일. 설계 명세 `01_recommend_evaluation_design.md` 1.1.0 이 사람용 정본이며 어긋나면 명세가 이깁니다 |
+| 정본 | 이 파일. 설계 명세 `01_recommend_evaluation_design.md` 1.2.0 이 사람용 정본이며 어긋나면 명세가 이깁니다 |
 | 브랜치 | `feat/recommend-eval-metrics`. 2026-09-17 에 `origin/main`(PR #11 까지)을 fast-forward 로 받아 같은 지점입니다 |
-| 단계 | 오프라인 코어 구현 중. `record.py`, `labels.py`, `metrics.py`, `synth.py` 와 `scripts/reco_eval.py synth`, 검사 4파일(54건) 완료. 통계·추정기·리포트·스냅샷·내보내기 미착수 |
-| 검증 | 2026-09-17 `uv run ruff check . && uv run ruff format --check . && uv run mypy src && uv run pytest tests/unit` 종료 코드 0. 단위 372건 통과, 커버리지 91.92%. `scikit-learn` 대조는 `uv sync --extra ml` 환경에서 실행 |
-| 다음 행동 | T-02(`stats.py`: 순열 baseline, 유저 단위 부트스트랩, Interleaving, 판정). 픽스처는 `synth.generate` 를 씁니다 |
+| 단계 | 코드 8단계 전부 작성 후 2차 리뷰 10건 반영. 오프라인 코어(커밋 677c788), 나머지 미커밋. E-10 은 `make eval-smoke` 로 옮겼고 실 DB 전까지 미실행 |
+| 검증 | 2026-09-18 `uv run ruff check . && uv run ruff format --check . && uv run mypy src && uv run pytest tests/unit` 종료 코드 0. 단위 425건 통과, 커버리지 93.27%. `make eval` 종료 코드 0(합성 500건, 판정 통과) |
+| 다음 행동 | `04_recommend_evaluation_requests.md` 의 요청을 전달. 가장 급한 것은 라우터·엔진 연결일(G-12)과 `EVAL_SALT`(G-10). 실 DB 가 붙으면 `make eval-smoke SINCE=<연결일>`. 그 뒤 결정 문서 3건(T-08)과 화면 브랜치 인계 |
 | 갱신 규칙 | 세션마다 1절과 7절 갱신. 새 항목은 다음 번호, 번호 재사용 금지. 사람용 서술본은 두지 않습니다. 명세가 사람용이고 이 기록은 표만 담습니다 |
 
 ---
@@ -35,6 +35,19 @@
 | D-19 | 합성 생성기는 `evaluation/synth.py` 모듈이고 `scripts/reco_eval.py synth` 는 인자만 넘기는 래퍼입니다. 명세 4절의 배치(스크립트 안)와 다릅니다 | 단위 테스트가 subprocess 없이 import 로 픽스처를 만들어야 합니다. 명세 4절은 다음 개정에서 맞춥니다 | 없음 |
 | D-20 | 평가 모듈은 표준 라이브러리만 씁니다. `scikit-learn` 은 외부 대조 검사에서만 `pytest.importorskip` | `numpy` 가 `ml` extra 라 기본 설치의 단위 테스트가 깨집니다 | 부트스트랩이 유저 수천 명에서 느려지면 |
 | D-21 | 헤더의 `label_version`·`metric_version` 이 코드 상수와 다르면 읽기를 거부합니다(명세 2.2 의 6번 불변식 해석) | 다른 버전의 파일을 조용히 같은 지표로 재지 않게 합니다 | 없음 |
+| D-23 | 02 의 2.2 를 "뒤 축은 앞 축의 순수 함수와 계약 타입을 import 할 수 있다(MAY)" 로 개정. 평가가 엔진의 `jaccard_idf`·`weighted_score`·`mmr_select` 를 그대로 씁니다 | 원문이 평가의 엔진 호출을 금지해 명세 4절과 충돌했습니다. 같은 계산을 두 벌 두면 한쪽이 조용히 어긋납니다 | 없음 |
+| D-24 | Interleaving 은 요청별 승패를 유저별 다수결로 모아 유저 단위 승률과 정확 양측 이항 검정(p = 0.5)을 냅니다. 동점 요청과 동점 유저는 빼고 셉니다 | 명세 6.2 의 "유저 단위 승률" 을 구체화한 것입니다 | 유저당 요청이 많아져 다수결이 정보를 버리면 요청 단위 가중으로 |
+| D-25 | 리포트 조립은 `evaluation/report.py` 모듈이고 `scripts/reco_eval.py run` 은 인자만 넘깁니다. 평가 디렉터리는 11개 파일로 02 의 5.1 검토 문턱(8)을 넘습니다 | 리포트 스키마 검사가 subprocess 없이 돌아야 합니다. 파일을 합치면 300줄을 넘겨 다른 문턱에 걸립니다 | 화면 브랜치가 리포트 모양을 바꾸자고 하면 그때 재검토 |
+| D-26 | `EvalRecord.cuisine_unmet: bool = False` 를 더했습니다. export 가 `stage_trace` 의 rerank params 에서 채웁니다 | 명세 8절의 `cuisine_unmet_ratio` 를 기록만으로 잴 수 있어야 합니다. 기본값이 있어 이전 파일도 읽힙니다 | 없음 |
+| D-27 | 오프폴리시의 `exposures_needed` 는 "노출 1건이 ESS 를 최대 1 올린다" 는 상한으로 역산합니다 | 가중치 분포를 가정하지 않는 가장 단순한 식입니다 | `usable=True` 가 나오기 시작하면 실제 분포로 |
+| D-28 | export 의 가명화 salt 는 `config.eval_salt`(`EVAL_SALT`)이고 없으면 멈춥니다. 후기 salt 를 재사용하지 않습니다 | G-10 의 (b). 후기 작성자 가명과 유저 가명이 같은 키로 묶이지 않게 | 3인 합의가 (a) 면 기본값을 `review_salt` 로 |
+| D-29 | 리포트의 위치 보정은 `--position-correct` 옵션이고 θ 는 세그먼트의 위치별 CTR 을 1위로 정규화한 값입니다 | 명세 5.4·D-15 | impression 이 `viewport` 로 바뀌면 기본으로 |
+| D-30 | 제외 규칙에 `no_items`(노출 항목 없음)를 더하고 `include_simulated` 를 `exclusion_reason` 의 인자로 넣었습니다. `apply_exclusions` 가 유일한 재판정 경로입니다 | `candidates` 를 저장하지 않는 load_test 행이 분모에 섞였고, 리포트·스냅샷이 각자 제외를 다시 판정하면서 `--include-simulated` 가 다른 사유까지 지웠습니다 | 없음 |
+| D-31 | 평가 파트의 SQL 은 `src/features/recommend/repository_eval.py` 에 둡니다(03 의 5절, 데이터 파트의 `repository_ingest.py` 선례). `export.py`·`quality.py` 는 순수 함수만 갖고 `scripts/reco_eval.py` 가 둘을 잇습니다 | 축 안에 SQL 을 두면 규칙 위반이고 DB 없이 검사할 수 없습니다 | 없음 |
+| D-32 | E-10(실기록 왕복과 개인정보 부재)은 pytest 가 아니라 `make eval-smoke` 가 돌립니다 | 루트 conftest 의 autouse 픽스처가 통합 검사에도 가짜 DB 환경을 세워 pytest 통합 검사는 항상 skip 됩니다. 이 저장소의 DB 통합 검사 선례도 `make` 입니다 | conftest 가 통합 검사를 예외로 두면 pytest 로 |
+| D-33 | 고아 `request_id` 비율은 목록 이벤트(impression·click·save·dismiss·rating)만, 최근 1일로 셉니다 | cook·search·unsave 는 목록 밖에서도 일어나 `request_id` 가 없는 것이 정상이라 전부 세면 경보가 항상 울립니다 | 백엔드가 cook 에도 `request_id` 를 붙이기로 하면 |
+| D-34 | 검출력은 판정에 쓴 대응 부트스트랩의 산포(`se × √n`)로 냅니다. 손으로 따로 낸 표준편차를 쓰지 않습니다 | 두 통계량이 다르면 "필요 유저 수" 가 실제 판정과 어긋납니다 | 없음 |
+| D-35 | random baseline 의 시드는 `seed:request_id` 로 기록마다 다릅니다 | 시드 하나로 만들면 모든 기록이 같은 순열을 받아 무작위가 아닙니다 | 없음 |
 | D-22 | `gains` 는 노출된 레시피만 담고 이벤트가 없으면 0.0 입니다. `request_id` 불일치 제외는 export 의 조인이 맡습니다 | `EvalEvent` 에 `request_id` 가 없으므로 라벨 단계에서는 가를 수 없습니다 | 없음 |
 
 ---
@@ -76,15 +89,18 @@
 | ID | PR | 내용 | 상태 | 선행 |
 |---|---|---|---|---|
 | T-01 | 1 | `record.py`(불변식), `labels.py`, `metrics.py`, `synth.py`, `scripts/reco_eval.py synth`, `test_eval_record.py`, `test_eval_labels.py`, `test_eval_metrics.py`, `test_eval_synth.py`, mock 스크립트 함수 이관 | 완료(2026-09-17). 미커밋 | 없음 |
-| T-02 | 2 | `stats.py`: 순열 baseline, 부트스트랩, Interleaving, 판정. `test_eval_stats.py` | 미착수 | T-01 |
-| T-03 | 3 | `estimator.py`, `test_eval_estimator.py` | 미착수 | T-01 |
-| T-04 | 4 | `run` 서브커맨드, 리포트 JSON, `make eval` | 미착수 | T-02, T-03 |
-| T-05 | 5 | `quality.py`, `quality` 서브커맨드, `test_eval_quality.py`, `test_eval_threshold.py` | 미착수 | T-04 |
-| T-06 | 6 | `export` 서브커맨드(가명화·필드 제거), `tests/integration/test_eval_export.py`, `make eval-smoke` | 선행 대기 | 파트 B 의 DB 전환, G-02 |
+| T-02 | 2 | `stats.py`: 순열 baseline 3종, 유저 단위 부트스트랩·대응 비교, Interleaving, 검출력, 판정. `test_eval_stats.py` 12건 | 완료(2026-09-18). 미커밋 | 없음 |
+| T-03 | 3 | `estimator.py`: SNIPS, ESS·미지원·경로별 진단, 가중치 교체 목표 정책. `test_eval_estimator.py` 7건 | 완료(2026-09-18). 미커밋 | 없음 |
+| T-04 | 4 | `report.py`(D-25), `run` 서브커맨드, 리포트 JSON, `make eval`. `test_eval_report.py` 8건 | 완료(2026-09-18). 미커밋 | 없음 |
+| T-05 | 5 | `quality.py`, `quality` 서브커맨드, `cuisine_unmet` 필드(D-26). `test_eval_quality.py` 6건, `test_eval_threshold.py` 4건 | 완료(2026-09-18). 미커밋. DB 항목 3종은 실 DB 에서 미검증 | 없음 |
+| T-06 | 6 | `repository_eval.py`(SQL, D-31), `export.py`(순수 `build_record`·`build_records`), `export` 서브커맨드, `EVAL_SALT`(D-28), `make eval-smoke SINCE=`(E-10, D-32), `test_eval_export.py` 11건 | 코드 완료(2026-09-18). 미커밋. E-10 은 실 DB 전까지 미실행 | 파트 B 의 DB 전환, G-02, G-12 |
 | T-07 | 문서 | `docs/README.md` 등록 | 완료 | 없음 |
 | T-08 | 문서 | 결정 문서(라벨 정의, 스냅샷 저장, 판정 규칙) | 선행 대기 | G-01, G-03 |
 | T-09 | 문서 | 명세 1.1.0: 리뷰 반영과 파이프라인 | 완료(2026-09-17) | 없음 |
-| T-10 | 문서 | 구축 계획 `03_recommend_evaluation_build_plan.md` 1.0.0, 문서 3건 번호 접두어 | 완료(2026-09-17). 미커밋 | 없음 |
+| T-10 | 문서 | 구축 계획 `03_recommend_evaluation_build_plan.md` 1.0.0, 문서 3건 번호 접두어 | 완료(2026-09-17) | 없음 |
+| T-11 | 문서 | 명세 1.2.0: 구현이 정한 것을 되돌려 적음(명세 1.5 의 표) | 완료(2026-09-18) | 없음 |
+| T-12 | 문서 | 구축 계획 1.2.0: 현재 위치, 마일스톤 상태, PR 표, 남은 위험 | 완료(2026-09-18) | 없음 |
+| T-13 | 문서 | 타 파트 요청 초안 `04_recommend_evaluation_requests.md` 1.0.0. 15건 | 완료(2026-09-18). 전달은 김민경 | 없음 |
 
 ---
 
@@ -100,7 +116,7 @@
 | G-06 | 카탈로그 커버리지 분모 | 파트 A | 46,353 또는 46,552 | 도구는 인자로 받고 값은 A 가 정합니다 | 없음 |
 | G-07 | `Makefile` 에 `eval`, `eval-smoke` 추가 | 공용 | | 트랙 C 명령만 넣습니다 | T-04, T-06 |
 | G-08 | 해소(2026-09-17). `engine/feature.py` 의 `jaccard_idf` 가 이미 그 함수입니다(A-08 정정). 요청하지 않습니다 | 파트 B | | | 없음 |
-| G-09 | 백엔드가 Interleaving 요청의 `team` 을 이벤트에 되돌리는 것 | 파트 B → 백엔드 | | 파트 B 의 B-16 전달 항목에 포함 요청 | 명세 6.2 |
+| G-09 | 정정(2026-09-18). `team` 은 로그의 항목에 있고 이벤트는 `request_id`·`recipe_id` 로 이으므로 백엔드가 `team` 을 보낼 필요가 없습니다. 필요한 것은 목록 이벤트의 `request_id` 와, 한 목록에 같은 `recipe_id` 가 두 번 나오지 않는 것입니다. 원래 안건: 백엔드가 Interleaving 요청의 `team` 을 이벤트에 되돌리는 것 | 파트 B → 백엔드 | | 파트 B 의 B-16 전달 항목에 포함 요청 | 명세 6.2 |
 | G-10 | export 파일 보존 기간 30일과 가명화 방식(`REVIEW_SALT` 재사용 여부) | 3인 | (a) 같은 salt (b) 평가 전용 salt | (b). 후기 작성자 가명과 유저 가명이 같은 키로 묶이지 않게 | T-06 |
 | G-11 | Thompson 픽의 노출 확률 귀속(파트 B 안건 G-28, F-65) | 파트 A, B | B 의 (a) 조건부 확률 분배 (b) `explore_source` 구분만 (c) 그대로 | (a). 확률의 정의가 IPS 의 분모이므로 C 는 (a) 를 지지합니다. 반영 전에는 `thompson` 경로 추정치를 인용하지 않습니다(명세 7.2) | 없음. 값이 작게 어긋날 뿐 |
 | G-12 | 라우터·엔진 연결일을 DB 전환 점검표에 기록해 `export --since` 하한으로 쓰는 것 | 파트 B | | 연결 커밋과 시각을 M 항목에 남겨 달라고 요청 | T-06 |
@@ -136,3 +152,31 @@
 - TDD 로 `record.py`(모델·불변식 5종·제외 3종·JSONL 읽기쓰기), `labels.py`(gain·유저 단위 조리), `metrics.py`(nDCG·Recall·유저 단위 Recall·ILD·커버리지·위치별 CTR·지연 백분위·탐색 위치), `synth.py`(계획 4.3 의 항목 전부 심음), `scripts/reco_eval.py synth` 를 만들었습니다. 검사 54건. `scripts/eval_recommend_mock.py` 의 `intra_list_distance` 를 `metrics.py` import 로 바꿨습니다(D-09).
 - 명세와 다르게 한 것 3건을 D-19~D-21 로 남겼습니다. E-07 의 "Recall@10 이 hit-rate 의 CI 안" 은 K = top_k 에서 정의상 1.0 이라 대신 "전체 양성 비율이 hit-rate 안, 위치별 CTR 이 심은 확률 안" 으로 검사합니다.
 - 검증: 4종 명령 종료 코드 0(1절). 커밋하지 않았습니다.
+
+### 7.5 2026-09-18 · 커밋, 규칙 개정, 통계
+
+- 오프라인 코어(677c788), PR 라인 상한 제거(67c4e07), 문서 번호 접두어와 구축 계획(15a59ec)을 커밋·푸시했습니다. 첫 커밋에 문서 2건의 이름 변경(내용 없음)이 함께 실렸습니다. `git mv` 로 인덱스에 올라 있던 것을 확인하지 않은 실수이며 그대로 두기로 했습니다.
+- 코드 리뷰 10건 가운데 9건을 반영했습니다(접두어 중복, 동어반복 검사, 탐색 경로 교대 기준, 파싱 빠른 경로, 재료 캐시, 픽스처 정리, 라벨 창 주석). 남은 1건이 02 의 2.2 와 명세 4절의 충돌이며 D-23 으로 02 를 개정했습니다.
+- TDD 로 `stats.py` 를 만들었습니다. 순열 baseline(popularity·random·coverage), 유저 단위 부트스트랩과 대응 비교, Interleaving(D-24), 검출력(필요 유저 수·최소 검출 효과), 판정. 합성 기록에 위치 감쇠를 심으면 서빙 순서가 coverage baseline 을 이겨 "통과" 가 나오는 것을 검사로 확인했습니다.
+- 검증: 4종 명령 종료 코드 0(1절). 02 개정과 통계는 커밋하지 않았습니다.
+
+### 7.6 2026-09-18 · 추정기, 리포트, 스냅샷, 내보내기
+
+- TDD 로 네 단계를 만들었습니다. `estimator.py`(SNIPS·ESS·미지원 비율·경로별 분리·가중치 교체 정책, D-27), `report.py` 와 `run`(명세 9.2 모양, 그룹·세그먼트·baseline·검출력·판정·Interleaving·오프폴리시, D-25·D-29), `quality.py` 와 `quality`(기대 None 패턴 경보, `/v1/health` 원값, DB 항목은 `--db` 일 때만, D-26), `export.py` 와 `export`(가명화·화이트리스트 필드·`--since` 필수, D-28). `Makefile` 에 `eval`·`eval-smoke`.
+- 명세와 다르게 한 것: 리포트 모듈 신설(D-25), `cuisine_unmet` 필드(D-26). 취향 출처 보조 세그먼트(명세 5.6)는 기록에 그 필드가 없어 넣지 않았습니다. 명세 4절 개정 때 함께 정합니다.
+- 검증: 4종 명령 종료 코드 0, 단위 416건. `make eval` 종료 코드 0. E-10 은 실 DB 가 없어 skip 이며 `quality --db` 의 SQL 3종도 실 DB 에서 돌리지 못했습니다.
+- 커밋하지 않았습니다.
+
+### 7.7 2026-09-18 · 2차 코드 리뷰와 리팩터링
+
+- 8각도 리뷰에서 10건을 보고하고 전부 반영했습니다. 정확성 7건(양성 없는 그룹의 ZeroDivisionError, 후보 없는 행의 분모 오염, random baseline 동일 순열, `--since` naive 시각, `user_mode` null, 고아 경보 상시 발화, 미노출 후보 재료 누락), 검사 1건(항상 skip 되던 통합 검사), 규칙 1건(SQL 위치), 기록 0건의 오프폴리시 `usable=True`. 결정 D-30~D-35.
+- 함께 정리한 것: 부트스트랩이 유저별 (합, 건수)만 더하고(결과 동일, 리샘플당 O(유저 수)), 라벨을 기록당 한 번 계산해 통계·Interleaving·추정기에 넘기며, `Estimate` 에 `se` 를 더해 검출력이 판정과 같은 산포를 씁니다. `RunOptions.now` 삭제, `asdict` 로 통일, 백분위는 `metrics.nearest_rank` 하나, 리포트 `warnings` 와 `stamp.catalog_size_source` 추가, `build_record` 인자 5개(`ExportOptions`), `make eval-smoke` 의 경로 따옴표.
+- 반영하지 않은 것: `MIN_USERS`·`RESAMPLES`·`TARGET_EFFECT`·`ESS_MIN_SHARE`·`HEALTH_TIMEOUT_SEC` 를 `config.py` 로 옮기는 것(03 의 2절). 사전 등록 지표의 판정 문턱은 환경마다 바꾸는 값이 아니라 분석 규약이며 엔진도 `policy.py` 에 손잡이를 둡니다. `pseudonymize` 를 `scripts/reco/load_recipes.py` 의 `author_hash` 와 합치는 것은 스크립트를 `src` 로 올리는 별도 작업입니다. `cuisine_unmet` 필드 추가에 버전을 올리지 않은 것은 이전 파일이 기본값으로 읽히기 때문입니다.
+- 검증: 4종 명령 종료 코드 0, 단위 425건, 커버리지 93.27%. `make eval` 종료 코드 0. 커밋하지 않았습니다.
+
+### 7.8 2026-09-18 · 명세 개정, 구축 계획 갱신, 요청 초안
+
+- 명세를 1.2.0 으로 올렸습니다(T-11). 모듈 배치와 의존, 제외 규칙 `no_items`, `cuisine_unmet` 필드, random baseline, Interleaving 의 다수결, 검출력 산식, 고아 비율의 범위, 리포트 JSON 의 추가 키, E-04·E-05·E-07·E-10·E-11 의 실제 검사 방식, `EVAL_SALT`. 바뀐 것은 명세 1.5 의 표에 모았습니다.
+- 구축 계획을 1.2.0 으로 올렸습니다(T-12). 현재 위치, 마일스톤 상태 열, PR 표의 실제 파일과 검사, 해소된 막힌 경로 삭제, 남은 위험 2건(실 DB 에서 못 돌린 SQL, `no_items` 행) 추가.
+- 타 파트 요청 초안을 썼습니다(T-13). 파트 A 4건, 파트 B 6건, 백엔드 2건, 3인 합의 3건. G-09 는 코드와 대조해 정정했습니다.
+- 검증: 04 의 2.3 형식 점검 4종 출력 없음. 코드는 바꾸지 않았습니다.
