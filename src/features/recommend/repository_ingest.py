@@ -634,10 +634,19 @@ def load_freq_top(limit: int = 10) -> list[tuple[str, int, str | None]]:
 # ─────────────────────────────────────────────────────────────────
 #: 픽스처에 담을 컬럼. recipe_feature 에서 B·C 가 실제로 읽는 것만 고른다.
 #: content_emb(768차원)와 nutrition 은 뺀다 — 파일이 커지고 아직 비어 있다.
+#:
+#: 주의: B 의 행 변환기가 읽는 칸이 하나라도 빠지면 그 변환은 **실데이터에서만**
+#:    터진다. 골든으로 맞춘 검사는 통과하는데 서빙이 다르게 도는 것이라,
+#:    픽스처의 뜻이 사라진다 (09-18, B 의 F-106 요청).
+#:    title 은 recipe 쪽에 있어 조인해서 담는다.
+#:    season_vec 은 12칸 배열이고 지금 전건 NULL 이지만, 칸을 두어야 B 가
+#:    "없으면 None" 경로를 골든으로 확인할 수 있다.
 _GOLDEN_COLS = (
-    "recipe_id, essential_ids, all_ids, category_ids, n_essential, n_total, "
-    "n_unmatched, flavor_vec, popularity_score, quality_score, "
-    "cook_minutes, difficulty, cluster_id, feature_version"
+    "rf.recipe_id, r.title, rf.essential_ids, rf.all_ids, rf.category_ids, "
+    "rf.n_essential, rf.n_total, rf.n_unmatched, rf.flavor_vec, "
+    "rf.popularity_score, rf.quality_score, rf.season_vec, "
+    "rf.cook_minutes, rf.difficulty, rf.cuisine_family, rf.dish_type, "
+    "rf.cluster_id, rf.feature_version"
 )
 
 #: 구분마다 정해진 수만큼 뽑는다. recipe_id 순으로 고정해 실행마다 같은 것이
@@ -648,24 +657,28 @@ _GOLDEN_COLS = (
 #:    호출부는 이름으로만 고른다. 건수는 %s 로 바인딩한다.
 _GOLDEN_SQL = f"""
 SELECT {_GOLDEN_COLS}
-FROM recipe_feature
+FROM recipe_feature rf
+JOIN recipe r ON r.id = rf.recipe_id
 WHERE {{cond}}
-ORDER BY recipe_id
+ORDER BY rf.recipe_id
 LIMIT %s
 """  # noqa: S608
 
 
 #: 허용된 조건만 담은 표. 문자열로 SQL 을 조립하는 유일한 자리라, 바깥에서
 #: 임의의 문자열이 들어올 수 없게 이름으로만 고르게 한다.
+#: 주의: recipe 를 조인하므로 컬럼마다 rf. 를 붙인다. cook_minutes 와 difficulty 는
+#:    양쪽 테이블에 다 있어, 접두어가 없으면 "ambiguous column" 으로 죽는다.
 GOLDEN_CONDS: dict[str, str] = {
     "normal": (
-        "n_total > 0 AND n_essential > 0 AND n_unmatched <= 2 "
-        "AND cook_minutes IS NOT NULL AND flavor_vec <> ARRAY[0,0,0,0,0,0]::real[]"
+        "rf.n_total > 0 AND rf.n_essential > 0 AND rf.n_unmatched <= 2 "
+        "AND rf.cook_minutes IS NOT NULL "
+        "AND rf.flavor_vec <> ARRAY[0,0,0,0,0,0]::real[]"
     ),
-    "zero_essential": "n_total > 0 AND n_essential = 0",
-    "many_unmatched": "n_unmatched >= 5 AND n_essential > 0",
-    "zero_flavor": "flavor_vec = ARRAY[0,0,0,0,0,0]::real[] AND n_total > 0",
-    "no_cooktime": "cook_minutes IS NULL AND n_total > 0 AND n_essential > 0",
+    "zero_essential": "rf.n_total > 0 AND rf.n_essential = 0",
+    "many_unmatched": "rf.n_unmatched >= 5 AND rf.n_essential > 0",
+    "zero_flavor": "rf.flavor_vec = ARRAY[0,0,0,0,0,0]::real[] AND rf.n_total > 0",
+    "no_cooktime": "rf.cook_minutes IS NULL AND rf.n_total > 0 AND rf.n_essential > 0",
 }
 
 

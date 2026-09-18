@@ -12,6 +12,7 @@
   "mu_n_recipes": 46353,
   "keys": [
     "recipe_id",
+    "title",
     "essential_ids",
     "all_ids",
     "category_ids",
@@ -21,14 +22,18 @@
     "flavor_vec",
     "popularity_score",
     "quality_score",
+    "season_vec",
     "cook_minutes",
     "difficulty",
+    "cuisine_family",
+    "dish_type",
     "cluster_id",
     "feature_version"
   ],
   "recipes": [
     {
       "recipe_id": 2,
+      "title": "훈제연어 베이글 샌드위치 (대파 크림치즈 만들기)",
       "essential_ids": [
         28,
         55,
@@ -64,13 +69,17 @@
       ],
       "popularity_score": 4.3147153e-05,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 30,
       "difficulty": 2,
+      "cuisine_family": "western",
+      "dish_type": null,
       "cluster_id": 31,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 3,
+      "title": "소고기 스테이크 덮밥",
       "essential_ids": [
         28,
         187,
@@ -117,13 +126,17 @@
       ],
       "popularity_score": 0.17483227,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 60,
       "difficulty": 2,
+      "cuisine_family": "western",
+      "dish_type": null,
       "cluster_id": 16,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 4,
+      "title": "호박도토리전",
       "essential_ids": [
         44,
         234,
@@ -158,13 +171,17 @@
       ],
       "popularity_score": 6.472073e-05,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 20,
       "difficulty": 1,
+      "cuisine_family": null,
+      "dish_type": null,
       "cluster_id": 35,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 5,
+      "title": "김치볶음밥용 김치미리볶아놓기",
       "essential_ids": [
         365,
         374
@@ -196,13 +213,17 @@
       ],
       "popularity_score": 8.6294305e-05,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 30,
       "difficulty": 1,
+      "cuisine_family": "korean",
+      "dish_type": null,
       "cluster_id": 24,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 6,
+      "title": "칠리새우덮밥",
       "essential_ids": [
         28,
         234,
@@ -248,13 +269,17 @@
       ],
       "popularity_score": 0.17485385,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 20,
       "difficulty": 1,
+      "cuisine_family": null,
+      "dish_type": null,
       "cluster_id": 31,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 7,
+      "title": "찬밥으로만드는 누룽지 치킨",
       "essential_ids": [
         30,
         227,
@@ -296,13 +321,17 @@
       ],
       "popularity_score": 0.17487541,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 30,
       "difficulty": 1,
+      "cuisine_family": null,
+      "dish_type": null,
       "cluster_id": 19,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 8,
+      "title": "초간단 배추전 레시피",
       "essential_ids": [
         138
       ],
@@ -339,13 +368,17 @@
       ],
       "popularity_score": 0.00010786788,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 15,
       "difficulty": 1,
+      "cuisine_family": null,
+      "dish_type": null,
       "cluster_id": 22,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 9,
+      "title": "양배추 참치덮밥",
       "essential_ids": [
         234,
         365
@@ -391,13 +424,17 @@
       ],
       "popularity_score": 0.00012944145,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 20,
       "difficulty": 1,
+      "cuisine_family": null,
+      "dish_type": null,
       "cluster_id": 2,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 11,
+      "title": "얼갈이배추 된장국 레시피 따뜻한 집밥 메뉴 추천",
       "essential_ids": [
         17,
         55
@@ -434,13 +471,17 @@
       ],
       "popularity_score": 0.17489699,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 20,
       "difficulty": 1,
+      "cuisine_family": "korean",
+      "dish_type": null,
       "cluster_id": 23,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 12,
+      "title": "볶음우동 만들기",
       "essential_ids": [
         3,
         28,
@@ -491,13 +532,17 @@
       ],
       "popularity_score": 0.35753888,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 20,
       "difficulty": 1,
+      "cuisine_family": "japanese",
+      "dish_type": null,
       "cluster_id": 2,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 13,
+      "title": "고등어덮밥",
       "essential_ids": [
         11,
         28,
@@ -542,13 +587,17 @@
       ],
       "popularity_score": 0.00017258861,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 30,
       "difficulty": 1,
+      "cuisine_family": null,
+      "dish_type": null,
       "cluster_id": 21,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 15,
+      "title": "집에서 만드는 수제칼국수",
       "essential_ids": [
         26,
         44,
@@ -591,13 +640,17 @@
       ],
       "popularity_score": 0.00019416219,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 120,
       "difficulty": 2,
+      "cuisine_family": null,
+      "dish_type": null,
       "cluster_id": 35,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 16,
+      "title": "비빔국수 황금레시피",
       "essential_ids": [
         42,
         234
@@ -637,13 +690,17 @@
       ],
       "popularity_score": 0.17491856,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 30,
       "difficulty": 1,
+      "cuisine_family": "korean",
+      "dish_type": null,
       "cluster_id": 7,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 17,
+      "title": "가지새우볶음밥",
       "essential_ids": [
         8,
         28,
@@ -690,13 +747,17 @@
       ],
       "popularity_score": 0.4524842,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 10,
       "difficulty": 1,
+      "cuisine_family": null,
+      "dish_type": null,
       "cluster_id": 31,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 18,
+      "title": "돼지고기 덮밥 레시피\\ 매콤달콤 양념으로 한 그릇 뚝딱.",
       "essential_ids": [
         28,
         55,
@@ -746,13 +807,17 @@
       ],
       "popularity_score": 0.17494014,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 20,
       "difficulty": 1,
+      "cuisine_family": null,
+      "dish_type": null,
       "cluster_id": 2,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 10,
+      "title": "밥솥으로 만드는송이버섯밥",
       "essential_ids": [],
       "all_ids": [
         11,
@@ -785,13 +850,17 @@
       ],
       "popularity_score": 0.00015101503,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 30,
       "difficulty": 1,
+      "cuisine_family": null,
+      "dish_type": null,
       "cluster_id": 19,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 14,
+      "title": "육회 비빔밥 황금 레시피 집에서도 맛집처럼 즐기는 고소한 한그릇",
       "essential_ids": [],
       "all_ids": [
         3,
@@ -830,13 +899,17 @@
       ],
       "popularity_score": 0.35756046,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 20,
       "difficulty": 1,
+      "cuisine_family": "korean",
+      "dish_type": null,
       "cluster_id": 2,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 35,
+      "title": "참치액으로 감칠맛 up 하얀 콩나물무침 레시피",
       "essential_ids": [],
       "all_ids": [
         434,
@@ -863,13 +936,17 @@
       ],
       "popularity_score": 0.00032360366,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 10,
       "difficulty": 1,
+      "cuisine_family": "korean",
+      "dish_type": null,
       "cluster_id": 23,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 59,
+      "title": "단무지무침 레시피 밑반찬 만들기 치자 단무지무침",
       "essential_ids": [],
       "all_ids": [
         55
@@ -890,13 +967,17 @@
       ],
       "popularity_score": 0.1752206,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 10,
       "difficulty": 1,
+      "cuisine_family": "korean",
+      "dish_type": null,
       "cluster_id": 39,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 169,
+      "title": "복숭아 통조림(병조림) 백복숭아",
       "essential_ids": [],
       "all_ids": [
         449
@@ -917,13 +998,17 @@
       ],
       "popularity_score": 0.00060406013,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 60,
       "difficulty": 2,
+      "cuisine_family": "korean",
+      "dish_type": null,
       "cluster_id": 43,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 253,
+      "title": "건새우 시금치된장국 레시피 시금치 두부 된장국 끓이는법",
       "essential_ids": [
         55,
         278,
@@ -964,13 +1049,17 @@
       ],
       "popularity_score": 0.60047895,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 15,
       "difficulty": 1,
+      "cuisine_family": "korean",
+      "dish_type": null,
       "cluster_id": 3,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 346,
+      "title": "고추장 대신 된장소스 곁들인 감칠맛 가득 부추비빔밥",
       "essential_ids": [
         11,
         62,
@@ -1001,13 +1090,17 @@
       ],
       "popularity_score": 0.54561734,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 15,
       "difficulty": 1,
+      "cuisine_family": "korean",
+      "dish_type": null,
       "cluster_id": 47,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 470,
+      "title": "(유아국,어린이국)순두부 들깨가루 무채국!",
       "essential_ids": [
         183
       ],
@@ -1036,13 +1129,17 @@
       ],
       "popularity_score": 0.17623454,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 30,
       "difficulty": 1,
+      "cuisine_family": null,
+      "dish_type": null,
       "cluster_id": 30,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 519,
+      "title": "초간단술안주!대패삼겹우동볶음!!",
       "essential_ids": [
         28,
         72,
@@ -1083,13 +1180,17 @@
       ],
       "popularity_score": 0.9292387,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 15,
       "difficulty": 1,
+      "cuisine_family": "japanese",
+      "dish_type": null,
       "cluster_id": 31,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 658,
+      "title": "구운마늘 좋아하는 사람은 만들어보세요, 돼지고기마늘조림",
       "essential_ids": [
         207
       ],
@@ -1120,13 +1221,17 @@
       ],
       "popularity_score": 0.3585097,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 30,
       "difficulty": 1,
+      "cuisine_family": "korean",
+      "dish_type": null,
       "cluster_id": 9,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 2801,
+      "title": "122.멜라토닌케일스무디(ft.잠솔솔)(2025.8.18)",
       "essential_ids": [],
       "all_ids": [
         527
@@ -1147,13 +1252,17 @@
       ],
       "popularity_score": 0.0053286734,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 20,
       "difficulty": 1,
+      "cuisine_family": null,
+      "dish_type": null,
       "cluster_id": 39,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 3835,
+      "title": "125.케일멜라토닌스무디(ft.불면증)(2025.8.21)",
       "essential_ids": [],
       "all_ids": [
         527
@@ -1174,13 +1283,17 @@
       ],
       "popularity_score": 0.0073781633,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 20,
       "difficulty": 1,
+      "cuisine_family": null,
+      "dish_type": null,
       "cluster_id": 39,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 3984,
+      "title": "호떡믹스로 하는 공갈빵 !! 에어프라이어 OK, 팬 OK !",
       "essential_ids": [],
       "all_ids": [
         526
@@ -1201,13 +1314,17 @@
       ],
       "popularity_score": 0.8489418,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": 30,
       "difficulty": 2,
+      "cuisine_family": null,
+      "dish_type": null,
       "cluster_id": 39,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 1,
+      "title": "카레 맛있게 만드는 집밥레시피",
       "essential_ids": [
         25,
         26,
@@ -1248,13 +1365,17 @@
       ],
       "popularity_score": 0.1748107,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": null,
       "difficulty": 1,
+      "cuisine_family": "korean",
+      "dish_type": null,
       "cluster_id": 19,
       "feature_version": "v1-bb1854"
     },
     {
       "recipe_id": 150,
+      "title": "쪽파계란말이 만들기-딸에게#",
       "essential_ids": [
         56,
         234
@@ -1286,8 +1407,11 @@
       ],
       "popularity_score": 0.17554419,
       "quality_score": 0.0,
+      "season_vec": null,
       "cook_minutes": null,
       "difficulty": null,
+      "cuisine_family": null,
+      "dish_type": null,
       "cluster_id": 35,
       "feature_version": "v1-bb1854"
     }
