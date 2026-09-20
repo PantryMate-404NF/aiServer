@@ -47,6 +47,7 @@ from features.recommend.schema import (
     RecommendationLogOut,
     RecommendRequest,
     RecommendResponse,
+    TasteOut,
 )
 from features.recommend.stage import RankedItem, StageInfo, StageTrace, TraceTotals
 
@@ -478,7 +479,7 @@ def save_onboarding(user_id: int, body: OnboardingIn) -> OnboardingOut:
     #    통째로 움직인다. 유형은 `user_preference.pref_cuisines` 로 따로 간다.
     return OnboardingOut(
         user_id=user_id,
-        taste_vec=tv,
+        taste=TasteOut.from_vector(tv),
         n_blocked_ingredients=n_blocked,
         preferred_cuisines=list(body.preferred_cuisines),
         allergy_groups=list(body.allergy_groups),

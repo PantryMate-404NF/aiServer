@@ -23,12 +23,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date, datetime
 from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from features.recommend.engine.taste import FLAVOR_AXES
 from features.recommend.enums import (
     CONTRACT_VERSION,
     ONBOARDING_CUISINES,
@@ -269,12 +271,41 @@ class PresentedOut(_Base):
     items: list[PresentedItem]
 
 
+class TasteOut(_Base):
+    """산출된 맛 취향. 화면이 쓰는 3축만, 이름을 붙여 돌려준다.
+
+    주의: 배열이 아니라 이름 있는 칸으로 준다. 배열이면 받는 쪽이 순서를 달리 읽어도
+       에러가 나지 않는다 — 우리 축 순서는 [매움, 짠맛, 단맛] 이고 화면은
+       [짠맛, 단맛, 매운맛] 이라 그대로 읽으면 조용히 밀린다.
+
+    엔진 안에서는 6축을 그대로 쓴다. 신맛·감칠맛·기름짐은 화면이 묻지 않을 뿐이고
+    점수에는 들어간다. 여기서 빼는 것은 내보내는 값뿐이다.
+
+    값은 0~1 이다. 입력 척도(1~5)와 범위가 다르다 — 고른 음식들에서 산출한 값이지
+    적어 낸 답을 되돌려주는 것이 아니다.
+    """
+
+    spicy: float = Field(ge=0.0, le=1.0)
+    salty: float = Field(ge=0.0, le=1.0)
+    sweet: float = Field(ge=0.0, le=1.0)
+
+    @classmethod
+    def from_vector(cls, vector: Sequence[float]) -> TasteOut:
+        """6축 벡터에서 화면이 쓰는 3축을 뽑는다. 자리는 축 이름으로 찾는다."""
+        axes = list(FLAVOR_AXES)
+        return cls(
+            spicy=float(vector[axes.index("매움")]),
+            salty=float(vector[axes.index("짠맛")]),
+            sweet=float(vector[axes.index("단맛")]),
+        )
+
+
 class OnboardingOut(_Base):
     """저장 결과. 프론트는 완료 여부만 알면 된다."""
 
     user_id: int
-    #: 산출된 맛 취향 6축. 확인용으로만 돌려준다.
-    taste_vec: list[float] = Field(min_length=6, max_length=6)
+    #: 산출된 맛 취향. 화면이 쓰는 3축만 이름을 붙여 돌려준다.
+    taste: TasteOut
     #: 알러지로 차단될 재료 수 (그룹 전개 후). 사용자에게 보여주면 신뢰가 는다.
     n_blocked_ingredients: int
     #: 저장된 음식 유형 코드. 라벨로 보냈어도 코드로 돌려주므로 프론트가 무엇이 저장됐는지 안다.
