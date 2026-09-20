@@ -490,7 +490,7 @@ name,category_path,is_staple,is_seasoning,allergen_group,note
 두반장,season.sauce,false,true,soy,중식 시그니처 재료
 스리라차,season.sauce,false,true,,
 타바스코,season.sauce,false,true,,
-돈까스소스,season.sauce,false,true,,
+돈까스소스,season.sauce,false,true,gluten,우스터소스 계열이라 소맥분이나 양조간장이 든다. 글루텐 프리 표기 제품만 예외로 본다
 우스터소스,season.sauce,false,true,,
 피시소스,season.sauce,false,true,fish,동남아 시그니처 재료
 스위트칠리소스,season.sauce,false,true,,동남아 시그니처 재료
