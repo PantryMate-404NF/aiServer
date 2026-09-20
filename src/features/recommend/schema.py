@@ -249,6 +249,26 @@ class OnboardingIn(_Base):
         return v
 
 
+class PresentedItem(_Base):
+    """온보딩 화면에 보여줄 음식 하나."""
+
+    name: str
+    #: `enums.ONBOARDING_CUISINES` 의 코드. 화면 문구는 부르는 쪽이 정합니다.
+    family: str
+
+
+class PresentedOut(_Base):
+    """온보딩 제시 목록. 화면이 이것을 받아 그리고, 고른 것을 이름으로 돌려보냅니다.
+
+    주의: 이 목록은 바뀝니다 — 시드에 교체 후보가 따로 있습니다. 부르는 쪽이 목록을
+       복사해 두면 우리가 바꿨을 때 조용히 어긋나므로, 그리기 직전에 받는 것이
+       맞습니다. 바뀐 것을 알 수 있도록 `list_version` 을 함께 보냅니다.
+    """
+
+    list_version: int
+    items: list[PresentedItem]
+
+
 class OnboardingOut(_Base):
     """저장 결과. 프론트는 완료 여부만 알면 된다."""
 

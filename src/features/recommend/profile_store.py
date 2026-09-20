@@ -35,7 +35,7 @@ import yaml
 from features.recommend.engine import taste
 from features.recommend.engine.persona import TasteEvent, TasteProfile
 from features.recommend.engine.taste import FlavorVector
-from features.recommend.enums import EventType
+from features.recommend.enums import EventType, normalize_cuisine
 
 #: 파일 형식 버전. 필드를 바꾸면 올리고 읽는 쪽에서 옛 판을 변환합니다.
 #: 2 — 온보딩 음식 유형(`cuisines`) 추가. 1 은 그 칸이 비어 있는 것으로 읽습니다.
@@ -108,6 +108,30 @@ def load_presented_flavors(path: Path) -> tuple[FlavorVector, ...]:
     if short:
         raise ValueError(f"제시 목록에 {taste.AXIS_COUNT}축이 아닌 항목이 있습니다: {short}")
     return tuple(taste.as_vector([float(v) for v in entry["flavor"]]) for entry in presented)
+
+
+#: 제시 목록의 정본 위치. 화면에 내려줄 때도 이 파일 하나만 봅니다.
+PRESENTED_PATH = Path(__file__).resolve().parents[3] / "seeds" / "onboarding_recipes.yaml"
+
+
+def load_presented_menu(path: Path = PRESENTED_PATH) -> tuple[int, tuple[tuple[str, str], ...]]:
+    """화면에 내려줄 제시 목록. (판 번호, ((이름, 계열코드), ...)) 입니다.
+
+    맛 6축은 일부러 빼고 이름과 계열만 돌려줍니다. 맛 값이 밖으로 나가면 부르는 쪽이
+    그것을 사본으로 들게 되고, 우리 시드가 바뀌면 그 사본이 조용히 낡습니다. 점수는
+    우리가 내고 화면은 이름만 있으면 됩니다.
+
+    판 번호를 함께 줍니다 — 목록이 바뀐 것을 부르는 쪽이 알 수 있어야 합니다.
+    """
+    document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    rows: list[tuple[str, str]] = []
+    for entry in document["presented"]:
+        name = str(entry["name"])
+        family = normalize_cuisine(str(entry.get("family", "")))
+        if family is None:
+            raise ValueError(f"제시 목록에 모르는 계열이 있습니다: {name} -> {entry.get('family')}")
+        rows.append((name, family))
+    return int(document["version"]), tuple(rows)
 
 
 def _to_json(profile: TasteProfile) -> dict[str, Any]:
