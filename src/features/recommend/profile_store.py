@@ -27,6 +27,7 @@ import json
 import os
 import tempfile
 from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -39,9 +40,9 @@ from features.recommend.enums import EventType, normalize_cuisine
 
 #: 파일 형식 버전. 필드를 바꾸면 올리고 읽는 쪽에서 옛 판을 변환합니다.
 #: 2 — 온보딩 음식 유형(`cuisines`) 추가. 1 은 그 칸이 비어 있는 것으로 읽습니다.
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 #: 읽을 수 있는 판. 못 읽는 판을 조용히 빈 취향으로 만들지 않으려고 목록으로 둡니다.
-READABLE_VERSIONS: frozenset[int] = frozenset({1, SCHEMA_VERSION})
+READABLE_VERSIONS: frozenset[int] = frozenset({1, 2, SCHEMA_VERSION})
 SHARD_COUNT = 256
 
 
@@ -71,7 +72,9 @@ class JsonProfileStore:
             raw = json.loads(target.read_text(encoding="utf-8"))
             profile = _from_json(raw)
         except (ValueError, KeyError, TypeError) as error:
-            raise ValueError(f"취향 파일을 읽을 수 없습니다: {target}") from error
+            # 이유를 함께 적습니다. 경로만 남기면 무엇이 잘못됐는지 파일을 열어
+            # 봐야 알 수 있고, 원인은 __cause__ 에만 있어 로그에 안 찍힙니다.
+            raise ValueError(f"취향 파일을 읽을 수 없습니다: {target} — {error}") from error
         if profile.user_id != user_id:
             raise ValueError(f"취향 파일의 사용자가 다릅니다: {target} 안은 {profile.user_id}")
         return profile
@@ -112,6 +115,13 @@ def load_presented_flavors(path: Path) -> tuple[FlavorVector, ...]:
 
 #: 제시 목록의 정본 위치. 화면에 내려줄 때도 이 파일 하나만 봅니다.
 PRESENTED_PATH = Path(__file__).resolve().parents[3] / "seeds" / "onboarding_recipes.yaml"
+
+
+@lru_cache(maxsize=1)
+def load_presented_names(path: Path = PRESENTED_PATH) -> tuple[str, ...]:
+    """제시 목록의 이름만. 고른 음식을 이름으로 적기 위한 정본입니다."""
+    document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return tuple(str(entry["name"]) for entry in document["presented"])
 
 
 def load_presented_menu(path: Path = PRESENTED_PATH) -> tuple[int, tuple[tuple[str, str], ...]]:
@@ -156,6 +166,31 @@ def _to_json(profile: TasteProfile) -> dict[str, Any]:
     }
 
 
+def _pick_names(raw: object) -> tuple[str, ...]:
+    """고른 음식을 이름으로 맞춥니다. 판 3 미만은 인덱스라 옮겨 담습니다.
+
+    판 2 까지는 제시 목록의 인덱스를 적었습니다. 그 목록은 교체 후보가 따로 있어
+    바뀌는데, 바뀌면 같은 숫자가 다른 음식을 가리키면서 에러 없이 취향이 틀어집니다.
+    이름은 목록이 어떻게 바뀌어도 그대로라 그쪽으로 옮겼습니다.
+
+    범위 밖 인덱스는 거부합니다. 지금 목록으로 해석할 수 없는 값을 짐작해서 채우면
+    그 사용자만 고르지 않은 음식을 고른 것이 됩니다.
+    """
+    if not isinstance(raw, list):
+        raise ValueError(f"picks 는 배열이어야 합니다: {type(raw).__name__}")
+    names = load_presented_names()
+    out: list[str] = []
+    for item in raw:
+        if isinstance(item, str):
+            out.append(item)
+            continue
+        index = int(item)
+        if not 0 <= index < len(names):
+            raise ValueError(f"제시 목록 밖의 인덱스라 이름으로 옮길 수 없습니다: {index}")
+        out.append(names[index])
+    return tuple(out)
+
+
 def _from_json(raw: object) -> TasteProfile:
     """값의 형은 여기서 맞추고, 축 수와 범위는 `TasteProfile`·`TasteEvent` 가 검사합니다."""
     if not isinstance(raw, dict):
@@ -164,7 +199,7 @@ def _from_json(raw: object) -> TasteProfile:
         raise ValueError(f"모르는 파일 형식 버전입니다: {raw.get('schema')}")
     return TasteProfile(
         user_id=int(raw["user_id"]),
-        picks=tuple(int(i) for i in raw.get("picks", [])),
+        picks=_pick_names(raw.get("picks", [])),
         pick_flavors=tuple(_flavor(v) for v in raw.get("pick_flavors", [])),
         scales=None if raw.get("scales") is None else tuple(float(s) for s in raw["scales"]),
         # 판 1 에는 없던 칸입니다. 없으면 고른 유형이 없는 사용자입니다.

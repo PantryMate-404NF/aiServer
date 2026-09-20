@@ -311,7 +311,8 @@ def test_onboarding_keeps_the_originals_and_derives_from_picks(
 
     stored = persona_service.store.load(1)
     assert stored is not None
-    assert stored.picks == (0, 3) and stored.pick_flavors == (presented[0], presented[3])
+    assert stored.picks == ("오징어볶음", "김치찌개")
+    assert stored.pick_flavors == (presented[0], presented[3])
     assert stored.scales == (1.0, 0.0, 0.5)
     assert made.prior_source is PersonaSource.PICKS
     assert made.vec == pytest.approx(
@@ -337,7 +338,8 @@ def test_re_onboarding_keeps_recorded_events(persona_service: service.PersonaSer
     persona_service.save_onboarding(1, picks=[1, 2], scales=[1, 1, 1], now=NOW + timedelta(days=1))
 
     stored = persona_service.store.load(1)
-    assert stored is not None and len(stored.events) == 1 and stored.picks == (1, 2)
+    assert stored is not None and len(stored.events) == 1
+    assert stored.picks == ("오징어초무침", "불고기")
 
 
 def test_record_events_stores_positive_signals_and_counts_the_rest(
@@ -466,7 +468,7 @@ def test_duplicate_picks_count_once_and_a_short_list_is_counted(
     made = persona_service.save_onboarding(1, picks=[3, 3, 3], scales=[2, 2, 2], now=NOW)
 
     stored = persona_service.store.load(1)
-    assert stored is not None and stored.picks == (3,)
+    assert stored is not None and stored.picks == ("김치찌개",)
     assert made.vec == presented[3]
     counts = service.counters()
     assert counts["persona_pick_duplicate"] == 2

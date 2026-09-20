@@ -39,6 +39,7 @@ from features.recommend.enums import (
     normalize_allergen,
     normalize_cuisine,
 )
+from features.recommend.profile_store import load_presented_names
 from features.recommend.stage import RankedItem, StageTrace
 
 
@@ -230,9 +231,13 @@ class OnboardingIn(_Base):
        저장 위치는 `user_vector.onboarding_picks` · `onboarding_scales`.
     """
 
-    #: 제시 20개 중 고른 것의 인덱스 (seeds/onboarding_recipes.yaml 의 presented 순서).
+    #: 고른 음식의 이름. `GET /v1/onboarding/presented` 가 내려주는 목록의 name 이다.
     #: 확정 문항은 3개지만 개수는 서버가 강제하지 않는다 — 프론트가 정한다.
-    picks: list[int] = Field(min_length=1, max_length=20)
+    #:
+    #: 주의: 인덱스(정수)도 계속 받는다. 우리 시뮬·검사가 그 모양으로 쓰고 있어서다.
+    #:    새로 붙이는 쪽은 이름을 쓴다 — 제시 목록은 교체 후보가 따로 있어 바뀌고,
+    #:    바뀌면 같은 숫자가 다른 음식을 가리키면서 에러 없이 취향이 틀어진다.
+    picks: list[int | str] = Field(min_length=1, max_length=20)
     #: 맛 척도 3축 [매움, 짠맛, 단맛] 각 0~4. 순서가 계약이라 새로 붙이는 쪽은
     #: 아래 `taste_preferences` 를 쓰는 편이 안전하다. 이 칸은 우리 시뮬·검사가
     #: 쓰고 있어 계속 받는다.
@@ -301,6 +306,23 @@ class OnboardingIn(_Base):
     def _scale_range(cls, v: list[int] | None) -> list[int] | None:
         if v is not None and any(not 0 <= x <= 4 for x in v):
             raise ValueError("척도는 0~4 다")
+        return v
+
+    @field_validator("picks")
+    @classmethod
+    def _known_picks(cls, v: list[int | str]) -> list[int | str]:
+        """제시 목록에 없는 이름을 요청 단계에서 거부합니다.
+
+        가까운 음식으로 짐작해 넣으면 고르지 않은 것이 그 사용자의 취향이 되고
+        응답은 200 입니다. `preferred_cuisines`·`allergy_groups` 와 같은 방어입니다.
+        """
+        names = load_presented_names()
+        unknown = [p for p in v if isinstance(p, str) and p not in names]
+        if unknown:
+            raise ValueError(f"제시 목록에 없는 음식이다: {unknown}")
+        bad = [p for p in v if isinstance(p, int) and not 0 <= p < len(names)]
+        if bad:
+            raise ValueError(f"제시 목록 밖의 인덱스다: {bad}")
         return v
 
     @model_validator(mode="after")

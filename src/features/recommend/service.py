@@ -47,7 +47,7 @@ import math
 import random
 import threading
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from time import perf_counter
 from uuid import UUID
@@ -65,7 +65,7 @@ from features.recommend.enums import (
     normalize_cuisine,
 )
 from features.recommend.policy import RankingPolicy, with_trace_extra
-from features.recommend.profile_store import ProfileStore
+from features.recommend.profile_store import ProfileStore, load_presented_names
 from features.recommend.schema import EventIn
 from features.recommend.stage import Candidate, RankedItem, ScoredCandidate, StageInfo
 
@@ -106,11 +106,12 @@ _PROFILE_LOCK = threading.Lock()
 
 def onboarding_profile(
     user_id: int,
-    picks: Sequence[int],
+    picks: Sequence[int | str],
     scales: Sequence[int] | None,
     presented: Sequence[FlavorVector],
     now: datetime,
     cuisines: Sequence[str] = (),
+    presented_names: Sequence[str] = (),
 ) -> TasteProfile:
     """온보딩 응답을 취향 원본으로 바꿉니다. 범위 밖 인덱스와 척도는 거부합니다.
 
@@ -121,19 +122,22 @@ def onboarding_profile(
     음식 유형은 맛 6축과 섞지 않습니다. 고른 유형의 평균 맛을 취향에 더하면 "한식을 좋아함"이
     "짜고 매운 것을 좋아함"으로 번역되어, 유형을 고른 것만으로 맛 취향이 통째로 움직입니다.
     """
-    unique = tuple(dict.fromkeys(int(i) for i in picks))
-    if len(unique) != len(picks):
-        bump("persona_pick_duplicate", len(picks) - len(unique))
-    bad = [i for i in unique if not 0 <= i < len(presented)]
-    if bad:
-        bump("persona_pick_out_of_range")
-        raise ValueError(f"제시 목록 밖의 인덱스입니다: {bad}")
-    if 0 < len(unique) < MIN_PICKS:
+    # 이름을 안 넘기면 시드의 것을 씁니다. 6축과 이름은 같은 파일에서 나오므로
+    # 길이가 어긋나면 배선이 잘못된 것이라 조용히 넘기지 않고 멈춥니다.
+    names = tuple(presented_names) or load_presented_names()
+    if picks and len(names) != len(presented):
+        raise ValueError(
+            f"제시 목록의 이름과 6축의 개수가 다릅니다: {len(names)} != {len(presented)}"
+        )
+    indexes = tuple(dict.fromkeys(_pick_index(p, names, len(presented)) for p in picks))
+    if len(indexes) != len(picks):
+        bump("persona_pick_duplicate", len(picks) - len(indexes))
+    if 0 < len(indexes) < MIN_PICKS:
         bump("persona_picks_under_min")
     return TasteProfile(
         user_id=user_id,
-        picks=unique,
-        pick_flavors=tuple(presented[i] for i in unique),
+        picks=tuple(names[i] for i in indexes),
+        pick_flavors=tuple(presented[i] for i in indexes),
         scales=None if scales is None else _normalized_scales(scales),
         cuisines=_normalized_cuisines(cuisines),
         updated_at=now,
@@ -160,6 +164,25 @@ def _normalized_cuisines(cuisines: Sequence[str]) -> tuple[str, ...]:
     return tuple(seen)
 
 
+def _pick_index(pick: int | str, names: Sequence[str], count: int) -> int:
+    """고른 음식을 제시 목록의 자리로 바꿉니다. 이름과 인덱스를 둘 다 받습니다.
+
+    이름이 정본입니다. 인덱스는 시뮬·검사가 쓰던 모양이라 계속 받습니다.
+    어느 쪽이든 목록 밖이면 거부합니다 — 짐작해서 채우면 고르지 않은 음식이
+    그 사용자의 취향이 되고 에러는 나지 않습니다.
+    """
+    if isinstance(pick, str):
+        if pick not in names:
+            bump("persona_pick_unknown_name")
+            raise ValueError(f"제시 목록에 없는 음식입니다: {pick!r}")
+        return names.index(pick)
+    index = int(pick)
+    if not 0 <= index < count:
+        bump("persona_pick_out_of_range")
+        raise ValueError(f"제시 목록 밖의 인덱스입니다: {index}")
+    return index
+
+
 def _normalized_scales(scales: Sequence[int]) -> tuple[float, ...]:
     """계약 범위(0~SCALE_MAX)를 확인하고 0~1 로 옮깁니다. 잘라 넣지 않습니다."""
     bad = [s for s in scales if not (math.isfinite(s) and 0 <= s <= SCALE_MAX)]
@@ -180,11 +203,13 @@ class PersonaService:
     #: 온보딩 제시 목록의 6축. `profile_store.load_presented_flavors()` 가 만듭니다.
     presented: Sequence[FlavorVector]
     policy: RankingPolicy
+    #: 같은 목록의 이름. 고른 음식을 이름으로 적기 위해 함께 듭니다.
+    presented_names: Sequence[str] = field(default_factory=load_presented_names)
 
     def save_onboarding(
         self,
         user_id: int,
-        picks: Sequence[int],
+        picks: Sequence[int | str],
         scales: Sequence[int] | None,
         now: datetime,
         cuisines: Sequence[str] = (),
@@ -195,7 +220,9 @@ class PersonaService:
         이벤트를 정책 상한으로 잘라냅니다. 음식 유형은 이벤트로 갱신되지 않으므로 다시
         온보딩하면 그때 고른 것으로 바뀝니다.
         """
-        profile = onboarding_profile(user_id, picks, scales, self.presented, now, cuisines)
+        profile = onboarding_profile(
+            user_id, picks, scales, self.presented, now, cuisines, self.presented_names
+        )
         with _PROFILE_LOCK:
             before = self.store.load(user_id)
             if before is not None:
