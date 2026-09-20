@@ -34,6 +34,8 @@ from features.recommend.schema import (
     RecommendationLogOut,
     RecommendRequest,
     RecommendResponse,
+    TasteAxesOut,
+    TasteAxisOut,
 )
 from infra import db
 
@@ -107,6 +109,15 @@ def get_presented() -> PresentedOut:
     return PresentedOut(
         list_version=version,
         items=[PresentedItem(name=name, family=family) for name, family in rows],
+    )
+
+
+@router.get("/v1/onboarding/taste-axes", response_model=TasteAxesOut, tags=["onboarding"])
+def get_taste_axes() -> TasteAxesOut:
+    """맛 척도로 무엇을 보내야 하는지. 부르는 쪽이 베껴 두지 않게 여기서 받아 갑니다."""
+    labels = {"spicy": "매움", "salty": "짠맛", "sweet": "단맛"}
+    return TasteAxesOut(
+        axes=[TasteAxisOut(key=key, label=label) for key, label in labels.items()],
     )
 
 

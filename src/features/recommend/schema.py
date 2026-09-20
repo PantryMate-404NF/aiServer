@@ -30,6 +30,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from features.recommend.engine.persona import SCALE_AXIS_COUNT
 from features.recommend.engine.taste import FLAVOR_AXES
 from features.recommend.enums import (
     CONTRACT_VERSION,
@@ -171,6 +172,54 @@ class PantryItemIn(_Base):
 # ─────────────────────────────────────────────────────────────────
 # 온보딩 — 09-02 신설. 이 계약이 없어서 가중치 0.27 을 저장할 곳이 없었다.
 # ─────────────────────────────────────────────────────────────────
+#: 화면이 쓰는 척도의 양끝. 우리 내부 계약(0~4)과 범위가 다르므로 여기서 옮긴다.
+CLIENT_SCALE_MIN = 1
+CLIENT_SCALE_MAX = 5
+
+
+class TasteIn(_Base):
+    """맛 척도를 이름 있는 칸으로 받는다.
+
+    배열로 받으면 순서를 달리 보내도 에러가 나지 않는다 — 우리 계약은
+    [매움, 짠맛, 단맛] 이고 화면은 [짠맛, 단맛, 매운맛] 이라, 그대로 보낸
+    125조합 중 61개는 범위에서 거부되고 나머지 64개는 축이 밀린 채 통과한다.
+    우연히 맞는 경우는 없다.
+
+    이름이 붙어 있으면 순서라는 것이 없어진다. 빠진 칸은 이름으로 잡히고,
+    모르는 칸은 `_Base` 의 extra="forbid" 가 막는다.
+
+    값의 범위는 화면 기준 1~5 다. 우리 내부는 0~4 라 여기서 옮긴다.
+    """
+
+    salty: int = Field(ge=CLIENT_SCALE_MIN, le=CLIENT_SCALE_MAX)
+    sweet: int = Field(ge=CLIENT_SCALE_MIN, le=CLIENT_SCALE_MAX)
+    spicy: int = Field(ge=CLIENT_SCALE_MIN, le=CLIENT_SCALE_MAX)
+
+    def to_scales(self) -> list[int]:
+        """내부 계약 [매움, 짠맛, 단맛] 0~4 로 옮긴다. 자리는 이름으로 찾는다."""
+        by_axis = {"매움": self.spicy, "짠맛": self.salty, "단맛": self.sweet}
+        return [by_axis[axis] - CLIENT_SCALE_MIN for axis in FLAVOR_AXES[:SCALE_AXIS_COUNT]]
+
+
+class TasteAxisOut(_Base):
+    """우리가 받는 맛 축 하나. `key` 가 요청에 쓰는 이름이다."""
+
+    key: str
+    label: str
+
+
+class TasteAxesOut(_Base):
+    """무엇을 보내야 하는지 알려 준다. 부르는 쪽이 베껴 두지 않도록 여기서 받아 간다.
+
+    주의: 이 목록의 순서는 참고용이다. 요청은 이름 있는 칸으로 받으므로 순서가
+       의미를 갖지 않는다 — 순서에 맞춰 배열로 보내면 안 된다.
+    """
+
+    axes: list[TasteAxisOut]
+    min: int = CLIENT_SCALE_MIN
+    max: int = CLIENT_SCALE_MAX
+
+
 class OnboardingIn(_Base):
     """온보딩 6문항 응답 (S0 ② 확정 문항 + 09-15 음식 유형).
 
@@ -184,8 +233,12 @@ class OnboardingIn(_Base):
     #: 제시 20개 중 고른 것의 인덱스 (seeds/onboarding_recipes.yaml 의 presented 순서).
     #: 확정 문항은 3개지만 개수는 서버가 강제하지 않는다 — 프론트가 정한다.
     picks: list[int] = Field(min_length=1, max_length=20)
-    #: 맛 척도 3축 [매움, 짠맛, 단맛] 각 0~4. 순서가 계약이다.
-    scales: list[int] = Field(min_length=3, max_length=3)
+    #: 맛 척도 3축 [매움, 짠맛, 단맛] 각 0~4. 순서가 계약이라 새로 붙이는 쪽은
+    #: 아래 `taste_preferences` 를 쓰는 편이 안전하다. 이 칸은 우리 시뮬·검사가
+    #: 쓰고 있어 계속 받는다.
+    scales: list[int] | None = Field(default=None, min_length=3, max_length=3)
+    #: 이름 있는 맛 척도(화면 기준 1~5). 오면 `scales` 로 옮겨 담는다.
+    taste_preferences: TasteIn | None = None
     #: 알러지 — 그룹명과 재료 ID 를 둘 다 받는다 (안전 관련이라 이중화).
     #: 주의: 서버는 이것을 `severity='allergy'` 로 저장한다. DB 기본값 'avoid' 에
     #:    맡기면 그룹 확산이 조용히 꺼져 본인이 적은 재료만 막힌다.
@@ -245,10 +298,24 @@ class OnboardingIn(_Base):
 
     @field_validator("scales")
     @classmethod
-    def _scale_range(cls, v: list[int]) -> list[int]:
-        if any(not 0 <= x <= 4 for x in v):
+    def _scale_range(cls, v: list[int] | None) -> list[int] | None:
+        if v is not None and any(not 0 <= x <= 4 for x in v):
             raise ValueError("척도는 0~4 다")
         return v
+
+    @model_validator(mode="after")
+    def _resolve_taste(self) -> OnboardingIn:
+        """이름 있는 척도가 오면 내부 계약으로 옮긴다.
+
+        둘 다 오면 거부한다. 어느 쪽이 사용자의 답인지 알 수 없는데 조용히 하나를
+        고르면, 고르지 않은 쪽이 아무 표시 없이 버려진다.
+        """
+        if self.taste_preferences is None:
+            return self
+        if self.scales is not None:
+            raise ValueError("scales 와 taste_preferences 중 하나만 보내십시오")
+        self.scales = self.taste_preferences.to_scales()
+        return self
 
 
 class PresentedItem(_Base):
