@@ -88,10 +88,48 @@ def test_every_golden_row_converts_and_keeps_its_gaps() -> None:
     assert any(f.difficulty is None for f in features), "골든에 난이도 없는 행이 있다"
 
 
+def test_the_golden_cuisine_column_reaches_the_engine_model() -> None:
+    """09-21 에 골든 픽스처가 `cuisine_family` · `title` · `dish_type` · `season_vec` 을 싣습니다.
+
+    그 전에는 유형 변환을 손으로 만든 행으로만 볼 수 있었습니다(F-106). 실 행으로 봅니다 —
+    배정된 계열은 그대로 닿고, 못 정해 비운 것은 None 으로 남아야 합니다.
+    """
+    rows = _golden_rows()
+    assigned = [r for r in rows if r["cuisine_family"]]
+    empty = [r for r in rows if not r["cuisine_family"]]
+    assert assigned and empty, "골든에 배정된 행과 비운 행이 둘 다 있어야 검사가 뜻이 있다"
+
+    for row in assigned:
+        assert recipe_feature_from_row(row).cuisine == row["cuisine_family"]
+    for row in empty:
+        assert recipe_feature_from_row(row).cuisine is None
+    for row in rows:
+        feature = recipe_feature_from_row(row, month=9)
+        assert feature.title == row["title"]
+        assert feature.dish_type is None and feature.season_score is None, "실 DB 는 아직 비어 있다"
+
+
 @pytest.mark.parametrize(("stored", "expected"), [(1, 0.0), (2, 0.25), (3, 0.5), (5, 1.0)])
 def test_difficulty_maps_one_to_five_onto_zero_to_one(stored: int, expected: float) -> None:
     f = recipe_feature_from_row({"recipe_id": 1, "difficulty": stored})
     assert f.difficulty == pytest.approx(expected)
+
+
+@pytest.mark.parametrize(("word", "expected"), [("EASY", 0.0), ("NORMAL", 0.5), ("HARD", 1.0)])
+def test_the_backend_three_step_difficulty_is_accepted(word: str, expected: float) -> None:
+    """백엔드 `recipes.difficulty` 는 세 단계 열거형입니다 (09-21 실데이터).
+
+    숫자로 바꾸려다 ValueError 로 터지던 자리입니다.
+    """
+    got = recipe_feature_from_row({"recipe_id": 1, "difficulty": word}).difficulty
+    assert got == pytest.approx(expected)
+    assert recipe_feature_from_row({"recipe_id": 1, "difficulty": "easy"}).difficulty == 0.0
+
+
+@pytest.mark.parametrize("bad", ["", "VERY_HARD", "  ", 0, 9])
+def test_an_unreadable_difficulty_is_unmeasured_not_easy(bad: object) -> None:
+    """모르는 값을 0 으로 두면 '가장 쉬움' 으로 읽혀 f_skill_fit 이 틀린 값으로 돕니다."""
+    assert recipe_feature_from_row({"recipe_id": 1, "difficulty": bad}).difficulty is None
 
 
 def test_season_needs_the_month_to_become_a_score() -> None:

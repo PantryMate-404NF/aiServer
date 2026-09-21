@@ -10,8 +10,7 @@ PSQL    := $(COMPOSE) exec -T postgres psql -U reco -d recodb
 .PHONY: help env up up-app down down-v ps logs psql wait \
         install \
         validate dry-run seed seed-reset verify smoke ddl-test review-sheet review-apply unmatched post-index bootstrap clean \
-        zero-match-sheet \
-        eval eval-smoke
+        zero-match-sheet
 
 # 주의: 폭이 14 였는데 normalize-batch·popularity-build 처럼 긴 이름이
 #    설명과 붙어 버렸다. 가장 긴 이름이 16자라 18 로 둔다.
@@ -236,15 +235,6 @@ smoke:  ## 합성 레시피로 Retrieval 정확성·지연시간 측정
 
 smoke-big:  ## 5만 건 규모로 지연시간 측정
 	$(PY) tests/integration/test_smoke.py --recipes 50000
-
-eval:  ## 트랙 C — 합성 기록으로 평가 파이프라인 종단 실행 (DB 없음)
-	$(PY) scripts/reco_eval.py synth --users 50 --requests 500 --hit-rate 0.3 --position-decay 0.3 --seed 0 --out data/eval/synth.jsonl
-	$(PY) scripts/reco_eval.py run --records data/eval/synth.jsonl --out data/eval/report_synth.json
-
-eval-smoke:  ## 트랙 C — 실 DB 에서 내보낸 기록으로 종단 실행(E-10). SINCE=YYYY-MM-DD 필수
-	$(PY) scripts/reco_eval.py export --since "$${SINCE:?SINCE=YYYY-MM-DD 를 주세요}" --out "data/eval/export_$${SINCE}.jsonl"
-	@! grep -qE '"user_id"|pantry_snapshot|pantry_detail|allergy_snapshot' "data/eval/export_$${SINCE}.jsonl" || { echo "export 파일에 원본 식별자나 냉장고 필드가 있습니다"; exit 1; }
-	$(PY) scripts/reco_eval.py run --records "data/eval/export_$${SINCE}.jsonl" --out "data/eval/report_$${SINCE}.json"
 
 schema-remote:  ## 원격 DB 에 스키마 적용 (DATABASE_URL 필요)
 	./deploy/apply_schema.sh "$${DATABASE_URL:?DATABASE_URL 을 설정하세요}"

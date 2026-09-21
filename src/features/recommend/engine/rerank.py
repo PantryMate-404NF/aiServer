@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from features.recommend.engine import cuisine, explore, rank, reason, serendipity, taste
 from features.recommend.engine.context import CorpusStats, RecipeFeature, UserContext
 from features.recommend.engine.feature import DEFAULT_IDF, jaccard_idf
+from features.recommend.engine.score import order_key
 from features.recommend.enums import DEFAULT_WEIGHTS, cuisine_label
 from features.recommend.policy import RankingPolicy
 from features.recommend.stage import RankedItem, ScoredCandidate
@@ -49,7 +50,7 @@ def rerank(
     weights: Mapping[str, float] | None = None,
 ) -> list[RankedItem]:
     """최종 Top-K. 점수는 바꾸지 않고 순서와 구성만 정합니다."""
-    ranked = sorted(scored, key=lambda item: (-item.score, item.recipe_id))
+    ranked = sorted(scored, key=lambda item: order_key(item, ctx.user_id))
     total = min(top_k, len(ranked))
     if total == 0:
         return []

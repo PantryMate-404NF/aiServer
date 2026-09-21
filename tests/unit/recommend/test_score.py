@@ -9,9 +9,11 @@ import pytest
 from features.recommend.engine.context import CorpusStats, RecipeFeature, UserContext, UserHistory
 from features.recommend.engine.score import (
     avoid_penalty,
+    order_key,
     penalty_factor,
     score_all,
     score_candidate,
+    tie_break,
     weighted_score,
 )
 from features.recommend.enums import FEATURE_KEYS
@@ -42,6 +44,80 @@ def test_zero_weight_features_do_not_move_the_score() -> None:
 
 def test_no_measurable_feature_gives_zero() -> None:
     assert weighted_score(dict.fromkeys(FEATURE_KEYS), {"f_coverage": 0.24}) == 0.0
+
+
+def test_ties_are_not_always_won_by_the_lowest_recipe_id(
+    make_recipe: Callable[..., RecipeFeature],
+    make_candidate: Callable[..., Candidate],
+    make_context: Callable[..., UserContext],
+    policy: RankingPolicy,
+) -> None:
+    """실데이터에서 개인화 경계에 9~14건이 동점으로 걸렸습니다 (09-21).
+
+    번호가 가르면 낮은 번호가 모든 사용자에게 언제나 이기고, 뒷번호는 점수가 같아도 영영
+    노출되지 않습니다. 사용자마다 다른 순서여야 하고, 같은 사용자에게는 같아야 합니다.
+    """
+    ids = list(range(1, 13))
+    recipes = {i: make_recipe(i, essential=[1]) for i in ids}
+    candidates = [make_candidate(i) for i in ids]
+
+    def order_for(user_id: int) -> list[int]:
+        ctx = make_context(pantry=[1], user_id=user_id)
+        scored = score_all(candidates, recipes, ctx, CORPUS, policy)
+        assert len({item.score for item in scored}) == 1, "전제: 전부 동점이어야 한다"
+        return [item.recipe_id for item in scored]
+
+    first, again, other = order_for(7), order_for(7), order_for(8)
+
+    assert first == again, "같은 사용자에게는 같은 순서 — 난수가 섞이면 재현이 안 된다"
+    assert first != ids, "번호 순이면 낮은 번호가 늘 이긴다"
+    assert first != other, "사용자마다 달라야 뒷번호 레시피도 누군가에게는 보인다"
+    assert sorted(first) == ids
+
+
+def test_a_higher_score_always_beats_the_tie_break(
+    make_recipe: Callable[..., RecipeFeature],
+    make_candidate: Callable[..., Candidate],
+    make_context: Callable[..., UserContext],
+    policy: RankingPolicy,
+) -> None:
+    """동점 규칙은 동점만 가릅니다. 점수가 다르면 끼어들지 않습니다."""
+    recipes = {i: make_recipe(i, essential=[1]) for i in range(1, 9)}
+    candidates = [make_candidate(i, coverage=1.0 - i * 0.05) for i in range(1, 9)]
+
+    for user_id in (1, 2, 3, 99):
+        scored = score_all(
+            candidates, recipes, make_context(pantry=[1], user_id=user_id), CORPUS, policy
+        )
+        scores = [item.score for item in scored]
+        assert scores == sorted(scores, reverse=True)
+        assert [item.recipe_id for item in scored] == list(range(1, 9))
+
+
+def test_the_tie_break_does_not_depend_on_the_process() -> None:
+    """파이썬 `hash()` 로 바꾸면 재시작마다 순서가 달라져 어제 로그를 오늘 재현하지 못합니다.
+
+    값을 못 박아 둡니다. 이 검사가 깨지면 과거 로그의 목록 순서가 재현되지 않습니다.
+    """
+    assert tie_break(1024, 8821) == 2484416291
+    assert tie_break(1, 1) == 2789948889
+    assert tie_break(1024, 8821) != tie_break(1025, 8821)
+    assert 0 <= tie_break(2**40, 2**40) <= 0xFFFFFFFF, "큰 id 에서도 32비트 안"
+
+
+def test_order_key_is_a_total_order(make_candidate: Callable[..., Candidate]) -> None:
+    """해시가 겹쳐도 순서가 정해져야 합니다. 마지막 자리의 recipe_id 가 그 안전판입니다."""
+    key = order_key(
+        score_candidate(
+            make_candidate(5),
+            RecipeFeature(recipe_id=5),
+            UserContext(user_id=3),
+            CORPUS,
+            RankingPolicy(),
+        ),
+        3,
+    )
+    assert key[2] == 5 and key[1] == tie_break(3, 5)
 
 
 def test_cooked_recipe_is_exactly_halved(

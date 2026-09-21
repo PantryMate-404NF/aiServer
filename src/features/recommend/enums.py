@@ -177,19 +177,31 @@ FEATURE_KEYS: tuple[str, ...] = (
 #:    04_실행계획에서 잘린 수단(item2vec·KMeans)에 의존하는 피처에 가중치를 주면
 #:    Σw 가 1.00 으로 검증을 통과하면서도 서빙은 0.84 짜리 랭커가 된다.
 DEFAULT_WEIGHTS: dict[str, float] = {
-    "f_coverage": 0.24,
+    # 주의: f_coverage 0.24 → 0.14 · f_pantry_use 0 → 0.10 은 **임시**다 (N-19, 09-21).
+    #    백엔드 실데이터에서 후보 500건이 전부 coverage 1.0 이라 점수가 전원 1.000 이
+    #    됐다. 그 상태로 서빙하면 필수 재료가 한두 개뿐인 쌈장·흙마늘 만들기가 상위를
+    #    채운다 — 에러는 없다. 충족률은 "만들 수 있는가" 만 말하고 "냉장고를 쓰는가" 는
+    #    말하지 않는데, 후자를 재는 것이 f_pantry_use 뿐이다 (F-111 · F-112).
+    #
+    #    재료 매칭 몫(A군 = coverage + missing + expiring + pantry_use)은 0.44 그대로다.
+    #    그 안에서만 나눴으므로 다른 군의 몫과 ACTIVE_WEIGHT_TODAY 는 안 변한다.
+    #
+    #    🔴 되돌릴 조건: 백엔드가 인기도 신호를 주면(G-34) f_popularity 0.10 이 켜지고
+    #       같은 문제를 더 나은 근거로 푼다. 그때 실데이터로 다시 재서 이 두 값을
+    #       재유도한다 (T-14 의 쌍대비교 학습). 지금 값은 측정 기반 임시값이다.
+    "f_coverage": 0.14,
     "f_taste": 0.16,
     "f_expiring": 0.15,
     "f_ing_pref": 0.11,
     "f_cooccur": 0.10,
     "f_popularity": 0.10,
+    "f_pantry_use": 0.10,
     "f_missing": 0.05,
     "f_cuisine": 0.04,
     "f_time_fit": 0.03,
     "f_season": 0.02,
     # ── w=0 — 계산 수단은 있으나 아직 켜지 않은 것 ──────────────
     "f_quality": 0.0,  # f_popularity 와 상관. ablation 대상
-    "f_pantry_use": 0.0,
     "f_dish_type": 0.0,
     "f_skill_fit": 0.0,
     # ── w=0 — 웜 전환 시 활성화 (설계 5-2-3) ───────────────────
