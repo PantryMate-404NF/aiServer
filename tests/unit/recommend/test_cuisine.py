@@ -13,6 +13,7 @@ from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import pydantic
 import pytest
 import yaml
 
@@ -30,7 +31,7 @@ from features.recommend.enums import (
     normalize_cuisine,
 )
 from features.recommend.policy import RankingPolicy
-from features.recommend.schema import OnboardingIn, RecommendRequest
+from features.recommend.schema import OnboardingIn, RecommendRequest, validation_error_body
 from features.recommend.stage import Candidate, RankedItem, ScoredCandidate
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -125,6 +126,21 @@ def test_an_unknown_cuisine_is_rejected_rather_than_guessed() -> None:
         OnboardingIn(picks=[0], scales=[2, 2, 2], preferred_cuisines=["프렌치"])
     with pytest.raises(ValueError, match="모르는 음식 유형"):
         service.onboarding_profile(1, [], None, (), NOW, ["프렌치"])
+
+
+def test_the_rejection_names_the_place_not_what_was_sent() -> None:
+    """이 문구는 그대로 400 응답 본문이 됩니다 (`validation_error_body`).
+
+    보낸 값을 적으면 `FieldErrorOut` 이 `input` 을 버려 막아 둔 것이 이 문구로
+    새어 나갑니다. 값은 서버 로그에 남으므로 자리만 알려도 찾을 수 있습니다.
+    """
+    sent = "do-not-echo-8f3a2b1c"
+    with pytest.raises(pydantic.ValidationError) as caught:
+        OnboardingIn(picks=[0], preferred_cuisines=["korean", sent])
+
+    body = validation_error_body(caught.value.errors()).model_dump_json()
+    assert sent not in body, "보낸 값이 응답으로 돌아갑니다"
+    assert "preferred_cuisines[1]" in body, "어느 자리가 틀렸는지는 알려줘야 합니다"
 
 
 def test_the_context_keeps_an_empty_choice_empty(policy: RankingPolicy) -> None:

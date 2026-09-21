@@ -246,9 +246,16 @@ class TasteAxesOut(_Base):
     max: int = CLIENT_SCALE_MAX
 
 
-def _at(positions: Sequence[int]) -> str:
-    """틀린 자리를 `picks[3], picks[7]` 로 적습니다. 보낸 값은 적지 않습니다."""
-    return ", ".join(f"picks[{i}]" for i in positions)
+def _at(field: str, positions: Sequence[int]) -> str:
+    """틀린 자리를 `picks[3], picks[7]` 로 적습니다. 보낸 값은 적지 않습니다.
+
+    검증기가 던지는 문구는 그대로 400 응답 본문이 됩니다
+    (`main.handle_missing_field` -> `validation_error_body`). 문구에 보낸 값을 적으면
+    위 `FieldErrorOut` 이 `input` 을 버려 막아 둔 것이 그 문구로 새어 나갑니다.
+    값은 서버 로그에 pydantic 의 `input` 으로 남으므로 잃는 것이 없고, 부르는 쪽은
+    자기가 보낸 배열의 그 자리를 보면 됩니다.
+    """
+    return ", ".join(f"{field}[{i}]" for i in positions)
 
 
 class OnboardingIn(_Base):
@@ -296,11 +303,10 @@ class OnboardingIn(_Base):
     @classmethod
     def _known_cuisines(cls, v: list[str]) -> list[str]:
         codes = [normalize_cuisine(item) for item in v]
-        unknown = [
-            raw for raw, code in zip(v, codes, strict=True) if code not in ONBOARDING_CUISINES
-        ]
+        unknown = [i for i, code in enumerate(codes) if code not in ONBOARDING_CUISINES]
         if unknown:
-            raise ValueError(f"모르는 음식 유형이다: {unknown} — 가능한 값 {ONBOARDING_CUISINES}")
+            where = _at("preferred_cuisines", unknown)
+            raise ValueError(f"모르는 음식 유형이다: {where} — 가능한 값 {ONBOARDING_CUISINES}")
         # 같은 유형을 두 번 고른 것은 한 번으로 둔다. 순서는 사용자가 고른 순서다.
         return list(dict.fromkeys(code for code in codes if code is not None))
 
@@ -347,17 +353,12 @@ class OnboardingIn(_Base):
         응답은 200 입니다. `preferred_cuisines`·`allergy_groups` 와 같은 방어입니다.
         """
         names = load_presented_names()
-        # 보낸 값이 아니라 자리를 말한다. 이 문구는 그대로 400 응답 본문이 되는데
-        # (`main.handle_missing_field` -> `validation_error_body`), 값을 넣으면 위
-        # `FieldErrorOut` 이 `input` 을 버려 막아 둔 것이 이 문구로 새어 나간다.
-        # 값은 서버 로그에 pydantic 의 `input` 으로 그대로 남으므로 잃는 것이 없고,
-        # 부르는 쪽은 자기가 보낸 배열의 그 자리를 보면 된다.
         unknown = [i for i, p in enumerate(v) if isinstance(p, str) and p not in names]
         if unknown:
-            raise ValueError(f"제시 목록에 없는 음식이다: {_at(unknown)}")
+            raise ValueError(f"제시 목록에 없는 음식이다: {_at('picks', unknown)}")
         bad = [i for i, p in enumerate(v) if isinstance(p, int) and not 0 <= p < len(names)]
         if bad:
-            raise ValueError(f"제시 목록 밖의 인덱스다: {_at(bad)}")
+            raise ValueError(f"제시 목록 밖의 인덱스다: {_at('picks', bad)}")
         return v
 
     @model_validator(mode="after")
