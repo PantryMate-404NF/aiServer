@@ -64,6 +64,9 @@ class RankingPolicy:
     cuisine_slot_ratio: float = 0.1
     #: 그 칸의 절대 상한. top_k 를 크게 부르는 디버거·시뮬에서 유형이 목록을 덮지 않게 막습니다.
     cuisine_slot_max: int = 2
+    #: 한 목록에 같은 요리의 판본을 몇 건까지 둘지(`engine/dish.py`). 0 이면 묶지 않습니다.
+    #: 실데이터에서 묶기 전에는 Top-20 에 감자조림이 여섯 건 들었습니다(2026-09-21).
+    max_per_dish: int = 1
     # ── 취향 페르소나 (결정 기록 2026-09-11) ──────────────────
     #: 고른 음식으로 만든 사전 취향을 조리 이벤트 몇 건과 같은 무게로 볼지.
     picks_prior_weight: float = 12.0
@@ -113,6 +116,8 @@ class RankingPolicy:
                 raise ValueError(f"{name} 은 1 이상이어야 합니다: {getattr(self, name)}")
         if self.cuisine_slot_max < 0:
             raise ValueError(f"cuisine_slot_max 는 0 이상이어야 합니다: {self.cuisine_slot_max}")
+        if self.max_per_dish < 0:
+            raise ValueError(f"max_per_dish 는 0 이상이어야 합니다: {self.max_per_dish}")
         if not 0 <= self.max_missing <= self.max_missing_relaxed:
             raise ValueError(
                 f"max_missing({self.max_missing}) 은 0 이상이고 "
