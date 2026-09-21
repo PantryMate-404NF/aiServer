@@ -97,7 +97,18 @@ def main() -> None:
         "recommend",
         "post",
         "/v1/recommend",
-        json={"user_id": 7, "session_id": "c-7-a1b2c3d4e5f6", "top_k": 8, "max_missing": 2},
+        # 냉장고와 알레르기는 요청마다 실려 온다 (09-21 백엔드 합의). 둘 다 필수이고 "없음" 은 [] 다.
+        json={
+            "user_id": 7,
+            "session_id": "c-7-a1b2c3d4e5f6",
+            "top_k": 8,
+            "max_missing": 2,
+            "pantry": [
+                {"ingredient_id": 1300, "purchased_at": "2026-09-18", "expires_at": "2026-09-23"},
+                {"ingredient_id": 1400, "purchased_at": "2026-09-20"},
+            ],
+            "allergies": ["우유", "땅콩"],
+        },
     )
     rid = resp["request_id"]
 
@@ -110,6 +121,8 @@ def main() -> None:
             "user_id": 7,
             "session_id": "d-7-debug00000001",
             "top_k": 2,
+            "pantry": [],
+            "allergies": [],
             "weight_override": {"f_expiring": 0.0},
         },
     )
@@ -117,13 +130,19 @@ def main() -> None:
         "recommend_degraded",
         "post",
         "/v1/recommend",
-        json={"user_id": 7, "top_k": 20, "max_missing": 0},
+        json={"user_id": 7, "top_k": 20, "max_missing": 0, "pantry": [], "allergies": []},
     )
     grab(
         "recommend_interleave",
         "post",
         "/v1/recommend",
-        json={"user_id": 7, "top_k": 6, "interleave_with": "ranker-lgbm-v1"},
+        json={
+            "user_id": 7,
+            "top_k": 6,
+            "pantry": [],
+            "allergies": [],
+            "interleave_with": "ranker-lgbm-v1",
+        },
     )
     grab(
         "events",
@@ -239,7 +258,13 @@ def main() -> None:
     grab("log", "get", f"/v1/recommendations/{rid}")
     # 에러 규약 표가 404 를 말하는데 예시가 없었다.
     grab("log_404", "get", "/v1/recommendations/00000000-0000-4000-8000-000000000000", expect=404)
-    grab("error_400", "post", "/v1/recommend", expect=400, json={"user_id": 7, "topk": 20})
+    grab(
+        "error_400",
+        "post",
+        "/v1/recommend",
+        expect=400,
+        json={"user_id": 7, "pantry": [], "allergies": [], "topk": 20},
+    )
     grab("health", "get", "/health")
 
     # ─────────────────────────────────────────────────────────────

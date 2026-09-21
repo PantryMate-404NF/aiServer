@@ -358,7 +358,8 @@ def test_the_mock_reflects_the_saved_onboarding_choice() -> None:
         user, OnboardingIn(picks=[0, 1, 2], scales=[2, 2, 2], preferred_cuisines=["중식", "아시안"])
     )
 
-    items = mock.build_recommendation(RecommendRequest(user_id=user, top_k=20)).items
+    request = RecommendRequest(user_id=user, top_k=20, pantry=[], allergies=[])
+    items = mock.build_recommendation(request).items
     picked = [item for item in items if item.is_cuisine_slot]
 
     # 한 칸이 두 몫을 겸하면 노출 확률이 섞여 로그에서 다시 못 나눕니다.
@@ -373,7 +374,8 @@ def test_the_mock_reflects_the_saved_onboarding_choice() -> None:
 
 def test_the_mock_gives_no_slot_before_onboarding() -> None:
     """온보딩 전 사용자에게 고른 적 없는 유형의 칸이 생기면 안 됩니다."""
-    items = mock.build_recommendation(RecommendRequest(user_id=90_002, top_k=20)).items
+    request = RecommendRequest(user_id=90_002, top_k=20, pantry=[], allergies=[])
+    items = mock.build_recommendation(request).items
 
     assert not [item for item in items if item.is_cuisine_slot]
 
