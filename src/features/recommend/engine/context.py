@@ -85,7 +85,33 @@ class CorpusStats:
 
 #: `recipe_feature.difficulty` 는 1~5 이고 엔진의 `difficulty` 는 0~1 입니다.
 DIFFICULTY_MIN, DIFFICULTY_MAX = 1, 5
+#: 백엔드(`recipes.difficulty`)는 세 단계 열거형을 씁니다. 09-21 실데이터에서 이 값을
+#: 숫자로 바꾸려다 `ValueError: could not convert string to float: 'EASY'` 로 터졌습니다.
+#: 두 표현을 한 함수가 받습니다 — 변환이 두 곳에 있으면 한쪽만 고쳐집니다.
+DIFFICULTY_WORDS = {"EASY": 0.0, "NORMAL": 0.5, "HARD": 1.0}
 SEASON_MONTHS = 12
+
+
+def _difficulty(value: object) -> float | None:
+    """1~5 숫자이거나 EASY·NORMAL·HARD 이거나. 모르는 값은 None 입니다.
+
+    모르는 값을 0 으로 두지 않습니다 — 0 은 "가장 쉬움" 이라 읽혀 `f_skill_fit` 이
+    틀린 값으로 돕니다. 못 읽었으면 안 재는 것이 맞습니다.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        word = value.strip().upper()
+        if word in DIFFICULTY_WORDS:
+            return DIFFICULTY_WORDS[word]
+        try:
+            value = float(word)
+        except ValueError:
+            return None
+    number = float(value)  # type: ignore[arg-type]
+    if not DIFFICULTY_MIN <= number <= DIFFICULTY_MAX:
+        return None
+    return (number - DIFFICULTY_MIN) / (DIFFICULTY_MAX - DIFFICULTY_MIN)
 
 
 def recipe_feature_from_row(row: Mapping[str, Any], *, month: int | None = None) -> RecipeFeature:
@@ -114,11 +140,7 @@ def recipe_feature_from_row(row: Mapping[str, Any], *, month: int | None = None)
         cuisine=normalize_cuisine(str(row.get("cuisine_family") or "")),
         dish_type=row.get("dish_type") or None,
         season_score=season_score,
-        difficulty=(
-            None
-            if difficulty is None
-            else (float(difficulty) - DIFFICULTY_MIN) / (DIFFICULTY_MAX - DIFFICULTY_MIN)
-        ),
+        difficulty=_difficulty(difficulty),
     )
 
 

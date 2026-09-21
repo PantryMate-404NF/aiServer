@@ -94,6 +94,23 @@ def test_difficulty_maps_one_to_five_onto_zero_to_one(stored: int, expected: flo
     assert f.difficulty == pytest.approx(expected)
 
 
+@pytest.mark.parametrize(("word", "expected"), [("EASY", 0.0), ("NORMAL", 0.5), ("HARD", 1.0)])
+def test_the_backend_three_step_difficulty_is_accepted(word: str, expected: float) -> None:
+    """백엔드 `recipes.difficulty` 는 세 단계 열거형입니다 (09-21 실데이터).
+
+    숫자로 바꾸려다 ValueError 로 터지던 자리입니다.
+    """
+    got = recipe_feature_from_row({"recipe_id": 1, "difficulty": word}).difficulty
+    assert got == pytest.approx(expected)
+    assert recipe_feature_from_row({"recipe_id": 1, "difficulty": "easy"}).difficulty == 0.0
+
+
+@pytest.mark.parametrize("bad", ["", "VERY_HARD", "  ", 0, 9])
+def test_an_unreadable_difficulty_is_unmeasured_not_easy(bad: object) -> None:
+    """모르는 값을 0 으로 두면 '가장 쉬움' 으로 읽혀 f_skill_fit 이 틀린 값으로 돕니다."""
+    assert recipe_feature_from_row({"recipe_id": 1, "difficulty": bad}).difficulty is None
+
+
 def test_season_needs_the_month_to_become_a_score() -> None:
     vec = [0.1 * m for m in range(1, 13)]
     assert recipe_feature_from_row({"recipe_id": 1, "season_vec": vec}).season_score is None
