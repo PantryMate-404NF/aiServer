@@ -4,7 +4,7 @@
 
 **적용 대상**: 이 저장소에 기여하는 모든 인원 및 AI 코딩 에이전트
 
-**버전**: 1.10.0 · **최종 수정**: 2026-09-16 · **작성자**: 김민경
+**버전**: 1.16.0 · **최종 수정**: 2026-09-21 · **작성자**: 김민경
 
 ---
 
@@ -26,7 +26,7 @@
 
 | 폴더 | 문서 | 담는 것 |
 |---|---|---|
-| `recommend/` | [recommend_engine_design.md](recommend/recommend_engine_design.md) | 파트 B 추천 코어 엔진 구현 명세(2.2.0, 현재 구현 기준). 흐름·계약·수식·저장소·배치·상태·검증·열린 결정을 이 문서 하나로 읽습니다. 사람용 정본, 노션 공유용 |
+| `recommend/` | [recommend_engine_design.md](recommend/recommend_engine_design.md) | 파트 B 추천 코어 엔진 구현 명세(2.2.1, 현재 구현 기준). 흐름·계약·수식·저장소·배치·상태·검증·열린 결정을 이 문서 하나로 읽습니다. 사람용 정본, 노션 공유용 |
 | `recommend/` | [recommend_engine_design_digest.md](recommend/recommend_engine_design_digest.md) | 위 명세의 에이전트용 압축본. 어긋나면 명세가 이기고, 명세와 코드가 어긋나면 코드가 이깁니다 |
 | `recommend/` | [recommend_engine_how_it_works.md](recommend/recommend_engine_how_it_works.md) | 추천 엔진이 어떻게 동작하는지를 내부 식별자 없이 일반 언어로 설명. 노션 공유용이며 평가 파트의 모델 이해 자료 |
 | `recommend/` | [recommend_engine_work_log.md](recommend/recommend_engine_work_log.md) | 파트 B 작업 기록. 결정·가정·남은 일. 에이전트용 정본 |
@@ -34,8 +34,11 @@
 | `recommend/` | [recommend_engine_meeting_agenda.md](recommend/recommend_engine_meeting_agenda.md) | 파트 B 통합 회의 안건. 안건마다 상태(결정·반영 · 일부 반영 · 결정 필요 등)와 결정일·반영 커밋·반영 코드. 에이전트용 정본 |
 | `recommend/` | [recommend_engine_db_cutover.md](recommend/recommend_engine_db_cutover.md) | 실 DB 를 붙일 때 반드시 처리할 항목과 확인 근거. `tests/unit/recommend/test_db_cutover.py` 가 건너뛰지 못하게 막습니다 |
 | `recommend/` | [recommend_sim_seed_runbook.md](recommend/recommend_sim_seed_runbook.md) | 기획측 가상운영데이터(v0.4)를 시드로 바꿔 적재하고, DB 없이(`scripts/sim/scenario_engine.py`) 또는 API 로 이용 시나리오를 돌리는 순서와 판정 기준 |
+| `docs/` | [backend_schema_request.md](backend_schema_request.md) | 백엔드에 **전체 스키마**를 요청하는 문서. 함께 정할 것(연동 방식·식별자·갱신·규모·개인정보)과 추천 응답·로그의 경계 제안을 담습니다 |
+| `docs/` | [backend_api_spec.md](backend_api_spec.md) | 백엔드와 주고받는 API 명세(2.1.0, 백엔드 1차 회신 반영). 백엔드가 열 API 둘과 AI 가 여는 여섯의 요청·응답, 항목마다 "없으면 무엇이 꺼지는가", 알레르기 라벨 표, 그리고 지금 코드에 있는 것과 합의 뒤 만드는 것의 구분. 운영 데이터는 API 로만 받는다는 전제입니다. Notion 에 전달용 사본이 있습니다 |
 | `docs/` | [release_notes.md](release_notes.md) | `main` 에 무엇이 언제 들어갔는지, 영향 범위와 롤백 방법, 파트별 전달 사항. 병합할 때마다 맨 위에 항목을 더합니다 |
 | `docs/` | [container_handover.md](container_handover.md) | 이 저장소를 이미지로 만들어 배포할 때 필요한 것. 클라우드 팀에 전달하는 인수인계 문서이며 빌드·런타임 계약·외부 의존·실측치를 담습니다 |
+| `docs/` | [env_variables.md](env_variables.md) | 서비스가 읽는 환경변수 전부(이름·기본값·비밀 여부, 정본은 `src/config.py`)와 백엔드·DB 구성 논의 뒤 바뀌는 것(4절 TODO). 클라우드 팀 전달용 |
 | `recommend/human/` | [recommend_engine_work_log.md](recommend/human/recommend_engine_work_log.md) · [recommend_engine_verification.md](recommend/human/recommend_engine_verification.md) · [recommend_engine_meeting_agenda.md](recommend/human/recommend_engine_meeting_agenda.md) · [recommend_engine_db_cutover.md](recommend/human/recommend_engine_db_cutover.md) | 위 네 기록의 사람용 서술본 |
 
 ### 1.1 추천 파트의 계약은 코드와 DDL 이 정합니다

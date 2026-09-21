@@ -90,7 +90,21 @@ PANTRY_POOL = [
     "우동면",
     "당면",
 ]
-ALLERGEN_GROUPS = ["nut", "sesame", "soy", "gluten", "egg", "dairy", "fish", "shellfish", "peach"]
+ALLERGEN_GROUPS = [
+    # 정본은 src/features/recommend/enums.ALLERGEN_GROUPS 이고 DDL CHECK 와 같습니다.
+    # 여기는 src 를 import 하지 않는 자리라 사본입니다 — test_allergen_vocab 이 대조합니다.
+    "nut",
+    "sesame",
+    "soy",
+    "gluten",
+    "egg",
+    "dairy",
+    "fish",
+    "shellfish",
+    "peach",
+    "buckwheat",
+    "mollusk",
+]
 COOK_CAPS = [20, 30, 45, 60]
 
 

@@ -177,19 +177,31 @@ FEATURE_KEYS: tuple[str, ...] = (
 #:    04_실행계획에서 잘린 수단(item2vec·KMeans)에 의존하는 피처에 가중치를 주면
 #:    Σw 가 1.00 으로 검증을 통과하면서도 서빙은 0.84 짜리 랭커가 된다.
 DEFAULT_WEIGHTS: dict[str, float] = {
-    "f_coverage": 0.24,
+    # 주의: f_coverage 0.24 → 0.14 · f_pantry_use 0 → 0.10 은 **임시**다 (N-19, 09-21).
+    #    백엔드 실데이터에서 후보 500건이 전부 coverage 1.0 이라 점수가 전원 1.000 이
+    #    됐다. 그 상태로 서빙하면 필수 재료가 한두 개뿐인 쌈장·흙마늘 만들기가 상위를
+    #    채운다 — 에러는 없다. 충족률은 "만들 수 있는가" 만 말하고 "냉장고를 쓰는가" 는
+    #    말하지 않는데, 후자를 재는 것이 f_pantry_use 뿐이다 (F-111 · F-112).
+    #
+    #    재료 매칭 몫(A군 = coverage + missing + expiring + pantry_use)은 0.44 그대로다.
+    #    그 안에서만 나눴으므로 다른 군의 몫과 ACTIVE_WEIGHT_TODAY 는 안 변한다.
+    #
+    #    🔴 되돌릴 조건: 백엔드가 인기도 신호를 주면(G-34) f_popularity 0.10 이 켜지고
+    #       같은 문제를 더 나은 근거로 푼다. 그때 실데이터로 다시 재서 이 두 값을
+    #       재유도한다 (T-14 의 쌍대비교 학습). 지금 값은 측정 기반 임시값이다.
+    "f_coverage": 0.14,
     "f_taste": 0.16,
     "f_expiring": 0.15,
     "f_ing_pref": 0.11,
     "f_cooccur": 0.10,
     "f_popularity": 0.10,
+    "f_pantry_use": 0.10,
     "f_missing": 0.05,
     "f_cuisine": 0.04,
     "f_time_fit": 0.03,
     "f_season": 0.02,
     # ── w=0 — 계산 수단은 있으나 아직 켜지 않은 것 ──────────────
     "f_quality": 0.0,  # f_popularity 와 상관. ablation 대상
-    "f_pantry_use": 0.0,
     "f_dish_type": 0.0,
     "f_skill_fit": 0.0,
     # ── w=0 — 웜 전환 시 활성화 (설계 5-2-3) ───────────────────
@@ -220,12 +232,12 @@ SESSION_PREFIXES: tuple[str, ...] = ("c-", "g-", "d-")
 
 #: 주의: 수단은 있는데 데이터가 없다. 위와 구분한다 — 데이터가 오면 코드 변경 없이 켜진다.
 #:
-#:   f_cuisine  레시피 쪽 `cuisine_family` 가 46,353건 전수 0건이다.
-#:              만개의레시피 4축이 실제 크롤에 오지 않았고 categories 는
-#:              고유 45,529종 자유 태그다. 태그→유형 매핑(약 12h)이 선행이다.
-#:              사용자 쪽은 09-15 온보딩 문항(`ONBOARDING_CUISINES`)으로 채워졌고
-#:              레시피 쪽만 남았다 — 회의 안건 G-30. 그때까지 이 피처도, 재정렬의
-#:              유형 슬롯도 실 DB 에서는 대상 후보를 찾지 못한다.
+#:   f_cuisine  레시피 쪽 `cuisine_family` 가 09-17 까지 46,353건 전수 0건이었다.
+#:              09-17 규칙 배정(G-30, `ingest/cuisine_build.py`)으로 28,604건(61.7%)이
+#:              찼고 나머지는 NULL 이다 — 못 정하면 비운다. A 가 표본 정확도를 확인한
+#:              뒤 이 목록에서 뺀다(09-17 결정 기록 8절). 그때까지 ACTIVE_WEIGHT_TODAY 는
+#:              보수적으로 이 피처를 빼고 센다. 사용자 쪽은 09-15 온보딩 문항
+#:              (`ONBOARDING_CUISINES`)으로 채워져 있다.
 #:   f_season   제철 시드가 없다. `recipe_feature.season_vec` 은 컬럼만 있다.
 #:   f_dish_type 같은 이유다 — 원본에 분류축이 없어 `dish_type` 이 전수 비어 있다.
 #:              `w=0` 인 것은 v0 스코어에서 애초에 안 쓰기 때문이고, 데이터 부재와는
@@ -259,6 +271,81 @@ ACTIVE_WEIGHT_TODAY: float = round(
 #: 위치 효과는 exploration 슬롯 위치를 매 요청 무작위화해 따로 추정한다 (01 5-3-3).
 PROPENSITY_SEMANTICS: str = "item"
 
+#: 알러지 그룹의 정본. `02_schema.sql` 의 user_allergy CHECK 와 **같아야 합니다.**
+#:
+#: 주의: 오타 하나가 알러지를 통째로 무력화합니다 (09-03 실측). DDL 주석이 적어 둔
+#:    그대로입니다 — '견과류'·'NUT'·'nuts' 는 4갈래 차단 중 둘을 동시에 죽입니다.
+#:    DB 는 CHECK 로 막지만 그건 INSERT 가 에러로 실패한다는 뜻이라 온보딩이 500 을
+#:    뱉습니다. 요청 단계에서 거부해야 사용자가 무엇이 틀렸는지 압니다.
+#:
+#: 09-17: 저장소 안에서 어휘가 세 갈래였습니다 — DDL 소문자 10종(정본) ·
+#:    문서 19종 · scripts/generate_mock_fixtures.py 대문자 18종. 겹치는 셋조차
+#:    대소문자가 달랐습니다. mock 생성기는 DB 를 안 거쳐 CHECK 에 안 걸립니다.
+ALLERGEN_GROUPS: tuple[str, ...] = (
+    "nut",
+    "sesame",
+    "soy",
+    "gluten",
+    "egg",
+    "dairy",
+    "fish",
+    "shellfish",
+    "peach",
+    "buckwheat",
+    # 두족류. 갑각류·조개류와는 다른 알러지라 shellfish 에 넣지 않습니다.
+    # 우리 분류 트리도 seafood.mollusk 에 이 6종만 두고 조개류는 따로 둡니다.
+    "mollusk",
+)
+
+#: 알러지 표시 대상 한글 표기 -> 우리 그룹 코드.
+#: 화면은 식약처 표시 대상 이름을 쓰고 계약은 코드를 씁니다. 둘을 잇는 표입니다.
+#: normalize_cuisine 과 같은 모양입니다 — 모르는 이름을 가까운 것으로 추측하지 않습니다.
+ALLERGEN_LABELS: dict[str, str] = {
+    "알류(가금류)": "egg",
+    "알류": "egg",
+    "우유": "dairy",
+    "메밀": "buckwheat",
+    "땅콩": "nut",
+    "호두": "nut",
+    "잣": "nut",
+    "대두": "soy",
+    "밀": "gluten",
+    "고등어": "fish",
+    "게": "shellfish",
+    "새우": "shellfish",
+    "조개류(굴,전복,홍합 포함)": "shellfish",
+    "조개류": "shellfish",
+    "복숭아": "peach",
+    "오징어": "mollusk",
+    "참깨": "sesame",
+    "견과류": "nut",
+}
+
+#: 표시 대상이지만 그룹으로는 못 막는 것. 거부하지 않고 처리 못 했다고 돌려줍니다.
+#:
+#: 주의: 오징어를 shellfish 로 보내면 안 됩니다. 두족류는 그 그룹에 한 종도 없어
+#:    두족류 레시피 1,141건 중 841건이 차단을 켜도 그대로 지나갑니다. 과소차단이라
+#:    거부보다 위험합니다 — 사용자는 막혔다고 믿습니다.
+ALLERGEN_UNSUPPORTED: dict[str, str] = {
+    "돼지고기": "meat.pork 분류 전개가 필요합니다",
+    "닭고기": "meat.chicken 분류 전개가 필요합니다",
+    "쇠고기": "meat.beef 분류 전개가 필요합니다",
+    "토마토": "재료 한 종이라 allergy_ingredient_ids 로 보내야 합니다",
+    "아황산류": "가공 첨가물이라 재료 사전에 표제어가 없습니다",
+}
+
+
+def normalize_allergen(value: str) -> str | None:
+    """알러지 한 개를 그룹 코드로 맞춥니다. 못 맞추면 None 입니다."""
+    text = value.strip()
+    if not text:
+        return None
+    if text in ALLERGEN_LABELS:
+        return ALLERGEN_LABELS[text]
+    lowered = text.lower()
+    return lowered if lowered in ALLERGEN_GROUPS else None
+
+
 #: `StageInfo.params` 에 반드시 실어야 하는 키. 값이 아니라 정의가 소급 불가다.
 #: 없으면 로그가 있어도 propensity 를 재구성할 수 없다 (07 E-3 ①).
 REQUIRED_TRACE_PARAMS: tuple[str, ...] = (
@@ -274,6 +361,15 @@ REQUIRED_TRACE_PARAMS: tuple[str, ...] = (
     "n_explore",  # 탐색 슬롯이 몇 칸이었나
     "serving_mode",  # real | sim | load_test — candidates 저장 정책이 다르다.
     # 없으면 "잘려서 없는 것"과 "원래 없던 것"이 구분되지 않는다
+    # ── 09-18 추가 2종 (A 요청). 어느 배치 산출물 위에서 나온 추천인가 ─────────
+    #    feature_version 은 v1 → v1-15a8c5 → … 로 다섯 번 갈아탔는데 로그에 한 칸도
+    #    없었다. 재정규화하면 같은 레시피의 피처 값이 바뀌므로, 이 키 없이는 "이 추천이
+    #    어느 피처판이었나" 를 나중에 물을 방법이 없다. cluster_version 도 같다 —
+    #    재군집하면 cluster_id 의 뜻이 달라져 Thompson 관측을 이어 붙일 수 없다.
+    #    값은 `repository.load_batch_versions()` 가 주고 호출자가 넘긴다. 엔진은 DB 를
+    #    보지 않으므로, 실 DB 전에는 None 으로 키만 실린다.
+    "feature_version",
+    "cluster_version",
 )
 
 #: `serving_mode` 별 `candidates` 저장 개수 (설계 3-6).

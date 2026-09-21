@@ -627,3 +627,248 @@ def load_freq_top(limit: int = 10) -> list[tuple[str, int, str | None]]:
     with cursor() as cur:
         cur.execute(_FREQ_TOP_SQL, (limit,))
         return cur.fetchall()
+
+
+# ─────────────────────────────────────────────────────────────────
+# 골든 픽스처 — ingest/golden.py 가 읽는다 (A-9)
+# ─────────────────────────────────────────────────────────────────
+#: 픽스처에 담을 컬럼. recipe_feature 에서 B·C 가 실제로 읽는 것만 고른다.
+#: content_emb(768차원)와 nutrition 은 뺀다 — 파일이 커지고 아직 비어 있다.
+#:
+#: 주의: B 의 행 변환기가 읽는 칸이 하나라도 빠지면 그 변환은 **실데이터에서만**
+#:    터진다. 골든으로 맞춘 검사는 통과하는데 서빙이 다르게 도는 것이라,
+#:    픽스처의 뜻이 사라진다 (09-18, B 의 F-106 요청).
+#:    title 은 recipe 쪽에 있어 조인해서 담는다.
+#:    season_vec 은 12칸 배열이고 지금 전건 NULL 이지만, 칸을 두어야 B 가
+#:    "없으면 None" 경로를 골든으로 확인할 수 있다.
+_GOLDEN_COLS = (
+    "rf.recipe_id, r.title, rf.essential_ids, rf.all_ids, rf.category_ids, "
+    "rf.n_essential, rf.n_total, rf.n_unmatched, rf.flavor_vec, "
+    "rf.popularity_score, rf.quality_score, rf.season_vec, "
+    "rf.cook_minutes, rf.difficulty, rf.cuisine_family, rf.dish_type, "
+    "rf.cluster_id, rf.feature_version"
+)
+
+#: 구분마다 정해진 수만큼 뽑는다. recipe_id 순으로 고정해 실행마다 같은 것이
+#: 나오게 한다 — 픽스처가 흔들리면 그것으로 쓴 테스트도 흔들린다.
+#:
+#: 주의: 문자열로 조립하는 유일한 쿼리다. 넣는 값 둘 다 모듈 상수이고 바깥
+#:    입력이 닿지 않는다 — 컬럼은 _GOLDEN_COLS, 조건은 GOLDEN_CONDS 의 값이며
+#:    호출부는 이름으로만 고른다. 건수는 %s 로 바인딩한다.
+_GOLDEN_SQL = f"""
+SELECT {_GOLDEN_COLS}
+FROM recipe_feature rf
+JOIN recipe r ON r.id = rf.recipe_id
+WHERE {{cond}}
+ORDER BY rf.recipe_id
+LIMIT %s
+"""  # noqa: S608
+
+
+#: 허용된 조건만 담은 표. 문자열로 SQL 을 조립하는 유일한 자리라, 바깥에서
+#: 임의의 문자열이 들어올 수 없게 이름으로만 고르게 한다.
+#: 주의: recipe 를 조인하므로 컬럼마다 rf. 를 붙인다. cook_minutes 와 difficulty 는
+#:    양쪽 테이블에 다 있어, 접두어가 없으면 "ambiguous column" 으로 죽는다.
+GOLDEN_CONDS: dict[str, str] = {
+    "normal": (
+        "rf.n_total > 0 AND rf.n_essential > 0 AND rf.n_unmatched <= 2 "
+        "AND rf.cook_minutes IS NOT NULL "
+        "AND rf.flavor_vec <> ARRAY[0,0,0,0,0,0]::real[]"
+    ),
+    "zero_essential": "rf.n_total > 0 AND rf.n_essential = 0",
+    "many_unmatched": "rf.n_unmatched >= 5 AND rf.n_essential > 0",
+    "zero_flavor": "rf.flavor_vec = ARRAY[0,0,0,0,0,0]::real[] AND rf.n_total > 0",
+    "no_cooktime": "rf.cook_minutes IS NULL AND rf.n_total > 0 AND rf.n_essential > 0",
+}
+
+
+def load_golden_rows(kind: str, limit: int) -> list[tuple[Any, ...]]:
+    """조건에 맞는 recipe_feature 행을 recipe_id 순으로 뽑는다.
+
+    Args:
+        kind: GOLDEN_CONDS 의 키. 표에 없는 이름은 거부한다 — 조건절이 SQL 에
+            문자열로 들어가는 유일한 자리라, 값이 아니라 이름으로만 고르게 한다.
+    """
+    cond = GOLDEN_CONDS.get(kind)
+    if cond is None:
+        raise ValueError(f"모르는 조건입니다: {kind!r} (가능: {sorted(GOLDEN_CONDS)})")
+    with cursor() as cur:
+        cur.execute(_GOLDEN_SQL.format(cond=cond), (limit,))
+        return cur.fetchall()
+
+
+def load_feature_columns() -> list[str]:
+    """recipe_feature 의 현재 컬럼 이름. 픽스처 키와 대조한다."""
+    with cursor() as cur:
+        cur.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema = 'reco' AND table_name = 'recipe_feature' "
+            "ORDER BY ordinal_position"
+        )
+        return [r[0] for r in cur.fetchall()]
+
+
+# ─────────────────────────────────────────────────────────────────
+# 재정규화 — ingest/renormalize.py 가 읽는다 (A-11)
+# ─────────────────────────────────────────────────────────────────
+#: 직전 전량 실행의 커버리지. 부분 실행(limit 이 있는 것)은 뺀다 — 2,000건만
+#: 돌린 값과 46,353건을 돌린 값을 나란히 놓으면 오르내림이 검수 때문인지
+#: 표본 때문인지 알 수 없다.
+_LAST_COVERAGE_SQL = """
+SELECT params ->> 'coverage'
+FROM batch_run
+WHERE job_name = 'normalize' AND status = 'success'
+  AND params ->> 'limit' IS NULL
+ORDER BY id DESC LIMIT 1
+"""
+
+
+def load_last_full_coverage() -> float | None:
+    """직전 전량 정규화의 매칭 커버리지. 없으면 None."""
+    with cursor() as cur:
+        cur.execute(_LAST_COVERAGE_SQL)
+        row = cur.fetchone()
+        return float(row[0]) if row and row[0] is not None else None
+
+
+# ─────────────────────────────────────────────────────────────────
+# k-means cluster_id — ingest/cluster_build.py 가 쓴다 (A-12)
+# ─────────────────────────────────────────────────────────────────
+#: 클러스터링 입력. essential_ids 로 멀티핫을 만들고 flavor_vec 을 덧붙인다.
+#: recipe_id 순으로 고정해 실행마다 같은 행 순서가 나오게 한다 — Lloyd 는
+#: 초기 중심을 행 순서로 고르므로 순서가 흔들리면 배정도 흔들린다.
+_CLUSTER_SRC_SQL = """
+SELECT recipe_id, essential_ids, flavor_vec
+FROM recipe_feature
+ORDER BY recipe_id
+"""
+
+_CLUSTER_UPD_SQL = """
+UPDATE recipe_feature rf
+SET    cluster_id = u.cid, cluster_version = %s, updated_at = now()
+FROM   (SELECT unnest(%s::BIGINT[]) AS rid, unnest(%s::SMALLINT[]) AS cid) u
+WHERE  rf.recipe_id = u.rid
+"""
+
+_CLUSTER_STATS_SQL = """
+SELECT count(*), count(cluster_id), count(DISTINCT cluster_id),
+       max(c)::real / sum(c) AS max_share
+FROM recipe_feature,
+     LATERAL (SELECT count(*) OVER (PARTITION BY cluster_id) AS c) x
+"""
+
+#: 클러스터마다 대표 제목. 눈으로 보는 것이 유일한 방어라 함께 뽑는다 —
+#: 균형 지표가 전부 초록인데 '재료 개수'로 갈린 경우를 숫자로는 못 잡는다.
+_CLUSTER_SAMPLE_SQL = """
+SELECT rf.cluster_id, r.title
+FROM recipe_feature rf JOIN recipe r ON r.id = rf.recipe_id
+WHERE rf.cluster_id = ANY(%s) AND rf.n_total > 0
+ORDER BY rf.cluster_id, rf.popularity_score DESC, rf.recipe_id
+"""
+
+
+#: 요리 계열 배정의 입력 (G-30). 제목·원본 태그·재료를 한 번에 가져온다.
+#:
+#: 주의: 46,353행을 세 번 나눠 조회하면 파이썬에서 다시 맞춰야 하고 그 사이에
+#:    레시피가 늘면 어긋난다. 한 문장으로 끝낸다.
+_CUISINE_SRC_SQL = """
+SELECT r.id,
+       r.title,
+       COALESCE(
+           (SELECT array_agg(t) FROM jsonb_array_elements_text(r.raw_json->'categories') AS t),
+           '{}')::TEXT[]                                            AS tags,
+       COALESCE(agg.names, '{}')::TEXT[]                            AS ingredients
+FROM   recipe r
+LEFT JOIN LATERAL (
+    SELECT array_agg(DISTINCT i.name) AS names
+    FROM   recipe_ingredient ri
+    JOIN   ingredient i ON i.id = ri.ingredient_id
+    WHERE  ri.recipe_id = r.id
+) agg ON TRUE
+ORDER BY r.id
+"""
+
+
+def load_cuisine_source() -> list[tuple[int, str, list[str], list[str]]]:
+    """(recipe_id, title, 원본 태그, 재료명). 계열 판정의 입력이다."""
+    with cursor() as cur:
+        cur.execute(_CUISINE_SRC_SQL)
+        return [(int(r[0]), r[1] or "", list(r[2] or []), list(r[3] or [])) for r in cur.fetchall()]
+
+
+#: 계열과 확신도를 함께 쓴다.
+#:
+#: 주의: recipe_feature 쪽 cuisine_family 도 같이 채운다. 두 테이블이 어긋나면
+#:    조회는 recipe_feature 를 보고 온보딩 대조는 recipe 를 봐서 조용히 갈린다.
+_CUISINE_SET_SQL = """
+UPDATE recipe r
+SET    cuisine_family = v.family,
+       cuisine_conf   = v.conf
+FROM  (SELECT * FROM unnest(%s::INT[], %s::TEXT[], %s::REAL[]) AS t(id, family, conf)) v
+WHERE  r.id = v.id
+"""
+
+_CUISINE_FEATURE_SQL = """
+UPDATE recipe_feature rf
+SET    cuisine_family = r.cuisine_family
+FROM   recipe r
+WHERE  r.id = rf.recipe_id
+"""
+
+
+def set_cuisine_families(pairs: Sequence[tuple[int, str, float]]) -> int:
+    """계열을 기록한다. recipe 와 recipe_feature 를 한 트랜잭션에서 맞춘다."""
+    if not pairs:
+        return 0
+    ids = [p[0] for p in pairs]
+    fams = [p[1] for p in pairs]
+    confs = [p[2] for p in pairs]
+    with cursor(commit=True) as cur:
+        cur.execute(_CUISINE_SET_SQL, (ids, fams, confs))
+        n = cur.rowcount
+        cur.execute(_CUISINE_FEATURE_SQL)
+    return int(n)
+
+
+def load_cluster_source() -> list[tuple[int, list[int], list[float]]]:
+    """(recipe_id, essential_ids, flavor_vec) 을 recipe_id 순으로."""
+    with cursor() as cur:
+        cur.execute(_CLUSTER_SRC_SQL)
+        return cur.fetchall()
+
+
+def set_cluster_ids(pairs: Sequence[tuple[int, int]], version: str) -> int:
+    """레시피별 클러스터 배정을 쓴다. 판 번호를 함께 남긴다.
+
+    주의: cluster_version 을 빼먹고 다시 클러스터링하면 과거 로그의 cluster_id 가
+       다른 것을 가리키게 되어 Thompson belief 가 조용히 오염된다 (D-12).
+    """
+    if not pairs:
+        return 0
+    with cursor(commit=True) as cur:
+        cur.execute(_CLUSTER_UPD_SQL, (version, [p[0] for p in pairs], [p[1] for p in pairs]))
+        return max(cur.rowcount, 0)
+
+
+def load_cluster_stats() -> tuple[int, int, int, float]:
+    """(전체, 배정된 수, 서로 다른 클러스터 수, 최대 비중)."""
+    with cursor() as cur:
+        cur.execute("SELECT count(*), count(cluster_id) FROM recipe_feature")
+        row = cur.fetchone()
+        total, assigned = (int(row[0]), int(row[1])) if row else (0, 0)
+        cur.execute(
+            "SELECT count(*), max(c), sum(c) FROM "
+            "(SELECT count(*) AS c FROM recipe_feature "
+            " WHERE cluster_id IS NOT NULL GROUP BY cluster_id) t"
+        )
+        row = cur.fetchone()
+        n_clusters = int(row[0]) if row and row[0] else 0
+        share = float(row[1]) / float(row[2]) if row and row[2] else 0.0
+        return (total, assigned, n_clusters, share)
+
+
+def load_cluster_samples(cluster_ids: Sequence[int]) -> list[tuple[int, str]]:
+    """고른 클러스터의 제목. 인기순으로 준다."""
+    with cursor() as cur:
+        cur.execute(_CLUSTER_SAMPLE_SQL, (list(cluster_ids),))
+        return cur.fetchall()

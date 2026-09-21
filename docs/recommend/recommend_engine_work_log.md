@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 B 추천 엔진을 이어서 작업하는 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 1.14.0 · **최종 수정**: 2026-09-16 · **작성자**: 유재현
+**버전**: 1.24.0 · **최종 수정**: 2026-09-21 · **작성자**: 유재현
 
 ---
 
@@ -13,11 +13,11 @@
 | 키 | 값 |
 |---|---|
 | 정본 | 이 파일. 사람용 서술본 `human/recommend_engine_work_log.md` 는 식별자로 대응하는 파생본 |
-| 계획서 | `recommend_engine_design.md` (구현 명세 2.2.0, 현재 구현 기준, 사람용 정본 · 노션 공유용) · `recommend_engine_design_digest.md` (에이전트용 압축본 3.2.0, 어긋나면 원본이 이기고 코드가 이김) |
+| 계획서 | `recommend_engine_design.md` (구현 명세 2.2.1, 현재 구현 기준, 사람용 정본 · 노션 공유용) · `recommend_engine_design_digest.md` (에이전트용 압축본 3.2.0, 어긋나면 원본이 이기고 코드가 이김) |
 | 브랜치 | `feat/recommend-engine-core`. `origin/main` 병합 완료. `origin/develop-data-part` 는 두 번 병합했습니다 — 658d79a(9.6), def3d5b(9.10). `main` 병합은 PR #8 로 올렸고 **2026-09-11 11:52(KST) kmk9259 가 병합**했습니다(`5846a72`, `80cc832` 까지). 그 뒤 커밋 20개는 **PR #9 로 2026-09-16 병합**했습니다(`77da2bc`, 97 파일 +28,640/-1,897). 리뷰 없이 유재현 지시로 병합했고 규약 예외 둘(라인 상한 초과 · 승인자 0명)은 PR 본문 최상단에 적었습니다. 지금 브랜치와 `origin/main` 은 내용이 같습니다 |
-| 단계 | ② Ranking 과 ③ Re-ranking 을 A 계약 위에서 구현 완료. **취향 페르소나**(고른 음식 → 3축 척도 → 없음, 시간 감쇠·주기 가중, 사용자당 JSON 저장)를 9.11 에서 구현. ① Retrieval·로그 적재·DDL·배치는 A 것이 브랜치에 있습니다. 라우터에 `rank_candidates`·`PersonaService` 를 끼우는 것(M-01·M-15)과 DB 연결이 남았습니다. 9.12 에서 세 방향 복기(명세 · 무음 실패 · 규약)로 구멍 15개(F-36~F-50)를 찾아 14개를 코드로 고쳤습니다(D-34~D-38). 9.15 의 4회차 복기는 20건(F-51~F-70)을 더 찾아 코드 17건·기록 3건으로 닫았습니다(D-39~D-41). 9.16 은 기획측 시뮬 시드(1,600명)를 DB 없이 엔진에 넣는 도구 `scripts/sim/scenario_engine.py` 를 만들어 전원 불변식 · 콜드 → 웜 전환 · 행동·냉장고 반응을 확인했습니다(D-42·D-43). 9.17 은 유재현이 Docker Desktop 을 설치한 뒤 DB 경로(적재 · 검증 쿼리 · `/health` 포함 API 시나리오)까지 통과시켰습니다(D-44). 9.19 는 온보딩에 추가된 **좋아하는 음식 유형** 문항을 계약 → 페르소나 → 목록까지 이었습니다 — 맛 6축에 섞지 않고 재정렬의 유형 슬롯으로 반영합니다(D-45~D-47, F-82~F-89) |
-| 검증 (2026-09-15, 9.19) | ruff check OK · ruff format OK(154 files) · mypy **63 files** OK · `pytest tests/unit` **315 passed / 0 failed** / coverage **91.02%**(시뮬 검사 6건 · 음식 유형 검사 19건 포함). A 게이트 6종 전부 종료코드 0(9.16, `contract` 98건). 시뮬 DB 경로(9.17) — `load_sim.sh` 종료코드 0, `99_verify.sql` 여섯 건수·집단 × 모드 분포가 안내서 기대값과 일치, `scenario_run.py`(`/health` 포함, db true 0.11초) PASS. `scenario_engine.py` 1,600명 PASS(9.19 기준 판정 6종). 출력은 `recommend_engine_verification.md` 16~18절 |
-| 다음 행동 | 파트 A 소유 파일 6개(`enums.py` · `schema.py` · `stage.py` · `test_contract.py` · `deploy/docker-compose.yml` · `Makefile`)와 공유 경로·`dev` 의존성 변경이 `main` 에 들어갔음을 A 에 알림 → 레시피 쪽 `cuisine_family` 요청(G-30, 이것이 없으면 실 DB 에서 유형 문항이 목록에 닿지 않음) → 미병합 커밋 13개의 새 PR(보류 해제 시) → N-01(.env) → 라우터 실연결(M-01·M-15) → G-24(3축 척도 범위)·G-25(월별 주기 해석)·G-26(`EventIn` 시각)·G-27(A 함수의 균등 폴백) 확인. 남은 회의 안건은 `recommend_engine_meeting_agenda.md` 2절 |
+| 단계 | ② Ranking 과 ③ Re-ranking 을 A 계약 위에서 구현 완료. **취향 페르소나**(고른 음식 → 3축 척도 → 없음, 시간 감쇠·주기 가중, 사용자당 JSON 저장)를 9.11 에서 구현. ① Retrieval·로그 적재·DDL·배치는 A 것이 브랜치에 있습니다. 라우터에 `rank_candidates`·`PersonaService` 를 끼우는 것(M-01·M-15)과 DB 연결이 남았습니다. 9.12 에서 세 방향 복기(명세 · 무음 실패 · 규약)로 구멍 15개(F-36~F-50)를 찾아 14개를 코드로 고쳤습니다(D-34~D-38). 9.15 의 4회차 복기는 20건(F-51~F-70)을 더 찾아 코드 17건·기록 3건으로 닫았습니다(D-39~D-41). 9.16 은 기획측 시뮬 시드(1,600명)를 DB 없이 엔진에 넣는 도구 `scripts/sim/scenario_engine.py` 를 만들어 전원 불변식 · 콜드 → 웜 전환 · 행동·냉장고 반응을 확인했습니다(D-42·D-43). 9.17 은 유재현이 Docker Desktop 을 설치한 뒤 DB 경로(적재 · 검증 쿼리 · `/health` 포함 API 시나리오)까지 통과시켰습니다(D-44). 9.19 는 온보딩에 추가된 **좋아하는 음식 유형** 문항을 계약 → 페르소나 → 목록까지 이었습니다 — 맛 6축에 섞지 않고 재정렬의 유형 슬롯으로 반영합니다(D-45~D-47, F-82~F-89). 9.23 은 A 의 09-17 결정 기록이 B 에 넘긴 5건 — 빈 팬트리 규칙 · Mock 알러지 어휘 · 동결 키 2종 · `occurred_at` · `RecipeFeature` 로더 — 를 처리했습니다(D-48~D-51, F-97~F-106). 백엔드 연동(M-01·M-02·M-04·M-15)은 스키마 회신 뒤로 미룹니다 |
+| 검증 (2026-09-18, 9.23) | ruff check OK · ruff format OK(168 files) · mypy **67 files** OK · `pytest tests/unit` **358 passed / 0 failed** / coverage **91.20%**(새 검사 21건 포함). `test_contract.py` 98건 0(설정값을 채운 환경). 시뮬 시나리오 1,600명 RESULT: PASS(불변식 위반 0, B 집단 800명 전원 첫 조회부터 인기순). 시드 재생성 → 저장소와 `04_user_allergy.sql` 만 다르고 그것을 커밋. 실 DB 대조는 Docker 미기동으로 미실행(E-17) |
+| 다음 행동 | **main 병합(PR) → 백엔드의 남은 회신 대기** — 명세 2.1.0 의 8절에서 회신을 읽지 못한 다섯 행(냉장고 동봉 · 모르는 라벨 · 동기화 주기 · 이벤트 · 추천 로그)과 알레르기 라벨 전체 목록(G-34). 합의되면 `RecommendRequest` 에 `pantry` · `allergies` 추가와 레시피 동기화 구현(M-01·M-02) — 동기화는 래퍼 없는 `items` 를 읽고 인기 신호는 스크랩 수부터 씁니다. A 에 알릴 것: 9.30 의 알레르기 표 단일화, 9.31 의 400 본문(`scripts/reco/api/render.py` · `capture.py` 문구 수정 포함). 영수증 파트에 알릴 것: `main.handle_missing_field` 가 영수증 경로 밖에서 본문을 싣습니다 |
 | 병합 정책 | `main` 은 PR 로만 병합합니다(PR #8 `5846a72` · PR #9 `77da2bc`). 브랜치 커밋·push 는 자유. `origin/main` 은 merge 로 따라감(rebase 금지, 01의 2.1). 병합된 브랜치 `feat/recommend-engine-core` 는 01의 2.1 대로 삭제 대상이며, 이어서 쓸지 삭제할지는 유재현이 정합니다 |
 | DB 전환 | `recommend_engine_db_cutover.md` 의 M-01~M-16(M-16 은 음식 유형을 `user_preference` 에서 읽는 일, 09-15 추가). DB 와 닿는 변경을 시작할 때 먼저 엽니다. `tests/unit/recommend/test_db_cutover.py` 가 못을 박아 두어 건너뛰면 검사가 깨집니다 |
 | 갱신 규칙 | 세션마다 1절·3절·9절 갱신. 새 항목은 다음 번호, 번호 재사용 금지. 사람용 서술본 동시 갱신 (2절). **3.3 의 수치는 그 세션의 실행에서 다시 잽니다** — 앞 세션 값을 옮기지 않습니다 (01의 3.4, D-28). 9절의 세션별 수치는 그 시점 기록이므로 고치지 않습니다 |
@@ -100,15 +100,23 @@
 | D-45 | (신규 문항) 온보딩의 음식 유형을 맛 6축 취향에 합침 | 맛 6축과 **섞지 않습니다.** 유형은 `TasteProfile.cuisines` → `Persona.cuisines` → `UserContext.preferred_cuisines` 로 따로 흐릅니다 | 고른 유형의 평균 맛을 취향에 더하면 "한식을 좋아함" 이 "짜고 매운 것을 좋아함" 으로 번역되어, 문항 하나가 맛 취향 전체를 움직입니다. 담백한 한식만 좋아하는 사람에게 틀린 목록이 나가고 에러는 없습니다 | 유형과 맛의 상관을 실데이터로 재고 W3 학습이 한 항으로 흡수하기로 하면 |
 | D-46 | (신규 문항) 유형 반영은 `f_cuisine` 가중치를 올려서 | 가중치는 0.04 그대로 두고 **재정렬에서 자리를 뗍니다**(`engine/cuisine.py`, Top-20 에 두 칸). 조건은 "고른 유형이 목록에 한 건도 없을 때" 이고 행동이 쌓인 사용자(behavior)는 0칸입니다 | Σw 의 0.44 가 재료 매칭이라 0.04 로는 고른 유형이 Top-K 에 한 건도 안 들어올 수 있고(시뮬 1,600명 중 460명), 가중치를 올리면 반대로 고른 유형 하나가 20칸을 물들입니다. 자리를 떼면 18칸은 그대로이고 그 칸의 이유 문구도 유형으로 적힙니다 | 실데이터에서 유형이 실제로 반응(클릭·조리)을 끌면 W3 학습에서 가중치로 옮깁니다 |
 | D-47 | (신규 문항) 유형 값은 화면 라벨("한식")로 저장 | **`cuisine_family` 코드**(`korean`·`chinese`·`japanese`·`western`·`asian_other`)로 저장하고, 라벨로 와도 코드로 바꿉니다. 모르는 값은 버리거나 추측하지 않고 **거부**합니다 | 레시피 쪽 축이 `recipe.cuisine_family` 코드라 라벨로 저장하면 두 축이 영영 안 만납니다(F-82). 모르는 값을 가까운 유형으로 바꾸면 사용자가 고르지 않은 음식이 목록에 오르는데 응답은 200 입니다 | 없습니다. 값의 정본은 `seeds/cuisine_taxonomy.yaml` 이고 검사가 대조합니다 |
+| D-48 | 조회 완화 사다리 k=2→3→4→인기순 | 사용자가 넣은 재료가 없으면 첫 조회부터 인기순. `UserContext.own_pantry_ids`(None 이면 `pantry_ids` 전부가 사용자 것) · `candidate.first_plan(pantry_is_bare=)` | A 의 게이트 조임 뒤 빈 팬트리 후보는 양념 제조법 94건뿐인데 완화 종료 기준(52)을 넘겨 폴백이 안 걸림(F-97). `pantry_ids` 는 그대로라 `f_pantry_use` 불변 | 온보딩이 `pantry_item` 을 채우면 자동으로 사다리 복귀. 규칙 삭제는 A 가 게이트를 다시 풀 때 |
+| D-49 | 알레르기 코드군 픽스처는 생성기의 표(C-09) | Mock 생성기가 `seeds/ingredient.csv` 의 `allergen_group` 을 읽고 Mock 재료 이름을 시드 이름과 같게 둠. `sim_seed.ALLERGEN_MAP` 삭제 | 정본은 DDL 소문자 10종. 생성기가 표를 들면 다시 갈림(F-99). 시드의 판단(배추김치 = shellfish)을 그대로 따름 | 시드가 바뀌면 생성기를 다시 돌릴 뿐. 표를 되살리지 않음 |
+| D-50 | (계획서 없음) `recipe_feature` 행 → `RecipeFeature` | `context.recipe_feature_from_row` 하나가 변환. 없는 값은 None(0 아님) · difficulty 1~5 → 0~1 · `season_vec` 은 달이 있어야 점수 · μ 없으면 `flavor_mean=None` · `CorpusStats.stats_version` 신설 | 저장소와 골든 검사가 같은 함수를 지나야 검사 값과 서빙 값이 안 갈림(F-102). 0 벡터 μ 는 모든 레시피를 평균에서 멀어 보이게 함 | 골든에 `cuisine_family` 가 오면 로더 검사를 골든 기준으로. 변환 규칙이 DDL 주석과 어긋나면 DDL 이 이김 |
+| D-51 | 동결 키 10종 | 12종 — `feature_version` · `cluster_version`. 값은 호출자가 `repository.load_batch_versions()` 로 읽어 `rank_candidates(batch_versions=)` 로 넘기고, 목업은 None | 정책이 DB 를 보면 순수하지 않음. 키 자체가 소급 불가라 None 이어도 키는 항상 실음(F-100) | 라우터 연결(M-01) 때 호출이 빠지면 값만 None. M-01 못이 가리킴 |
+| D-52 | 같은 점수는 `recipe_id` 순 | `score.tie_break(user_id, recipe_id)` 의 안정 해시 순. 정렬 키 `score.order_key` 하나를 `score_all` 과 `rerank.rerank` 가 같이 씁니다 | 실데이터에서 개인화 경계에 9~14건이 동점으로 걸려 번호가 낮은 레시피가 모든 사용자에게 언제나 이겼습니다(F-119). 난수는 TC-5-1 을, 파이썬 `hash()` 는 로그 재현을 깹니다 | 인기도(G-34)가 오면 동점 자체가 드물어집니다. 그때도 규칙은 그대로 둡니다 — 동점이 0 이 되지는 않습니다 |
+| D-53 | 알레르기는 영문 군 코드 10종 | 한글 라벨을 받아 **시드의 군 전체**를 막습니다(땅콩 → 견과 전부 · 새우 → 조개류·김치까지). 영문 코드도 같은 함수가 받고, 모르는 라벨은 버리지 않고 돌려줍니다(`engine/allergy.py`) | 백엔드가 `["우유", "땅콩"]` 모양으로 보냅니다(09-21 유재현). 덜 막는 쪽과 더 막는 쪽의 무게가 다릅니다 | 백엔드 재료 사전에 `allergens` 배열이 생기면 라벨별로 정밀하게 좁힙니다 |
+| D-54 | 하드컷은 재료 id 의 교집합 | 재료 id **와 제목**을 함께 봅니다(`allergy.blocks`). 제목에서 찾는 말은 막힌 재료의 이름과 다른 말입니다. 한 글자 조각은 넣지 않습니다 | 실데이터에 재료 행이 빠진 레시피가 있습니다 — 새우 알레르기 사용자의 1위가 「고추장 건새우볶음」 이었습니다(F-121). "노밀가루" 같은 부정 표현은 읽지 않고 막습니다 | 백엔드가 빠진 재료 행을 복구하면 제목 검사를 좁힐 수 있습니다. 없애지는 않습니다 |
+| D-55 | 검증 실패는 400 · 빈 본문 (영수증 파트가 앱 전체에 건 핸들러, 09-07) | **영수증 경로(`/v1/ocr`)만 빈 본문**이고 나머지는 `ValidationErrorOut`(`error` · `fields[]` 의 `location` · `field` · `code` · `message`)을 싣습니다. pydantic 의 `input` 은 싣지 않습니다 | 백엔드 요청입니다(09-21, F-125). 추천 계약은 모르는 필드 하나로 요청 전체를 거부하므로 본문이 비면 백엔드가 원인을 알 수 없습니다. 영수증 계약은 빈 본문을 검사로 박아 두었으므로(`test_missing_field_is_400_not_422`) 건드리지 않고 경로로 갈랐습니다. 보낸 값을 되돌려주면 요청 본문이 응답과 호출 쪽 로그로 복사됩니다 |
 | D-44 | (시뮬 시드) `app_user.id` = 기획 번호(1~1600), 적재 뒤 시퀀스를 max(id) 로 올림 | **id = 1,000,000 + 기획 번호**(`SIM_ID_BASE`), 시퀀스는 건드리지 않음. 합성 값의 해시 키는 id 가 아니라 기획 번호(`hkey`) | `make smoke --keep` 의 합성 유저 8명이 id 1~8 을 차지해 `01_app_user.sql` 이 PK 충돌로 멈췄습니다(F-79) — 안내서가 권한 경로에서 그대로 생기는 결함입니다. 해시 키를 id 로 두면 id 를 옮기는 순간 알러지 90 → 89, 냉장고 4,442 → 4,474 로 내용까지 바뀝니다(F-81) | 낮은 id 를 시뮬 몫으로 비워 두기로 A 와 정하면 오프셋을 0 으로 |
 
-### 3.3 검증 출력 (2026-09-15, 세션 9.19 종료 시점)
+### 3.3 검증 출력 (2026-09-18, 세션 9.23 종료 시점)
 
 ```text
 uv run ruff check .                   → All checks passed!
-uv run ruff format --check .          → 154 files already formatted
-uv run python -m mypy src             → Success: no issues found in 63 source files   (E-01)
-uv run pytest tests/unit              → 315 passed, coverage 91.02% (기준 80%)
+uv run ruff format --check .          → 168 files already formatted
+uv run python -m mypy src             → Success: no issues found in 67 source files   (E-01)
+uv run pytest tests/unit              → 358 passed, coverage 91.20% (기준 80%)
 ```
 
 A 자체 게이트(`Makefile`, DB 불필요분). Windows 는 `PYTHONIOENCODING=utf-8` 이 필요합니다 (E-11, G-14). 이번 세션은 종료 코드만 확인했고 건수는 `contract` 만 화면에서 읽었습니다.
@@ -122,7 +130,7 @@ python -m tests.unit.recommend.test_role     → 종료코드 0
 python -m tests.unit.recommend.test_batch    → 종료코드 0
 ```
 
-시뮬 시드(9.19 재실행). `uv run python scripts/sim/scenario_engine.py` → 종료코드 0, RESULT: PASS (1,600명, 33초, 판정 6종). `uv run python scripts/generate_mock_fixtures.py` · `scripts/reco/bench/onboarding_pick20.py` · 시드 재생성(amplify → convert) → 전부 종료코드 0. `uv run python scripts/sim/scenario_run.py --base http://127.0.0.1:8765 --api-key ... --skip-health` → 종료코드 0. 시드 재생성(amplify → convert) → 종료코드 0, 저장본과 바이트 단위 동일.
+시뮬 시드(9.23 재실행). `uv run python scripts/sim/scenario_engine.py` → 종료코드 0, RESULT: PASS (1,600명, 판정 6종, B 집단 800명 전원 `popularity`). `uv run python scripts/generate_mock_fixtures.py` · 시드 재생성(amplify → convert) → 종료코드 0, 저장소와 `04_user_allergy.sql` 만 다름(F-98, 커밋). `pytest tests/unit/sim` 7건 0.
 
 시뮬 DB 경로(9.17, Docker Desktop). `docker compose ... up -d` → postgres healthy, init 01~04 자동 적용. `uv run python scripts/reco/migrate.py` → 0 (재료 536). `uv run python tests/integration/test_smoke.py --keep` → 0 (published 합성 10,007). `PSQL_VIA_COMPOSE=1 bash deploy/seed/sim/load_sim.sh` → 0, `99_verify.sql` app_user 1600 · user_preference 1600 · user_vector 1600 · user_allergy 90 · pantry_item 4442 · event_log 10195, 집단 × 모드 235/90/475/800. `uv run python scripts/sim/scenario_run.py --base ... --api-key ...`(`/health` 포함, db true 0.11초) → 0.
 
@@ -142,7 +150,7 @@ python -m tests.unit.recommend.test_batch    → 종료코드 0
 | T-03 | Step 1 | `repository.log_serving_result` 비동기 예외 격리 (TC-1-1, TC-1-2) | 미착수 | `service.ServingLog` → JSONB. I-05 |
 | T-04 | Step 1 | `/health` 카운터 `reco_served_total`, `reco_failed_total`, `reco_degraded_total` (TC-1-3) | 미착수 | `main.py` 공용 파일. 카운터 저장 위치 |
 | T-05 | Step 2 | A `repository.retrieve` 호출과 완화 재조회 연결 | 미착수 | A 브랜치 병합. 조회 범위 A-10(회의 G-06) |
-| T-06 | Step 2 | 알레르기 코드군(19종) → 재료 ID 조회 | 미착수 | P-07. 픽스처 `allergen_groups` 는 대역 |
+| T-06 | Step 2 | 알레르기 코드군 → 재료 ID 조회 | A 구현 | 어휘는 DDL 소문자 10종(`enums.ALLERGEN_GROUPS`). 실 DB 는 A 의 `expand_user_allergens` 가 `ingredient.allergen_group` 컬럼 일치로만 전개(09-17). 픽스처는 시드에서 같은 어휘를 읽음(D-49) |
 | T-07 | Step 3 | `feature_stats` → `CorpusStats` | 미착수 | Track A `feature_stats` 계약. I-03 |
 | T-08 | Step 4 | 요리군별 `cuisine_priors` Beta(α, β) 집계 | 미착수 | `event_log` 누적. 그전엔 (1, 1) |
 | T-09 | Step 5 | `service.recommend()` DB 조립, `RankConfig` ← `Settings` (`config.py` + `.env.example`) | 미착수 | T-02, T-05. D-04 이행 |
@@ -206,11 +214,11 @@ python -m tests.unit.recommend.test_batch    → 종료코드 0
 | 온보딩·이벤트 라우트 실연결 | 라우터가 목업을 부릅니다. `PersonaService` 는 있으나 쓰는 곳이 없습니다 | M-01 과 같은 변경에서 | M-15 |
 | 3축 척도 범위 확정 | 계약은 0~4, 회의 기록은 1~5 입니다. 엔진은 0~1 만 받아 한 곳에서 바꾸면 되지만 어느 쪽이 맞는지는 정해야 합니다 | 회의에서 | G-24 |
 | Mock 카탈로그 맛 스케일 | 시드(실집계)와 분포가 달라 고른 음식으로 만든 취향이 Mock 평균 아래에 놓입니다. 맛 정합 lift 가 작게 나옵니다 | 생성기 수정 | N-14, F-35 |
-| `EventIn` 발생 시각 필드 | 계약이 A 것이라 혼자 못 더합니다. 없으면 오프라인 배치 전체가 수신 시각을 받아 주·일 주기가 헛돕니다 | A 와 합의 후 | G-26 |
 | Thompson 균등 폴백을 A 함수 안으로 | `serendipity.mixed_exploration` 은 A 의 파일입니다. 지금은 B 가 밖에서 우회합니다(D-35, F-42) | A 와 합의 후 | G-27 |
 | Thompson 픽의 확률 귀속 | A 의 `mixed_exploration` 이 묶음의 확률을 점수 최고 후보에만 붙여, 균등이 그것을 먼저 가져가면 두 번째 후보가 Thompson 으로 뽑히는데 확률에는 균등 몫만 남습니다(F-65). A 의 파일입니다 | A 와 합의 후 | G-28 |
 | 월별 주기 해석 확인 | 연 주기 위상으로 읽은 것이 회의 뜻과 맞는지 확인이 필요합니다 | 회의에서 | G-25 |
 | `/health` 의 DB 접속 대기 | `db.healthy()` 가 접속 시간 제한 없이 DB 를 기다려 DB 없는 PC 에서 150초 넘게 응답이 없습니다(DB 가 있으면 0.11초). `infra/db.py`·`config.py` 는 A·공용 파일입니다 | A 와 합의 후 | G-29, F-74 |
+| 환경변수 목록 확정 | 이름·기본값은 `docs/env_variables.md` 1.0.0 에 코드 기준으로 적었지만, DB 접속값 · 연동 방식에 따른 새 변수(API 면 `BACKEND_*`) · 로그 DB 분리(`LOG_DB_*`) · `PG_MAX_CONN` 상한 · `OCR_WORKERS` 메모리 · 키 회전 · `.env.example` 누락 9개는 정할 근거가 아직 없습니다 | 백엔드 스키마 회신 + 클라우드 RDS 적용 확인 뒤 | `docs/env_variables.md` 4절, G-32, I-07 |
 
 ## 5. 고려사항 (C)
 
@@ -226,7 +234,7 @@ python -m tests.unit.recommend.test_batch    → 종료코드 0
 | C-06 | `config_fingerprint` = `RankConfig` 전 필드 MD5(`usedforsecurity=False`). 비가중치 값도 포함 | `RankConfig.fingerprint` |
 | C-07 | propensity: 개인화 1.0 · 균등 = 풀 크기 / 뽑는 수 · Thompson = MC 32회 추정 역수(라플라스, X-08 로 64→32). 표본 수 `propensity_samples` | `rerank._win_probability` |
 | C-08 | MMR 은 점수 상위 200건 × 슬롯 수, IDF 합 사전 계산, 최대 유사도 증분 갱신 (X-08). 후보 500 기준 rerank 중앙값 8.5 ms, 엔진 p95 22 ms (`recommend_engine_verification.md` 7.2) | `rerank.mmr_select` |
-| C-09 | 알레르기 코드군 픽스처 18종. 19종 중 SULFITE 는 대응 재료 없어 제외 | `generate_mock_fixtures.ALLERGEN_GROUPS` |
+| C-09 | 알레르기 코드군 픽스처는 `seeds/ingredient.csv` 에서 읽은 10종(09-18, D-49). 09-17 까지는 생성기의 대문자 18종이었고 DDL 과 갈려 있었음(F-99) | `generate_mock_fixtures.allergen_groups_from_seed` |
 | C-10 | 픽스처 JSON 은 생성 산출물이나 커밋 대상(02의 2.3). 개인정보 없음 | `tests/fixtures/recommend/` |
 | C-11 | engine 파일 7개(`candidate`, `context`, `explain`, `feedback`, `penalty`, `rank`, `rerank`). 02의 5.1 디렉토리당 8개 기준 안 | `engine/` |
 
@@ -268,6 +276,8 @@ uv run ruff check . && uv run python -m mypy src
 | E-10 | git 사용자 설정 전무 | 저장소 로컬 `user.name=유재현`, `user.email=yjhorion@gmail.com`. 변경은 `git config --local` 후 push 전 `git rebase --exec 'git commit --amend --no-edit --reset-author' main` |
 | E-15 | 이 PC 에 Docker·postgres 가 없습니다. `/health` 가 `db.healthy()` 로 DB 를 기다려 응답이 없고(F-74) 시뮬 안내서 3-4·3-5 를 돌릴 수 없습니다. `openpyxl` 은 `uv.lock` 에 없습니다(F-72) | DB 없는 단계만 돌리고 못 돌린 것은 못 돌렸다고 적습니다(D-28). API 스크립트는 `--skip-health`. openpyxl 은 `uv pip install openpyxl` 로 이 PC 에만 설치(잠금 밖) |
 | E-16 | Docker Desktop 29.7.2(WSL2 백엔드)·`pgvector/pgvector:pg16` 은 유재현이 관리자 권한으로 설치(2026-09-14 저녁). 이 PC 에 `make` 와 `psql` 은 없습니다 | Makefile 이 부르는 명령을 직접 실행(compose up · `migrate.py` · `test_smoke.py --keep`), 적재는 컨테이너의 psql 을 stdin 으로(`PSQL_VIA_COMPOSE=1`). `deploy/.env` 는 템플릿 복사(값 비어 있어 compose 기본값, `.gitignore` 대상). E-15 의 DB 부재 항목은 해소 |
+| E-17 | Docker Desktop 데몬이 꺼져 있으면 `docker ps` 가 `npipe:////./pipe/dockerDesktopLinuxEngine` 접속 실패로 끝납니다(9.23). 앱을 띄운 뒤 다시 돌려야 하며, 그 세션에서는 로더의 실 DB 대조(19.2절)를 미실행으로 남겼습니다 |
+| E-18 | mypy 를 돌릴 수 없습니다(2026-09-21). `uv run mypy` 는 예전부터 앱 제어 정책에 막혔고(E-01) 우회로였던 `uv run python -m mypy src` 도 `ImportError: DLL load failed while importing internal` 로 실패합니다. `.venv/Scripts/python.exe -m mypy` 도 같습니다. 같은 세션에서 `pytest` 실행 파일도 막혀 `python -m pytest` 로 돌렸습니다. 타입 검사는 정책이 풀릴 때까지 못 돌립니다 |
 
 ---
 
@@ -285,6 +295,7 @@ uv run ruff check . && uv run python -m mypy src
 | I-04 | DB 이력 → 엔진 | `stage.UserHistory` | 빈 값 / 테스트 지정 | `user_vector`(A DDL: `taste_vec` REAL[6], P-15) · 알레르기(A DDL `user_allergy` 테이블, T-06) · 기피 재료(P-07) · 최근 7일 노출(`recommendation_log`) · 최근 14일 조리(`event_log`) · 대체재(A DDL `ingredient_substitute` 테이블, P-08) · `cuisine_priors`(T-08) |
 | I-05 | 엔진 → DB | `service.ServingLog` | 테스트 모양 검사 | A 에 `repository.write_recommendation` 이 이미 있음. `candidates_features` ← `ScoredCandidate.blocks/base_score/score`, `propensity_scores` ← `ServedItem.propensity`(역수. A 는 확률, P-14) |
 | I-06 | 엔진 → BE / Track C | `RecommendResponse`, `FeedbackEventResponse`, `meta.config_fingerprint` | 테스트 모양 검사 | 라우터 연결 시 BE 재확인. `meta` 고정 5필드 (D-07) |
+| I-07 | 엔진·배치 → DB | `DB_HOST` · `DB_USER`(원격에서는 `reco_app`) · 역할 3종(`05_roles.sql`) | 로컬 compose(`pgvector/pgvector:pg16`, 앱이 소유자 `reco` 로 접속) | 클라우드 회신(2026-09-18): 통합 전 DB 는 **AWS RDS for PostgreSQL 16**. 확장 4종 지원 확인, 로케일 C.UTF-8, `reco_batch` 에 DDL·TRUNCATE, 파라미터 그룹 `maintenance_work_mem` 상향, 스냅샷 매일 1회 · 7일 보관. 원격 TCP 라 `tcp_keepalives_*` 와 `ALTER DATABASE ... timezone` 이 RDS 에서도 적용돼야 함(G-32). 기록: `docs/container_handover.md` 12절 |
 
 ### 8.2 데이터 확정 시 대조할 가정 (A)
 
@@ -294,7 +305,7 @@ uv run ruff check . && uv run python -m mypy src
 | A-02 | `popularity_score`, `quality_score` 0~1 정규화 완료 | `rank.quality_score` 앞 정규화 (`_clamp` 은 절단만) |
 | A-03 | 재료 ID 정수, 보유·레시피·알레르기 동일 ID 체계 | 전 모듈 집합 연산 |
 | A-04 | `essential_ids ⊂ all_ids` | 충족도 `essential`, 자카드·기피·알레르기 `all` |
-| A-05 | 알레르기 코드군 19종 ↔ 재료 ID 매핑 존재 | T-06. 픽스처 `allergen_groups` 대역. A DDL 에 `user_allergy` 테이블 있음 — 매핑 형태는 A 스키마에서 확인 |
+| A-05 | 알레르기 코드군 ↔ 재료 ID 매핑 존재 | 확정(09-17): DDL 10종, 매핑은 `ingredient.allergen_group` 컬럼 하나가 유일한 방어선(재료 직접 지정·카테고리 전개는 등록 경로가 안 채움). `ingredient_substitute` 0행은 미완성이 아니라 "측정 전에 구현하지 않는다" 는 결정(F-103) |
 | A-06 | `cuisine` 어휘 == BE `preferred_cuisines` 어휘 | `rerank._is_novel` 문자열 일치 |
 | A-07 | `cook_minutes` null 비율 낮음 | null → ctx 블록 측정 불가 → 분모 변동 |
 | A-08 | `expiring ⊂ pantry` 여부 | C-03 |
@@ -546,6 +557,131 @@ uv run ruff check . && uv run python -m mypy src
 | 문서 | 안내서 1.2.0(make·psql 없는 PC 절차, id 범위, DB 실행 결과, G-29 보충) · `deploy/seed/sim/README.md` 매핑 · 패키지 사본 동기화(zip 제외) |
 | 검증 | 적재 종료코드 0 · `99_verify` 건수·분포가 기대값과 일치 · `scenario_run.py` PASS(`/health` db true 0.11초, [5] 변동 0 = 전환 전 정상) · `scenario_engine.py` PASS · ruff·format(151)·mypy(62) 0 · `pytest tests/unit` 298 passed / 90.64% |
 | 넘긴 것 | N-16(커밋 범위 — 이제 유재현과 정함) · G-29(DB 없을 때의 대기. DB 있으면 0.11초) |
+
+### 9.31 2026-09-21 - 백엔드 회신 반영과 main 병합 준비
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 — "지금까지 개발된 내용을 main 과 비교해 머지를 진행해 달라." 이어서 "그 전에 수정할 부분이 생겼다. 백엔드가 명세 8절과 3.1 에 답글을 달았다. 의견을 반영해 코드를 수정하고 main 에 머지하자." |
+| main 과 비교 | 브랜치가 `origin/main` 보다 62 커밋 앞서고 뒤처진 것은 0 입니다(병합 커밋 7 포함, 유재현 19 · QDevJw 36). 충돌 없음. 100 파일 +9,870 / -3,108. 비밀값 패턴 0건, `.env` · 덤프 · 가중치 없음 |
+| 백엔드 회신 | ① 검증 실패 응답에 이유를 실어 달라 ② 스크랩 수는 즉시 제공, 조회수는 레시피 테이블에 컬럼 추가 예정 ③ 3.1 은 공통 응답 래퍼 없이 명세 구조 그대로. 8절의 나머지 다섯 행은 댓글이 접혀 있어 읽지 못했습니다. Notion API 로는 댓글이 조회되지 않았습니다(빈 응답) |
+| 고친 것 (F-125 · D-55) | `schema.ValidationErrorOut` · `FieldErrorOut` · `validation_error_body()` 추가, `main.handle_missing_field` 가 영수증 경로 밖에서 그 본문을 싣습니다. 검사 4건(`tests/unit/test_main.py`). A 의 문서 생성기(`scripts/reco/api/render.py` · `capture.py`)에서 "본문 없음" 문구를 고쳤습니다 |
+| 코드를 안 고친 것 | ② 와 ③ 은 아직 없는 동기화 코드가 읽을 모양입니다. 명세에만 반영했습니다 — `popularity.scrap_count` 를 합의 필드로, `view_count` · `order_count` 는 선택으로, 3절에 "래퍼 없음" |
+| 명세 | `docs/backend_api_spec.md` **2.1.0** — 6.1 검증 실패의 본문(실 서버 응답 예시) · 8절에 백엔드 회신 열 · 9절 구현 상태 |
+| 남의 파일 | `src/main.py`(영수증 파트) · `schema.py` · `render.py` · `capture.py`(A). 영수증 경로의 동작은 그대로이고 그 검사도 그대로 통과합니다 |
+| 검증 | ruff · format(179) · pytest 446 passed / 92.79% · contract 99 — 전부 종료코드 0. mypy 는 우회로(1.11.0)로 종료코드 1, 2건 모두 main 에 이미 있는 줄(검증 21.15) |
+| 병합 | PR 생성과 병합은 이 기록 커밋 뒤에 진행합니다. 결과는 다음 세션 기록에 적습니다. Squash 가 아니라 merge commit 을 씁니다 — 이 브랜치가 A 의 36 커밋을 들고 있어 Squash 하면 A 브랜치가 나중에 같은 변경으로 다시 충돌합니다 |
+
+### 9.30 2026-09-21 - 병합, 알레르기 표 단일화, API 명세 2.0.0
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 — "GitHub 에 새로 올라온 코드가 있으면 적용해 마지막 테스트를 하고 고칠 것은 고쳐 달라. 그 뒤 백엔드와 주고받을 API 명세서가 필요하다. **지금 가진 DB 는 실제로 쓸 DB 가 아니라 테스트용으로 받은 데이터이고, 실제로는 백엔드 API 로만 데이터를 받는다.** 명세서는 Notion 으로 백엔드에 전달한다" |
+| 병합 | `origin/main` 12 커밋(규약 3편 개정 · 평가 파이프라인 추가 뒤 롤백) → `origin/develop-data-part` 32 커밋. **main 을 먼저** — A 브랜치가 롤백을 안 받아 순서를 바꾸면 되돌린 코드가 살아납니다. 충돌 1건(`docs/README.md` 버전 줄). 규약 변경: PR 300줄 상한 삭제 · 뒤 축이 앞 축의 순수 함수를 import 할 수 있음 |
+| A 가 한 것 | 한글 알레르기 라벨(`enums.ALLERGEN_LABELS`) · `mollusk` 군 · 돈가스소스 → gluten · 온보딩 계약을 자리에서 이름으로(`picks` 이름 · `taste_preferences` · `TasteOut`) · `GET /v1/onboarding/presented` · `taste-axes` · `judge()` 결정론(F-104) · 골든에 계열 칸(F-106) · `2시간 이상` 파싱 · 소비기한 출처 |
+| 고친 것 (F-124) | 제 `engine/allergy.py` 가 A 의 표와 같은 것을 따로 들고 있어 셋이 어긋났습니다 — 식약처 표기 둘을 모르는 라벨로 돌려보냈고 오징어를 다른 군으로 보냈습니다. 정본을 `enums.ALLERGEN_LABELS` 하나로 두고 제 모듈은 그 위에 얹습니다. 검사 5건 |
+| A 의 요청 7.1 | `TasteProfile.picks` 가 이름이어도 엔진에 문제가 없는지 — 없습니다. 엔진은 `pick_flavors`(6축)만 쓰고 `picks` 는 길이와 저장에만 닿습니다. 병합 뒤 442건 통과. `persona.py` 의 A 변경 한 줄은 그대로 둡니다 |
+| 명세 | `docs/backend_api_spec.md` **2.0.0** — 전제를 다시 세웠습니다(덤프는 테스트용 표본, 운영은 API 만). 주인 표 · 백엔드가 열 API 2 · AI 가 여는 API 6 · 알레르기 라벨 표(코드와 대조) · 공통 규약(실 앱에서 확인한 401·400) · 구현 상태(`있음` / `합의 후`). 응답에 제목·썸네일을 싣지 않고 백엔드가 `recipe_id` 로 붙입니다 |
+| Notion | 백엔드 전달용 사본을 Notion 에 작성했습니다. 저장소 문서가 정본이고 Notion 은 전달용입니다 |
+| 검증 | ruff · format(179) · pytest 442 passed / 92.74% · contract 99 · eval · 시뮬 PASS · 실데이터 종단 87건 전부 종료코드 0 |
+| 넘긴 것 | A — 알레르기 표 단일화(F-124)와 F-105 미해결 · 7.2 의 셋(`persona_pick_unknown_name` 카운터 · `unmapped_allergens` 로그 · 목업의 `n_blocked_ingredients`)은 라우터 실연결 때 · 백엔드 — 명세 8절의 일곱 가지 |
+
+### 9.29 2026-09-21 - 남은 결함 수정과 알레르기 라벨 전개
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 — "바로잡은 것에서 결함이 그대로였다는 건 문제가 해결되지 않았다는 이야기 같다. 다시 수정을 시도해 달라. 알레르기는 백엔드 DB 에 있고 `[우유, 땅콩]` 식으로 API 로 받을 예정이다. 지금은 데이터 없이 또는 임의 데이터로 테스트해 달라" |
+| 제 말의 잘못 | "결함은 그대로" 는 **진단이 교정 뒤에도 재현된다**는 뜻이었는데 안 고쳐졌다고 읽히게 썼습니다. F-111 의 증상(점수 전원 1.000)은 N-19 로 고쳐져 있었습니다. 다만 다시 재 보니 **남은 결함이 실제로 있었습니다** |
+| 남은 결함 (F-119) | 개인화 16칸의 경계 점수에 9~14건이 동점이고 그중 누가 들어갈지를 `recipe_id` 가 정했습니다. 같은 냉장고의 40명이 전원 같은 16건을 받았습니다. `score.tie_break` 로 고쳤습니다(D-52). 수정 뒤 28종 · 25가지 목록 |
+| 알레르기 | `engine/allergy.py` 신설(D-53). 한글 라벨 → 시드의 군 전체 + 이름 규칙. 모르는 라벨은 돌려줍니다. 임의 데이터 9벌에서 새는 것 0건 |
+| 돌리다 찾은 것 | ① `통깨` 가 시드에 안 닿아 참깨 알레르기가 샜습니다 — 시험대에만 있던 별칭이 틀렸고, 통깨는 레시피의 32.8% 입니다(F-120) ② **새우 알레르기 사용자의 1위가 「고추장 건새우볶음」** — 그 레시피의 재료 행에 건새우가 없습니다(F-121). 제목을 함께 보는 `allergy.blocks` 로 막았습니다(D-54) ③ 제목 검사의 `잣` 이 「감잣국」 에 걸렸습니다(F-123) ④ 제가 검증 21.8 에 "명세에 이미 적혀 있다" 고 쓴 문장이 사실이 아니었습니다(F-122) |
+| 코드 | `engine/allergy.py`(신규) · `engine/score.py`(`tie_break` · `order_key`) · `engine/rerank.py` · 검사 30건(`test_allergy.py` 26 · `test_score.py` 4) · 픽스처 `backend_ingredients.json`(재료 이름 사본 148종) |
+| 검증 | ruff · format(173) · pytest 400 passed / 91.51% · contract 98 · eval · 시뮬 PASS 전부 종료코드 0. mypy 는 우회로로 68 files, 새 코드 보고 0건. 실데이터 종단 87건 통과 |
+| 문서 | API 명세 1.1.0(알레르기 라벨 표 · `is_staple` · `allergens` 배열 · 6.3 재료 행 누락) · 검증 21.10~21.12 · 계획서 2.4.0 · 안건 G-34 확장 |
+| 넘긴 것 | 백엔드 — 라벨 목록 공유 · 빠진 재료 행 복구 · `allergens` 배열 · `is_staple`(G-34). **못 막는 것 하나**: 간장의 밀처럼 가공품 안의 다른 알레르기(시드가 재료당 군을 하나만 답니다) |
+
+### 9.28 2026-09-21 - N-19 반영과 타입 검사 우회로
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 — "N-19 는 네 제안대로 진행해 줘. 그리고 mypy 를 돌리지 못하는 이 PC 의 제어 정책을 어떻게 처리할지도 알려 줘. 권한을 부여할 수 있다면 부여할게" |
+| N-19 | 선택지 (d) 반영. `f_coverage` 0.24 → 0.14 · `f_pantry_use` 0 → 0.10. **어디서 뺄지를 다시 측정했습니다** — 인기도에서 빼는 쪽과 충족률에서 빼는 쪽의 결과가 같았고, 인기도를 0 으로 내리면 "데이터가 오면 코드를 고치지 않아도 켜진다" 는 규칙을 어기므로 충족률에서 가져왔습니다. 재료 매칭 군 합 0.44 와 `ACTIVE_WEIGHT_TODAY` 0.94 는 불변입니다 (검증 21.6) |
+| 제어 정책 | **Smart App Control** 입니다(`VerifiedAndReputablePolicyState = 1`). 코드 무결성 로그가 막은 파일을 이름으로 적고 있습니다 — `mypy.exe` · `pytest.exe` · `librt/internal.pyd` · `coverage/tracer.pyd`. 경로와 무관하고(OneDrive 밖으로 복사해도 같음) 다운로드 표식 때문도 아니며 예외 목록이 없는 정책입니다. **끄면 윈도우를 다시 설치하기 전까지 다시 켤 수 없습니다** |
+| 우회로 | 컴파일 확장이 없는 `mypy==1.11.0` 을 별도 환경에 `--no-binary` 로 설치해 돌립니다. 67개 파일 6분 19초, 보고 2건은 옛 판의 추론 차이라 고치지 않았습니다 (검증 21.7) |
+| 넘긴 것 | N-20 — 타입 검사를 어디서 돌릴지(도커 · 옛 판 · CI · 정책 해제). B 제안은 도커 기본, 급할 때 옛 판 |
+
+### 9.27 2026-09-21 - 백엔드 실데이터 검증과 API 명세
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 — "백엔드에서 실증 데이터를 받아 `data/Backend_Data_Dump` 에 두었다. 이제 실제 데이터로 엔진이 잘 동작하는지 테스트하고 수정·조정할 부분을 처리해야 한다. 그리고 우리는 이 DB 에 직접 붙지 않고 API 로 일부를 받아 올 것이라, 어떤 정보가 필요한지와 어떤 결과를 돌려줄지 API 명세까지 필요하다" |
+| 받은 것 | 레시피 21,491 · 재료 사전 148 · 레시피×재료 179,603 · 조리 단계 166,436 · 스크랩 0 · 상품 4,800(별도 스키마). `recipe_id` 최대가 46,552 라 A 의 크롤 46,353 과 같은 원본을 백엔드가 거른 것입니다 |
+| 검증 | 덤프를 엔진 입력으로 바꿔 파이프라인을 끝까지 돌렸습니다. 없는 값은 0 이 아니라 None 으로 두었습니다. 발견 8건(F-111~F-118), 검증 기록 21절 |
+| 가장 큰 것 | ① 재료 매칭만으로는 순위가 안 섭니다 — 후보 500건이 전부 coverage 1.0, 점수 전원 1.000, 상위에 쌈장·흙마늘 손질법(F-111) ② 덤프에 맛이 없지만 **재료에서 복원됩니다** — 148종 중 147종이 우리 맛 시드에 붙고 복원한 μ 가 A 실측과 0.023 안에서 일치(F-113). 복원 뒤 점수가 0.72~0.86 으로 퍼지고 상위가 실제 요리로 바뀌었습니다 |
+| 코드 | `context._difficulty` 신설 — 백엔드의 EASY·NORMAL·HARD 와 A 의 1~5 를 한 함수가 받습니다(F-114). 모르는 값은 None 입니다. 검사 8건 추가 |
+| 명세 | `docs/backend_api_spec.md` 1.0.0 신설. 네 엔드포인트(레시피 동기화 · 재료 사전 · 추천 요청·응답 · 이벤트)와 필드마다 "없으면 무엇이 꺼지는가". 연동 구조는 **레시피 동기화 + 사용자 데이터 동봉** 으로 제안했고 근거는 전량 4.2MB · 재정렬 57.9ms 입니다(F-118) |
+| 넘긴 것 | 백엔드 — 인기도 신호 · `allergen_group` · 중복 레시피 대표 번호(G-34) · 유재현 — 냉장고 활용도 가중치 결정(N-19) · 명세 전달 |
+| 못 한 것 | mypy 를 돌리지 못했습니다(E-18). `pytest` 는 `python -m` 으로 우회해 366건 통과했습니다 |
+
+### 9.26 2026-09-18 - 군집(k-means) 다양성 검증
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 — "A 가 벡터화·임베딩·군집한 데이터로 다양성을 확보하려던 것인데 잘 구현됐는지 확인이 필요하다. 검증 뒤 B 가 A 의 일을 적극 활용할 방안과, 개인화 16칸 쿼터 결정의 선택지를 함께 달라" |
+| 검증 방법 | 목업 카탈로그는 120건·8군집이라 실 DB(46,353건·50군집)를 대표하지 못합니다. 그래서 목업 생성기로 3,000건을 만들고 **A 의 `cluster_build._tfidf`·`_svd`·`_lloyd` 를 그대로 불러** K=50 을 매긴 뒤, `rerank.mmr_select` 를 몽키패치해 선택지 넷을 같은 조건에서 측정했습니다. 운영 코드 변경 없음 |
+| 찾은 것 | F-107(설계의 `content_emb` 임베딩이 아니라 재료 TF-IDF→SVD 위 군집) · F-108(군집을 지워도 20칸 중 1.8칸만 바뀜, 무작위 기준선보다 낮음) · F-109(재료 자카드와 군집은 직교 — 군집을 2.4개 벌려도 재료 ILD 는 0.003 만 움직임) · F-110(Thompson 이 관측 없이 무작위와 같음) |
+| 측정 | 검증 기록 20.3. 쿼터 2 는 군집 +0.8, 가산 0.3 은 군집 +2.4 에 점수 99.3% 유지. 쿼터가 값이 작은 이유는 K=50 에 20칸이면 충돌 자체가 드물기 때문 |
+| 결정 대기 | N-18 — 개인화 칸에 군집을 반영할지, 반영하면 쿼터인지 가산인지. B 의 제안은 가산 0.3(D) |
+| A 에 요청 | G-33 — ① `cluster_build` 가 계산하고 버리는 54차 벡터를 저장(그것이 있어야 `f_content` 를 만들 수 있고, 768차 문장 임베딩을 새로 만들 필요가 없습니다) ② `user_cluster_stat` 을 채우는 배치(없으면 Thompson 이 영영 학습하지 않습니다) |
+| 코드 | 변경 없음. 측정 하네스는 스크래치패드에 두었고 저장소에 넣지 않았습니다 |
+| 넘긴 것 | 실 DB 대조(E-17 로 미실행, M-02·M-04 개통 때) · 시뮬 1,600명 재측정 · 설계 7절의 "임베딩 기반" 표현 정정(F-107) |
+
+### 9.25 2026-09-18 - 클라우드 팀 요청: 환경변수 목록
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 — 클라우드 팀이 환경변수 목록(이름 · 기본값 · 비밀 · 설명 표)을 요청. "백엔드·DB 구성 논의 뒤에 정해지는 것이 맞나? 지금 쓸 수 있으면 쓰고, 바뀔 것은 TODO 로 문서화하고 remind 해 달라" |
+| 판단 | 둘로 갈립니다. **이름·기본값·비밀 여부는 코드(`src/config.py`)가 정하는 사실이라 지금 확정**이고, **값과 변수의 존재**(DB 접속값 · 연동 방식에 따른 `BACKEND_*` · 로그 DB 분리 · 풀 상한 · 키 회전)는 백엔드 회신과 RDS 적용 뒤에 정해집니다 |
+| 한 일 | `docs/env_variables.md` 1.0.0 신설 — 필수 6 · 선택 24 를 코드 기본값과 이미지 기본값으로 나눠 적고(요청받은 표 형식), 4절에 미정 8줄을 "지금 상태 · 언제 정해지는가 · 정해지면 할 일" 로 남김. `docs/README.md` 1.11.2 등록, 인수인계 문서 1.2.0 의 5.1 이 이 문서를 가리킴 |
+| 대조에서 찾은 것 | ① 받은 목록의 `OCR_WORKERS` 기본값 1 은 이미지 값이고 코드는 3 · ② "워커당 약 2.5GB" 는 `config.py` 주석이고 컨테이너 실측은 유휴 456MiB · 처리 중 536MiB 라 둘을 다 적고 부하 측정 전이라 밝힘 · ③ `.env.example` 에 `DB_SCHEMA` · `PG_*` 3종 · 서빙·배치 값 5개, 9개가 빠져 있음(A·`main` 파일, 알림) · ④ `REVIEW_SALT` 는 정의만 있고 읽는 코드가 없음 · ⑤ `recodb` 는 초기화 SQL 이 만들지 않아 RDS 에서 먼저 만들어야 함(인수인계 12절에 추가) |
+| 리마인드 | 4.3 MUST TODO 에 "환경변수 목록 확정" 줄, 1절 다음 행동, 에이전트 메모리(`todo-env-variables-after-backend-decision`). 백엔드 회신이나 RDS 소식이 오면 유재현에게 먼저 알립니다 |
+| 넘긴 것 | 클라우드 — 문서 전달(유재현) · A — `.env.example` 누락 9개 |
+
+### 9.24 2026-09-18 - 클라우드 팀 회신: DB 는 AWS RDS
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 — 인수인계 문서와 함께 물은 네 가지(DB 위치 · 확장 4종과 C.UTF-8 · 배치 권한과 HNSW 메모리 · 백업)에 대한 클라우드 팀 답변. "필요한 부분이 있다면 기록하고 참고" |
+| 회신 | AWS RDS for PostgreSQL 16 · 확장 `vector` · `intarray` · `pg_trgm` · `ltree` 지원 확인, 로케일 C.UTF-8 · `reco_batch` 에 스키마 DDL·TRUNCATE, 파라미터 그룹 `maintenance_work_mem` 상향 · 매일 1회 스냅샷과 시점 복구, 7일 보관 |
+| 기록 | `docs/container_handover.md` 1.1.0 — 7절 외부 의존에 배치 사실, 12절에 회신 원문과 그 답이 정하는 것, 적용 때 부탁(초기화 SQL 은 마스터로 00~05 순서 · `ALTER DATABASE ... timezone = 'Asia/Seoul'` 필수 · 역할 3종과 비밀번호 · 인스턴스 크기 공유). 접점 I-07 |
+| 어긋나는 자리 | RDS 기본 시간대는 UTC 라 `01_extensions.sql` 의 `ALTER DATABASE` 가 적용되지 않으면 소비기한 임박 판정이 하루 어긋남 · `tcp_keepalives_*` 는 compose 에만 있어 원격에서는 파라미터 그룹 몫 · 회신이 `reco_batch` 만 언급해 `reco_app` · `reco_ro` 도 만들어야 함을 적음 → G-32 |
+| 코드 | 변경 없음 |
+| 넘긴 것 | 클라우드 — G-32 의 세 확인 · 인스턴스 크기와 `maintenance_work_mem` 값 공유 · A — 그 값으로 HNSW 생성 시간 재측정 |
+
+### 9.23 2026-09-18 - 데이터 파트 요청 5건 반영
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 — A 가 `main` 병합분을 검수하고 고쳤다는 커밋을 받아 확인 → A 의 요청을 실행/보류로 분류 → "모두 진행. 연동 작업은 그 이후로" |
+| A 브랜치 검수 | `origin/develop-data-part` 17 커밋(사전 검수 536→696종 · 게이트 조임 `n_unmatched = 0` · 알러지 어휘 정본 · 판 번호 지문 · 골든 30건 · G-30 규칙 배정 28,604/46,353). 게이트 전부 0(pytest 337, contract 98, 시나리오 PASS) 뒤 `1aa0507` 로 병합. 찾은 것 셋은 A 파일이라 전달만(F-104~F-106) |
+| 분류 | A 요청 5건 전부 실행. 보류 1건 — "온보딩이 `category_id` 를 채우게 할 것인가" 는 백엔드 스키마 회신 뒤 |
+| 코드 (`0ffa5e9`) | 빈 팬트리 첫 조회 인기순(D-48) · 동결 키 12종(D-51) · `EventIn.occurred_at`(G-26) · `load_recipe_features` · `load_corpus_stats` · `recipe_feature_from_row`(D-50) · `enums.py` · `service.py` 의 낡은 주석. 검사 21건 |
+| 데이터 (`52aec67`) | Mock 알러지 어휘를 시드에서(D-49), Mock 재료 이름 6종을 시드 이름으로, 페르소나 4명 코드화, `sim_seed.ALLERGEN_MAP` 삭제, `04_user_allergy.sql` 재생성(F-98), 대조 검사 2건 |
+| 검증 | ruff · format(168) · mypy(67) · pytest 358 passed / 91.20% · contract 98 · eval · 시나리오 PASS 전부 종료코드 0. 실 DB 대조는 Docker 미기동으로 미실행(E-17) |
+| 문서 | 결정 기록 `docs/decisions/2026-09-18_engine_applies_data_track_requests.md` 신설 · 검증 19절 · 안건(G-26·G-30 결정·반영, G-31 신설, N-09 정정) · 점검표 M-02·M-04 `진행` · 계획서 2.2.1 · 시뮬 안내서 1.5.0 · 기록 정정 4건(F-103) |
+| 넘긴 것 | A — F-104(`judge()` 비결정, 재현 명령은 결정 기록 7절) · F-105 · F-106 · 파트 A 파일 4개 변경(`enums.py` · `schema.py` · `repository.py` · `test_contract.py`, A 의 8절 지정분) · 백엔드 — `occurred_at` 을 실어 보낼 것 · 유재현 — PR 시점 |
+
+### 9.22 2026-09-17 - 백엔드 DB 연동을 위한 요청 문서
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 — "실제 backend DB 와의 연동 작업이 필요. 백엔드가 어떤 스키마를 갖고 우리가 무엇을 쓸지, 엔진 산출 중 무엇을 로깅하고 무엇을 응답으로 낼지 정해야 한다. 요청 문서를 써 달라" |
+| 한 일 | `docs/backend_schema_request.md` 신설. 처음에는 우리가 쓰는 여섯 가지만 묻는 형태였는데, 유재현이 **전체 스키마를 받는 쪽**으로 고치자고 해 2.0.0 으로 다시 썼습니다 |
+| 왜 전체인가 | 테스트 버전은 백엔드가 무엇을 모으는지 모르는 채로 만들었습니다. 우리가 아는 것만 물으면 **이미 모으고 있는데 몰라서 못 쓰는 데이터**는 계속 못 쓰게 됩니다. 4절에 "있으면 쓸 수 있는 것" 여덟 가지(주문 이력 · 조회 체류 · 리뷰 · 조리 완료 · 알림 반응 · 검색어 · 식이 제약 · 폐기 기록)를 예로 들어, 만들어 달라는 것이 아니라 이미 있는지 확인하려는 것임을 분명히 했습니다 |
+| 핵심 질문 | ① 재료 사전의 정본이 어느 쪽인가(추천의 거의 모든 계산이 재료 id 로 돕니다) ② 소비기한이 사용자 입력인지 추정인지 구분되는가 ③ 레시피 정본이 어디인가 ④ 연동 방식 셋(DB 직접 읽기 · API 호출 · 동기화) 중 무엇인가 |
+| 응답·로그 경계 | 지금은 `RankedItem` 전체가 응답에 실려 나갑니다. 화면에 필요한 것(`recipe_id` · `final_rank` · `reason` · 부족 재료 · `coverage`)만 남기고, 피처 17종 · `score` · `propensity` · `is_exploration` · `is_cuisine_slot` · `trace` 는 로그로 돌리자고 제안했습니다. **탐색 칸 표시가 응답에 있으면 클라이언트가 그 칸을 걸러낼 수 있어 측정이 깨집니다** |
+| 함께 정할 것 | `score` 노출 여부 · 부족 재료를 id 로 줄지 이름으로 줄지 · 행동 이벤트를 백엔드가 `POST /v1/events` 로 보낼지 · 추천 로그를 어느 DB 에 남길지 |
+| 넘긴 것 | 문서 전달과 회신 일정은 유재현. 회신이 오면 DB 전환 점검표(M-01~M-16)의 연동 항목을 그 답에 맞춰 다시 씁니다 |
 
 ### 9.21 2026-09-16 - PR #9 병합
 

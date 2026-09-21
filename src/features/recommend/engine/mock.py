@@ -47,6 +47,7 @@ from features.recommend.schema import (
     RecommendationLogOut,
     RecommendRequest,
     RecommendResponse,
+    TasteOut,
 )
 from features.recommend.stage import RankedItem, StageInfo, StageTrace, TraceTotals
 
@@ -183,6 +184,9 @@ def _trace(
                     "policy_id": "mock-linear-v0+explore2-randpos",
                     "rng_seed": rng_seed,
                     "max_missing_final": max_missing_final,
+                    # 목업은 배치 위에서 돌지 않는다. 키는 실어야 하고 값은 None 이 사실이다.
+                    "feature_version": None,
+                    "cluster_version": None,
                 },
                 exploration_items=explore or [],
             ),
@@ -468,16 +472,20 @@ def save_onboarding(user_id: int, body: OnboardingIn) -> OnboardingOut:
     _ONBOARDING[user_id] = body
     # mock 은 척도 3축을 앞 3칸에 넣고 나머지는 코퍼스 평균(여기선 0.5)으로 둔다.
     # 실제 구현은 고른 레시피들의 flavor_vec 평균을 쓴다.
-    tv = [round(x / 4.0, 4) for x in body.scales] + [0.5, 0.5, 0.5]
+    # 척도는 선택이다 — picks 만으로도 취향이 나온다. 없으면 중립값으로 둔다.
+    scales = body.scales or [2, 2, 2]
+    tv = [round(x / 4.0, 4) for x in scales] + [0.5, 0.5, 0.5]
     n_blocked = len(body.allergy_ingredient_ids) + len(body.allergy_groups) * 12
     # 🔴 음식 유형은 맛 6축에 섞지 않는다. 고른 유형의 평균 맛을 taste_vec 에 더하면
     #    "한식을 골랐다"가 "짜고 매운 것을 좋아한다"로 번역되어, 유형 문항 하나가 맛 취향을
     #    통째로 움직인다. 유형은 `user_preference.pref_cuisines` 로 따로 간다.
     return OnboardingOut(
         user_id=user_id,
-        taste_vec=tv,
+        taste=TasteOut.from_vector(tv),
         n_blocked_ingredients=n_blocked,
         preferred_cuisines=list(body.preferred_cuisines),
+        allergy_groups=list(body.allergy_groups),
+        unmapped_allergens=list(body.unmapped_allergens),
     )
 
 

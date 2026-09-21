@@ -20,8 +20,8 @@
   ],
   "max_cook_minutes": null,
   "allergy_group_codes": [
-    "WHEAT",
-    "PEANUT"
+    "gluten",
+    "nut"
   ],
   "top_k": 20
 }

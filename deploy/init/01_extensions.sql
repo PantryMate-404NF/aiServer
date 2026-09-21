@@ -12,7 +12,13 @@
 -- ⚠️ 컨테이너 환경변수(TZ·PGTZ)로는 **부족하다.** 그건 컨테이너 안에서만 유효하고
 --    밖에서 붙는 psycopg2 연결에는 적용되지 않는다 — 실제로 09-03 에 겪었다.
 --    DATABASE 수준으로 박아야 모든 연결이 따른다.
-ALTER DATABASE recodb SET timezone = 'Asia/Seoul';
+--    🔴 DB 이름을 박지 않는다. 클라우드는 이름을 다르게 쓸 수 있는데, 박아 두면
+--       initdb 가 **첫 파일 첫 DDL 에서** 실패하고 postgres 가 통째로 안 뜬다.
+--       지금까지는 이름이 우연히 맞아서 돌고 있었다 (09-18 실측).
+DO $$
+BEGIN
+    EXECUTE format('ALTER DATABASE %I SET timezone = ''Asia/Seoul''', current_database());
+END $$;
 
 -- ★ 확장은 반드시 public 한 곳에만 설치한다.
 --   스키마마다 따로 설치하면 vector·ltree 타입이 스키마별로 달라져

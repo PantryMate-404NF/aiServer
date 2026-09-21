@@ -151,10 +151,14 @@ class RankingPolicy:
         rng_seed: int,
         max_missing_final: int,
         serving_mode: str = "real",
+        feature_version: str | None = None,
+        cluster_version: str | None = None,
     ) -> dict[str, Any]:
         """`StageInfo.params` 에 실을 값. `REQUIRED_TRACE_PARAMS` 를 전부 채웁니다.
 
-        요청마다 다른 값(페르소나 출처 등)은 `with_trace_extra()` 로 덧붙입니다.
+        요청마다 다른 값(페르소나 출처 등)은 `with_trace_extra()` 로 덧붙입니다. 배치 판 번호
+        둘은 호출자가 `repository.load_batch_versions()` 로 읽어 넘깁니다 — 여기서 DB 를 보면
+        정책이 순수하지 않게 되고, 목업 서빙 동안은 None 이 맞습니다.
         """
         return {
             "policy_id": POLICY_ID,
@@ -167,6 +171,8 @@ class RankingPolicy:
             "top_k": top_k,
             "n_explore": n_explore,
             "serving_mode": serving_mode,
+            "feature_version": feature_version,
+            "cluster_version": cluster_version,
         }
 
 

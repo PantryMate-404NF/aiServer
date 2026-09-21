@@ -14,6 +14,14 @@ import json
 import statistics
 import time
 import urllib.request
+from pathlib import Path
+
+#: 저장소 루트 기준. 스크립트를 어디서 돌리든 같은 자리에 쓴다 —
+#: 상대경로는 scripts/reco 에서 돌릴 때만 맞고, 루트에서 돌리면 계산을 다 한
+#: 뒤 마지막 쓰기에서 FileNotFoundError 로 죽는다.
+ROOT = Path(__file__).resolve().parents[3]
+BENCH_OUT = ROOT / "scripts" / "reco" / "bench" / "out"
+
 
 MODEL = "gemma4:12b-it-qat"
 URL = "http://localhost:11434/api/generate"
@@ -146,7 +154,7 @@ def main() -> None:
 
     json.dump({"latencies": lat, "batch_s": wb, "ttft": ttft,
                "outputs": [{"title": t, "reason": r, "banned": b} for t, r, b in outs]},
-              open("bench/out/online_reason_llm.json", "w"), ensure_ascii=False, indent=2)
+              open(str(BENCH_OUT / "online_reason_llm.json"), "w"), ensure_ascii=False, indent=2)
 
 
 if __name__ == "__main__":

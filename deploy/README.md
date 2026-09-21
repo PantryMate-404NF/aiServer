@@ -28,7 +28,7 @@ make bootstrap
 |---|---|---|---|---|
 | 1 | `make up` | postgres · redis | ~440MB | **지금** |
 | 2 | `make up-obs` | + grafana · mlflow | ~1.4GB | 대시보드 트랙 착수 |
-| 3 | `make up-all` | + reco-api · dashboard | — | 산출물 D 이후 |
+| 3 | `make up-app` | + reco-api | — | 산출물 D 이후 |
 
 **1단계만으로 스키마 · 시드 · Retrieval · 성능이 전부 검증된다.**
 
@@ -77,7 +77,7 @@ make mlflow-ui
 make help          명령 목록
 make up            핵심 기동 (postgres redis)
 make up-obs        + 관측 도구 (grafana mlflow)
-make up-all        + 애플리케이션 (산출물 D 이후)
+make up-app        + 애플리케이션 (reco-api)
 make mlflow-ui     MLflow UI 로컬 실행 (컨테이너 불필요)
 make down          정지 (데이터 보존)
 make down-v        정지 + 볼륨 삭제
@@ -104,16 +104,16 @@ db/
 ├── init/                    컨테이너 최초 기동 시 알파벳 순 자동 실행
 │   ├── 00_databases.sql       mlflowdb 분리 생성
 │   ├── 01_extensions.sql      확장 4종(public) + CREATE SCHEMA reco
-│   ├── 02_schema.sql          테이블 24개. FK 의존 순서
+│   ├── 02_schema.sql          테이블 29개. FK 의존 순서
 │   ├── 03_indexes.sql         인덱스 전량
-│   ├── 04_functions.sql       설계 판단을 가두는 함수 3개 + 뷰 2개
+│   ├── 04_functions.sql       설계 판단을 가두는 함수 6개 + 뷰 2개
 │   ├── 05_roles.sql           역할 3종 + 권한 (로컬 전용)
-│   └── post_index.sql         HNSW (수동 실행)
+│   └── post/post_index.sql    HNSW (수동 실행)
 ├── apply_schema.sh          원격 DB 에 스키마 적용 (일회용 컨테이너)
 ├── mlflow/Dockerfile        공식 이미지 + psycopg2
 ├── grafana/provisioning/    PostgreSQL 데이터소스 자동 등록
 ├── migrate.py               seeds/ → DB
-└── smoke_test.py            합성 데이터로 설계 검증
+(스모크 검증은 tests/integration/test_smoke.py 로 옮겼습니다)
 ```
 
 ## 스키마 네임스페이스 — `reco`
@@ -122,7 +122,7 @@ db/
 
 ```
 recodb
-├── reco     ← AI 파트 24테이블 + 함수 3 + 뷰 2
+├── reco     ← AI 파트 29테이블 + 함수 6 + 뷰 2
 ├── app      ← 백엔드팀 (별도 관리)
 └── public   ← 확장만 (vector · intarray · pg_trgm · ltree)
 ```
@@ -140,7 +140,7 @@ recodb
 | SQL 파일 | 각 파일 상단 `SET search_path TO reco, public` | DDL |
 | 함수 정의 | `CREATE FUNCTION ... SET search_path = reco, public` | 호출 스키마 무관 |
 | 역할 | `ALTER ROLE reco_app SET search_path ...` | 앱 연결 |
-| 접속 | `migrate.py` / `smoke_test.py` 가 접속 직후 `SET` | 슈퍼유저 접속 대비 |
+| 접속 | `scripts/reco/migrate.py` 가 접속 직후 `SET` | 슈퍼유저 접속 대비 |
 
 공유 DB 에서 `ALTER DATABASE ... SET search_path` 는 **쓰지 않는다.** 다른 팀에 영향을 준다.
 

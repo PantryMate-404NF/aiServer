@@ -29,6 +29,8 @@ import re
 import sys
 from pathlib import Path
 
+from features.recommend.ingest.adapter import t_minutes
+
 BATCH = 2000
 SRC = "mangae"
 _NOW = __import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -44,7 +46,6 @@ REVIEW_RE = re.compile(
 )
 
 _SERVING_RE = re.compile(r"(\d+)")
-_TIME_RE = re.compile(r"(\d+)")
 
 #: 크롤 난이도 문자열 → recipe.difficulty (SMALLINT 1~5).
 #: 실측 분포: 아무나 53% · 초급 37% · 중급 6.7% · 고급 0.4% · 신의경지 0.03%
@@ -243,7 +244,9 @@ def load(paths: list[Path], limit: int | None, dsn: str) -> None:
                         d["title"],
                         d.get("description"),
                         _int_or_none(_SERVING_RE, d.get("serving")),
-                        _int_or_none(_TIME_RE, d.get("cooking_time")),
+                        # 첫 숫자만 뽑으면 '2시간 이상' 940건이 2분이 된다.
+                        # 시간 단위를 아는 어댑터 구현을 쓴다.
+                        t_minutes(d.get("cooking_time")),
                         DIFFICULTY.get((d.get("difficulty") or "").strip()),
                         len(d.get("reviews") or []),
                         # crawled_at 은 NOT NULL — 원문이 깨졌으면 적재 시각으로 대체한다

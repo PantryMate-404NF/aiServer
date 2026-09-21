@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[3]
 def sample() -> TasteProfile:
     return TasteProfile(
         user_id=1001,
-        picks=(0, 3, 5),
+        picks=("오징어볶음", "김치찌개", "계란말이"),
         pick_flavors=(
             (0.1, 0.2, 0.3, 0.4, 0.5, 0.6),
             (0.0, 0.0, 0.0, None, None, None),

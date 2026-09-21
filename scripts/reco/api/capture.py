@@ -73,8 +73,8 @@ def main() -> None:
                 file=sys.stderr,
             )
             sys.exit(1)
-        # 주의: 본문이 빌 수 있다. 09-07 부터 검증 실패는 400 + 빈 응답이다
-        #    (영수증 파트가 앱 전체에 건 RequestValidationError 핸들러).
+        # 주의: 본문이 빌 수 있다. 영수증 경로의 검증 실패는 400 + 빈 응답이다
+        #    (09-07 영수증 파트의 핸들러). 그 밖의 경로는 09-21 부터 사유를 싣는다.
         #    r.json() 을 그냥 부르면 JSONDecodeError 로 캡처가 통째로 죽는다.
         body = r.json() if r.content else None
         cap[key] = {
@@ -218,9 +218,10 @@ def main() -> None:
         "post",
         "/v1/onboarding/7",
         json={
-            "picks": [3, 7, 12],
-            "scales": [2, 3, 1],
-            "allergy_groups": ["nut", "shellfish"],
+            # 권장 형태입니다 — 고른 음식은 이름으로, 맛 척도는 이름 있는 칸으로.
+            "picks": ["김치찌개", "해물파전", "탕수육"],
+            "taste_preferences": {"salty": 3, "sweet": 4, "spicy": 2},
+            "allergy_groups": ["우유", "메밀"],
             "allergy_ingredient_ids": [170],
             "avoid_ingredient_ids": [55],
             "household_size": 2,
@@ -231,7 +232,9 @@ def main() -> None:
         "post",
         "/v1/onboarding/7",
         expect=400,
-        json={"picks": [1], "scales": [9, 0, 0]},
+        # 제시 목록에 없는 이름은 거부합니다. 짐작해서 넣으면 고르지 않은 음식이
+        # 그 사용자의 취향이 되고 응답은 200 입니다.
+        json={"picks": ["없는음식"], "taste_preferences": {"salty": 1, "sweet": 1, "spicy": 1}},
     )
     grab("log", "get", f"/v1/recommendations/{rid}")
     # 에러 규약 표가 404 를 말하는데 예시가 없었다.

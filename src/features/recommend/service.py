@@ -47,7 +47,7 @@ import math
 import random
 import threading
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from time import perf_counter
 from uuid import UUID
@@ -65,7 +65,7 @@ from features.recommend.enums import (
     normalize_cuisine,
 )
 from features.recommend.policy import RankingPolicy, with_trace_extra
-from features.recommend.profile_store import ProfileStore
+from features.recommend.profile_store import ProfileStore, load_presented_names
 from features.recommend.schema import EventIn
 from features.recommend.stage import Candidate, RankedItem, ScoredCandidate, StageInfo
 
@@ -106,11 +106,12 @@ _PROFILE_LOCK = threading.Lock()
 
 def onboarding_profile(
     user_id: int,
-    picks: Sequence[int],
+    picks: Sequence[int | str],
     scales: Sequence[int] | None,
     presented: Sequence[FlavorVector],
     now: datetime,
     cuisines: Sequence[str] = (),
+    presented_names: Sequence[str] = (),
 ) -> TasteProfile:
     """온보딩 응답을 취향 원본으로 바꿉니다. 범위 밖 인덱스와 척도는 거부합니다.
 
@@ -121,19 +122,22 @@ def onboarding_profile(
     음식 유형은 맛 6축과 섞지 않습니다. 고른 유형의 평균 맛을 취향에 더하면 "한식을 좋아함"이
     "짜고 매운 것을 좋아함"으로 번역되어, 유형을 고른 것만으로 맛 취향이 통째로 움직입니다.
     """
-    unique = tuple(dict.fromkeys(int(i) for i in picks))
-    if len(unique) != len(picks):
-        bump("persona_pick_duplicate", len(picks) - len(unique))
-    bad = [i for i in unique if not 0 <= i < len(presented)]
-    if bad:
-        bump("persona_pick_out_of_range")
-        raise ValueError(f"제시 목록 밖의 인덱스입니다: {bad}")
-    if 0 < len(unique) < MIN_PICKS:
+    # 이름을 안 넘기면 시드의 것을 씁니다. 6축과 이름은 같은 파일에서 나오므로
+    # 길이가 어긋나면 배선이 잘못된 것이라 조용히 넘기지 않고 멈춥니다.
+    names = tuple(presented_names) or load_presented_names()
+    if picks and len(names) != len(presented):
+        raise ValueError(
+            f"제시 목록의 이름과 6축의 개수가 다릅니다: {len(names)} != {len(presented)}"
+        )
+    indexes = tuple(dict.fromkeys(_pick_index(p, names, len(presented)) for p in picks))
+    if len(indexes) != len(picks):
+        bump("persona_pick_duplicate", len(picks) - len(indexes))
+    if 0 < len(indexes) < MIN_PICKS:
         bump("persona_picks_under_min")
     return TasteProfile(
         user_id=user_id,
-        picks=unique,
-        pick_flavors=tuple(presented[i] for i in unique),
+        picks=tuple(names[i] for i in indexes),
+        pick_flavors=tuple(presented[i] for i in indexes),
         scales=None if scales is None else _normalized_scales(scales),
         cuisines=_normalized_cuisines(cuisines),
         updated_at=now,
@@ -160,6 +164,25 @@ def _normalized_cuisines(cuisines: Sequence[str]) -> tuple[str, ...]:
     return tuple(seen)
 
 
+def _pick_index(pick: int | str, names: Sequence[str], count: int) -> int:
+    """고른 음식을 제시 목록의 자리로 바꿉니다. 이름과 인덱스를 둘 다 받습니다.
+
+    이름이 정본입니다. 인덱스는 시뮬·검사가 쓰던 모양이라 계속 받습니다.
+    어느 쪽이든 목록 밖이면 거부합니다 — 짐작해서 채우면 고르지 않은 음식이
+    그 사용자의 취향이 되고 에러는 나지 않습니다.
+    """
+    if isinstance(pick, str):
+        if pick not in names:
+            bump("persona_pick_unknown_name")
+            raise ValueError(f"제시 목록에 없는 음식입니다: {pick!r}")
+        return names.index(pick)
+    index = int(pick)
+    if not 0 <= index < count:
+        bump("persona_pick_out_of_range")
+        raise ValueError(f"제시 목록 밖의 인덱스입니다: {index}")
+    return index
+
+
 def _normalized_scales(scales: Sequence[int]) -> tuple[float, ...]:
     """계약 범위(0~SCALE_MAX)를 확인하고 0~1 로 옮깁니다. 잘라 넣지 않습니다."""
     bad = [s for s in scales if not (math.isfinite(s) and 0 <= s <= SCALE_MAX)]
@@ -180,11 +203,13 @@ class PersonaService:
     #: 온보딩 제시 목록의 6축. `profile_store.load_presented_flavors()` 가 만듭니다.
     presented: Sequence[FlavorVector]
     policy: RankingPolicy
+    #: 같은 목록의 이름. 고른 음식을 이름으로 적기 위해 함께 듭니다.
+    presented_names: Sequence[str] = field(default_factory=load_presented_names)
 
     def save_onboarding(
         self,
         user_id: int,
-        picks: Sequence[int],
+        picks: Sequence[int | str],
         scales: Sequence[int] | None,
         now: datetime,
         cuisines: Sequence[str] = (),
@@ -195,7 +220,9 @@ class PersonaService:
         이벤트를 정책 상한으로 잘라냅니다. 음식 유형은 이벤트로 갱신되지 않으므로 다시
         온보딩하면 그때 고른 것으로 바뀝니다.
         """
-        profile = onboarding_profile(user_id, picks, scales, self.presented, now, cuisines)
+        profile = onboarding_profile(
+            user_id, picks, scales, self.presented, now, cuisines, self.presented_names
+        )
         with _PROFILE_LOCK:
             before = self.store.load(user_id)
             if before is not None:
@@ -217,7 +244,8 @@ class PersonaService:
         맛을 모르는 레시피, 한 배치 안의 같은 이벤트는 저장하지 않고 **셉니다.** 삼키기만 하면
         취향이 안 쌓이는 것을 아무도 모릅니다. 검색처럼 레시피가 없는 것이 정상인 종류는 지나갑니다.
 
-        시각은 서버 수신 시각 `now` 입니다 - `EventIn` 에 시각이 없습니다. 사용자마다
+        시각은 이벤트가 `occurred_at` 을 실었으면 그것이고, 없으면 서버 수신 시각 `now` 입니다.
+        사용자마다
         읽고-합치고-쓰기를 하며 프로세스 안에서는 잠금으로 직렬화합니다. 프로세스가 여럿이면
         나중 쓰기가 앞 쓰기를 덮습니다 - 실 DB 로 옮기면(M-14) 사라지는 제약입니다.
         """
@@ -298,8 +326,13 @@ def _taste_event(
     if flavor is None or all(v is None for v in flavor):
         bump("persona_recipe_unknown")
         return None
+    # 발생 시각이 왔으면 그것을, 없으면 수신 시각을. 계약이 시간대를 강제하므로 여기서는 믿습니다.
     return TasteEvent(
-        recipe_id=recipe_id, kind=event.event_type, at=now, flavor=flavor, value=event.value
+        recipe_id=recipe_id,
+        kind=event.event_type,
+        at=event.occurred_at or now,
+        flavor=flavor,
+        value=event.value,
     )
 
 
@@ -328,6 +361,7 @@ def rank_candidates(
     rng_seed: int = 0,
     max_missing_final: int | None = None,
     serving_mode: str = "real",
+    batch_versions: Mapping[str, str | None] | None = None,
 ) -> RankingResult:
     """② 점수 계산 → ③ 재정렬. 정책으로 거르지는 않습니다 - 그것은 ① 의 일입니다.
 
@@ -357,12 +391,17 @@ def rank_candidates(
     shortfall = max(0, spec.count - n_explore)
     if shortfall:
         bump("explore_shortfall", shortfall)
+    # 어느 배치 산출물 위에서 나온 추천인지. 호출자가 `repository.load_batch_versions()` 로
+    # 읽어 넘기고, 목업 서빙 동안은 None 으로 키만 실립니다 — 키 자체가 소급 불가입니다.
+    versions = batch_versions or {}
     params = policy.trace_params(
         top_k=top_k,
         n_explore=n_explore,
         rng_seed=rng_seed,
         max_missing_final=(policy.max_missing if max_missing_final is None else max_missing_final),
         serving_mode=serving_mode,
+        feature_version=versions.get("feature_version"),
+        cluster_version=versions.get("cluster_version"),
     )
     params = with_trace_extra(
         params,
@@ -476,8 +515,8 @@ def _cuisine_params(
 
     칸 수만으로는 "이미 목록에 있어서 0" 과 "후보에 그 유형이 한 건도 없어서 0" 이 구분되지
     않습니다. 그래서 목록에 끝내 없는 유형을 함께 남깁니다. 그 값이 계속 차 있으면 ① 이 덜
-    가져왔거나 레시피 쪽 `cuisine_family` 가 비어 있다는 뜻입니다 - 지금 실 DB 는 전수
-    비어 있어(`PENDING_DATA_FEATURES`) 이 칸이 유일한 신호입니다.
+    가져왔거나 레시피 쪽 `cuisine_family` 가 비어 있다는 뜻입니다 - 실 DB 는 09-17 규칙
+    배정으로 61.7% 만 차 있어(`PENDING_DATA_FEATURES`) 이 칸이 유일한 신호입니다.
     """
     if not ctx.preferred_cuisines:
         return {}

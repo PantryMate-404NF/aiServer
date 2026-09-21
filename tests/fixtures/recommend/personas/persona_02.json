@@ -36,7 +36,7 @@
   ],
   "max_cook_minutes": 60,
   "allergy_group_codes": [
-    "EGG"
+    "egg"
   ],
   "top_k": 20,
   "onboarding_picks": [

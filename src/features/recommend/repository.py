@@ -27,9 +27,12 @@ S3 에서 채웁니다. 채울 때 **후보 N개를 N번 조회하면 안 됩니
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Sequence
 from typing import Any
 
+from features.recommend.engine import taste
+from features.recommend.engine.context import CorpusStats, RecipeFeature, recipe_feature_from_row
 from features.recommend.engine.rank import (
     check_trace_params,
     keep_candidates,
@@ -99,6 +102,95 @@ def retrieve(
     ]
 
 
+# ─────────────────────────────────────────────────────────────────
+# ② 가 읽는 레시피 피처와 코퍼스 통계 (M-02 · M-04). 09-18 파트 B.
+# ─────────────────────────────────────────────────────────────────
+# `retrieve()` 는 후보 다섯 칸(id · 부족 수 · 부족 재료 · coverage · 군집)만 돌려준다.
+# 점수에 필요한 맛 6축·인기·조리시간·요리 계열은 여기서 따로 읽는다. 이 로더가 없으면
+# A 가 채운 값이 서빙에 한 칸도 닿지 않는다 — f_taste·f_expiring·f_popularity 가 전부 None.
+_FEATURE_COLUMNS = (
+    "recipe_id",
+    "title",
+    "essential_ids",
+    "all_ids",
+    "flavor_vec",
+    "popularity_score",
+    "quality_score",
+    "cook_minutes",
+    "difficulty",
+    "cuisine_family",
+    "dish_type",
+    "season_vec",
+)
+_FEATURE_SQL = """
+SELECT rf.recipe_id, r.title, rf.essential_ids, rf.all_ids, rf.flavor_vec,
+       rf.popularity_score, rf.quality_score, rf.cook_minutes, rf.difficulty,
+       rf.cuisine_family, rf.dish_type, rf.season_vec
+FROM   recipe_feature rf
+JOIN   recipe r ON r.id = rf.recipe_id
+WHERE  rf.recipe_id = ANY(%s)
+AND    (%s OR rf.feature_version NOT LIKE 'test-%%')
+"""
+
+
+def load_recipe_features(
+    recipe_ids: Sequence[int], *, include_test: bool = False, month: int | None = None
+) -> dict[int, RecipeFeature]:
+    """후보 레시피의 피처 행. ① 이 준 id 로만 읽으므로 후보 수만큼입니다.
+
+    돌아오지 않은 id 는 피처 행이 없는 것이고, `service.rank_candidates` 가 그것을
+    `recipe_feature_missing` 으로 세어 점수를 매기지 않습니다(D-40). 변환은
+    `context.recipe_feature_from_row` 하나만 지납니다 — 골든 픽스처 검사와 같은 길입니다.
+    """
+    if not recipe_ids:
+        return {}
+    with cursor() as cur:
+        cur.execute(_FEATURE_SQL, (list(recipe_ids), include_test))
+        rows = cur.fetchall()
+    features = (
+        recipe_feature_from_row(dict(zip(_FEATURE_COLUMNS, r, strict=True)), month=month)
+        for r in rows
+    )
+    return {f.recipe_id: f for f in features}
+
+
+_STATS_SQL = """
+SELECT stats_version, flavor_mu, n_recipes
+FROM   feature_stats
+ORDER  BY stats_version DESC
+LIMIT  1
+"""
+_IDF_SQL = "SELECT id, name, freq_count FROM ingredient"
+
+
+def load_corpus_stats() -> CorpusStats:
+    """코퍼스 평균 μ 와 재료 IDF. 프로세스당 한 번 읽어 두면 됩니다. 배치가 바꾸기 전엔 안 변합니다.
+
+    μ 가 없으면 `flavor_mean=None` 이고 f_taste 는 측정 불가로 빠집니다. 0 벡터를 넣지
+    않습니다 — 그러면 모든 레시피가 평균에서 멀어 보여 맛 점수가 엉뚱하게 살아납니다.
+    IDF 는 `log(N / freq)` 이고 한 번도 안 나온 재료는 빼서 기본값(1.0)을 받게 둡니다.
+    """
+    with cursor() as cur:
+        cur.execute(_STATS_SQL)
+        stats = cur.fetchone()
+        cur.execute(_IDF_SQL)
+        ingredients = cur.fetchall()
+    if stats is None:
+        return CorpusStats(
+            ingredient_names={int(i): str(name) for i, name, _ in ingredients},
+        )
+    version, mu, n_recipes = stats
+    idf = {
+        int(i): math.log(n_recipes / freq) for i, _, freq in ingredients if freq and n_recipes > 0
+    }
+    return CorpusStats(
+        flavor_mean=taste.as_vector([float(v) for v in mu]),
+        ingredient_idf=idf,
+        ingredient_names={int(i): str(name) for i, name, _ in ingredients},
+        stats_version=int(version),
+    )
+
+
 #: 주의: 로그 쓰기가 요청을 오래 붙들지 않게 한다. 여기 걸리면 실패로 세고 넘어간다.
 STATEMENT_TIMEOUT_MS = 300
 
@@ -114,6 +206,39 @@ TOMBSTONE_KEY = "tombstone"
 #
 #    그래서 묘비 위에서만 승격한다. 정본 위에는 절대 덮지 않는다 —
 #    로그는 append-only 이고, 나중 호출이 앞선 정본을 훼손하면 안 된다.
+#: 이번 추천이 어느 배치 산출물 위에서 나왔는지. `StageInfo.params` 에 실어야
+#: 사후에 재현이 됩니다.
+#:
+#: 주의: 값이 아니라 **정의가 소급 불가**입니다. feature_version 은 지금까지
+#:    v1 → v1-15a8c5 → v1-da56de 로 세 번 갈아탔는데 로그에 한 번도 안 남았습니다.
+#:    "이 추천이 어느 피처판으로 나왔지" 를 나중에 물을 방법이 없습니다.
+#:    cluster_version 도 같습니다 — 재군집하면 cluster_id 의 뜻이 달라지므로
+#:    판 번호 없이는 과거 Thompson 관측을 이어 붙일 수 없습니다 (D-12).
+_VER_SQL = """
+SELECT DISTINCT feature_version, cluster_version
+FROM   recipe_feature
+WHERE  feature_version NOT LIKE 'test-%'
+"""
+
+
+def load_batch_versions() -> dict[str, str | None]:
+    """지금 서빙 중인 배치의 판 번호. `REQUIRED_TRACE_PARAMS` 에 실을 값입니다.
+
+    배치가 전량을 한 판으로 만들므로 보통 한 줄입니다. 재정규화 도중이면 두 줄이
+    보일 수 있는데, 그때는 섞였다는 사실 자체가 기록돼야 하므로 join 해서 남깁니다 —
+    조용히 하나만 고르면 그 로그로는 어느 쪽인지 알 수 없습니다.
+    """
+    with cursor() as cur:
+        cur.execute(_VER_SQL)
+        rows = cur.fetchall()
+    if not rows:
+        return {"feature_version": None, "cluster_version": None}
+    return {
+        "feature_version": "+".join(sorted({r[0] for r in rows if r[0]})) or None,
+        "cluster_version": "+".join(sorted({r[1] for r in rows if r[1]})) or None,
+    }
+
+
 _RL_SQL = """
 INSERT INTO recommendation_log (
     request_id, user_id, session_id, model_version, mlflow_run_id, config_hash,

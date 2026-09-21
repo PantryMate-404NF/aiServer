@@ -32,21 +32,6 @@ EVAL_PATH = ROOT / "scripts" / "eval_recommend_mock.py"
 INGREDIENT_CSV = ROOT / "seeds" / "ingredient.csv"
 SHELF_LIFE_YAML = ROOT / "seeds" / "ingredient_shelf_life.yaml"
 KST = timezone(timedelta(hours=9))
-#: 시드의 알러지 그룹(`seeds/ingredient.csv` 의 소문자 코드) → Mock 카탈로그의 그룹 코드.
-#: `sesame` 은 Mock 카탈로그에 대응 그룹이 없어 비어 있습니다 - 실 DB 에서는 재료 컬럼으로 잡힙니다.
-ALLERGEN_MAP: dict[str, tuple[str, ...]] = {
-    "dairy": ("MILK",),
-    "egg": ("EGG",),
-    "fish": ("MACKEREL",),
-    "gluten": ("WHEAT",),
-    "nut": ("PEANUT", "WALNUT", "PINE_NUT"),
-    "peach": ("PEACH",),
-    "sesame": (),
-    "shellfish": ("SHELLFISH", "SHRIMP", "CRAB"),
-    "soy": ("SOYBEAN",),
-    "buckwheat": ("BUCKWHEAT",),
-}
-
 USER_ROW = re.compile(
     r"^\((\d+), 'sim_u\d+', '[^']*', TRUE, \(SELECT id FROM sim_persona WHERE name = '(\w+)'\)"
 )
@@ -262,9 +247,9 @@ def effective_expiry(row: PantryRow, shelf: ShelfLife) -> date | None:
 
 
 def allergy_ids(user: SimUser, cat: Catalog) -> frozenset[int]:
-    return frozenset(
-        i
-        for group in user.allergy_groups
-        for code in ALLERGEN_MAP.get(group, ())
-        for i in cat.allergen_groups.get(code, [])
-    )
+    """시드와 Mock 카탈로그가 같은 어휘(DDL 의 소문자 10종)라 그대로 찾습니다.
+
+    09-18 전에는 대문자 사본으로 옮기는 표가 여기 있었고, `sesame` 은 대응이 없어 검사에서
+    빠졌습니다. 이제 카탈로그가 시드에서 그룹을 읽으므로(`generate_mock_fixtures`) 표가 없습니다.
+    """
+    return frozenset(i for group in user.allergy_groups for i in cat.allergen_groups.get(group, []))

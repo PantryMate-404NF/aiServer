@@ -107,6 +107,8 @@ allergen_expansion:
   fish:       [seafood.fish]
   shellfish:  [seafood.crustacean, seafood.shellfish]
   peach:      [agri.fruit.stone]
+  # 두족류. 갑각류·조개류(shellfish)와는 다른 알러지라 따로 둔다.
+  mollusk:    [seafood.mollusk]
 
 allergen_column_only:
   - buckwheat     # 메밀·메밀가루·메밀묵·메밀면·냉면사리

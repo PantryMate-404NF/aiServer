@@ -130,6 +130,7 @@ def context_of(
         user_id=user.user_id,
         persona=made,
         pantry_ids=sorted(own | cat.staple_ids),
+        own_pantry_ids=sorted(own),
         expiring_ids=sorted(expiring),
         history=history,
         max_cook_minutes=user.max_cook_minutes,

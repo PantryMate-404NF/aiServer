@@ -265,7 +265,7 @@ make api-docs    # 이 문서 재생성
 |---|---|
 | **오늘의 추천 (MAIN-000)** | 🔴 **조회 API 도 배치도 없다.** 사전 계산 결과를 담을 `daily_recommendation` 테이블만 준비돼 있다. 배치 구현은 3주 계획 밖이다 (결정 D-19). **메인화면을 이 기능 전제로 그리지 말 것** — 지금 붙일 수 있는 것은 `POST /v1/recommend` 뿐이고 그것은 실시간이며 `reason_source` 구분도 stale 판정도 없다 |
 | **레시피 상세 (RECIPE-021)** | 🔴 `items[]` 는 `recipe_id` 만 준다. 제목·이미지·조리시간·난이도·인분·원본 링크가 응답에 **없다.** `GET /v1/recipes/{{id}}` 신설이냐 백엔드가 `recipe` 테이블을 직접 읽느냐가 **미정** |
-| **온보딩 제시 20종 조회** | 제시 목록을 내려주는 라우트가 없다. `seeds/onboarding_recipes.yaml` 의 `presented` 순서가 곧 `picks` 의 인덱스다 |
+| ~~온보딩 제시 20종 조회~~ | **해결됐다.** `GET /v1/onboarding/presented` 가 이름·계열·판 번호를 내려준다. 맛 척도로 무엇을 보낼지는 `GET /v1/onboarding/taste-axes` 가 알려 준다 |
 | **재료 ID → 이름 역조회** | `missing_ids` 는 정수 배열인데 이름으로 바꿀 경로가 없다. `/v1/ingredients/search` 는 이름 질의만 받는다 |
 | **인증 · 권한** | 위 경고 참조 |
 | **페이지네이션** | 목록 API 가 `offset`·`cursor`·`total` 을 주지 않는다. `limit` 로 자를 뿐이다 |
@@ -721,15 +721,19 @@ expires_at = COALESCE(purchased_at, 등록일) + 재료별 소비기한 일수
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
-| `picks` | int[] | 1~20개. 🔴 **`seeds/onboarding_recipes.yaml` 의 `presented` 배열 인덱스다 — `recipe_id` 가 아니다.** 서버가 값 범위를 검증하지 않아 `recipe_id` 를 넣어도 200 이 떨어지고 `taste_vec` 이 조용히 틀어진다 |
-| `scales` | int[3] | **정확히 3칸**, 각 0~4. 🔴 **순서가 계약이다** — `[{", ".join(C["taste_axes"][:3])}]` |
+| `picks` | str[] | 1~20개. **고른 음식의 이름이다** — `GET /v1/onboarding/presented` 가 내려주는 `name` 을 그대로 쓴다. 목록에 없는 이름은 400 이다 |
+| `taste_preferences` | obj? | `{{"salty":1~5, "sweet":1~5, "spicy":1~5}}`. **이름 있는 칸이라 순서가 없다.** 아래 `scales` 와 둘 중 하나만 보낸다 |
+| `scales` | int[3]? | 예전 모양. 각 0~4, 순서 `[{", ".join(C["taste_axes"][:3])}]`. 우리 시뮬·검사가 쓰므로 계속 받지만 **새로 붙이는 쪽은 `taste_preferences` 를 쓴다** |
 | `allergy_groups` | str[] | 아래 10종 |
 | `allergy_ingredient_ids` | int[] | 재료 ID 직접 지정 (그룹과 **둘 다** 받는다 — 안전 이중화) |
 | `avoid_ingredient_ids` | int[] | 기피(알러지 아님). **최대 3개** |
 | `household_size` | int? | 1~10. 선택 |
 
-> 🔴 `scales` 순서를 바꿔 보내도 범위만 맞으면 **400 이 나지 않는다** — `taste_vec` 이
-> 조용히 뒤집힌다. 원본이 그대로 저장되므로 재계산으로도 못 되돌린다.
+> `scales` 는 배열이라 순서를 바꿔 보내도 범위만 맞으면 **400 이 나지 않는다.**
+> 화면 순서(짠맛·단맛·매운맛)로 담아 보낸 125조합 중 61개는 범위에서 거부되고
+> 나머지 64개는 축이 밀린 채 통과한다. 우연히 맞는 경우는 없다.
+> **`taste_preferences` 로 보내면 이 문제가 없다** — 이름이 붙어 순서라는 것이 없다.
+> 자세한 근거는 `docs/decisions/2026-09-20_identifiers_over_positions_in_the_onboarding_contract.md` 에 있다.
 
 ```json
 {j(CAP["onboarding"]["response"])}
@@ -737,12 +741,15 @@ expires_at = COALESCE(purchased_at, 등록일) + 재료별 소비기한 일수
 
 | 필드 | 설명 |
 |---|---|
-| `taste_vec` | **정확히 6칸.** 축 순서 `[{", ".join(C["taste_axes"])}]` |
+| `taste` | 화면이 쓰는 3축 `{{spicy, salty, sweet}}`, 각 0~1. **이름 있는 칸이다** — 배열이 아니다. 엔진 안에서는 6축을 그대로 쓰고 여기서만 줄인다 |
 | `n_blocked_ingredients` | 그룹 전개 후 차단될 재료 수 |
+| `allergy_groups` | 저장된 알러지 그룹 코드. 한글로 보냈어도 코드로 돌려준다 |
+| `unmapped_allergens` | 해석하지 못해 **차단에 반영하지 못한** 표기. 비어 있지 않으면 그만큼 안 막힌다 |
 
-🔴 **원본을 그대로 받는다.** `taste_vec` 은 고른 레시피들의 평균이라
-결과만 저장하면 **시드가 바뀔 때 다시 계산할 수 없다** — 실제로 09-02 에
-맛 시드 2건을 고쳤다. `picks`·`scales` 를 `user_vector` 에 남긴다.
+**원본을 그대로 받는다.** 맛 취향은 고른 음식들의 평균이라 결과만 저장하면
+**시드가 바뀔 때 다시 계산할 수 없다** — 실제로 09-02 에 맛 시드 2건을 고쳤다.
+고른 음식은 **이름으로** 남긴다. 인덱스로 남기면 제시 목록이 바뀔 때 같은 숫자가
+다른 음식을 가리키면서, 재계산하려는 바로 그 순간에 값이 틀어진다.
 
 🔴 **알러지는 `severity='allergy'` 로 저장해야 한다.** DB 기본값 `'avoid'` 에
 맡기면 **그룹 확산이 조용히 꺼진다** — 아몬드만 등록한 사람에게 호두·잣이
@@ -827,7 +834,7 @@ expires_at = COALESCE(purchased_at, 등록일) + 재료별 소비기한 일수
 
 | 상황 | 코드 | 비고 |
 |---|---|---|
-| 계약 위반 (오타 · 범위 · 세션 접두어) | **400** | 🔴 **본문 없음** — 사유는 서버 로그에만 |
+| 계약 위반 (오타 · 범위 · 세션 접두어) | **400** | `ValidationErrorOut` — 어느 필드가 왜 걸렸는지 (09-21 부터) |
 | 없는 `request_id` | 404 | |
 | **후보 부족** | **200** | `trace.totals.degraded=true` |
 | **모델 로드 실패** | **200** | `stage_trace.ranking.fallback` |
@@ -851,12 +858,13 @@ expires_at = COALESCE(purchased_at, 등록일) + 재료별 소비기한 일수
 전 모델이 `extra="forbid"` 이므로 `topk` 같은 오타가 **조용히 무시되지 않고 즉시 터진다.**
 3명이 각자 짜다 필드명을 다르게 쓰는 사고를 막는 장치다.
 
-> 🔴 **본문이 비어 있다 (09-07 변경).** 영수증 파트가 앱 전체에
-> `RequestValidationError → 400` 핸들러를 걸면서, 이전의 `422 {{"detail": [...]}}`
-> 가 **빈 400** 으로 바뀌었다. 어느 필드가 왜 틀렸는지는 **서버 로그에만** 남는다.
+> **본문에 사유가 실린다 (09-21 변경).** 09-07 에 영수증 파트가 앱 전체에
+> `RequestValidationError → 400` 핸들러를 걸면서 이전의 `422 {{"detail": [...]}}` 가
+> **빈 400** 이 됐었다. 백엔드가 "모르는 필드 하나로 요청 전체가 거부되니 사유를 실어 달라" 고
+> 요청해(09-21), 영수증 경로(`/v1/ocr`)를 뺀 나머지는 `ValidationErrorOut` 을 싣는다.
 >
-> 대시보드는 사유를 화면에 띄울 수 없다. 필요해지면 그때 핸들러가 본문을 싣도록
-> 영수증 파트와 협의한다 — 상태코드 통일을 먼저 맞춘 상태다.
+> `fields[]` 의 `location` · `field` · `code` · `message` 넷이다. **보낸 값(`input`)은 싣지 않는다.**
+> 영수증 경로는 그 파트의 계약대로 빈 본문 그대로다.
 >
 > 404 는 여전히 `{{"detail": "문자열"}}` 이다. 계약의 `ErrorOut` 은
 > **아직 어느 라우트에도 붙어 있지 않으니** 그 모델로 파싱하지 말 것.

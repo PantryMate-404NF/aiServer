@@ -17,6 +17,7 @@ from features.recommend.engine.context import (
     RecipeFeature,
     UserContext,
     UserHistory,
+    build_context,
 )
 from features.recommend.engine.persona import (
     PersonaSource,
@@ -195,8 +196,13 @@ def _retrieve_with_fallback(
     """`engine/candidate.py` 의 계획대로 다시 조회합니다. 운영에서는 repository 가 합니다."""
     from features.recommend.engine import candidate as plan_module
 
-    plan = plan_module.first_plan(policy)
-    rows = retrieve(ctx.pantry_ids, max_missing=plan.max_missing, max_minutes=ctx.max_cook_minutes)
+    plan = plan_module.first_plan(policy, pantry_is_bare=not ctx.has_own_ingredients)
+    rows = retrieve(
+        ctx.pantry_ids,
+        max_missing=plan.max_missing,
+        max_minutes=ctx.max_cook_minutes,
+        ignore_missing=plan.stage == plan_module.FALLBACK_POPULARITY,
+    )
     ratio = exploration_ratio(ctx, policy)
     while True:
         nxt = plan_module.next_plan(plan, len(rows), policy, top_k, ratio)
@@ -210,6 +216,59 @@ def _retrieve_with_fallback(
             ignore_missing=plan.stage == plan_module.FALLBACK_POPULARITY,
         )
         rows = plan_module.dedupe([*rows, *wider])
+
+
+def test_a_bare_pantry_is_served_from_popularity_not_from_sauce_recipes(
+    retrieve: Callable[..., list[Candidate]],
+    policy: RankingPolicy,
+) -> None:
+    """자기 재료가 없으면 k 사다리를 건너뛰고 인기순 풀을 그대로 받습니다 (09-18 A 요청 1).
+
+    빈 팬트리로 k 를 풀면 필수 재료 0건인 양념 제조법만 통과하고, 그 수가 완화 기준을 넘겨
+    폴백이 안 걸리는 것이 실 DB 에서 확인된 결함입니다.
+    """
+    staples_only = build_context(
+        user_id=1, persona=cold_persona(), pantry_ids=[1, 2, 3], own_pantry_ids=[]
+    )
+    popularity_pool = retrieve(
+        staples_only.pantry_ids, max_missing=policy.max_missing_relaxed, ignore_missing=True
+    )
+
+    rows = _retrieve_with_fallback(retrieve, staples_only, policy, top_k=20)
+
+    assert {c.recipe_id for c in rows} == {c.recipe_id for c in popularity_pool}
+    assert rows, "인기순 풀이 비어 있으면 검사가 아무것도 말하지 않는다"
+
+
+def test_batch_versions_ride_in_the_trace_and_default_to_none(
+    personas: list[dict[str, Any]],
+    recipes: dict[int, RecipeFeature],
+    corpus: CorpusStats,
+    context_for: Callable[..., UserContext],
+    retrieve: Callable[..., list[Candidate]],
+    policy: RankingPolicy,
+) -> None:
+    """어느 피처판·군집판 위의 추천인지. 목업 서빙은 None 이고, 키는 언제나 실립니다."""
+    ctx = context_for(_profile(personas, 1002))
+    candidates = retrieve(ctx.pantry_ids, max_minutes=ctx.max_cook_minutes)
+
+    plain = service.rank_candidates(candidates, recipes, ctx, corpus, policy)
+    tagged = service.rank_candidates(
+        candidates,
+        recipes,
+        ctx,
+        corpus,
+        policy,
+        batch_versions={"feature_version": "v1-bb1854", "cluster_version": "c-2026-09-17"},
+    )
+
+    for stage in plain.stages:
+        assert stage.params["feature_version"] is None
+        assert stage.params["cluster_version"] is None
+        assert check_trace_params(stage.params) == []
+    for stage in tagged.stages:
+        assert stage.params["feature_version"] == "v1-bb1854"
+        assert stage.params["cluster_version"] == "c-2026-09-17"
 
 
 def test_fingerprint_changes_with_the_policy(policy: RankingPolicy) -> None:
@@ -252,7 +311,8 @@ def test_onboarding_keeps_the_originals_and_derives_from_picks(
 
     stored = persona_service.store.load(1)
     assert stored is not None
-    assert stored.picks == (0, 3) and stored.pick_flavors == (presented[0], presented[3])
+    assert stored.picks == ("오징어볶음", "김치찌개")
+    assert stored.pick_flavors == (presented[0], presented[3])
     assert stored.scales == (1.0, 0.0, 0.5)
     assert made.prior_source is PersonaSource.PICKS
     assert made.vec == pytest.approx(
@@ -278,7 +338,8 @@ def test_re_onboarding_keeps_recorded_events(persona_service: service.PersonaSer
     persona_service.save_onboarding(1, picks=[1, 2], scales=[1, 1, 1], now=NOW + timedelta(days=1))
 
     stored = persona_service.store.load(1)
-    assert stored is not None and len(stored.events) == 1 and stored.picks == (1, 2)
+    assert stored is not None and len(stored.events) == 1
+    assert stored.picks == ("오징어초무침", "불고기")
 
 
 def test_record_events_stores_positive_signals_and_counts_the_rest(
@@ -407,7 +468,7 @@ def test_duplicate_picks_count_once_and_a_short_list_is_counted(
     made = persona_service.save_onboarding(1, picks=[3, 3, 3], scales=[2, 2, 2], now=NOW)
 
     stored = persona_service.store.load(1)
-    assert stored is not None and stored.picks == (3,)
+    assert stored is not None and stored.picks == ("김치찌개",)
     assert made.vec == presented[3]
     counts = service.counters()
     assert counts["persona_pick_duplicate"] == 2
@@ -455,7 +516,7 @@ def test_record_events_rejects_a_naive_clock_before_counting_anything(
 def test_events_carry_the_server_clock_and_age_out_on_the_next_save(
     persona_service: service.PersonaService,
 ) -> None:
-    """`EventIn` 에 시각이 없으므로 수신 시각이 곧 이벤트 시각입니다.
+    """`EventIn` 에 `occurred_at` 이 없으면 수신 시각이 곧 이벤트 시각입니다.
 
     상한(730일)을 넘긴 것은 다음 저장에서 사라집니다.
     """
@@ -469,6 +530,28 @@ def test_events_carry_the_server_clock_and_age_out_on_the_next_save(
 
     again = persona_service.store.load(1)
     assert again is not None and again.events == ()
+
+
+def test_an_event_that_brings_its_own_clock_keeps_it(
+    persona_service: service.PersonaService,
+) -> None:
+    """오프라인 동기화 배치는 수신 시각이 전부 같아 감쇠가 뭉개집니다 (G-26 · 09-18).
+
+    `occurred_at` 이 있으면 그것이 이벤트 시각이고, 시간대가 없는 값은 계약에서 거부됩니다.
+    """
+    happened = NOW - timedelta(days=3)
+    events = [
+        EventIn(user_id=1, event_type=EventType.COOK, recipe_id=1, occurred_at=happened),
+        EventIn(user_id=1, event_type=EventType.COOK, recipe_id=2),
+    ]
+    persona_service.record_events(events, lambda _: (0.5,) * 6, NOW)
+
+    stored = persona_service.store.load(1)
+    assert stored is not None
+    assert {e.recipe_id: e.at for e in stored.events} == {1: happened, 2: NOW}
+
+    with pytest.raises(ValidationError, match="시간대"):
+        EventIn(user_id=1, event_type=EventType.COOK, recipe_id=1, occurred_at=datetime(2026, 9, 1))
 
 
 def test_concurrent_batches_for_one_user_lose_nothing(
