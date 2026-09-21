@@ -73,8 +73,8 @@ def main() -> None:
                 file=sys.stderr,
             )
             sys.exit(1)
-        # 주의: 본문이 빌 수 있다. 09-07 부터 검증 실패는 400 + 빈 응답이다
-        #    (영수증 파트가 앱 전체에 건 RequestValidationError 핸들러).
+        # 주의: 본문이 빌 수 있다. 영수증 경로의 검증 실패는 400 + 빈 응답이다
+        #    (09-07 영수증 파트의 핸들러). 그 밖의 경로는 09-21 부터 사유를 싣는다.
         #    r.json() 을 그냥 부르면 JSONDecodeError 로 캡처가 통째로 죽는다.
         body = r.json() if r.content else None
         cap[key] = {

@@ -552,6 +552,48 @@ class ErrorOut(_Base):
     request_id: UUID | None = None
 
 
+class FieldErrorOut(_Base):
+    """검증에 걸린 필드 하나.
+
+    주의: **pydantic 의 `input` 을 싣지 않는다.** 보낸 값 그대로라, 돌려주면 요청 본문이 응답과
+       호출 쪽 로그로 복사된다. 어느 칸이 왜 틀렸는지만 말한다. 검증기가 문구에 직접 적은 값
+       (제시 목록에 없는 음식 이름)은 `message` 에 실린다 — 그 값이 곧 사유다.
+    """
+
+    location: str  # body · query · path · header
+    field: str  # "events.0.occurred_at". 본문 전체가 틀렸으면 빈 문자열
+    code: str  # pydantic 오류 종류 — missing · extra_forbidden · greater_than_equal ...
+    message: str
+
+
+class ValidationErrorOut(_Base):
+    """검증 실패(400)의 본문. 09-21 백엔드 요청으로 생겼다.
+
+    전 모델이 `extra="forbid"` 라 오타 하나로 요청 전체가 400 이 되는데, 본문이 비어 있으면
+    백엔드는 어느 칸 때문인지 AI 서버 로그를 봐야만 안다. 영수증 경로(`/v1/ocr`)는
+    그 파트의 계약대로 빈 본문을 유지한다 — 갈라 주는 곳은 `main.handle_missing_field`.
+    """
+
+    error: Literal["validation_failed"] = "validation_failed"
+    fields: list[FieldErrorOut]
+
+
+def validation_error_body(errors: Sequence[dict[str, Any]]) -> ValidationErrorOut:
+    """`RequestValidationError.errors()` 를 계약 본문으로. `input` · `ctx` · `url` 은 버린다."""
+    fields = []
+    for error in errors:
+        loc = tuple(error.get("loc", ()))
+        fields.append(
+            FieldErrorOut(
+                location=str(loc[0]) if loc else "body",
+                field=".".join(str(part) for part in loc[1:]),
+                code=str(error.get("type", "invalid")),
+                message=str(error.get("msg", "")),
+            )
+        )
+    return ValidationErrorOut(fields=fields)
+
+
 class HealthOut(_Base):
     status: str = "ok"
     contract_version: str = CONTRACT_VERSION

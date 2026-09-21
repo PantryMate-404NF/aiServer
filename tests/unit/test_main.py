@@ -61,3 +61,49 @@ def test_request_id_is_echoed_back() -> None:
     )
 
     assert response.headers[REQUEST_ID_HEADER] == "trace-1"
+
+
+def _recommend_client() -> TestClient:
+    from config import get_settings
+    from deps import INTERNAL_API_KEY_HEADER
+
+    header = {INTERNAL_API_KEY_HEADER: get_settings().internal_api_key}
+    return TestClient(main.create_app(), headers=header)
+
+
+def test_an_unknown_field_is_named_in_the_400_body() -> None:
+    """추천 계약은 모르는 필드 하나로 요청 전체를 거부합니다. 백엔드가 그 필드를 알아야 합니다."""
+    response = _recommend_client().post("/v1/recommend", json={"user_id": 7, "topk": 20})
+
+    assert response.status_code == 400
+    body = response.json()
+    assert body["error"] == "validation_failed"
+    assert {"location": "body", "field": "topk", "code": "extra_forbidden"}.items() <= (
+        body["fields"][0].items()
+    )
+
+
+def test_a_missing_field_is_named_in_the_400_body() -> None:
+    response = _recommend_client().post("/v1/recommend", json={"top_k": 20})
+
+    assert response.status_code == 400
+    named = {(item["field"], item["code"]) for item in response.json()["fields"]}
+    assert ("user_id", "missing") in named
+
+
+def test_the_400_body_does_not_echo_what_was_sent() -> None:
+    """보낸 값을 돌려주면 요청 본문이 응답과 호출 쪽 로그로 복사됩니다."""
+    sent_value = "do-not-echo-8f3a2b1c"
+    response = _recommend_client().post("/v1/recommend", json={"user_id": 7, "memo": sent_value})
+
+    assert response.status_code == 400
+    assert sent_value not in response.text
+    assert set(response.json()["fields"][0]) == {"location", "field", "code", "message"}
+
+
+def test_a_nested_field_is_addressed_by_its_path() -> None:
+    event = {"user_id": 7, "event_type": "cook", "recipe_id": 1, "occurred_at": "2026-09-21T19:32"}
+    response = _recommend_client().post("/v1/events", json={"events": [event]})
+
+    assert response.status_code == 400
+    assert response.json()["fields"][0]["field"] == "events.0.occurred_at"
