@@ -187,16 +187,26 @@ class LiveServing:
 
     def _run(self) -> None:
         while not self._stop.is_set():
-            try:
-                self.sync_once()
-                wait = self._sync_interval
-            except (ExternalServiceError, CatalogNotReadyError) as error:
-                # 비밀값이 섞이지 않는 문구입니다(경로와 상태코드뿐). 그대로 남깁니다.
-                self._last_error = str(error)
-                service.bump("catalog_sync_failed")
-                logger.warning("catalog sync failed: %s", error)
-                wait = self._retry_interval
-            self._stop.wait(wait)
+            self._stop.wait(self._attempt())
+
+    def _attempt(self) -> float:
+        """동기화를 한 번 해 보고 다음까지 기다릴 초를 돌려줍니다. **예외를 올리지 않습니다.**"""
+        try:
+            self.sync_once()
+        except (ExternalServiceError, CatalogNotReadyError) as error:
+            # 비밀값이 섞이지 않는 문구입니다(경로와 상태코드뿐). 그대로 남깁니다.
+            self._last_error = str(error)
+            logger.warning("catalog sync failed: %s", error)
+        except Exception as error:
+            # 주의: 여기서 놓치면 이 스레드가 죽습니다. 그러면 사전이 다시는 갱신되지 않고(처음이면
+            #    추천이 영영 503) 에러는 어디에도 남지 않습니다. 예상 못 한 것도 받아서 남기고
+            #    다시 해 봅니다. 값이 섞일 수 있어 문구 대신 종류만 상태에 둡니다.
+            self._last_error = type(error).__name__
+            logger.exception("catalog sync crashed")
+        else:
+            return self._sync_interval
+        service.bump("catalog_sync_failed")
+        return self._retry_interval
 
     # ── 추천 ──────────────────────────────────────────────────────
     def recommend(self, request: RecommendRequest) -> RecommendResponse:

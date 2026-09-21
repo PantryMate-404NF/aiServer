@@ -219,6 +219,26 @@ def test_a_failed_sync_keeps_yesterdays_catalog(tmp_path: Path) -> None:
     assert len(engine.recommend(request()).items) == 10
 
 
+def test_the_sync_loop_survives_a_failure_it_did_not_expect(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """스레드가 죽으면 사전이 다시는 갱신되지 않는데 에러가 없습니다. 받아서 남기고 다시 합니다."""
+    engine = live(FakeBackend(), tmp_path)
+    before = service.counters().get("catalog_sync_failed", 0)
+
+    def broken(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError("예상하지 못한 것")
+
+    monkeypatch.setattr(serving.catalog, "build_catalog", broken)
+    assert engine._attempt() == 1
+    assert engine.state().last_error == "RuntimeError"
+    assert service.counters()["catalog_sync_failed"] - before == 1
+
+    monkeypatch.undo()
+    assert engine._attempt() == 3600
+    assert engine.state().ready and engine.state().last_error is None
+
+
 def test_an_empty_answer_from_the_backend_does_not_replace_the_catalog(tmp_path: Path) -> None:
     backend = FakeBackend()
     engine = live(backend, tmp_path)
