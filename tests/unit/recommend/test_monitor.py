@@ -264,3 +264,37 @@ def test_no_metric_carries_an_identifier_as_a_label() -> None:
     assert seen <= ALLOWED_LABELS, seen - ALLOWED_LABELS
     assert "987654" not in text
     assert str(response.request_id) not in text
+
+
+def test_the_catalog_state_is_exported_and_follows_the_newest_app() -> None:
+    """실서빙에서 사전이 없으면 추천은 전부 503 인데 화면은 멀쩡해 보입니다."""
+    from dataclasses import dataclass
+    from datetime import UTC, datetime, timedelta
+
+    @dataclass
+    class State:
+        ready: bool
+        recipes: int
+        synced_at: datetime | None
+
+    @dataclass
+    class Source:
+        current: State
+
+        def state(self) -> State:
+            return self.current
+
+    monitor.watch_catalog(Source(State(False, 0, None)))
+    assert value("reco_serving_live") == 1.0
+    assert value("reco_catalog_ready") == 0.0
+    assert REGISTRY.get_sample_value("reco_catalog_age_seconds") is None
+
+    synced = datetime.now(UTC) - timedelta(hours=2)
+    monitor.watch_catalog(Source(State(True, 21_491, synced)))
+    assert value("reco_catalog_ready") == 1.0
+    assert value("reco_catalog_recipes") == 21_491
+    assert 7_100 < value("reco_catalog_age_seconds") < 7_300
+
+    monitor.watch_catalog(None)
+    assert value("reco_serving_live") == 0.0
+    assert REGISTRY.get_sample_value("reco_catalog_ready") is None

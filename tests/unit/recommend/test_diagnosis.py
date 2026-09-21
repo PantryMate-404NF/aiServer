@@ -210,3 +210,37 @@ def test_the_live_registry_summarizes_into_a_serializable_report() -> None:
 
     assert summary.model_dump(mode="json")["generated_at"]
     assert set(summary.kpis) >= {"requests", "dead_weight", "latency_p95", "ctr"}
+
+
+def gauge(name: str, number: float) -> Sample:
+    return (name, {}, number)
+
+
+def test_a_missing_catalog_is_the_first_thing_to_fix() -> None:
+    """추천이 전부 503 이어도 백엔드가 인기순으로 대신해 화면은 멀쩡해 보입니다."""
+    summary = diagnosis.summarize(
+        snap(
+            gauge("reco_serving_live", 1),
+            gauge("reco_catalog_ready", 0),
+            ("reco_allergy_labels_total", {"source": "recommend", "known": "no"}, 1),
+        )
+    )
+
+    assert summary.findings[0].title == "레시피 사전을 받지 못해 추천이 전부 503 입니다"
+    assert summary.findings[0].severity == "critical"
+
+
+def test_a_stale_catalog_is_a_warning_and_a_fresh_one_is_silent() -> None:
+    fresh = [gauge("reco_serving_live", 1), gauge("reco_catalog_ready", 1)]
+    stale = diagnosis.summarize(snap(*fresh, gauge("reco_catalog_age_seconds", 3 * 86_400)))
+    recent = diagnosis.summarize(snap(*fresh, gauge("reco_catalog_age_seconds", 3_600)))
+
+    assert "레시피 사전이 오래됐습니다" in titles(stale)
+    assert not [title for title in titles(recent) if "사전" in title]
+
+
+def test_the_mock_has_no_catalog_to_complain_about() -> None:
+    summary = diagnosis.summarize(snap(gauge("reco_serving_live", 0), requests(40, engine="mock")))
+
+    assert not [title for title in titles(summary) if "사전" in title]
+    assert summary.kpis["catalog_ready"] is None

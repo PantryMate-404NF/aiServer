@@ -23,9 +23,11 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Iterable, Mapping
+from datetime import UTC, datetime
+from typing import Protocol
 
 from prometheus_client import Counter, Histogram
-from prometheus_client.core import CounterMetricFamily
+from prometheus_client.core import CounterMetricFamily, GaugeMetricFamily, Metric
 from prometheus_client.registry import Collector
 
 from features.recommend.engine import allergy
@@ -238,7 +240,46 @@ class InternalCounters(Collector):
         yield family
 
 
+class CatalogState(Protocol):
+    """실서빙이 알려 주는 사전의 상태(`serving.SyncState`). 모양만 보고 흐름은 부르지 않습니다."""
+
+    ready: bool
+    recipes: int
+    synced_at: datetime | None
+
+
+class CatalogSource(Protocol):
+    def state(self) -> CatalogState: ...
+
+
+class CatalogGauges(Collector):
+    """레시피 사전이 있는가, 몇 건인가, 얼마나 묵었는가.
+
+    실서빙에서 사전이 없으면 추천은 전부 503 입니다. 백엔드가 자기 인기순으로 대신하므로 화면은
+    멀쩡해 보이고, 여기를 보지 않으면 추천이 한 건도 안 나가고 있다는 것을 모릅니다.
+    """
+
+    def __init__(self) -> None:
+        self.source: CatalogSource | None = None
+
+    def collect(self) -> Iterable[Metric]:
+        live = GaugeMetricFamily("reco_serving_live", "실서빙이면 1, 목업이 답하면 0")
+        ready = GaugeMetricFamily("reco_catalog_ready", "레시피 사전을 받았으면 1")
+        recipes = GaugeMetricFamily("reco_catalog_recipes", "사전에 실린 레시피 수")
+        age = GaugeMetricFamily("reco_catalog_age_seconds", "마지막 동기화로부터 지난 시간(초)")
+        live.add_metric([], 0.0 if self.source is None else 1.0)
+        if self.source is not None:
+            state = self.source.state()
+            ready.add_metric([], 1.0 if state.ready else 0.0)
+            recipes.add_metric([], float(state.recipes))
+            if state.synced_at is not None:
+                age.add_metric([], (datetime.now(UTC) - state.synced_at).total_seconds())
+        return [live, ready, recipes, age]
+
+
 _watched: list[InternalCounters] = []
+_catalog = CatalogGauges()
+_catalog_registered: list[bool] = []
 
 
 def watch_counters(source: Callable[[], Mapping[str, int]]) -> None:
@@ -248,6 +289,14 @@ def watch_counters(source: Callable[[], Mapping[str, int]]) -> None:
     collector = InternalCounters(source)
     REGISTRY.register(collector)
     _watched.append(collector)
+
+
+def watch_catalog(source: CatalogSource | None) -> None:
+    """사전의 상태를 지표로 냅니다. 앱을 다시 만들면 **새 실서빙을 가리키게** 바꿉니다."""
+    _catalog.source = source
+    if not _catalog_registered:
+        REGISTRY.register(_catalog)
+        _catalog_registered.append(True)
 
 
 def _engine_of(response: RecommendResponse, trace: StageTrace | None) -> str:

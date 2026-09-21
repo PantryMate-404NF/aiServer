@@ -44,6 +44,8 @@ LATENCY_P95_TARGET = 0.058
 LATENCY_BUDGET = 3.0
 #: 목록이 같은 요리의 판본으로 이만큼 걸러지면 원천 데이터의 중복을 의심합니다.
 SAME_DISH_PER_REQUEST_LIMIT = 100.0
+#: 레시피 사전이 이보다 오래됐으면 동기화가 멈춘 것입니다. 하루 한 번 받으므로 이틀입니다.
+CATALOG_STALE_SECONDS = 172_800
 
 #: 꺼진 신호를 켜려면 무엇이 와야 하는가.
 FEATURE_NEEDS: Mapping[str, str] = {
@@ -51,7 +53,7 @@ FEATURE_NEEDS: Mapping[str, str] = {
     "f_quality": "평점 데이터(rating)가 와야 합니다",
     "f_ing_pref": "행동 이벤트가 쌓이고 사용자 이력 적재(DB 전환 M-03)가 연결돼야 합니다",
     "f_cooccur": "조리 이벤트가 쌓이고 사용자 이력 적재(DB 전환 M-03)가 연결돼야 합니다",
-    "f_taste": "온보딩 취향과 코퍼스 맛 평균(DB 전환 M-04)이 연결돼야 합니다",
+    "f_taste": "사용자가 온보딩에서 음식을 골라야 켜집니다. 온보딩 전에는 꺼진 것이 정상입니다",
     "f_expiring": "요청의 pantry 에 purchased_at 또는 expires_at 이 실려 와야 합니다",
     "f_cuisine": "사용자의 preferred_cuisines 와 레시피의 cuisine_type 이 둘 다 있어야 합니다",
     "f_season": "제철 시드가 없습니다 (enums.PENDING_DATA_FEATURES)",
@@ -193,6 +195,10 @@ def summarize(data: Snapshot, now: datetime | None = None) -> MonitoringSummary:
             total(data, "reco_events_total", event_type="click", slot="exploration"),
             items.get("exploration", 0.0),
         ),
+        "serving_live": total(data, "reco_serving_live"),
+        "catalog_ready": _gauge(data, "reco_catalog_ready"),
+        "catalog_recipes": _gauge(data, "reco_catalog_recipes"),
+        "catalog_age_seconds": _gauge(data, "reco_catalog_age_seconds"),
     }
     features = [_feature_health(data, feature) for feature in FEATURE_KEYS]
     kpis["dead_weight"] = round(
@@ -238,6 +244,31 @@ def _rule_no_traffic(s: MonitoringSummary) -> Iterable[Finding]:
             title="아직 추천 요청이 없습니다",
             evidence="reco_requests_total = 0",
             action="서버가 뜬 뒤 받은 요청이 없습니다. 재시작 직후라면 정상입니다",
+        )
+
+
+def _rule_catalog(s: MonitoringSummary) -> Iterable[Finding]:
+    if not s.kpis["serving_live"]:
+        return
+    age = s.kpis["catalog_age_seconds"]
+    if not s.kpis["catalog_ready"]:
+        yield Finding(
+            severity="critical",
+            title="레시피 사전을 받지 못해 추천이 전부 503 입니다",
+            evidence="reco_catalog_ready = 0. "
+            "백엔드가 자기 인기순으로 대신하고 있어 화면은 멀쩡해 보입니다",
+            action="서버 로그의 'catalog sync failed' 에서 원인을 봅니다. "
+            "BACKEND_BASE_URL · 경로 · "
+            "방화벽 · 내부 키가 맞는지, 백엔드의 두 API 가 떠 있는지 확인합니다",
+        )
+    elif age is not None and age > CATALOG_STALE_SECONDS:
+        yield Finding(
+            severity="warning",
+            title="레시피 사전이 오래됐습니다",
+            evidence=f"마지막 동기화로부터 {age / 3600:.0f}시간 "
+            f"(기준 {CATALOG_STALE_SECONDS / 3600:.0f}시간)",
+            action="동기화가 계속 실패하고 있습니다. 어제의 사전으로 서빙 중이라 새 레시피와 "
+            "지워진 레시피가 반영되지 않습니다. 서버 로그의 'catalog sync failed' 를 봅니다",
         )
 
 
@@ -390,6 +421,7 @@ def _rule_same_dish(s: MonitoringSummary) -> Iterable[Finding]:
 
 
 _RULES = (
+    _rule_catalog,
     _rule_no_traffic,
     _rule_mock,
     _rule_unknown_allergy,
@@ -439,6 +471,12 @@ def _engine(engines: Mapping[str, float]) -> Literal["mock", "real", "mixed", "n
 
 def _enough(summary: MonitoringSummary) -> bool:
     return (summary.kpis["requests"] or 0.0) >= MIN_REQUESTS
+
+
+def _gauge(data: Snapshot, name: str) -> float | None:
+    """게이지 하나. 표본이 없으면 None 입니다 — 0 과 "모른다" 는 다릅니다."""
+    values = [value for (sample, _labels), value in data.items() if sample == name]
+    return values[0] if values else None
 
 
 def _ratio(numerator: float, denominator: float) -> float | None:

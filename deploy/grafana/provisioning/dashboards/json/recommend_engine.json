@@ -386,15 +386,247 @@
       }
     },
     {
+      "type": "stat",
+      "title": "서빙 방식",
+      "description": "1 = 실서빙(백엔드의 레시피로 엔진이 답함) · 0 = 목업",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "reco_serving_live",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "noValue": "–"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "id": 8,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 5
+      }
+    },
+    {
+      "type": "stat",
+      "title": "레시피 사전",
+      "description": "1 = 받았음. 0 이면 추천이 전부 503 입니다",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "reco_catalog_ready",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "noValue": "–"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "id": 9,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 5
+      }
+    },
+    {
+      "type": "stat",
+      "title": "사전의 레시피 수",
+      "description": "",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "reco_catalog_recipes",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "noValue": "–"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "id": 10,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 5
+      }
+    },
+    {
+      "type": "stat",
+      "title": "마지막 동기화로부터",
+      "description": "하루 한 번 받습니다. 이틀을 넘으면 동기화가 멈춘 것입니다",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "reco_catalog_age_seconds",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 172800
+              }
+            ]
+          },
+          "noValue": "–"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "id": 11,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 5
+      }
+    },
+    {
       "type": "row",
       "title": "지연 — 어디서 시간이 가는가",
       "collapsed": false,
-      "id": 8,
+      "id": 12,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 5
+        "y": 9
       }
     },
     {
@@ -448,7 +680,7 @@
           "sort": "desc"
         }
       },
-      "id": 9,
+      "id": 13,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -457,7 +689,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 6
+        "y": 10
       }
     },
     {
@@ -502,7 +734,7 @@
           "sort": "desc"
         }
       },
-      "id": 10,
+      "id": 14,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -511,7 +743,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 6
+        "y": 10
       }
     },
     {
@@ -556,7 +788,7 @@
           "sort": "desc"
         }
       },
-      "id": 11,
+      "id": 15,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -565,19 +797,19 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 6
+        "y": 10
       }
     },
     {
       "type": "row",
       "title": "목록 — 무엇을 내보내고 있는가",
       "collapsed": false,
-      "id": 12,
+      "id": 16,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 14
+        "y": 18
       }
     },
     {
@@ -622,7 +854,7 @@
           "sort": "desc"
         }
       },
-      "id": 13,
+      "id": 17,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -631,7 +863,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 15
+        "y": 19
       }
     },
     {
@@ -676,7 +908,7 @@
           "sort": "desc"
         }
       },
-      "id": 14,
+      "id": 18,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -685,7 +917,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 15
+        "y": 19
       }
     },
     {
@@ -739,7 +971,7 @@
           "sort": "desc"
         }
       },
-      "id": 15,
+      "id": 19,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -748,7 +980,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 15
+        "y": 19
       }
     },
     {
@@ -793,7 +1025,7 @@
           "sort": "desc"
         }
       },
-      "id": 16,
+      "id": 20,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -802,7 +1034,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 23
+        "y": 27
       }
     },
     {
@@ -847,7 +1079,7 @@
           "sort": "desc"
         }
       },
-      "id": 17,
+      "id": 21,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -856,7 +1088,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 23
+        "y": 27
       }
     },
     {
@@ -901,7 +1133,7 @@
           "sort": "desc"
         }
       },
-      "id": 18,
+      "id": 22,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -910,19 +1142,19 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 23
+        "y": 27
       }
     },
     {
       "type": "row",
       "title": "신호 — 가중치가 있는데 값이 없는 신호가 품질을 조용히 깎습니다",
       "collapsed": false,
-      "id": 19,
+      "id": 23,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 31
+        "y": 35
       }
     },
     {
@@ -979,7 +1211,7 @@
           "values": false
         }
       },
-      "id": 20,
+      "id": 24,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -988,7 +1220,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 32
+        "y": 36
       }
     },
     {
@@ -1037,7 +1269,7 @@
           "values": false
         }
       },
-      "id": 21,
+      "id": 25,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1046,19 +1278,19 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 32
+        "y": 36
       }
     },
     {
       "type": "row",
       "title": "후보와 입력 — 후보는 어디서 사라지고, 들어오는 요청은 온전한가",
       "collapsed": false,
-      "id": 22,
+      "id": 26,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 40
+        "y": 44
       }
     },
     {
@@ -1103,7 +1335,7 @@
           "sort": "desc"
         }
       },
-      "id": 23,
+      "id": 27,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1112,7 +1344,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 41
+        "y": 45
       }
     },
     {
@@ -1157,7 +1389,7 @@
           "sort": "desc"
         }
       },
-      "id": 24,
+      "id": 28,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1166,7 +1398,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 41
+        "y": 45
       }
     },
     {
@@ -1211,7 +1443,7 @@
           "sort": "desc"
         }
       },
-      "id": 25,
+      "id": 29,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1220,7 +1452,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 41
+        "y": 45
       }
     },
     {
@@ -1274,7 +1506,7 @@
           "sort": "desc"
         }
       },
-      "id": 26,
+      "id": 30,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1283,7 +1515,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 49
+        "y": 53
       }
     },
     {
@@ -1328,7 +1560,7 @@
           "sort": "desc"
         }
       },
-      "id": 27,
+      "id": 31,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1337,7 +1569,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 49
+        "y": 53
       }
     },
     {
@@ -1382,7 +1614,7 @@
           "sort": "desc"
         }
       },
-      "id": 28,
+      "id": 32,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1391,19 +1623,19 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 49
+        "y": 53
       }
     },
     {
       "type": "row",
       "title": "반응 — 사용자는 그 목록에 어떻게 답하는가",
       "collapsed": false,
-      "id": 29,
+      "id": 33,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 57
+        "y": 61
       }
     },
     {
@@ -1448,7 +1680,7 @@
           "sort": "desc"
         }
       },
-      "id": 30,
+      "id": 34,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1457,7 +1689,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 58
+        "y": 62
       }
     },
     {
@@ -1520,7 +1752,7 @@
           "sort": "desc"
         }
       },
-      "id": 31,
+      "id": 35,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1529,7 +1761,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 58
+        "y": 62
       }
     },
     {
@@ -1583,7 +1815,7 @@
           "sort": "desc"
         }
       },
-      "id": 32,
+      "id": 36,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1592,7 +1824,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 58
+        "y": 62
       }
     },
     {
@@ -1640,7 +1872,7 @@
           "values": false
         }
       },
-      "id": 33,
+      "id": 37,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1649,7 +1881,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 66
+        "y": 70
       }
     },
     {
@@ -1703,7 +1935,7 @@
           "sort": "desc"
         }
       },
-      "id": 34,
+      "id": 38,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1712,7 +1944,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 66
+        "y": 70
       }
     },
     {
@@ -1757,7 +1989,7 @@
           "sort": "desc"
         }
       },
-      "id": 35,
+      "id": 39,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1766,7 +1998,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 66
+        "y": 70
       }
     }
   ]

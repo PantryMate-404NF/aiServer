@@ -15,6 +15,21 @@ groups:
           summary: 추천 서버의 지표를 긁지 못한다
           description: 서버가 내려갔거나 /metrics 의 키가 맞지 않는다. 그동안의 수치는 비어 있다.
 
+      - alert: RecoCatalogNotReady
+        expr: reco_serving_live == 1 and reco_catalog_ready == 0
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          summary: 레시피 사전을 받지 못해 추천이 전부 503 이다
+          description: 백엔드가 자기 인기순으로 대신하므로 화면은 멀쩡해 보인다. 서버 로그의 catalog sync failed 를 본다.
+
+      - alert: RecoCatalogStale
+        expr: reco_catalog_age_seconds > 172800
+        labels: {severity: warning}
+        annotations:
+          summary: 레시피 사전이 이틀 넘게 갱신되지 않았다
+          description: 동기화가 계속 실패하고 있다. 어제의 사전으로 서빙 중이다.
+
       - alert: RecoUnknownAllergyLabel
         expr: sum(increase(reco_allergy_labels_total{known="no"}[15m])) > 0
         labels: {severity: critical}

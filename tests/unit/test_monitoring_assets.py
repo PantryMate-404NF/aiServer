@@ -26,6 +26,8 @@ COMPOSE = DEPLOY / "docker-compose.yml"
 METRIC = re.compile(r"\b((?:reco|http)_[a-z0-9_]+)\b")
 #: Prometheus 가 스스로 만드는 지표. 등록부에는 없습니다.
 BUILT_IN = {"up"}
+#: 누적이 아닌 지표의 이름 앞머리.
+GAUGES = ("reco_catalog_", "reco_serving_")
 
 
 def exported_names() -> set[str]:
@@ -81,6 +83,7 @@ def test_the_alert_thresholds_are_the_ones_the_admin_page_uses() -> None:
         rules["RecoContractViolations"].rstrip().endswith(f"> {diagnosis.VALIDATION_FAILURE_LIMIT}")
     )
     assert rules["RecoLatencyOverBudget"].rstrip().endswith(f"> {diagnosis.LATENCY_BUDGET:.0f}")
+    assert rules["RecoCatalogStale"].rstrip().endswith(f"> {diagnosis.CATALOG_STALE_SECONDS}")
 
 
 def test_the_dashboard_reads_the_provisioned_datasource() -> None:
@@ -97,6 +100,9 @@ def test_the_dashboard_reads_the_provisioned_datasource() -> None:
 def test_panels_read_rates_because_the_server_counts_from_zero_after_a_restart() -> None:
     """누적값을 그대로 그리면 재시작 때마다 절벽이 생기고, 그 절벽이 장애처럼 보입니다."""
     for expr in dashboard_expressions():
+        # 사전의 상태는 "지금 값" 인 게이지입니다. 누적이 아니라 절벽이 생기지 않습니다.
+        if expr.startswith(GAUGES):
+            continue
         assert "rate(" in expr or "increase(" in expr, expr
 
 
