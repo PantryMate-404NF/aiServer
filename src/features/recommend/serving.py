@@ -23,7 +23,7 @@ import threading
 import time
 from collections import OrderedDict
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -217,7 +217,14 @@ class LiveServing:
             )
         ctx = self._context(request, current, now)
         ratio = rerank.exploration_ratio(ctx, self._policy)
-        found = retrieval.retrieve(current, ctx, resolution, self._policy, request.top_k, ratio)
+        # 요청의 `max_missing` 이 사다리의 첫 칸입니다. 후보가 모자라면 거기서부터 풉니다.
+        # 점수와 재정렬의 정책은 그대로입니다 — 바뀌는 것은 ① 의 부족 허용뿐입니다.
+        ladder = replace(
+            self._policy,
+            max_missing=request.max_missing,
+            max_missing_relaxed=max(self._policy.max_missing_relaxed, request.max_missing),
+        )
+        found = retrieval.retrieve(current, ctx, resolution, ladder, request.top_k, ratio)
         retrieval_ms = int((time.perf_counter() - started) * 1000)
 
         seed = uuid4().int & 0x7FFFFFFF

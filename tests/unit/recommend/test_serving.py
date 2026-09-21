@@ -166,6 +166,33 @@ def test_the_allergies_in_the_request_cut_the_list(tmp_path: Path) -> None:
     assert log is not None and log.allergy_snapshot == [2] and log.pantry_snapshot == [1]
 
 
+def test_the_requests_max_missing_is_where_the_search_starts(tmp_path: Path) -> None:
+    """계약의 `max_missing` 입니다. 읽지 않으면 "지금 만들 수 있는 것만" 이 조용히 무시됩니다."""
+    backend = FakeBackend()
+    lacking = [
+        {**recipe, "recipe_id": 5000 + i, "title": f"모자란 메뉴 {i}"}
+        for i, recipe in enumerate(recipes())
+    ]
+    for recipe in lacking:
+        recipe["ingredients"] = [
+            {"ingredient_id": 1, "is_main": True},
+            {"ingredient_id": 7, "is_main": True},
+        ]
+        recipe["popularity"] = {"scrap_count": 10_000}
+    backend.recipes = [*backend.recipes, *lacking]
+    engine = live(backend, tmp_path)
+    engine.sync_once()
+
+    strict = engine.recommend(request(max_missing=0))
+    loose = engine.recommend(request())
+
+    assert strict.trace is not None and loose.trace is not None
+    assert strict.trace.stages[0].params["max_missing"] == 0
+    assert all(item.missing_count == 0 for item in strict.items)
+    assert loose.trace.stages[0].params["max_missing"] == 2
+    assert any(item.missing_count == 1 for item in loose.items)
+
+
 def test_production_calls_get_no_trace_but_the_log_keeps_it(tmp_path: Path) -> None:
     engine = live(FakeBackend(), tmp_path)
     engine.sync_once()
@@ -351,6 +378,9 @@ def test_without_a_backend_address_the_mock_answers(monkeypatch: pytest.MonkeyPa
 
     assert app.state.live_serving is None
     assert response.json()["model_version"].startswith("mock")
+    monkeypatch.setattr("infra.db.healthy", lambda: True)
+    health = TestClient(app).get("/health", headers=HEADERS).json()
+    assert health["model_version"].startswith("mock")
 
 
 def test_with_a_backend_address_the_route_is_503_until_the_catalog_arrives(
@@ -375,5 +405,8 @@ def test_with_a_backend_address_the_route_is_503_until_the_catalog_arrives(
 
     assert served.status_code == 200
     assert served.json()["model_version"] == POLICY_ID
+    # `/health` 도 같은 이름을 답합니다. 목업의 이름이면 배포 설정이 빠진 것으로 읽힙니다.
+    monkeypatch.setattr("infra.db.healthy", lambda: True)
+    assert http.get("/health", headers=HEADERS).json()["model_version"] == POLICY_ID
     request_id = served.json()["request_id"]
     assert http.get(f"/v1/recommendations/{request_id}", headers=HEADERS).status_code == 200

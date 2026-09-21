@@ -21,6 +21,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 
 from features.recommend.engine import mock
 from features.recommend.evaluation import monitor
+from features.recommend.policy import POLICY_ID
 from features.recommend.profile_store import load_presented_menu
 from features.recommend.schema import (
     EventAck,
@@ -73,9 +74,13 @@ def _read_log(request: Request, request_id: UUID) -> RecommendationLogOut | None
 
 
 @router.get("/health", response_model=HealthOut, tags=["health"])
-def health() -> HealthOut:
+def health(request: Request) -> HealthOut:
     # `db.healthy()` 는 실패를 예외로 올리지 않고 False 를 돌려줍니다.
-    return mock.health_payload(db_ok=db.healthy())
+    payload = mock.health_payload(db_ok=db.healthy())
+    if _live(request) is None:
+        return payload
+    # 실서빙인데 목업의 모델 이름으로 답하면 배포 설정이 빠진 것으로 읽힙니다.
+    return payload.model_copy(update={"model_version": POLICY_ID})
 
 
 @router.post("/v1/recommend", response_model=RecommendResponse, tags=["recommend"])

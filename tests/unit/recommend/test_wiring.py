@@ -11,9 +11,11 @@ import inspect
 import random
 from collections.abc import Callable, Sequence
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
+from fastapi import Request
 
 from features.recommend.engine import mock, rerank, serendipity
 from features.recommend.engine.context import (
@@ -38,9 +40,11 @@ NOW = datetime(2026, 9, 11, 12, 0, tzinfo=timezone(timedelta(hours=9)))
 # ─────────────────────────────────────────────────────────────────
 def test_health_reports_the_measured_db_state(monkeypatch: pytest.MonkeyPatch) -> None:
     """DB 가 죽었으면 죽었다고 답합니다. 확인 없이 초록을 내보내면 장애를 못 봅니다."""
+    # 실서빙이 없는 앱의 요청입니다. `/health` 는 앱 상태에서 실서빙 여부만 읽습니다.
+    request = cast(Request, SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace())))
     for probed in (True, False):
         monkeypatch.setattr("infra.db.healthy", lambda value=probed: value)
-        assert health_endpoint().db is probed
+        assert health_endpoint(request).db is probed
 
 
 def test_health_payload_takes_no_default_for_the_db_flag() -> None:
