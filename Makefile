@@ -10,6 +10,7 @@ PSQL    := $(COMPOSE) exec -T postgres psql -U reco -d recodb
 .PHONY: help env up up-app down down-v ps logs psql wait \
         install \
         validate dry-run seed seed-reset verify smoke ddl-test review-sheet review-apply unmatched post-index bootstrap clean \
+        zero-match-sheet \
         eval eval-smoke
 
 # 주의: 폭이 14 였는데 normalize-batch·popularity-build 처럼 긴 이름이
@@ -193,6 +194,9 @@ opt={r.is_optional_hint} amb={r.is_ambiguous_qty} subs={r.substitutes}') \
 # ── 크롤링 데이터 ───────────────────────────────────────────────
 review-sheet:  ## 검수 시트 생성 — 스프레드시트로 판단 (make review-sheet TOP=300)
 	$(PY) scripts/reco/bench/review_sheet.py --top $(or $(TOP),300)
+
+zero-match-sheet:  ## 재료가 하나도 안 붙은 레시피의 검수 시트 (레시피를 통째로 죽이는 표현)
+	$(PY) scripts/reco/bench/zero_match_sheet.py
 
 review-csv:  ## 검수 시트를 구글 스프레드시트용 CSV 로 내보낸다
 	$(PY) scripts/reco/bench/review_export.py
