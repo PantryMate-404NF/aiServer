@@ -14,7 +14,7 @@
 
 4-4-1 실측: trgm 임계값 0.6 에서 **재현율 0%**. 정탐 중앙값 0.143 vs 오탐 0.118 로
 분포가 겹쳐 어떤 임계값도 정밀도 99% 를 만들지 못한다
-(`features.recommend.evaluation.threshold` 로 재확인).
+(`features.recommend.ingest.threshold` 로 재확인).
 그래서 L3/L4 는 **검수 큐의 후보 제안**으로만 쓴다.
 
 사람이 확정한 결과는 `ingredient_alias(source='manual')` 로 쌓여

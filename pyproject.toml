@@ -183,6 +183,11 @@ ignore_missing_imports = true
 #    돌렸는가**를 재게 됩니다.
 #
 #    - ingest/*        : make normalize-test · contract · feature-test · flavor-check · probe-all
+#                        예외 하나 — threshold.py 는 pytest 검사 4건이 붙어 있고
+#                        실측 커버리지가 86% 입니다. 이 목록의 근거("make 가
+#                        돌린다")가 이 파일에는 맞지 않는데, 와일드카드라 함께
+#                        빠지면서 그 86% 가 리포트에 안 보입니다. 파일 목록으로
+#                        풀면 해소되며 그것은 01의 6.1 승인 대상입니다 (G-16).
 #    - repository.py   : make smoke-py · log-test · ddl-test (실 DB 필요.
 #                        01의 6.2 가 단위 테스트에서 실 DB 사용을 금지합니다)
 #    - repository_ingest.py : 배치용 SQL. repository.py 에서 떼어 낸 것이라 근거가
