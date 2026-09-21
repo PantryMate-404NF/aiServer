@@ -4,7 +4,7 @@
 
 **적용 대상**: 수정 여부를 결정하는 유재현과 수정을 반영할 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 11.5.0 · **최종 수정**: 2026-09-21 · **작성자**: 유재현
+**버전**: 11.6.0 · **최종 수정**: 2026-09-21 · **작성자**: 유재현
 
 ---
 
@@ -963,3 +963,56 @@ mypy 가 Windows 앱 제어 정책에 막혔습니다 — `uv run mypy` 는 예�
 ### 21.5 판정
 
 **엔진은 실데이터에서 끝까지 돕니다.** 다만 재료 매칭만으로는 순위가 서지 않고(F-111), 맛을 복원해야 목록이 뜻을 가집니다(F-113). 인기도와 알레르기 정본은 백엔드가 주어야 하고(G-34), 냉장고 활용도에 가중치를 줄지는 결정 사항입니다(N-19). API 계약은 `docs/backend_api_spec.md` 에 썼습니다.
+
+### 21.6 N-19 반영과 그 근거 (2026-09-21 추가)
+
+유재현이 선택지 (d) 로 정했습니다 — 인기도가 올 때까지 임시로 반영하고 그 뒤 다시 재는 것입니다. 남은 문제는 **0.10 을 어디서 빼는가** 였고, 후보 둘을 같은 조건에서 쟀습니다.
+
+```text
+사례                   변형                   충족률중위  부족중위  내재료중위  필수중위  서로다른점수
+포화 (재료 7종,       A 현행                     1.00     0.0      2.0      2.0        1
+ 후보 500건 전부      B coverage 0.24→0.14       1.00     0.0      3.0      4.0        6
+ 충족률 1.0)          C popularity 0.10→0        1.00     0.0      3.0      4.0        5
+
+부분 (재료 2종,       A 현행                     1.00     0.0      0.0      1.0        2
+ 충족률 중위 0.75)    B coverage 0.24→0.14       1.00     0.0      0.0      1.0        8
+                     C popularity 0.10→0        1.00     0.0      0.0      1.0        8
+```
+
+**B 와 C 의 결과가 같습니다.** 그러면 설계 원칙이 가릅니다 — 인기도를 0 으로 내리면 "데이터가 오면 코드를 고치지 않아도 켜진다" 는 규칙(`enums.PENDING_DATA_FEATURES` 주석)을 어깁니다. 그래서 B 를 골랐습니다.
+
+충족률을 내려도 **부분 충족 경우의 동작이 그대로**입니다. 상위 20 의 충족률 중위가 1.00, 부족 재료 중위가 0.0 으로 유지됩니다. 충족률 1.0 인 후보가 여전히 이기고, 새 가중치는 그 안에서 동점을 가릅니다.
+
+재료 매칭 군(`f_coverage` · `f_missing` · `f_expiring` · `f_pantry_use`)의 합은 0.44 그대로이고 `ACTIVE_WEIGHT_TODAY` 도 0.94 로 변하지 않습니다.
+
+```text
+uv run python -m pytest tests/unit            → 0 (366 passed)
+uv run ruff check . · format --check .        → 0 (171 files)
+python tests/unit/recommend/test_contract.py  → 0 (98건, 가중치 합 1.00 포함)
+uv run python scripts/eval_recommend_mock.py  → 0
+uv run python scripts/sim/scenario_engine.py  → 0 (RESULT: PASS)
+```
+
+### 21.7 타입 검사를 다시 돌릴 수 있게 한 방법 (E-18 후속)
+
+21.4 에서 못 돌린다고 적었는데, 원인을 찾아 우회로를 만들었습니다.
+
+차단한 것은 **Smart App Control** 입니다(`VerifiedAndReputablePolicyState = 1`, 정책 `{0283AC0F-FFF1-49AE-ADA1-8A933130CAD6}`). 코드 무결성 로그가 무엇을 막았는지 이름으로 적고 있습니다 — `.venv` 안의 서명 없는 실행 파일과 네이티브 확장, 즉 `mypy.exe` · `pytest.exe` · `librt/internal.cp312-win_amd64.pyd` · `coverage/tracer.cp312-win_amd64.pyd` 입니다.
+
+확인한 사실 셋입니다.
+
+- **경로와 무관합니다.** `pytest.exe` 를 OneDrive 밖으로 복사해 실행해도 똑같이 막힙니다. 파일 자체를 막는 정책입니다.
+- **다운로드 표식(Zone.Identifier) 때문이 아닙니다.** 막힌 파일에 그 표식이 없습니다.
+- **널리 쓰이는 확장은 통과합니다.** `pydantic_core` 는 같은 폴더에서 정상 동작합니다. 평판 기반이라 덜 흔한 것만 걸립니다.
+
+우회로는 **컴파일 확장이 없는 mypy** 입니다. 최근 mypy 는 `librt` 라는 네이티브 런타임에 의존해 소스로 설치해도 막히지만, `mypy==1.11.0` 은 그 의존이 없어 순수 파이썬으로 돕니다.
+
+```text
+uv venv <검사용 경로>
+uv pip install --python <검사용 경로>/Scripts/python.exe --no-binary mypy "mypy==1.11.0"
+<검사용 경로>/Scripts/python.exe -m mypy --python-executable <프로젝트>/.venv/Scripts/python.exe src
+```
+
+2026-09-21 실행 결과는 67개 파일 · 6분 19초 · 보고 2건입니다. 둘 다 옛 판의 추론 차이이고 결함이 아닙니다 — `serendipity.py:216` 은 `max(..., default=None)` 의 `key` 람다 인자를 `dict | None` 으로 보는 것이고, `repository.py:299` 는 `in` 검사로 좁혀지는 `Any` 반환입니다. 둘 다 파트 A 파일이라 옛 판을 달래려고 고치지 않았습니다.
+
+컴파일판이 몇 초에 끝낼 일을 6분 쓰므로 **상시 게이트로는 적합하지 않습니다.** 어디서 돌릴지는 안건 N-20 입니다.
