@@ -4,7 +4,7 @@
 
 **적용 대상**: 이 저장소에 기여하는 모든 인원 및 AI 코딩 에이전트
 
-**버전**: 1.17.0 · **최종 수정**: 2026-09-21 · **작성자**: 김민경
+**버전**: 1.18.0 · **최종 수정**: 2026-09-22 · **작성자**: 김민경
 
 ---
 
@@ -34,6 +34,7 @@
 | `recommend/` | [recommend_engine_meeting_agenda.md](recommend/recommend_engine_meeting_agenda.md) | 파트 B 통합 회의 안건. 안건마다 상태(결정·반영 · 일부 반영 · 결정 필요 등)와 결정일·반영 커밋·반영 코드. 에이전트용 정본 |
 | `recommend/` | [recommend_engine_db_cutover.md](recommend/recommend_engine_db_cutover.md) | 실 DB 를 붙일 때 반드시 처리할 항목과 확인 근거. `tests/unit/recommend/test_db_cutover.py` 가 건너뛰지 못하게 막습니다 |
 | `recommend/` | [recommend_sim_seed_runbook.md](recommend/recommend_sim_seed_runbook.md) | 기획측 가상운영데이터(v0.4)를 시드로 바꿔 적재하고, DB 없이(`scripts/sim/scenario_engine.py`) 또는 API 로 이용 시나리오를 돌리는 순서와 판정 기준 |
+| `recommend/` | [recommend_monitoring.md](recommend/recommend_monitoring.md) | 추천 엔진의 평가와 모니터링(트랙 C). 무엇을 재는지(지표 표), Prometheus · Grafana · 관리자 페이지를 어떻게 띄우는지, 규칙이 무엇을 경고하는지, 아직 못 하는 것. 관측 수단을 정한 근거는 `decisions/2026-09-22_prometheus_for_engine_monitoring.md` |
 | `docs/` | [backend_schema_request.md](backend_schema_request.md) | 백엔드에 **전체 스키마**를 요청하는 문서. 함께 정할 것(연동 방식·식별자·갱신·규모·개인정보)과 추천 응답·로그의 경계 제안을 담습니다 |
 | `docs/` | [backend_api_spec.md](backend_api_spec.md) | 백엔드와 주고받는 API 명세(2.2.0, 백엔드 회신 반영). 백엔드가 열 API 둘과 AI 가 여는 여섯의 요청·응답, 항목마다 "없으면 무엇이 꺼지는가", 알레르기 라벨 표, 그리고 지금 코드에 있는 것과 합의 뒤 만드는 것의 구분. 운영 데이터는 API 로만 받는다는 전제입니다. Notion 에 전달용 사본이 있습니다 |
 | `docs/` | [release_notes.md](release_notes.md) | `main` 에 무엇이 언제 들어갔는지, 영향 범위와 롤백 방법, 파트별 전달 사항. 병합할 때마다 맨 위에 항목을 더합니다 |

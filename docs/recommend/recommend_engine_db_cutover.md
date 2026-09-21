@@ -4,7 +4,7 @@
 
 **적용 대상**: `src/features/recommend/` 를 DB 에 연결하는 인원과 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 1.7.0 · **최종 수정**: 2026-09-21 · **작성자**: 유재현
+**버전**: 1.8.0 · **최종 수정**: 2026-09-22 · **작성자**: 유재현
 
 ---
 
@@ -54,7 +54,7 @@ uv run pytest tests/unit/recommend/test_db_cutover.py --no-cov
 | M-04 | 코퍼스 통계 로드 | `CorpusStats.flavor_mean` 과 `ingredient_idf` 를 Mock 카탈로그에서 계산합니다. IDF 의 원천인 `ingredient.freq_count` 는 A 가 채우는 배치를 만들었습니다(`def3d5b`, `make freq-build`) | `feature_stats.flavor_mu` 와 실제 IDF 를 읽습니다. `stats_version` 을 함께 받아 로그에 싣습니다 (M-05) | 맛 코사인이 실제 코퍼스 평균을 차감하는지, `stats_version` 이 로그에 남는지 | 진행 — 09-18 `repository.load_corpus_stats()` 가 μ · IDF · `stats_version` 을 읽어 `CorpusStats.stats_version` 에 둡니다(D-50). μ 는 실값(`stats_version` 7)이라 전환 즉시 `f_taste` 가 켜집니다. 라우터 미연결, 실 DB 대조 미실행(E-17) |
 | M-05 | 로그 적재 연결 | `service` 가 `write_recommendation` 을 부르지 않습니다. 서빙 로그가 한 행도 쌓이지 않습니다 | 응답 직후 호출합니다. **`config_hash`·`warm_alpha`·`stats_version` 을 반드시 함께 넘깁니다** — 안 넘겨도 행은 저장되고 `not_reproducible` 플래그만 붙어 그 요청의 점수는 영영 재현되지 않습니다 | `make log-test` 통과. 저장된 행의 `policies` 가 `REQUIRED_TRACE_PARAMS` 10종을 전부 가짐 | 대기 |
 | M-06 | 난수 시드 실사용 | `rank_candidates` 가 추적의 `rng_seed` 로 난수원을 직접 만듭니다(2026-09-14, F-51·F-52). 그 전에는 `rng` 를 따로 받아 평가 스크립트가 `SystemRandom` 을 넘기며 `rng_seed=user_id` 를 적었습니다 (F-16, N-10) | 라우터가 요청마다 시드를 정해 넘기고 응답·로그에 남깁니다 | 같은 `rng_seed` 로 두 번 호출해 탐색 슬롯의 아이템과 위치가 같음 — 검사 `test_the_logged_seed_reproduces_the_list` | 대기 |
-| M-07 | 실패 카운터 노출 | `write_recommendation` 이 모든 예외를 삼키고 `bump()` 만 합니다. **그 카운터를 읽는 곳이 없습니다** — `/health` 도 대시보드도 싣지 않고 `QualityExtra.log_counters` 는 계약만 있고 채우는 코드가 없습니다 (F-33) | `counters()` 를 `/health` 응답이나 대시보드 수집에 싣습니다 | 적재를 일부러 실패시키고 `failed` 가 밖에서 보이는지 | 대기 |
+| M-07 | 실패 카운터 노출 | `write_recommendation` 이 모든 예외를 삼키고 `bump()` 만 합니다. **그 카운터를 읽는 곳이 없습니다** — `/health` 도 대시보드도 싣지 않고 `QualityExtra.log_counters` 는 계약만 있고 채우는 코드가 없습니다 (F-33) | `counters()` 를 `/health` 응답이나 대시보드 수집에 싣습니다 | 적재를 일부러 실패시키고 `failed` 가 밖에서 보이는지 | 완료 — 09-22 `main.create_app()` 이 `service.counters` 를 지표 수집기에 등록해 `/metrics` 의 `reco_internal_events_total{key=...}` 로 나갑니다(`evaluation/monitor.py` 의 `InternalCounters`). `fail` · `error` 가 든 키가 늘면 관리자 페이지와 경보 `RecoSwallowedFailures` 가 critical 로 띄웁니다. `/health` 에는 싣지 않았습니다 — 헬스체크는 몇 초마다 불려 읽는 사람이 없습니다 |
 | M-08 | 손잡이 정본 결정 | `candidate_limit`·`explore_pool_size`·`propensity_mc` 가 `Settings` 와 `RankingPolicy` 두 곳에 같은 값으로 있고 **엔진은 `RankingPolicy` 만 읽습니다.** `.env` 로 바꿔도 아무 일이 없고 에러도 없습니다 (F-32, N-02) | 한쪽을 정본으로 정합니다. `Settings` 쪽이면 `RankingPolicy` 가 그 값을 받아 만들어지도록 바꿉니다 | `.env` 값을 바꿨을 때 `trace.params` 의 값이 따라 바뀜 | 대기 |
 | M-09 | 합성 피처 격리 확인 | `retrieve_for_user` 가 `feature_version LIKE 'test-%'` 를 뺍니다. 실 DB 없이는 그 필터가 도는지 확인할 수 없습니다 | 합성 행을 넣고 서빙 조회에 섞이지 않는지 실측합니다 | `make ddl-test` 통과. `include_test=false` 로 조회했을 때 합성 행이 0건 | 대기 |
 | M-10 | `f_time_fit` 재정의 판단 | 후보 조회가 `cook_minutes <= p_max_minutes` 를 이미 걸러서 살아남은 후보는 **전부 1.0** 입니다. 가중치 0.03 이 순위를 못 바꿉니다 (F-27, N-13) | 상한 대비 여유분을 재는 쪽으로 바꾸거나, 가중치를 `f_pantry_use` 로 옮깁니다. 값을 바꾸는 결정이라 W3 가중치 학습과 함께 정합니다 | 실데이터 260건 이상에서 값 종류가 2 이상 | 대기 |
