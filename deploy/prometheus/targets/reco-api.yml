@@ -1,0 +1,10 @@
+# 긁어 갈 대상. 고치면 30초 안에 반영된다 (재시작 불필요).
+#
+#   reco-api:8000               compose 의 앱 컨테이너 (`make up-app`)
+#   host.docker.internal:8000   호스트에서 `uv run uvicorn ...` 으로 띄운 개발 서버
+#
+# 둘을 함께 적으면 꺼져 있는 쪽이 계속 down 으로 떠서 경보가 울린다. 쓰는 것 하나만 둔다.
+- targets:
+    - reco-api:8000
+  labels:
+    service: reco-api
