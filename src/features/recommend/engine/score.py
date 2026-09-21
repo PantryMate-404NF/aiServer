@@ -18,6 +18,42 @@ from features.recommend.enums import DEFAULT_WEIGHTS
 from features.recommend.policy import RankingPolicy
 from features.recommend.stage import Candidate, ScoredCandidate
 
+_MASK32 = 0xFFFFFFFF
+
+
+def tie_break(user_id: int, recipe_id: int) -> int:
+    """같은 점수인 후보의 순서. 사용자마다 다르고, 같은 사용자에게는 언제나 같습니다.
+
+    09-21 까지는 동점을 `recipe_id` 가 갈랐습니다. 실데이터에서 그것이 결함이 됐습니다 —
+    취향이 없는 사용자는 개인화 16칸의 경계 점수에 9~14건이 동점으로 걸리는데, 그중 누가
+    들어갈지를 번호가 정하니 **번호가 낮은 레시피가 모든 사용자에게 언제나 이깁니다.**
+    뒷번호 레시피는 점수가 같아도 영영 노출되지 않습니다. 에러는 없습니다.
+
+    동점은 지금 가진 근거로는 정말 같은 것이므로, 공정한 답은 돌아가며 보여 주는 것입니다.
+    다만 난수를 쓰면 안 됩니다 — 개인화 칸은 같은 요청에 같은 답을 내야 하고(TC-5-1),
+    로그의 값만으로 목록이 재현돼야 합니다. 그래서 `user_id` 와 `recipe_id` 만으로 정합니다.
+
+    주의: 파이썬의 `hash()` 를 쓰지 않습니다. 프로세스마다 시드가 달라(PYTHONHASHSEED)
+       재시작할 때마다 순서가 바뀌고, 어제 로그의 목록을 오늘 재현하지 못합니다. 아래는
+       murmur3 의 마무리 섞기(fmix32)이며 정수 연산뿐이라 어디서 돌려도 같은 값입니다.
+    """
+    x = ((user_id & _MASK32) * 0x9E3779B1 + (recipe_id & _MASK32)) & _MASK32
+    x ^= x >> 16
+    x = (x * 0x85EBCA6B) & _MASK32
+    x ^= x >> 13
+    x = (x * 0xC2B2AE35) & _MASK32
+    x ^= x >> 16
+    return x
+
+
+def order_key(item: ScoredCandidate, user_id: int) -> tuple[float, int, int]:
+    """점수 내림차순, 동점은 `tie_break`. 마지막 `recipe_id` 는 해시가 겹칠 때의 안전판입니다.
+
+    정렬이 두 곳(`score_all` · `rerank.rerank`)에 있어 키를 여기 하나로 둡니다. 따로 두면
+    한쪽만 바뀌어도 에러가 나지 않습니다 (D-27).
+    """
+    return (-item.score, tie_break(user_id, item.recipe_id), item.recipe_id)
+
 
 def weighted_score(features: Mapping[str, float | None], weights: Mapping[str, float]) -> float:
     """측정 가능한 피처만으로 가중 평균을 냅니다. 하나도 없으면 0 입니다."""
@@ -98,7 +134,7 @@ def score_all(
     *,
     max_missing: int | None = None,
 ) -> list[ScoredCandidate]:
-    """후보 전체를 점수 내림차순으로. 같은 점수면 recipe_id 순으로 고정합니다.
+    """후보 전체를 점수 내림차순으로. 같은 점수면 사용자별 안정 순서입니다(`tie_break`).
 
     `recipes` 에 없는 후보는 레시피 피처를 못 읽은 것이므로 빈 피처로 채웁니다.
     여기서 빼지 않는 이유는 ① 이 이미 고른 후보를 ② 가 다시 거르면 왜 빠졌는지를 두 곳에서
@@ -117,7 +153,7 @@ def score_all(
         )
         for candidate in candidates
     ]
-    scored.sort(key=lambda item: (-item.score, item.recipe_id))
+    scored.sort(key=lambda item: order_key(item, ctx.user_id))
     return scored
 
 
