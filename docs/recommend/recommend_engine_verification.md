@@ -4,7 +4,7 @@
 
 **적용 대상**: 수정 여부를 결정하는 유재현과 수정을 반영할 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 11.9.0 · **최종 수정**: 2026-09-21 · **작성자**: 유재현
+**버전**: 11.10.0 · **최종 수정**: 2026-09-21 · **작성자**: 유재현
 
 ---
 
@@ -1180,3 +1180,34 @@ GET /health (키 없이)            → 401
 ```
 
 라우터만 띄우면 검증 실패가 422 에 이유가 실려 나옵니다. 실 앱은 `main.handle_missing_field` 가 400 · 빈 본문으로 바꿉니다. **명세에는 실 앱의 동작을 적었습니다.**
+
+### 21.15 백엔드 회신 반영 — 검증 실패 400 의 본문 (2026-09-21 추가)
+
+9.31 세션. 백엔드가 API 명세(Notion 사본)에 회신을 달았습니다. 읽을 수 있었던 것은 셋입니다 — ① 검증 실패 응답에 이유를 실어 달라(모르는 필드 하나로 요청 전체가 400 이 되기 때문) ② 인기 신호는 스크랩 수를 즉시 제공할 수 있고 조회수는 레시피 테이블에 컬럼을 추가해 보겠다 ③ 3.1 재료 사전은 공통 응답 래퍼 없이 명세의 구조 그대로 응답하겠다. 8절의 나머지 다섯 행에도 댓글이 하나씩 달려 있으나 받은 화면에서는 접혀 있어 내용을 읽지 못했습니다. 명세에는 읽은 것만 적었습니다.
+
+| ID | 발견 | 실험 근거 | 처리 |
+|---|---|---|---|
+| F-125 | 400 의 본문이 비어 있어 백엔드가 원인을 알 수 없음 | 21.14 에서 확인한 대로 실 앱은 검증 실패를 400 · 빈 본문으로 냈습니다. 추천 계약은 전 모델이 `extra="forbid"` 라 오타나 합의 전 필드 하나로 요청 전체가 거부되는데, 어느 필드인지는 AI 서버 로그에만 남았습니다. 백엔드가 같은 점을 지적했습니다 | D-55. 영수증 경로를 뺀 나머지는 `ValidationErrorOut` 을 싣습니다. 검사 4건 추가 |
+
+코드를 고친 것은 ① 하나입니다. ② 와 ③ 은 아직 없는 동기화 코드가 읽을 모양을 정한 것이라 명세(2.1.0)에만 반영했습니다.
+
+고친 뒤 실 앱(`main.create_app()`)을 띄워 받은 응답입니다.
+
+```text
+POST /v1/recommend   pantry · allergies 동봉       → 400  fields: pantry extra_forbidden · allergies extra_forbidden
+POST /v1/recommend   user_id 없음 · top_k 500      → 400  fields: user_id missing · top_k less_than_equal
+POST /v1/events      시간대 없는 occurred_at       → 400  fields: events.0.occurred_at value_error
+POST /v1/onboarding  목록에 없는 음식              → 400  fields: picks value_error (문구에 그 이름)
+POST /v1/ocr/receipt receipt_id 없음               → 400  본문 없음 (영수증 계약 그대로)
+```
+
+본문에는 pydantic 오류의 `input`(보낸 값 그대로)을 싣지 않습니다. 보낸 문자열이 응답에 없다는 것을 검사로 박았습니다(`test_the_400_body_does_not_echo_what_was_sent`). 검증기가 문구에 직접 적은 값(목록에 없는 음식 이름)은 실립니다 — 그 값이 곧 사유입니다.
+
+```text
+uv run ruff check . · format --check .        → 0 (179 files)
+uv run python -m pytest tests/unit            → 0 (446 passed, coverage 92.79%)
+python tests/unit/recommend/test_contract.py  → 0 (99건)
+mypy 1.11.0 순수 파이썬 (우회로)               → 1 (68 files, 2건 — serendipity.py:216 · repository.py:299)
+```
+
+mypy 의 2건은 둘 다 main 에 이미 있는 줄이고 이번에 바꾼 파일에서는 0건입니다. 잠금 파일의 판(2.3.1)은 이 PC 에서 돌리지 못했습니다(E-18). 목업 평가 · 시뮬 시나리오 · 실데이터 종단은 이 세션에서 다시 돌리지 않았습니다 — 바뀐 것이 요청 검증 실패의 응답 본문뿐이라 그 경로를 지나지 않습니다.
