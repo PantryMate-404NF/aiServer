@@ -227,7 +227,8 @@ for label, kw in [
 
 # ── 오타 방지 (extra=forbid) ─────────────────────────────────────
 try:
-    RecommendRequest(user_id=1, topk=20)  # top_k 오타
+    # 필수 필드는 채운다 — 비워 두면 오타가 아니라 누락 때문에 거부돼 이 검사가 헛돈다.
+    RecommendRequest(user_id=1, pantry=[], allergies=[], topk=20)  # top_k 오타
     check("알 수 없는 필드를 거부한다", False)
 except ValidationError:
     check("알 수 없는 필드를 거부한다", True)
@@ -401,7 +402,7 @@ try:
     from deps import INTERNAL_API_KEY_HEADER
 
     _c = TestClient(_app, headers={INTERNAL_API_KEY_HEADER: get_settings().internal_api_key})
-    _r = _c.post("/v1/recommend", json={"user_id": 1, "top_k": 20})
+    _r = _c.post("/v1/recommend", json={"user_id": 1, "top_k": 20, "pantry": [], "allergies": []})
     check("🔴 mock 실호출이 200 을 돌려준다 (계약과 구현이 일치)", _r.status_code == 200)
     if _r.status_code == 200:
         _d = _r.json()
@@ -587,7 +588,9 @@ try:
     _c2 = TestClient(_app2, headers={INTERNAL_API_KEY_HEADER: get_settings().internal_api_key})
     _pos = set()
     for _u in range(1, 60):
-        _d2 = _c2.post("/v1/recommend", json={"user_id": _u, "top_k": 8}).json()
+        _d2 = _c2.post(
+            "/v1/recommend", json={"user_id": _u, "top_k": 8, "pantry": [], "allergies": []}
+        ).json()
         _pos |= {i["final_rank"] for i in _d2["items"] if i["is_exploration"]}
     check(f"🔴 탐색 아이템이 여러 위치에 퍼진다 ({len(_pos)}종)", len(_pos) >= 5)
 
@@ -618,7 +621,7 @@ check(
 #    422 여야 할 것이 500 이 된다 — 09-03 에 실제로 그랬다.
 _ok = False
 try:
-    RecommendRequest(user_id=1, session_id="x-1-bad")
+    RecommendRequest(user_id=1, pantry=[], allergies=[], session_id="x-1-bad")
 except ValidationError:
     _ok = True
 check("요청 계약이 잘못된 접두어를 **입력에서** 거부한다", _ok)
@@ -631,7 +634,7 @@ check("이벤트 계약이 잘못된 접두어를 **입력에서** 거부한다"
 for _sid in ("c-1-a", "g-1-b", "d-1-c"):
     _ok2 = True
     try:
-        RecommendRequest(user_id=1, session_id=_sid)
+        RecommendRequest(user_id=1, pantry=[], allergies=[], session_id=_sid)
     except ValidationError:
         _ok2 = False
     check(f"{_sid[:2]} 접두어 허용", _ok2)

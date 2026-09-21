@@ -52,8 +52,8 @@ from datetime import datetime
 from time import perf_counter
 from uuid import UUID
 
+from features.recommend.engine import dish, rerank, score
 from features.recommend.engine import persona as persona_engine
-from features.recommend.engine import rerank, score
 from features.recommend.engine.context import CorpusStats, RecipeFeature, UserContext
 from features.recommend.engine.persona import Persona, TasteEvent, TasteProfile
 from features.recommend.engine.taste import FlavorVector
@@ -370,6 +370,9 @@ def rank_candidates(
 
     ① 이 준 후보 가운데 레시피 피처가 없는 것과 중복은 점수를 매기지 않고 세어 추적의
     `filters` 에 남깁니다. 피처가 없는 후보는 갖춘 재료 하나만으로 만점이 되어 1위로 나갑니다.
+
+    같은 요리의 판본은 재정렬 앞에서 하나로 줄입니다(`engine/dish.py`). 재정렬과 탐색 규격이
+    **같은 목록**을 보도록 여기서 줄입니다 — 재정렬 안에서 줄이면 추적의 부족분이 실제와 갈립니다.
     """
     _validate_weights(weights)
     rng = random.Random(rng_seed)  # noqa: S311  # 재현용 시드 RNG. 암호 용도가 아닙니다
@@ -381,12 +384,14 @@ def rank_candidates(
     ranking_ms = _elapsed(started)
 
     started = perf_counter()
-    items = rerank.rerank(scored, recipes, ctx, corpus, policy, rng, top_k=top_k, weights=weights)
+    # `score_all` 이 순위 순서로 돌려주므로 남는 판본은 이 사용자에게 점수가 가장 높은 것입니다.
+    distinct = dish.collapse_versions(scored, recipes, corpus.ingredient_names, policy.max_per_dish)
+    items = rerank.rerank(distinct, recipes, ctx, corpus, policy, rng, top_k=top_k, weights=weights)
     rerank_ms = _elapsed(started)
 
     n_explore = sum(1 for item in items if item.is_exploration)
     # 재정렬이 쓴 것과 같은 규격입니다. 부족분과 폴백을 여기서 따로 정하면 로그가 갈라집니다.
-    spec = rerank.exploration_spec(scored, ctx, policy, len(items))
+    spec = rerank.exploration_spec(distinct, ctx, policy, len(items))
     # 후보가 모자라 탐색이 줄어든 만큼입니다. 0 이 아니면 ① 이 덜 가져온 것입니다.
     shortfall = max(0, spec.count - n_explore)
     if shortfall:
@@ -431,7 +436,8 @@ def rank_candidates(
             latency_ms=rerank_ms,
             strategy="mmr+mixed-exploration",
             dropped={
-                "mmr_or_cap": max(0, len(scored) - len(items)),
+                "same_dish": len(scored) - len(distinct),
+                "mmr_or_cap": max(0, len(distinct) - len(items)),
                 "explore_shortfall": shortfall,
             },
             params=params,

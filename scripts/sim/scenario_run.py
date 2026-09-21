@@ -98,7 +98,10 @@ def main() -> int:
         print(f"[1] health: {health}")
 
     sid = f"d-{a.user}-{datetime.now(tz=UTC):%Y%m%d%H%M}"
-    req = {"user_id": a.user, "session_id": sid, "top_k": 20, "include_trace": True}
+    # 냉장고와 알레르기는 요청에 싣는 것이 계약입니다(2026-09-21). 이 스크립트는 DB 에 넣어 둔
+    # 시드로 도는 옛 경로를 보므로 둘 다 빈 배열로 명시합니다 — 빼면 400 입니다.
+    bundled = {"pantry": [], "allergies": []}
+    req = {"user_id": a.user, "session_id": sid, "top_k": 20, "include_trace": True, **bundled}
     before = api.call("POST", "/v1/recommend", req)
     print(f"[2] recommend(warm={a.user}) model={before['model_version']} n={len(before['items'])}")
     for rank, (rid, title) in enumerate(top(before["items"]), 1):
@@ -141,7 +144,7 @@ def main() -> int:
     if moved == 0:
         print("     변동 없음 — M-01(라우터 mock)·M-03(이력 미적재) 전환 전이면 정상입니다")
 
-    cold_req = {"user_id": a.cold, "session_id": f"d-{a.cold}-x", "top_k": 20}
+    cold_req = {"user_id": a.cold, "session_id": f"d-{a.cold}-x", "top_k": 20, **bundled}
     cold = api.call("POST", "/v1/recommend", cold_req)
     same = len({r for r, _ in top(cold["items"])} & {r for r, _ in c})
     print(f"[6] recommend(cold={a.cold}): n={len(cold['items'])}, warm 상위 10 과 겹침 {same}")

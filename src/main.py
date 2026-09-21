@@ -36,6 +36,7 @@ from features.receipt.router import router as receipt_router
 from features.receipt.schema import ReceiptErrorDetail, ReceiptErrorResponse
 from features.recommend.enums import CONTRACT_VERSION
 from features.recommend.router import router as recommend_router
+from features.recommend.schema import validation_error_body
 from infra import gemini
 from utils.errors import ReceiptError
 from utils.logging import add_request_logging, configure_logging
@@ -68,11 +69,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 async def handle_missing_field(request: Request, exc: Exception) -> Response:
     """필드가 빠진 요청은 400 입니다. FastAPI 기본값인 422 는 계약에 없습니다.
 
-    본문을 비웁니다. 이 경계를 넘는 요청은 백엔드가 보낸 것이라 사용자에게 보일 문구가
-    없고, 어느 필드가 빠졌는지는 로그에만 남깁니다.
+    영수증 경로는 본문을 비웁니다. 이 경계를 넘는 요청은 백엔드가 보낸 것이라 사용자에게
+    보일 문구가 없고, 어느 필드가 빠졌는지는 로그에만 남깁니다.
+
+    그 밖의 경로는 어느 필드가 왜 걸렸는지를 본문에 싣습니다(2026-09-21 백엔드 요청).
+    추천 계약은 모르는 필드 하나로 요청 전체를 거부하므로, 본문이 비어 있으면 백엔드가
+    원인을 알 길이 없습니다. 보낸 값을 통째로 되돌려주지는 않습니다(`validation_error_body`).
     """
     logger.warning("request is missing required fields: %s", exc)
-    return Response(status_code=status.HTTP_400_BAD_REQUEST)
+    if request.url.path.startswith(receipt_router.prefix):
+        return Response(status_code=status.HTTP_400_BAD_REQUEST)
+    body = validation_error_body(cast(RequestValidationError, exc).errors())
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST, content=body.model_dump(mode="json")
+    )
 
 
 async def handle_receipt_error(request: Request, exc: Exception) -> JSONResponse:
