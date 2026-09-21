@@ -147,6 +147,30 @@ def test_the_family_list_matches_the_taxonomy_seed() -> None:
     assert normalize_cuisine("한식") == KOREAN
 
 
+@pytest.mark.parametrize(
+    ("sent", "code"),
+    [
+        ("KOREAN", "korean"),
+        ("Western", "western"),
+        ("JAPANESE", "japanese"),
+        ("CHINESE", "chinese"),
+        ("ETC", "asian_other"),
+        ("etc", "asian_other"),
+    ],
+)
+def test_the_backend_type_codes_are_read_in_any_case(sent: str, code: str) -> None:
+    """백엔드는 유형을 대문자로 저장하고 다섯째를 `ETC` 로 적습니다 (2026-09-21 회신)."""
+    assert normalize_cuisine(sent) == code
+    assert OnboardingIn(picks=["불고기"], preferred_cuisines=[sent]).preferred_cuisines == [code]
+
+
+def test_an_unknown_type_code_is_still_refused() -> None:
+    """`ETC` 는 합의한 대응입니다. 그 밖의 모르는 값을 가까운 유형으로 읽지는 않습니다."""
+    assert normalize_cuisine("OTHER") is None
+    with pytest.raises(ValueError, match="preferred_cuisines"):
+        OnboardingIn(picks=["불고기"], preferred_cuisines=["OTHER"])
+
+
 # ── 유형 슬롯 ────────────────────────────────────────────────────
 def test_a_chosen_cuisine_missing_from_the_list_takes_a_slot(
     skewed: tuple[list[ScoredCandidate], dict[int, RecipeFeature]],
