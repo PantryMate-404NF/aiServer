@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 B 추천 엔진을 이어서 작업하는 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 1.19.0 · **최종 수정**: 2026-09-18 · **작성자**: 유재현
+**버전**: 1.20.0 · **최종 수정**: 2026-09-21 · **작성자**: 유재현
 
 ---
 
@@ -17,7 +17,7 @@
 | 브랜치 | `feat/recommend-engine-core`. `origin/main` 병합 완료. `origin/develop-data-part` 는 두 번 병합했습니다 — 658d79a(9.6), def3d5b(9.10). `main` 병합은 PR #8 로 올렸고 **2026-09-11 11:52(KST) kmk9259 가 병합**했습니다(`5846a72`, `80cc832` 까지). 그 뒤 커밋 20개는 **PR #9 로 2026-09-16 병합**했습니다(`77da2bc`, 97 파일 +28,640/-1,897). 리뷰 없이 유재현 지시로 병합했고 규약 예외 둘(라인 상한 초과 · 승인자 0명)은 PR 본문 최상단에 적었습니다. 지금 브랜치와 `origin/main` 은 내용이 같습니다 |
 | 단계 | ② Ranking 과 ③ Re-ranking 을 A 계약 위에서 구현 완료. **취향 페르소나**(고른 음식 → 3축 척도 → 없음, 시간 감쇠·주기 가중, 사용자당 JSON 저장)를 9.11 에서 구현. ① Retrieval·로그 적재·DDL·배치는 A 것이 브랜치에 있습니다. 라우터에 `rank_candidates`·`PersonaService` 를 끼우는 것(M-01·M-15)과 DB 연결이 남았습니다. 9.12 에서 세 방향 복기(명세 · 무음 실패 · 규약)로 구멍 15개(F-36~F-50)를 찾아 14개를 코드로 고쳤습니다(D-34~D-38). 9.15 의 4회차 복기는 20건(F-51~F-70)을 더 찾아 코드 17건·기록 3건으로 닫았습니다(D-39~D-41). 9.16 은 기획측 시뮬 시드(1,600명)를 DB 없이 엔진에 넣는 도구 `scripts/sim/scenario_engine.py` 를 만들어 전원 불변식 · 콜드 → 웜 전환 · 행동·냉장고 반응을 확인했습니다(D-42·D-43). 9.17 은 유재현이 Docker Desktop 을 설치한 뒤 DB 경로(적재 · 검증 쿼리 · `/health` 포함 API 시나리오)까지 통과시켰습니다(D-44). 9.19 는 온보딩에 추가된 **좋아하는 음식 유형** 문항을 계약 → 페르소나 → 목록까지 이었습니다 — 맛 6축에 섞지 않고 재정렬의 유형 슬롯으로 반영합니다(D-45~D-47, F-82~F-89). 9.23 은 A 의 09-17 결정 기록이 B 에 넘긴 5건 — 빈 팬트리 규칙 · Mock 알러지 어휘 · 동결 키 2종 · `occurred_at` · `RecipeFeature` 로더 — 를 처리했습니다(D-48~D-51, F-97~F-106). 백엔드 연동(M-01·M-02·M-04·M-15)은 스키마 회신 뒤로 미룹니다 |
 | 검증 (2026-09-18, 9.23) | ruff check OK · ruff format OK(168 files) · mypy **67 files** OK · `pytest tests/unit` **358 passed / 0 failed** / coverage **91.20%**(새 검사 21건 포함). `test_contract.py` 98건 0(설정값을 채운 환경). 시뮬 시나리오 1,600명 RESULT: PASS(불변식 위반 0, B 집단 800명 전원 첫 조회부터 인기순). 시드 재생성 → 저장소와 `04_user_allergy.sql` 만 다르고 그것을 커밋. 실 DB 대조는 Docker 미기동으로 미실행(E-17) |
-| 다음 행동 | **군집 다양성 반영 방식 결정(N-18, 검증 20.3 의 선택지 4종)** → A 에 중간 벡터 저장·`user_cluster_stat` 배치 요청(G-33) → 클라우드 RDS 회신 반영 — 파라미터 그룹 시간대·역할 3종·keepalive 확인 요청(G-32, I-07) → **백엔드 회신·RDS 적용이 오면 `docs/env_variables.md` 4절 TODO 8줄을 확정해 1.1.0 으로 올리고 클라우드에 재전달(유재현에게 먼저 알림)** → 백엔드 스키마 회신 대기(`docs/backend_schema_request.md` 2.0.0) → 회신에 맞춰 DB 전환 점검표의 연동 항목(M-01·M-02·M-04·M-15) 재작성 후 라우터 실연결 → A 에 F-104~F-106(`judge()` 비결정 · 배정 건수 불일치 · 골든에 `cuisine_family`)과 `enums.py` 주석 수정을 알림(G-31) → 백엔드에 `EventIn.occurred_at` 을 실어 달라고 전달 → 브랜치 PR 은 유재현 지시 전까지 보류. 남은 회의 안건은 `recommend_engine_meeting_agenda.md` 2절 |
+| 다음 행동 | **백엔드에 API 명세 전달(`docs/backend_api_spec.md`) 후 인기도·알레르기·중복 회신 대기(G-34)** → 냉장고 활용도 가중치 결정(N-19) → 군집 다양성 반영 방식 결정(N-18, 검증 20.3 의 선택지 4종) → A 에 중간 벡터 저장·`user_cluster_stat` 배치 요청(G-33) → 클라우드 RDS 회신 반영 — 파라미터 그룹 시간대·역할 3종·keepalive 확인 요청(G-32, I-07) → **백엔드 회신·RDS 적용이 오면 `docs/env_variables.md` 4절 TODO 8줄을 확정해 1.1.0 으로 올리고 클라우드에 재전달(유재현에게 먼저 알림)** → 백엔드 스키마 회신 대기(`docs/backend_schema_request.md` 2.0.0) → 회신에 맞춰 DB 전환 점검표의 연동 항목(M-01·M-02·M-04·M-15) 재작성 후 라우터 실연결 → A 에 F-104~F-106(`judge()` 비결정 · 배정 건수 불일치 · 골든에 `cuisine_family`)과 `enums.py` 주석 수정을 알림(G-31) → 백엔드에 `EventIn.occurred_at` 을 실어 달라고 전달 → 브랜치 PR 은 유재현 지시 전까지 보류. 남은 회의 안건은 `recommend_engine_meeting_agenda.md` 2절 |
 | 병합 정책 | `main` 은 PR 로만 병합합니다(PR #8 `5846a72` · PR #9 `77da2bc`). 브랜치 커밋·push 는 자유. `origin/main` 은 merge 로 따라감(rebase 금지, 01의 2.1). 병합된 브랜치 `feat/recommend-engine-core` 는 01의 2.1 대로 삭제 대상이며, 이어서 쓸지 삭제할지는 유재현이 정합니다 |
 | DB 전환 | `recommend_engine_db_cutover.md` 의 M-01~M-16(M-16 은 음식 유형을 `user_preference` 에서 읽는 일, 09-15 추가). DB 와 닿는 변경을 시작할 때 먼저 엽니다. `tests/unit/recommend/test_db_cutover.py` 가 못을 박아 두어 건너뛰면 검사가 깨집니다 |
 | 갱신 규칙 | 세션마다 1절·3절·9절 갱신. 새 항목은 다음 번호, 번호 재사용 금지. 사람용 서술본 동시 갱신 (2절). **3.3 의 수치는 그 세션의 실행에서 다시 잽니다** — 앞 세션 값을 옮기지 않습니다 (01의 3.4, D-28). 9절의 세션별 수치는 그 시점 기록이므로 고치지 않습니다 |
@@ -273,6 +273,7 @@ uv run ruff check . && uv run python -m mypy src
 | E-15 | 이 PC 에 Docker·postgres 가 없습니다. `/health` 가 `db.healthy()` 로 DB 를 기다려 응답이 없고(F-74) 시뮬 안내서 3-4·3-5 를 돌릴 수 없습니다. `openpyxl` 은 `uv.lock` 에 없습니다(F-72) | DB 없는 단계만 돌리고 못 돌린 것은 못 돌렸다고 적습니다(D-28). API 스크립트는 `--skip-health`. openpyxl 은 `uv pip install openpyxl` 로 이 PC 에만 설치(잠금 밖) |
 | E-16 | Docker Desktop 29.7.2(WSL2 백엔드)·`pgvector/pgvector:pg16` 은 유재현이 관리자 권한으로 설치(2026-09-14 저녁). 이 PC 에 `make` 와 `psql` 은 없습니다 | Makefile 이 부르는 명령을 직접 실행(compose up · `migrate.py` · `test_smoke.py --keep`), 적재는 컨테이너의 psql 을 stdin 으로(`PSQL_VIA_COMPOSE=1`). `deploy/.env` 는 템플릿 복사(값 비어 있어 compose 기본값, `.gitignore` 대상). E-15 의 DB 부재 항목은 해소 |
 | E-17 | Docker Desktop 데몬이 꺼져 있으면 `docker ps` 가 `npipe:////./pipe/dockerDesktopLinuxEngine` 접속 실패로 끝납니다(9.23). 앱을 띄운 뒤 다시 돌려야 하며, 그 세션에서는 로더의 실 DB 대조(19.2절)를 미실행으로 남겼습니다 |
+| E-18 | mypy 를 돌릴 수 없습니다(2026-09-21). `uv run mypy` 는 예전부터 앱 제어 정책에 막혔고(E-01) 우회로였던 `uv run python -m mypy src` 도 `ImportError: DLL load failed while importing internal` 로 실패합니다. `.venv/Scripts/python.exe -m mypy` 도 같습니다. 같은 세션에서 `pytest` 실행 파일도 막혀 `python -m pytest` 로 돌렸습니다. 타입 검사는 정책이 풀릴 때까지 못 돌립니다 |
 
 ---
 
@@ -552,6 +553,19 @@ uv run ruff check . && uv run python -m mypy src
 | 문서 | 안내서 1.2.0(make·psql 없는 PC 절차, id 범위, DB 실행 결과, G-29 보충) · `deploy/seed/sim/README.md` 매핑 · 패키지 사본 동기화(zip 제외) |
 | 검증 | 적재 종료코드 0 · `99_verify` 건수·분포가 기대값과 일치 · `scenario_run.py` PASS(`/health` db true 0.11초, [5] 변동 0 = 전환 전 정상) · `scenario_engine.py` PASS · ruff·format(151)·mypy(62) 0 · `pytest tests/unit` 298 passed / 90.64% |
 | 넘긴 것 | N-16(커밋 범위 — 이제 유재현과 정함) · G-29(DB 없을 때의 대기. DB 있으면 0.11초) |
+
+### 9.27 2026-09-21 - 백엔드 실데이터 검증과 API 명세
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 — "백엔드에서 실증 데이터를 받아 `data/Backend_Data_Dump` 에 두었다. 이제 실제 데이터로 엔진이 잘 동작하는지 테스트하고 수정·조정할 부분을 처리해야 한다. 그리고 우리는 이 DB 에 직접 붙지 않고 API 로 일부를 받아 올 것이라, 어떤 정보가 필요한지와 어떤 결과를 돌려줄지 API 명세까지 필요하다" |
+| 받은 것 | 레시피 21,491 · 재료 사전 148 · 레시피×재료 179,603 · 조리 단계 166,436 · 스크랩 0 · 상품 4,800(별도 스키마). `recipe_id` 최대가 46,552 라 A 의 크롤 46,353 과 같은 원본을 백엔드가 거른 것입니다 |
+| 검증 | 덤프를 엔진 입력으로 바꿔 파이프라인을 끝까지 돌렸습니다. 없는 값은 0 이 아니라 None 으로 두었습니다. 발견 8건(F-111~F-118), 검증 기록 21절 |
+| 가장 큰 것 | ① 재료 매칭만으로는 순위가 안 섭니다 — 후보 500건이 전부 coverage 1.0, 점수 전원 1.000, 상위에 쌈장·흙마늘 손질법(F-111) ② 덤프에 맛이 없지만 **재료에서 복원됩니다** — 148종 중 147종이 우리 맛 시드에 붙고 복원한 μ 가 A 실측과 0.023 안에서 일치(F-113). 복원 뒤 점수가 0.72~0.86 으로 퍼지고 상위가 실제 요리로 바뀌었습니다 |
+| 코드 | `context._difficulty` 신설 — 백엔드의 EASY·NORMAL·HARD 와 A 의 1~5 를 한 함수가 받습니다(F-114). 모르는 값은 None 입니다. 검사 8건 추가 |
+| 명세 | `docs/backend_api_spec.md` 1.0.0 신설. 네 엔드포인트(레시피 동기화 · 재료 사전 · 추천 요청·응답 · 이벤트)와 필드마다 "없으면 무엇이 꺼지는가". 연동 구조는 **레시피 동기화 + 사용자 데이터 동봉** 으로 제안했고 근거는 전량 4.2MB · 재정렬 57.9ms 입니다(F-118) |
+| 넘긴 것 | 백엔드 — 인기도 신호 · `allergen_group` · 중복 레시피 대표 번호(G-34) · 유재현 — 냉장고 활용도 가중치 결정(N-19) · 명세 전달 |
+| 못 한 것 | mypy 를 돌리지 못했습니다(E-18). `pytest` 는 `python -m` 으로 우회해 366건 통과했습니다 |
 
 ### 9.26 2026-09-18 - 군집(k-means) 다양성 검증
 
