@@ -9,7 +9,6 @@ from collections.abc import Callable, Iterable, Sequence
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
 
 import pytest
 
@@ -24,11 +23,10 @@ from features.recommend.engine.context import (
 )
 from features.recommend.engine.persona import derive_persona
 from features.recommend.engine.taste import FlavorVector
-from features.recommend.enums import FEATURE_KEYS, CuisineFamily, UserMode
-from features.recommend.evaluation.record import EvalRecord
+from features.recommend.enums import CuisineFamily
 from features.recommend.policy import RankingPolicy
 from features.recommend.profile_store import load_presented_flavors
-from features.recommend.stage import Candidate, RankedItem
+from features.recommend.stage import Candidate
 
 ROOT = Path(__file__).resolve().parents[3]
 #: 고정 시각. 페르소나의 감쇠·주기 계산이 검사 실행 날짜에 따라 달라지지 않게 합니다.
@@ -281,68 +279,5 @@ def make_context() -> Callable[..., UserContext]:
         }
         fields.update(overrides)
         return UserContext(**fields)
-
-    return build
-
-
-# ─────────────────────────────────────────────────────────────────
-# 평가 파이프라인 픽스처. 노출 항목과 기록을 최소 인자로 만듭니다.
-# ─────────────────────────────────────────────────────────────────
-def _eval_features() -> dict[str, float | None]:
-    """17개 피처 전부를 담습니다. 재료·인기만 값이 있고 나머지는 None 입니다."""
-    base: dict[str, float | None] = dict.fromkeys(FEATURE_KEYS)
-    base.update({"f_coverage": 0.5, "f_missing": 0.5, "f_popularity": 0.5})
-    return base
-
-
-@pytest.fixture
-def make_item() -> Callable[..., Any]:
-    """`RankedItem` 한 개. rank 와 recipe_id 만 주면 결정적 슬롯(propensity 1.0)입니다."""
-
-    def build(rank: int, recipe_id: int | None = None, **kw: object) -> RankedItem:
-        return RankedItem(
-            recipe_id=recipe_id if recipe_id is not None else 100 + rank,
-            missing_count=0,
-            coverage=1.0,
-            features=kw.pop("features", None) or _eval_features(),
-            score=kw.pop("score", 1.0 / rank),
-            final_rank=rank,
-            propensity=kw.pop("propensity", 1.0),
-            **kw,
-        )
-
-    return build
-
-
-@pytest.fixture
-def make_record(make_item: Callable[..., Any]) -> Callable[..., Any]:
-    """`EvalRecord` 한 건. items 를 안 주면 결정적 노출 5개입니다."""
-
-    def build(**kw: object) -> EvalRecord:
-        items = kw.pop("items", None)
-        if (
-            items is None
-        ):  # 빈 목록은 빈 목록입니다. falsy 로 기본값을 주면 no_items 를 검사할 수 없습니다
-            items = [make_item(rank) for rank in range(1, 6)]
-        defaults: dict[str, Any] = {
-            "request_id": uuid4(),
-            "model_version": "reco-b-linear-v0",
-            "config_hash": "cfg0",
-            "warm_alpha": 0.0,
-            "stats_version": 1,
-            "created_at": NOW,
-            "user_hash": "u0",
-            "session_prefix": "c",
-            "user_mode": UserMode.BLENDED,
-            "degraded": False,
-            "total_latency_ms": 20,
-            "items": items,
-            "ingredients": {item.recipe_id: [item.recipe_id, 1] for item in items},
-            "events": [],
-            "user_events": [],
-            "is_simulated": False,
-        }
-        defaults.update(kw)
-        return EvalRecord(**defaults)
 
     return build
