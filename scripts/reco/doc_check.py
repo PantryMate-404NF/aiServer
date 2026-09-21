@@ -349,7 +349,9 @@ def main() -> int:
         from deps import INTERNAL_API_KEY_HEADER
 
         tc = TestClient(app, headers={INTERNAL_API_KEY_HEADER: get_settings().internal_api_key})
-        _rid = tc.post("/v1/recommend", json={"user_id": 7, "top_k": 3}).json()["request_id"]
+        _rid = tc.post(
+            "/v1/recommend", json={"user_id": 7, "top_k": 3, "pantry": [], "allergies": []}
+        ).json()["request_id"]
 
         def _ev(**kw) -> int:
             body = {"user_id": 7, "event_type": "click", "recipe_id": 10001, "request_id": _rid}
@@ -412,7 +414,14 @@ def main() -> int:
                 "잘못된 세션 접두어는 400",
                 lambda: (
                     tc.post(
-                        "/v1/recommend", json={"user_id": 7, "session_id": "s-7-x", "top_k": 2}
+                        "/v1/recommend",
+                        json={
+                            "user_id": 7,
+                            "session_id": "s-7-x",
+                            "top_k": 2,
+                            "pantry": [],
+                            "allergies": [],
+                        },
                     ).status_code
                 ),
                 400,

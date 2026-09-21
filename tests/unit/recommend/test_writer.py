@@ -46,7 +46,7 @@ def mk_user(name: str) -> int:
 
 
 def serve(client, uid: int, **kw):
-    body = {"user_id": uid, "top_k": kw.pop("top_k", 8), **kw}
+    body = {"user_id": uid, "top_k": kw.pop("top_k", 8), "pantry": [], "allergies": [], **kw}
     raw = client.post("/v1/recommend", json=body).json()
     return RecommendRequest(**body), RecommendResponse(**raw)
 

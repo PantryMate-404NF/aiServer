@@ -12,11 +12,13 @@ HTTP 는 `router.py` 가, 계약 모델은 `schema.py` · `stage.py` 가 담당�
 
 from __future__ import annotations
 
+import logging
 import random
 import time
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID, uuid4
 
+from features.recommend.engine import allergy
 from features.recommend.engine.explore import exploration_slots
 from features.recommend.engine.rank import feature_stats, top_reasons
 from features.recommend.engine.reason import build_reason
@@ -50,6 +52,8 @@ from features.recommend.schema import (
     TasteOut,
 )
 from features.recommend.stage import RankedItem, StageInfo, StageTrace, TraceTotals
+
+logger = logging.getLogger(__name__)
 
 SEED = 20260827  # 재현성. Date.now() 류를 응답 생성에 쓰지 않는다
 
@@ -135,6 +139,7 @@ def _trace(
     serving_mode: str = "sim",
     rng_seed: int = 0,
     max_missing_final: int = 2,
+    received: dict[str, int | str] | None = None,
 ) -> StageTrace:
     """🔴 ③ 의 `params` 는 REQUIRED_TRACE_PARAMS 10종을 **전부** 실어야 한다 (S0 ①).
 
@@ -155,7 +160,9 @@ def _trace(
                     "missing_gt_k": 1502,
                     "cooktime_cut": 1042,
                 },
-                params={"max_missing": 2, "staple_added": 28},
+                # 요청에 실려 온 냉장고·알레르기를 받은 그대로. 목업의 레시피에는 재료가 없어
+                # 거르지는 못하지만, 백엔드가 무엇이 도착했는지는 여기서 확인할 수 있다.
+                params={"max_missing": 2, "staple_added": 28, **(received or {})},
             ),
             StageInfo(
                 name=Stage.RANKING,
@@ -333,6 +340,10 @@ def build_recommendation(req: RecommendRequest) -> RecommendResponse:
             it.team = "A" if rng.random() < 0.5 else "B"
 
     items = scored
+    # 모르는 라벨은 버리지 않고 남긴다 — 조용히 버리면 그 사용자는 보호받지 못하는데 200 이다.
+    unknown_labels = list(allergy.resolve(req.allergies, {}, {}).unknown_labels)
+    if unknown_labels:
+        logger.warning("unknown allergy labels user_id=%s: %s", req.user_id, unknown_labels)
     ms = max(1, int((time.perf_counter() - t0) * 1000) + 28)  # 실측 p95 근사
     mode = UserMode.COLD if req.user_id % 3 else UserMode.BLENDED
     rid = uuid4()
@@ -347,6 +358,12 @@ def build_recommendation(req: RecommendRequest) -> RecommendResponse:
         serving_mode="sim",
         rng_seed=SEED + req.user_id,
         max_missing_final=req.max_missing,
+        # 추적의 값은 낱값만 받는다(`StageInfo.params`). 라벨은 쉼표로 이어 한 줄로 남긴다.
+        received={
+            "pantry_received": len(req.pantry),
+            "allergy_labels": ", ".join(req.allergies),
+            "allergy_labels_unknown": ", ".join(unknown_labels),
+        },
     )
 
     _LOGS[rid] = RecommendationLogOut(
@@ -358,7 +375,17 @@ def build_recommendation(req: RecommendRequest) -> RecommendResponse:
         config_hash=_config_hash(weights),
         warm_alpha=0.0,  # mock 은 콜드 유저만 흉내낸다
         session_id=req.session_id or f"g-{req.user_id}-000000000000",
-        pantry_snapshot=[i[0] for i in _INGREDIENTS[:5]],
+        pantry_snapshot=[item.ingredient_id for item in req.pantry],
+        pantry_detail=[
+            {
+                "ingredient_id": item.ingredient_id,
+                "expires_at": None if item.expires_at is None else item.expires_at.isoformat(),
+                # 목업은 소비기한을 추정하지 않는다. 직접 받은 것만 "user" 다.
+                "expires_at_source": "unknown" if item.expires_at is None else "user",
+            }
+            for item in req.pantry
+        ],
+        # 막힌 재료 id. 목업에는 재료 사전이 없어 라벨을 id 로 풀 수 없다 — 라벨은 추적에 있다.
         allergy_snapshot=[],
         stage_trace=trace,
         served=[it.recipe_id for it in items],

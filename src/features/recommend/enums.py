@@ -105,6 +105,14 @@ CUISINE_LABELS: dict[str, str] = {
 #:    온보딩은 그것을 거부한다 — 조용히 다른 유형이 되면 사용자가 고르지 않은 음식이 올라온다.
 _CUISINE_BY_LABEL: dict[str, str] = {label: code for code, label in CUISINE_LABELS.items()}
 
+#: 백엔드가 저장하는 유형 코드 가운데 우리 코드와 철자가 다른 것 (2026-09-21 백엔드 회신).
+#: 백엔드는 `KOREAN · WESTERN · JAPANESE · CHINESE · ETC` 다섯을 대문자로 저장하고, 그 화면의
+#: 다섯째 선택지가 아시안이라 `ETC` 를 아시안으로 읽어 달라고 했습니다. 대소문자는 아래에서
+#: 소문자로 맞추므로 여기에는 철자가 다른 것만 둡니다.
+#: 주의: 이것은 추측이 아니라 **합의한 대응**입니다. 위의 "가까운 유형으로 추측하지 않는다" 는
+#:    그대로입니다 — 여기 없는 값은 여전히 None 입니다.
+_CUISINE_ALIASES: dict[str, str] = {"etc": CuisineFamily.ASIAN_OTHER.value}
+
 
 def normalize_cuisine(value: str) -> str | None:
     """음식 유형 한 개를 코드로 맞춥니다. 모르는 값은 None 입니다."""
@@ -113,7 +121,7 @@ def normalize_cuisine(value: str) -> str | None:
         return None
     if text in _CUISINE_BY_LABEL:
         return _CUISINE_BY_LABEL[text]
-    lowered = text.lower()
+    lowered = _CUISINE_ALIASES.get(text.lower(), text.lower())
     return lowered if lowered in CUISINE_LABELS else None
 
 

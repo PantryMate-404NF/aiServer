@@ -50,8 +50,33 @@ class _Base(BaseModel):
 # ─────────────────────────────────────────────────────────────────
 # POST /v1/recommend
 # ─────────────────────────────────────────────────────────────────
+class RecommendPantryItem(_Base):
+    """추천 요청에 실려 오는 냉장고 한 칸 (2026-09-21 백엔드 합의).
+
+    수량과 단위는 받지 않는다. 백엔드가 관리하지 않고(기능 명세상 MVP 범위 밖) 엔진도 쓰지 않는다.
+    `PUT /v1/users/{user_id}/pantry` 의 `PantryItemIn` 과 다른 모델인 이유다.
+    """
+
+    ingredient_id: int
+    #: 구매일. `expires_at` 이 없을 때 재료별 소비기한을 더해 추정하는 기준점이다.
+    purchased_at: date | None = None
+    #: 소비기한(use-by). 사용자가 직접 넣은 값이면 추정보다 우선한다.
+    expires_at: date | None = None
+
+
 class RecommendRequest(_Base):
     user_id: int
+    #: 🔴 **둘 다 필수다** (2026-09-21 백엔드 제안). 기본값을 두면 백엔드의 버그로 필드가 빠져도
+    #:    200 이 나가고, 알레르기 재료가 섞인 목록이 에러 없이 서빙된다. "없음" 은 빈 배열로
+    #:    **명시**한다 — 빠진 것과 없는 것을 구분하기 위해서다. 빠지면 400 이다.
+    #: 냉장고와 알레르기의 정본은 백엔드 DB 다. AI 쪽에 사본을 두면 동기화가 한 번 실패했을 때
+    #: 옛 값으로 추천이 나가는데 에러가 없다. 그래서 요청마다 받는다.
+    pantry: list[RecommendPantryItem] = Field(
+        max_length=500, description="사용자가 직접 넣은 재료만. 상비 재료는 서버가 더한다"
+    )
+    allergies: list[str] = Field(
+        max_length=50, description='백엔드 DB 의 한글 라벨 그대로 (["우유", "땅콩"]). 없으면 []'
+    )
     #: 주의: 소급 불가 — impression 은 서버가 이 요청에서 자동 기록하므로(3-2),
     #:    여기 없으면 impression 전량(이벤트의 95%)에 세션이 비게 된다.
     #: 주의: 패턴을 입력에서 검증한다. 없으면 잘못된 값이 그대로 통과해

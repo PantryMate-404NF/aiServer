@@ -4,7 +4,7 @@
 
 **적용 대상**: `src/features/recommend/` 를 DB 에 연결하는 인원과 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 1.6.0 · **최종 수정**: 2026-09-18 · **작성자**: 유재현
+**버전**: 1.7.0 · **최종 수정**: 2026-09-21 · **작성자**: 유재현
 
 ---
 
@@ -48,7 +48,7 @@ uv run pytest tests/unit/recommend/test_db_cutover.py --no-cov
 
 | ID | 항목 | 지금 상태 | 전환할 때 하는 일 | 확인 근거 | 상태 |
 |---|---|---|---|---|---|
-| M-01 | 라우터 실연결 | `router.py` 의 모든 엔드포인트가 `engine/mock.py` 를 부릅니다. 응답은 200 이고 피처·추적·사유가 다 채워져 실엔진과 구분되지 않습니다 (F-29) | `/v1/recommend` 를 `service.rank_candidates` 로 바꿉니다. M-02·M-05·M-06 을 같은 변경에서 함께 처리합니다 | 실호출 응답의 `model_version` 이 `policy.POLICY_ID` 와 같고, `trace.stages` 가 `service` 가 만든 것과 일치 | 대기 |
+| M-01 | 라우터 실연결 | `router.py` 의 모든 엔드포인트가 `engine/mock.py` 를 부릅니다. 응답은 200 이고 피처·추적·사유가 다 채워져 실엔진과 구분되지 않습니다 (F-29) | `/v1/recommend` 를 `service.rank_candidates` 로 바꿉니다. M-02·M-05·M-06 을 같은 변경에서 함께 처리합니다. 09-21 부터 냉장고와 알레르기는 요청에 실려 옵니다(D-57) — `req.pantry` 를 `build_context(own_pantry_ids=...)` 로, `req.allergies` 를 `allergy.resolve()` 와 `blocks()` 로 잇습니다. 목업은 받은 값을 남기기만 하므로, 잇지 않고 목업만 떼면 **알레르기를 받고도 거르지 않는 서버**가 됩니다 | 실호출 응답의 `model_version` 이 `policy.POLICY_ID` 와 같고, `trace.stages` 가 `service` 가 만든 것과 일치 | 대기 |
 | M-02 | 후보 조회 연결 | 후보를 Mock 카탈로그와 픽스처가 만듭니다. `repository.retrieve()` 는 있으나 서빙 경로가 부르지 않습니다 | `retrieve(user_id, max_missing, max_minutes, limit)` 산출을 `rank_candidates` 에 넣습니다. 완화 계획은 `engine/candidate.py` 가 그대로 냅니다 | `make smoke-py` 통과. 요청당 DB 왕복이 1회인지 확인 | 진행 — 09-18 `repository.load_recipe_features()` 가 후보 id 로 피처 행을 읽습니다(D-50, F-102). 라우터는 아직 안 부르고, 실 DB 대조는 Docker 미기동으로 미실행(E-17) |
 | M-03 | 사용자 이력 적재 | `UserHistory` 가 항상 비어 있어 `f_ing_pref`(0.11)·`f_cooccur`(0.10)가 **전건 None** 입니다. 클러스터 관측도 비어 Thompson 이 균등 사전분포로만 돕니다 (F-15, F-28) | `user_ingredient_pref`·`event_log`·`user_cluster_stat` 에서 읽는 저장소 함수를 만들고(조리 레시피의 재료 집합과 제목 `cooked_titles` 포함 — 없으면 "지난번 만드신 X 와 비슷해요" 사유가 나오지 않습니다) `build_context` 에 넣습니다 | 12 페르소나 재실행에서 두 피처가 None 이 아니고, 죽은 가중치 합이 0.26 → 0.05 로 줄어듦 | 대기 |
 | M-04 | 코퍼스 통계 로드 | `CorpusStats.flavor_mean` 과 `ingredient_idf` 를 Mock 카탈로그에서 계산합니다. IDF 의 원천인 `ingredient.freq_count` 는 A 가 채우는 배치를 만들었습니다(`def3d5b`, `make freq-build`) | `feature_stats.flavor_mu` 와 실제 IDF 를 읽습니다. `stats_version` 을 함께 받아 로그에 싣습니다 (M-05) | 맛 코사인이 실제 코퍼스 평균을 차감하는지, `stats_version` 이 로그에 남는지 | 진행 — 09-18 `repository.load_corpus_stats()` 가 μ · IDF · `stats_version` 을 읽어 `CorpusStats.stats_version` 에 둡니다(D-50). μ 는 실값(`stats_version` 7)이라 전환 즉시 `f_taste` 가 켜집니다. 라우터 미연결, 실 DB 대조 미실행(E-17) |
