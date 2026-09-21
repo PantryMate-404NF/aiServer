@@ -4,7 +4,7 @@
 
 **적용 대상**: 수정 여부를 결정하는 유재현과 수정을 반영할 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 11.8.0 · **최종 수정**: 2026-09-21 · **작성자**: 유재현
+**버전**: 11.9.0 · **최종 수정**: 2026-09-21 · **작성자**: 유재현
 
 ---
 
@@ -1138,3 +1138,45 @@ uv run python scripts/sim/scenario_engine.py  → 0 (RESULT: PASS)
 순수 파이썬 mypy 1.11 (21.7 의 우회로)         → 68 files · 보고 2건, 둘 다 21.7 의 기존 2건. 새 코드에서 나온 것 0건
 실데이터 종단 (스크래치패드 하네스)            → 검사 87건 통과 · 실패 0
 ```
+
+### 21.13 main · A 브랜치 병합 뒤 재검증 (2026-09-21 추가)
+
+9.30 세션. `origin/main`(12 커밋)과 `origin/develop-data-part`(32 커밋)를 합쳤습니다. **순서가 중요했습니다** — `main` 이 평가 파이프라인을 되돌렸는데(PR #14) A 브랜치는 그 롤백을 아직 받지 않았습니다. `main` 을 먼저 합쳐야 되돌린 코드가 다시 살아나지 않습니다. 병합 뒤 `evaluation/` 에 `__init__.py` · `threshold.py` 만 남고 `test_eval_*` 0건인 것을 확인했습니다. 충돌은 `docs/README.md` 의 버전 줄 하나였습니다.
+
+| ID | 발견 | 실험 근거 | 처리 |
+|---|---|---|---|
+| F-124 | 알레르기 라벨 표가 두 곳에 생겨 셋이 어긋남 | A 가 같은 기간에 `enums.ALLERGEN_LABELS`(한글 라벨 → 군)와 `mollusk` 군을 넣었고, 제 `engine/allergy.py` 가 같은 표를 따로 들고 있었습니다. 대조하니 ① 식약처 표기 `알류(가금류)` 와 ② `조개류(굴,전복,홍합 포함)` 를 제 모듈은 **모르는 라벨로 돌려보냈고** ③ `오징어` 를 계약은 `mollusk`, 제 모듈은 `shellfish` 로 보냈습니다. 백엔드가 공식 표기를 보내면 달걀이 안 막힙니다 | 라벨 → 군 의 정본을 `enums.ALLERGEN_LABELS` 하나로. 제 모듈은 그 위에 동의어 · 군별 이름·제목 규칙만 얹고 `_build_rules()` 에서 정본이 언제나 이깁니다. 두족류는 A 의 결정대로 갑각류와 분리합니다. 검사 5건 — 그중 `test_the_contract_vocabulary_always_wins` 가 어긋남을 다시 못 생기게 합니다 |
+
+A 가 고친 것을 제 쪽 수단으로 확인했습니다.
+
+| 제가 넘긴 것 | A 의 처리 | 확인 |
+|---|---|---|
+| F-104 `judge()` 가 해시 시드에 따라 다른 계열 | `7ac6191` — 태그 집합이 아니라 규칙 순서로 순회 | 결정 기록 7절의 재현 명령을 다시 돌려 시드 0·1·2 모두 `korean` |
+| F-106 골든 픽스처에 계열 칸 없음 | `5fde3cc` — `title` · `cuisine_family` · `dish_type` · `season_vec` 추가 | 로더의 유형 변환을 실 행으로 검사(`test_the_golden_cuisine_column_reaches_the_engine_model`). 30건 중 배정 15 · 비움 15 |
+| F-105 배정 건수 28,604 대 28,621 | 시드 주석은 28,621 그대로 | 미해결. 결정론이 고쳐졌으니 다시 세면 하나로 모입니다 |
+
+병합으로 달라진 수치가 A 의 결정을 그대로 반영합니다 — 새우가 막는 재료 9 → 7종(오징어·진미채가 `mollusk` 로 분리), 밀 13 → 14종(돈가스소스 추가, `dc87683`).
+
+```text
+uv run ruff check . · format --check .        → 0 (179 files)
+uv run python -m pytest tests/unit            → 0 (442 passed, coverage 92.74%)
+python tests/unit/recommend/test_contract.py  → 0 (99건)
+uv run python scripts/eval_recommend_mock.py  → 0
+uv run python scripts/sim/scenario_engine.py  → 0 (RESULT: PASS)
+실데이터 종단 (스크래치패드 하네스)            → 검사 87건 통과 · 실패 0
+```
+
+### 21.14 실 앱의 경계 동작 (2026-09-21 추가)
+
+API 명세 2.0.0 을 쓰면서 추측하지 않고 `main.create_app()` 을 띄워 확인한 것입니다.
+
+```text
+키 없이 · 틀린 키                → 401  {"detail":"Unauthorized"}
+필수 필드 빠짐                   → 400  본문 없음
+모르는 필드 (예: pantry)         → 400  본문 없음     ← 백엔드가 합의 전 필드를 보내면 요청 전체가 실패합니다
+정상                            → 200
+GET /health/live (키 없이)       → 200
+GET /health (키 없이)            → 401
+```
+
+라우터만 띄우면 검증 실패가 422 에 이유가 실려 나옵니다. 실 앱은 `main.handle_missing_field` 가 400 · 빈 본문으로 바꿉니다. **명세에는 실 앱의 동작을 적었습니다.**

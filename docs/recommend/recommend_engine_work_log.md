@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 B 추천 엔진을 이어서 작업하는 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 1.22.0 · **최종 수정**: 2026-09-21 · **작성자**: 유재현
+**버전**: 1.23.0 · **최종 수정**: 2026-09-21 · **작성자**: 유재현
 
 ---
 
@@ -17,7 +17,7 @@
 | 브랜치 | `feat/recommend-engine-core`. `origin/main` 병합 완료. `origin/develop-data-part` 는 두 번 병합했습니다 — 658d79a(9.6), def3d5b(9.10). `main` 병합은 PR #8 로 올렸고 **2026-09-11 11:52(KST) kmk9259 가 병합**했습니다(`5846a72`, `80cc832` 까지). 그 뒤 커밋 20개는 **PR #9 로 2026-09-16 병합**했습니다(`77da2bc`, 97 파일 +28,640/-1,897). 리뷰 없이 유재현 지시로 병합했고 규약 예외 둘(라인 상한 초과 · 승인자 0명)은 PR 본문 최상단에 적었습니다. 지금 브랜치와 `origin/main` 은 내용이 같습니다 |
 | 단계 | ② Ranking 과 ③ Re-ranking 을 A 계약 위에서 구현 완료. **취향 페르소나**(고른 음식 → 3축 척도 → 없음, 시간 감쇠·주기 가중, 사용자당 JSON 저장)를 9.11 에서 구현. ① Retrieval·로그 적재·DDL·배치는 A 것이 브랜치에 있습니다. 라우터에 `rank_candidates`·`PersonaService` 를 끼우는 것(M-01·M-15)과 DB 연결이 남았습니다. 9.12 에서 세 방향 복기(명세 · 무음 실패 · 규약)로 구멍 15개(F-36~F-50)를 찾아 14개를 코드로 고쳤습니다(D-34~D-38). 9.15 의 4회차 복기는 20건(F-51~F-70)을 더 찾아 코드 17건·기록 3건으로 닫았습니다(D-39~D-41). 9.16 은 기획측 시뮬 시드(1,600명)를 DB 없이 엔진에 넣는 도구 `scripts/sim/scenario_engine.py` 를 만들어 전원 불변식 · 콜드 → 웜 전환 · 행동·냉장고 반응을 확인했습니다(D-42·D-43). 9.17 은 유재현이 Docker Desktop 을 설치한 뒤 DB 경로(적재 · 검증 쿼리 · `/health` 포함 API 시나리오)까지 통과시켰습니다(D-44). 9.19 는 온보딩에 추가된 **좋아하는 음식 유형** 문항을 계약 → 페르소나 → 목록까지 이었습니다 — 맛 6축에 섞지 않고 재정렬의 유형 슬롯으로 반영합니다(D-45~D-47, F-82~F-89). 9.23 은 A 의 09-17 결정 기록이 B 에 넘긴 5건 — 빈 팬트리 규칙 · Mock 알러지 어휘 · 동결 키 2종 · `occurred_at` · `RecipeFeature` 로더 — 를 처리했습니다(D-48~D-51, F-97~F-106). 백엔드 연동(M-01·M-02·M-04·M-15)은 스키마 회신 뒤로 미룹니다 |
 | 검증 (2026-09-18, 9.23) | ruff check OK · ruff format OK(168 files) · mypy **67 files** OK · `pytest tests/unit` **358 passed / 0 failed** / coverage **91.20%**(새 검사 21건 포함). `test_contract.py` 98건 0(설정값을 채운 환경). 시뮬 시나리오 1,600명 RESULT: PASS(불변식 위반 0, B 집단 800명 전원 첫 조회부터 인기순). 시드 재생성 → 저장소와 `04_user_allergy.sql` 만 다르고 그것을 커밋. 실 DB 대조는 Docker 미기동으로 미실행(E-17) |
-| 다음 행동 | **백엔드에 API 명세 1.1.0 전달(`docs/backend_api_spec.md`) — 알레르기 라벨 목록 · 빠진 재료 행 · `is_staple` · `allergens` 배열 · 인기도 · 중복 회신 대기(G-34)** → 타입 검사를 어디서 돌릴지 결정(N-20) → 군집 다양성 반영 방식 결정(N-18, 검증 20.3 의 선택지 4종) → A 에 중간 벡터 저장·`user_cluster_stat` 배치 요청(G-33) → 클라우드 RDS 회신 반영 — 파라미터 그룹 시간대·역할 3종·keepalive 확인 요청(G-32, I-07) → **백엔드 회신·RDS 적용이 오면 `docs/env_variables.md` 4절 TODO 8줄을 확정해 1.1.0 으로 올리고 클라우드에 재전달(유재현에게 먼저 알림)** → 백엔드 스키마 회신 대기(`docs/backend_schema_request.md` 2.0.0) → 회신에 맞춰 DB 전환 점검표의 연동 항목(M-01·M-02·M-04·M-15) 재작성 후 라우터 실연결 → A 에 F-104~F-106(`judge()` 비결정 · 배정 건수 불일치 · 골든에 `cuisine_family`)과 `enums.py` 주석 수정을 알림(G-31) → 백엔드에 `EventIn.occurred_at` 을 실어 달라고 전달 → 브랜치 PR 은 유재현 지시 전까지 보류. 남은 회의 안건은 `recommend_engine_meeting_agenda.md` 2절 |
+| 다음 행동 | **백엔드에 API 명세 2.0.0 전달(저장소 `docs/backend_api_spec.md` · Notion 사본) 후 회신 대기(G-34)** → 합의되면 `RecommendRequest` 에 `pantry` · `allergies` 추가와 레시피 동기화 구현(M-01·M-02) → A 에 9.30 의 알레르기 표 단일화를 알림 → 타입 검사를 어디서 돌릴지 결정(N-20) → 군집 다양성 반영 방식 결정(N-18, 검증 20.3 의 선택지 4종) → A 에 중간 벡터 저장·`user_cluster_stat` 배치 요청(G-33) → 클라우드 RDS 회신 반영 — 파라미터 그룹 시간대·역할 3종·keepalive 확인 요청(G-32, I-07) → **백엔드 회신·RDS 적용이 오면 `docs/env_variables.md` 4절 TODO 8줄을 확정해 1.1.0 으로 올리고 클라우드에 재전달(유재현에게 먼저 알림)** → 백엔드 스키마 회신 대기(`docs/backend_schema_request.md` 2.0.0) → 회신에 맞춰 DB 전환 점검표의 연동 항목(M-01·M-02·M-04·M-15) 재작성 후 라우터 실연결 → A 에 F-104~F-106(`judge()` 비결정 · 배정 건수 불일치 · 골든에 `cuisine_family`)과 `enums.py` 주석 수정을 알림(G-31) → 백엔드에 `EventIn.occurred_at` 을 실어 달라고 전달 → 브랜치 PR 은 유재현 지시 전까지 보류. 남은 회의 안건은 `recommend_engine_meeting_agenda.md` 2절 |
 | 병합 정책 | `main` 은 PR 로만 병합합니다(PR #8 `5846a72` · PR #9 `77da2bc`). 브랜치 커밋·push 는 자유. `origin/main` 은 merge 로 따라감(rebase 금지, 01의 2.1). 병합된 브랜치 `feat/recommend-engine-core` 는 01의 2.1 대로 삭제 대상이며, 이어서 쓸지 삭제할지는 유재현이 정합니다 |
 | DB 전환 | `recommend_engine_db_cutover.md` 의 M-01~M-16(M-16 은 음식 유형을 `user_preference` 에서 읽는 일, 09-15 추가). DB 와 닿는 변경을 시작할 때 먼저 엽니다. `tests/unit/recommend/test_db_cutover.py` 가 못을 박아 두어 건너뛰면 검사가 깨집니다 |
 | 갱신 규칙 | 세션마다 1절·3절·9절 갱신. 새 항목은 다음 번호, 번호 재사용 금지. 사람용 서술본 동시 갱신 (2절). **3.3 의 수치는 그 세션의 실행에서 다시 잽니다** — 앞 세션 값을 옮기지 않습니다 (01의 3.4, D-28). 9절의 세션별 수치는 그 시점 기록이므로 고치지 않습니다 |
@@ -556,6 +556,20 @@ uv run ruff check . && uv run python -m mypy src
 | 문서 | 안내서 1.2.0(make·psql 없는 PC 절차, id 범위, DB 실행 결과, G-29 보충) · `deploy/seed/sim/README.md` 매핑 · 패키지 사본 동기화(zip 제외) |
 | 검증 | 적재 종료코드 0 · `99_verify` 건수·분포가 기대값과 일치 · `scenario_run.py` PASS(`/health` db true 0.11초, [5] 변동 0 = 전환 전 정상) · `scenario_engine.py` PASS · ruff·format(151)·mypy(62) 0 · `pytest tests/unit` 298 passed / 90.64% |
 | 넘긴 것 | N-16(커밋 범위 — 이제 유재현과 정함) · G-29(DB 없을 때의 대기. DB 있으면 0.11초) |
+
+### 9.30 2026-09-21 - 병합, 알레르기 표 단일화, API 명세 2.0.0
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 — "GitHub 에 새로 올라온 코드가 있으면 적용해 마지막 테스트를 하고 고칠 것은 고쳐 달라. 그 뒤 백엔드와 주고받을 API 명세서가 필요하다. **지금 가진 DB 는 실제로 쓸 DB 가 아니라 테스트용으로 받은 데이터이고, 실제로는 백엔드 API 로만 데이터를 받는다.** 명세서는 Notion 으로 백엔드에 전달한다" |
+| 병합 | `origin/main` 12 커밋(규약 3편 개정 · 평가 파이프라인 추가 뒤 롤백) → `origin/develop-data-part` 32 커밋. **main 을 먼저** — A 브랜치가 롤백을 안 받아 순서를 바꾸면 되돌린 코드가 살아납니다. 충돌 1건(`docs/README.md` 버전 줄). 규약 변경: PR 300줄 상한 삭제 · 뒤 축이 앞 축의 순수 함수를 import 할 수 있음 |
+| A 가 한 것 | 한글 알레르기 라벨(`enums.ALLERGEN_LABELS`) · `mollusk` 군 · 돈가스소스 → gluten · 온보딩 계약을 자리에서 이름으로(`picks` 이름 · `taste_preferences` · `TasteOut`) · `GET /v1/onboarding/presented` · `taste-axes` · `judge()` 결정론(F-104) · 골든에 계열 칸(F-106) · `2시간 이상` 파싱 · 소비기한 출처 |
+| 고친 것 (F-124) | 제 `engine/allergy.py` 가 A 의 표와 같은 것을 따로 들고 있어 셋이 어긋났습니다 — 식약처 표기 둘을 모르는 라벨로 돌려보냈고 오징어를 다른 군으로 보냈습니다. 정본을 `enums.ALLERGEN_LABELS` 하나로 두고 제 모듈은 그 위에 얹습니다. 검사 5건 |
+| A 의 요청 7.1 | `TasteProfile.picks` 가 이름이어도 엔진에 문제가 없는지 — 없습니다. 엔진은 `pick_flavors`(6축)만 쓰고 `picks` 는 길이와 저장에만 닿습니다. 병합 뒤 442건 통과. `persona.py` 의 A 변경 한 줄은 그대로 둡니다 |
+| 명세 | `docs/backend_api_spec.md` **2.0.0** — 전제를 다시 세웠습니다(덤프는 테스트용 표본, 운영은 API 만). 주인 표 · 백엔드가 열 API 2 · AI 가 여는 API 6 · 알레르기 라벨 표(코드와 대조) · 공통 규약(실 앱에서 확인한 401·400) · 구현 상태(`있음` / `합의 후`). 응답에 제목·썸네일을 싣지 않고 백엔드가 `recipe_id` 로 붙입니다 |
+| Notion | 백엔드 전달용 사본을 Notion 에 작성했습니다. 저장소 문서가 정본이고 Notion 은 전달용입니다 |
+| 검증 | ruff · format(179) · pytest 442 passed / 92.74% · contract 99 · eval · 시뮬 PASS · 실데이터 종단 87건 전부 종료코드 0 |
+| 넘긴 것 | A — 알레르기 표 단일화(F-124)와 F-105 미해결 · 7.2 의 셋(`persona_pick_unknown_name` 카운터 · `unmapped_allergens` 로그 · 목업의 `n_blocked_ingredients`)은 라우터 실연결 때 · 백엔드 — 명세 8절의 일곱 가지 |
 
 ### 9.29 2026-09-21 - 남은 결함 수정과 알레르기 라벨 전개
 
