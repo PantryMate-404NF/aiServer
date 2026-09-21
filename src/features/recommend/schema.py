@@ -23,19 +23,23 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date, datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from features.recommend.engine.persona import SCALE_AXIS_COUNT
+from features.recommend.engine.taste import FLAVOR_AXES
 from features.recommend.enums import (
-    ALLERGEN_GROUPS,
     CONTRACT_VERSION,
     ONBOARDING_CUISINES,
     EventType,
+    normalize_allergen,
     normalize_cuisine,
 )
+from features.recommend.profile_store import load_presented_names
 from features.recommend.stage import RankedItem, StageTrace
 
 
@@ -169,6 +173,54 @@ class PantryItemIn(_Base):
 # ─────────────────────────────────────────────────────────────────
 # 온보딩 — 09-02 신설. 이 계약이 없어서 가중치 0.27 을 저장할 곳이 없었다.
 # ─────────────────────────────────────────────────────────────────
+#: 화면이 쓰는 척도의 양끝. 우리 내부 계약(0~4)과 범위가 다르므로 여기서 옮긴다.
+CLIENT_SCALE_MIN = 1
+CLIENT_SCALE_MAX = 5
+
+
+class TasteIn(_Base):
+    """맛 척도를 이름 있는 칸으로 받는다.
+
+    배열로 받으면 순서를 달리 보내도 에러가 나지 않는다 — 우리 계약은
+    [매움, 짠맛, 단맛] 이고 화면은 [짠맛, 단맛, 매운맛] 이라, 그대로 보낸
+    125조합 중 61개는 범위에서 거부되고 나머지 64개는 축이 밀린 채 통과한다.
+    우연히 맞는 경우는 없다.
+
+    이름이 붙어 있으면 순서라는 것이 없어진다. 빠진 칸은 이름으로 잡히고,
+    모르는 칸은 `_Base` 의 extra="forbid" 가 막는다.
+
+    값의 범위는 화면 기준 1~5 다. 우리 내부는 0~4 라 여기서 옮긴다.
+    """
+
+    salty: int = Field(ge=CLIENT_SCALE_MIN, le=CLIENT_SCALE_MAX)
+    sweet: int = Field(ge=CLIENT_SCALE_MIN, le=CLIENT_SCALE_MAX)
+    spicy: int = Field(ge=CLIENT_SCALE_MIN, le=CLIENT_SCALE_MAX)
+
+    def to_scales(self) -> list[int]:
+        """내부 계약 [매움, 짠맛, 단맛] 0~4 로 옮긴다. 자리는 이름으로 찾는다."""
+        by_axis = {"매움": self.spicy, "짠맛": self.salty, "단맛": self.sweet}
+        return [by_axis[axis] - CLIENT_SCALE_MIN for axis in FLAVOR_AXES[:SCALE_AXIS_COUNT]]
+
+
+class TasteAxisOut(_Base):
+    """우리가 받는 맛 축 하나. `key` 가 요청에 쓰는 이름이다."""
+
+    key: str
+    label: str
+
+
+class TasteAxesOut(_Base):
+    """무엇을 보내야 하는지 알려 준다. 부르는 쪽이 베껴 두지 않도록 여기서 받아 간다.
+
+    주의: 이 목록의 순서는 참고용이다. 요청은 이름 있는 칸으로 받으므로 순서가
+       의미를 갖지 않는다 — 순서에 맞춰 배열로 보내면 안 된다.
+    """
+
+    axes: list[TasteAxisOut]
+    min: int = CLIENT_SCALE_MIN
+    max: int = CLIENT_SCALE_MAX
+
+
 class OnboardingIn(_Base):
     """온보딩 6문항 응답 (S0 ② 확정 문항 + 09-15 음식 유형).
 
@@ -179,16 +231,27 @@ class OnboardingIn(_Base):
        저장 위치는 `user_vector.onboarding_picks` · `onboarding_scales`.
     """
 
-    #: 제시 20개 중 고른 것의 인덱스 (seeds/onboarding_recipes.yaml 의 presented 순서).
+    #: 고른 음식의 이름. `GET /v1/onboarding/presented` 가 내려주는 목록의 name 이다.
     #: 확정 문항은 3개지만 개수는 서버가 강제하지 않는다 — 프론트가 정한다.
-    picks: list[int] = Field(min_length=1, max_length=20)
-    #: 맛 척도 3축 [매움, 짠맛, 단맛] 각 0~4. 순서가 계약이다.
-    scales: list[int] = Field(min_length=3, max_length=3)
+    #:
+    #: 주의: 인덱스(정수)도 계속 받는다. 우리 시뮬·검사가 그 모양으로 쓰고 있어서다.
+    #:    새로 붙이는 쪽은 이름을 쓴다 — 제시 목록은 교체 후보가 따로 있어 바뀌고,
+    #:    바뀌면 같은 숫자가 다른 음식을 가리키면서 에러 없이 취향이 틀어진다.
+    picks: list[int | str] = Field(min_length=1, max_length=20)
+    #: 맛 척도 3축 [매움, 짠맛, 단맛] 각 0~4. 순서가 계약이라 새로 붙이는 쪽은
+    #: 아래 `taste_preferences` 를 쓰는 편이 안전하다. 이 칸은 우리 시뮬·검사가
+    #: 쓰고 있어 계속 받는다.
+    scales: list[int] | None = Field(default=None, min_length=3, max_length=3)
+    #: 이름 있는 맛 척도(화면 기준 1~5). 오면 `scales` 로 옮겨 담는다.
+    taste_preferences: TasteIn | None = None
     #: 알러지 — 그룹명과 재료 ID 를 둘 다 받는다 (안전 관련이라 이중화).
     #: 주의: 서버는 이것을 `severity='allergy'` 로 저장한다. DB 기본값 'avoid' 에
     #:    맡기면 그룹 확산이 조용히 꺼져 본인이 적은 재료만 막힌다.
+    #: 한글 표기(`우유`)와 코드(`dairy`)를 둘 다 받아 코드로 맞춰 저장한다.
     allergy_groups: list[str] = Field(default_factory=list)
     allergy_ingredient_ids: list[int] = Field(default_factory=list)
+    #: 못 맞춘 표기. 서버가 채우므로 요청에 넣어도 덮어쓴다.
+    unmapped_allergens: list[str] = Field(default_factory=list)
     #: 기피 재료 (알러지가 아님). `user_ingredient_pref` 에 score=-0.8 로 저장.
     avoid_ingredient_ids: list[int] = Field(default_factory=list, max_length=3)
     #: 가구원 수. 선택 항목이라 없을 수 있다.
@@ -211,38 +274,135 @@ class OnboardingIn(_Base):
         # 같은 유형을 두 번 고른 것은 한 번으로 둔다. 순서는 사용자가 고른 순서다.
         return list(dict.fromkeys(code for code in codes if code is not None))
 
-    @field_validator("allergy_groups")
-    @classmethod
-    def _known_allergens(cls, v: list[str]) -> list[str]:
-        """모르는 값을 요청 단계에서 거부합니다.
+    @model_validator(mode="after")
+    def _resolve_allergens(self) -> OnboardingIn:
+        """한글 표기를 코드로 맞추고, 못 맞춘 것은 따로 담습니다.
 
-        주의: 없으면 `'WHEAT'` 같은 값이 그대로 흘러가 DB CHECK 에서 500 이 되거나,
-           더 나쁘게는 차단 재료 0종으로 **에러 없이** 알러지 필터가 꺼집니다.
-           바로 위 `preferred_cuisines` 와 같은 방어를 답니다.
+        예전에는 모르는 값 하나에 요청 전체를 거부했습니다. 그러면 알러지만
+        빠지는 것이 아니라 picks·scales 까지 통째로 사라지고, 그 사용자는
+        알러지 0건이 되어 차단이 아예 꺼집니다. 거부보다 나쁩니다 —
+        응답이 본문 없는 400 이라 어느 값이 문제였는지도 알 수 없습니다.
+
+        맞춘 것은 적용하고 못 맞춘 것은 `unmapped_allergens` 로 돌려줍니다.
+        조용히 버리지 않는 것이 핵심입니다 — 부르는 쪽이 무엇이 안 막혔는지
+        알아야 합니다.
         """
-        unknown = [raw for raw in v if raw not in ALLERGEN_GROUPS]
-        if unknown:
-            raise ValueError(f"모르는 알러지 그룹이다: {unknown} — 가능한 값 {ALLERGEN_GROUPS}")
-        return list(dict.fromkeys(v))
+        known: list[str] = []
+        unknown: list[str] = []
+        for raw in self.allergy_groups:
+            if not raw.strip():
+                continue
+            code = normalize_allergen(raw)
+            if code is None:
+                unknown.append(raw)
+            else:
+                known.append(code)
+        self.allergy_groups = list(dict.fromkeys(known))
+        self.unmapped_allergens = list(dict.fromkeys(unknown))
+        return self
 
     @field_validator("scales")
     @classmethod
-    def _scale_range(cls, v: list[int]) -> list[int]:
-        if any(not 0 <= x <= 4 for x in v):
+    def _scale_range(cls, v: list[int] | None) -> list[int] | None:
+        if v is not None and any(not 0 <= x <= 4 for x in v):
             raise ValueError("척도는 0~4 다")
         return v
+
+    @field_validator("picks")
+    @classmethod
+    def _known_picks(cls, v: list[int | str]) -> list[int | str]:
+        """제시 목록에 없는 이름을 요청 단계에서 거부합니다.
+
+        가까운 음식으로 짐작해 넣으면 고르지 않은 것이 그 사용자의 취향이 되고
+        응답은 200 입니다. `preferred_cuisines`·`allergy_groups` 와 같은 방어입니다.
+        """
+        names = load_presented_names()
+        unknown = [p for p in v if isinstance(p, str) and p not in names]
+        if unknown:
+            raise ValueError(f"제시 목록에 없는 음식이다: {unknown}")
+        bad = [p for p in v if isinstance(p, int) and not 0 <= p < len(names)]
+        if bad:
+            raise ValueError(f"제시 목록 밖의 인덱스다: {bad}")
+        return v
+
+    @model_validator(mode="after")
+    def _resolve_taste(self) -> OnboardingIn:
+        """이름 있는 척도가 오면 내부 계약으로 옮긴다.
+
+        둘 다 오면 거부한다. 어느 쪽이 사용자의 답인지 알 수 없는데 조용히 하나를
+        고르면, 고르지 않은 쪽이 아무 표시 없이 버려진다.
+        """
+        if self.taste_preferences is None:
+            return self
+        if self.scales is not None:
+            raise ValueError("scales 와 taste_preferences 중 하나만 보내십시오")
+        self.scales = self.taste_preferences.to_scales()
+        return self
+
+
+class PresentedItem(_Base):
+    """온보딩 화면에 보여줄 음식 하나."""
+
+    name: str
+    #: `enums.ONBOARDING_CUISINES` 의 코드. 화면 문구는 부르는 쪽이 정합니다.
+    family: str
+
+
+class PresentedOut(_Base):
+    """온보딩 제시 목록. 화면이 이것을 받아 그리고, 고른 것을 이름으로 돌려보냅니다.
+
+    주의: 이 목록은 바뀝니다 — 시드에 교체 후보가 따로 있습니다. 부르는 쪽이 목록을
+       복사해 두면 우리가 바꿨을 때 조용히 어긋나므로, 그리기 직전에 받는 것이
+       맞습니다. 바뀐 것을 알 수 있도록 `list_version` 을 함께 보냅니다.
+    """
+
+    list_version: int
+    items: list[PresentedItem]
+
+
+class TasteOut(_Base):
+    """산출된 맛 취향. 화면이 쓰는 3축만, 이름을 붙여 돌려준다.
+
+    주의: 배열이 아니라 이름 있는 칸으로 준다. 배열이면 받는 쪽이 순서를 달리 읽어도
+       에러가 나지 않는다 — 우리 축 순서는 [매움, 짠맛, 단맛] 이고 화면은
+       [짠맛, 단맛, 매운맛] 이라 그대로 읽으면 조용히 밀린다.
+
+    엔진 안에서는 6축을 그대로 쓴다. 신맛·감칠맛·기름짐은 화면이 묻지 않을 뿐이고
+    점수에는 들어간다. 여기서 빼는 것은 내보내는 값뿐이다.
+
+    값은 0~1 이다. 입력 척도(1~5)와 범위가 다르다 — 고른 음식들에서 산출한 값이지
+    적어 낸 답을 되돌려주는 것이 아니다.
+    """
+
+    spicy: float = Field(ge=0.0, le=1.0)
+    salty: float = Field(ge=0.0, le=1.0)
+    sweet: float = Field(ge=0.0, le=1.0)
+
+    @classmethod
+    def from_vector(cls, vector: Sequence[float]) -> TasteOut:
+        """6축 벡터에서 화면이 쓰는 3축을 뽑는다. 자리는 축 이름으로 찾는다."""
+        axes = list(FLAVOR_AXES)
+        return cls(
+            spicy=float(vector[axes.index("매움")]),
+            salty=float(vector[axes.index("짠맛")]),
+            sweet=float(vector[axes.index("단맛")]),
+        )
 
 
 class OnboardingOut(_Base):
     """저장 결과. 프론트는 완료 여부만 알면 된다."""
 
     user_id: int
-    #: 산출된 맛 취향 6축. 확인용으로만 돌려준다.
-    taste_vec: list[float] = Field(min_length=6, max_length=6)
+    #: 산출된 맛 취향. 화면이 쓰는 3축만 이름을 붙여 돌려준다.
+    taste: TasteOut
     #: 알러지로 차단될 재료 수 (그룹 전개 후). 사용자에게 보여주면 신뢰가 는다.
     n_blocked_ingredients: int
     #: 저장된 음식 유형 코드. 라벨로 보냈어도 코드로 돌려주므로 프론트가 무엇이 저장됐는지 안다.
     preferred_cuisines: list[str] = Field(default_factory=list)
+    #: 저장된 알러지 그룹 코드. 위와 같은 이유로 돌려준다.
+    allergy_groups: list[str] = Field(default_factory=list)
+    #: 해석하지 못해 차단에 반영하지 못한 표기. 비어 있지 않으면 그만큼 안 막힌다.
+    unmapped_allergens: list[str] = Field(default_factory=list)
 
 
 class PantryRemoval(_Base):

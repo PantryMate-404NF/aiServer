@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # 외부 DB 에 스키마를 적용한다.
 #
-#   ./db/apply_schema.sh "postgresql://user:pw@host:5432/dbname"
+#   ./deploy/apply_schema.sh "postgresql://user:pw@host:5432/dbname"
+#
+# 자동화(CI·클라우드 배포)에서는 확인 질문을 건너뛴다:
+#   ASSUME_YES=1 ./deploy/apply_schema.sh "$DATABASE_URL"
 #
 # /docker-entrypoint-initdb.d 자동 실행은 "컨테이너가 볼륨을 처음 만들 때"만
 # 동작한다. 원격 DB 에는 그 메커니즘이 없으므로 이 스크립트가 유일한 경로다.
@@ -22,7 +25,13 @@ echo "    → MLflow 백엔드용 mlflowdb 가 만들어지지 않는다. 둘 �
 echo "      (a) DB 관리자에게 mlflowdb 생성을 요청한다"
 echo "      (b) MLFLOW_BACKEND_URI 를 별도 스키마로 돌린다"
 echo "    🔴 안 하면 MLflow 가 테이블 15개를 reco 스키마에 만든다 (설계 1-6)."
-read -rp "계속? [y/N] " ok; [ "$ok" = "y" ] || exit 1
+# 자동화에서는 물어볼 사람이 없다. 터미널이 아니거나 ASSUME_YES 면 그냥 진행한다 —
+# 안 그러면 클라우드 배포가 입력을 기다리며 멈춘다.
+if [ -n "${ASSUME_YES:-}" ] || [ ! -t 0 ]; then
+  echo "  (비대화형 — 확인 질문을 건너뛴다)"
+else
+  read -rp "계속? [y/N] " ok; [ "$ok" = "y" ] || exit 1
+fi
 
 for f in "${FILES[@]}"; do
   echo "  → $f"

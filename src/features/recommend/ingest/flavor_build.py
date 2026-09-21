@@ -166,7 +166,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     # 주의: 전부 0 이면 맛 사전 로딩이 깨진 것이다. 0 을 반환하면 스코어러가
     #    영벡터 위에서 돌고, f_taste 는 모든 후보에 같은 값을 줘 사실상 꺼진다.
     if st.recipes and st.all_zero == len(load_all_flavor_vectors()):
-        logger.error("6축이 전부 0 — seeds/flavor_table.yaml 로딩을 확인하십시오")
+        logger.error(
+            "6축이 전부 0 — seeds/ingredient_flavor.yaml 로딩을 확인하십시오 "
+            "(ingest/flavor.py 가 읽습니다)"
+        )
         return 1
     return 0
 

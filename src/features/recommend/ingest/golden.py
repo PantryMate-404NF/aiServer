@@ -57,6 +57,7 @@ FIXTURE = (
 #: 픽스처에 담는 컬럼. repository_ingest 의 _GOLDEN_COLS 와 순서가 같아야 합니다.
 KEYS = (
     "recipe_id",
+    "title",
     "essential_ids",
     "all_ids",
     "category_ids",
@@ -66,11 +67,17 @@ KEYS = (
     "flavor_vec",
     "popularity_score",
     "quality_score",
+    "season_vec",
     "cook_minutes",
     "difficulty",
+    "cuisine_family",
+    "dish_type",
     "cluster_id",
     "feature_version",
 )
+
+#: recipe_feature 가 아니라 recipe 에서 오는 칸. 컬럼 대조에서 예외로 둔다.
+FROM_RECIPE = frozenset({"title"})
 
 #: (구분, repository_ingest.GOLDEN_CONDS 의 키, 건수). 합이 30 입니다.
 #:
@@ -158,7 +165,10 @@ def check() -> list[str]:
     recipes = data.get("recipes") or []
 
     # ① 키가 recipe_feature 의 현재 컬럼에 전부 있는가
-    cols = set(load_feature_columns())
+    #
+    #    주의: title 은 recipe 쪽에 있어 조인해서 담는다. B 의 행 변환기가 그 칸을
+    #       읽으므로 픽스처에 있어야 하는데, 여기서 컬럼 대조에 걸리면 안 된다.
+    cols = set(load_feature_columns()) | FROM_RECIPE
     missing = [k for k in data.get("keys", []) if k not in cols]
     if missing:
         problems.append(f"recipe_feature 에 없는 키: {missing} — A 가 계약을 바꿨습니다")

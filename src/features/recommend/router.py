@@ -18,6 +18,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException
 
 from features.recommend.engine import mock
+from features.recommend.profile_store import load_presented_menu
 from features.recommend.schema import (
     EventAck,
     EventBatchIn,
@@ -27,10 +28,14 @@ from features.recommend.schema import (
     OnboardingOut,
     PantryIn,
     PantryOut,
+    PresentedItem,
+    PresentedOut,
     RecipeSearchOut,
     RecommendationLogOut,
     RecommendRequest,
     RecommendResponse,
+    TasteAxesOut,
+    TasteAxisOut,
 )
 from infra import db
 
@@ -95,6 +100,25 @@ def get_pantry(user_id: int) -> PantryOut:
 @router.put("/v1/users/{user_id}/pantry", response_model=PantryOut, tags=["pantry"])
 def put_pantry(user_id: int, body: PantryIn) -> PantryOut:
     return mock.replace_pantry(user_id, body)
+
+
+@router.get("/v1/onboarding/presented", response_model=PresentedOut, tags=["onboarding"])
+def get_presented() -> PresentedOut:
+    """온보딩에 보여줄 음식 목록. 화면이 하드코딩하지 않게 여기서 받아 갑니다."""
+    version, rows = load_presented_menu()
+    return PresentedOut(
+        list_version=version,
+        items=[PresentedItem(name=name, family=family) for name, family in rows],
+    )
+
+
+@router.get("/v1/onboarding/taste-axes", response_model=TasteAxesOut, tags=["onboarding"])
+def get_taste_axes() -> TasteAxesOut:
+    """맛 척도로 무엇을 보내야 하는지. 부르는 쪽이 베껴 두지 않게 여기서 받아 갑니다."""
+    labels = {"spicy": "매움", "salty": "짠맛", "sweet": "단맛"}
+    return TasteAxesOut(
+        axes=[TasteAxisOut(key=key, label=label) for key, label in labels.items()],
+    )
 
 
 @router.post("/v1/onboarding/{user_id}", response_model=OnboardingOut, tags=["onboarding"])

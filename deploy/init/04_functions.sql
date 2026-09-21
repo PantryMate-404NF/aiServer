@@ -197,6 +197,8 @@ $$;
 -- 지표 쿼리용 뷰 — is_simulated 필터를 구조적으로 강제한다.
 -- 설계 2-5: "시뮬 4,950명과 실유저 50명을 섞으면 숫자가 무의미해진다"
 -- ───────────────────────────────────────────────────────────────
+-- 주의: e.* 는 만들 때 한 번 펼쳐져 굳는다. event_log 에 열을 더하면 이 뷰를
+--    다시 만들어야 새 열이 보인다. 안 하면 지표에서 그 열만 조용히 빠진다.
 CREATE OR REPLACE VIEW v_real_events AS
     SELECT e.* FROM event_log e
     JOIN   app_user u ON u.id = e.user_id
@@ -243,9 +245,9 @@ LANGUAGE sql STABLE AS $$
            COALESCE(p.expires_at,
                     (COALESCE(p.purchased_at, p.added_at::date)
                      + make_interval(days => i.shelf_life_days))::date) AS expiry,
-           CASE WHEN p.expires_at IS NOT NULL THEN 'user'
-                WHEN i.shelf_life_days IS NOT NULL THEN 'estimated'
-                ELSE 'unknown' END AS src,
+           -- 되계산하지 않고 저장된 출처를 읽는다. 백엔드는 소비기한을 항상
+           -- 채워 보내므로, 되계산하면 추정치까지 전부 'user' 로 찍힌다.
+           p.expires_at_source AS src,
            (COALESCE(p.expires_at,
                      (COALESCE(p.purchased_at, p.added_at::date)
                       + make_interval(days => i.shelf_life_days))::date)

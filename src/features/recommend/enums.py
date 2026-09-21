@@ -292,7 +292,59 @@ ALLERGEN_GROUPS: tuple[str, ...] = (
     "shellfish",
     "peach",
     "buckwheat",
+    # 두족류. 갑각류·조개류와는 다른 알러지라 shellfish 에 넣지 않습니다.
+    # 우리 분류 트리도 seafood.mollusk 에 이 6종만 두고 조개류는 따로 둡니다.
+    "mollusk",
 )
+
+#: 알러지 표시 대상 한글 표기 -> 우리 그룹 코드.
+#: 화면은 식약처 표시 대상 이름을 쓰고 계약은 코드를 씁니다. 둘을 잇는 표입니다.
+#: normalize_cuisine 과 같은 모양입니다 — 모르는 이름을 가까운 것으로 추측하지 않습니다.
+ALLERGEN_LABELS: dict[str, str] = {
+    "알류(가금류)": "egg",
+    "알류": "egg",
+    "우유": "dairy",
+    "메밀": "buckwheat",
+    "땅콩": "nut",
+    "호두": "nut",
+    "잣": "nut",
+    "대두": "soy",
+    "밀": "gluten",
+    "고등어": "fish",
+    "게": "shellfish",
+    "새우": "shellfish",
+    "조개류(굴,전복,홍합 포함)": "shellfish",
+    "조개류": "shellfish",
+    "복숭아": "peach",
+    "오징어": "mollusk",
+    "참깨": "sesame",
+    "견과류": "nut",
+}
+
+#: 표시 대상이지만 그룹으로는 못 막는 것. 거부하지 않고 처리 못 했다고 돌려줍니다.
+#:
+#: 주의: 오징어를 shellfish 로 보내면 안 됩니다. 두족류는 그 그룹에 한 종도 없어
+#:    두족류 레시피 1,141건 중 841건이 차단을 켜도 그대로 지나갑니다. 과소차단이라
+#:    거부보다 위험합니다 — 사용자는 막혔다고 믿습니다.
+ALLERGEN_UNSUPPORTED: dict[str, str] = {
+    "돼지고기": "meat.pork 분류 전개가 필요합니다",
+    "닭고기": "meat.chicken 분류 전개가 필요합니다",
+    "쇠고기": "meat.beef 분류 전개가 필요합니다",
+    "토마토": "재료 한 종이라 allergy_ingredient_ids 로 보내야 합니다",
+    "아황산류": "가공 첨가물이라 재료 사전에 표제어가 없습니다",
+}
+
+
+def normalize_allergen(value: str) -> str | None:
+    """알러지 한 개를 그룹 코드로 맞춥니다. 못 맞추면 None 입니다."""
+    text = value.strip()
+    if not text:
+        return None
+    if text in ALLERGEN_LABELS:
+        return ALLERGEN_LABELS[text]
+    lowered = text.lower()
+    return lowered if lowered in ALLERGEN_GROUPS else None
+
 
 #: `StageInfo.params` 에 반드시 실어야 하는 키. 값이 아니라 정의가 소급 불가다.
 #: 없으면 로그가 있어도 propensity 를 재구성할 수 없다 (07 E-3 ①).

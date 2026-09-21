@@ -15,7 +15,7 @@ CLAUDE.md 4절의 완료 게이트(`uv run pytest tests/unit`)와 B·C 가 돌�
 ## 값이 아니라 모양을 봅니다
 
 레시피가 늘거나 사전이 바뀌면 값은 당연히 바뀝니다. 여기서 고정하는 것은
-B·C 가 코드에서 전제하는 **구조**입니다 — 키 14개, 6축, 경계 케이스의 존재.
+B·C 가 코드에서 전제하는 **구조**입니다 — 키 18개, 6축, 경계 케이스의 존재.
 """
 
 from __future__ import annotations
@@ -33,6 +33,7 @@ FIXTURE = Path(__file__).resolve().parents[2] / "fixtures" / "recommend" / "feat
 #: 읽는 쪽이 다른 계약을 보는 것이라, 여기서 먼저 빨개지는 편이 낫습니다.
 EXPECTED_KEYS = {
     "recipe_id",
+    "title",
     "essential_ids",
     "all_ids",
     "category_ids",
@@ -42,8 +43,11 @@ EXPECTED_KEYS = {
     "flavor_vec",
     "popularity_score",
     "quality_score",
+    "season_vec",
     "cook_minutes",
     "difficulty",
+    "cuisine_family",
+    "dish_type",
     "cluster_id",
     "feature_version",
 }
@@ -116,6 +120,41 @@ def test_feature_version_matches_the_schema_check(golden: dict[str, Any]) -> Non
         assert VERSION_RE.match(version), f"스키마 CHECK 위반: {version!r}"
         assert not version.startswith("test-"), f"실배치 픽스처에 합성 접두어: {version!r}"
         assert len(version) <= 16, f"VARCHAR(16) 초과: {version!r}"
+
+
+def test_the_engine_row_converter_can_read_every_key(golden: dict[str, Any]) -> None:
+    """B 의 행 변환기가 읽는 칸이 전부 있는가.
+
+    주의: 하나라도 빠지면 그 변환은 **실데이터에서만** 터집니다. 골든으로 맞춘
+       검사는 통과하는데 서빙이 다르게 도는 것이라, 픽스처의 뜻이 사라집니다.
+       09-18 에 B 가 요청한 항목입니다.
+    """
+    needed = {
+        "recipe_id",
+        "title",
+        "essential_ids",
+        "all_ids",
+        "flavor_vec",
+        "popularity_score",
+        "quality_score",
+        "cook_minutes",
+        "cuisine_family",
+        "dish_type",
+        "season_vec",
+        "difficulty",
+    }
+    assert needed <= set(golden["keys"])
+
+
+def test_cuisine_has_both_assigned_and_empty(golden: dict[str, Any]) -> None:
+    """계열이 붙은 것과 안 붙은 것이 둘 다 있어야 합니다.
+
+    규칙 배정이 61.7% 라 실데이터에는 둘이 섞여 있습니다. 한쪽만 담으면
+    "없으면 None" 경로나 "있으면 변환" 경로 중 하나가 검증되지 않습니다.
+    """
+    values = [row["cuisine_family"] for row in golden["recipes"]]
+    assert any(v is not None for v in values), "계열이 붙은 표본이 없습니다"
+    assert any(v is None for v in values), "계열이 비어 있는 표본이 없습니다"
 
 
 def test_stats_version_is_recorded(golden: dict[str, Any]) -> None:

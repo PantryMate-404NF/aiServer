@@ -593,7 +593,11 @@ try:
 
     _r3 = _c2.post("/v1/onboarding/1", json={"picks": [1, 2], "scales": [2, 2, 2]})
     check("온보딩 실호출이 200 을 돌려준다", _r3.status_code == 200)
-    check("온보딩 응답이 6축 taste_vec 을 준다", len(_r3.json()["taste_vec"]) == 6)
+    # 주의: 배열이 아니라 이름 있는 칸이어야 한다. 배열이면 받는 쪽이 순서를 달리
+    #    읽어도 에러가 안 난다 — 우리는 [매움,짠맛,단맛] 이고 화면은 [짠맛,단맛,매운맛] 이다.
+    _taste = _r3.json()["taste"]
+    check("온보딩 응답의 맛이 이름 있는 3축이다", set(_taste) == {"spicy", "salty", "sweet"})
+    check("맛 값이 0~1 이다", all(0.0 <= _taste[k] <= 1.0 for k in _taste))
 except ImportError:
     check("탐색·온보딩 종단 (httpx 미설치 — 건너뜀)", True)
 except Exception as _e2:  # 무엇이 막았는지 세어야 조용히 멈추지 않습니다
