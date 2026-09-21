@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 B 추천 엔진을 이어서 작업하는 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 1.25.0 · **최종 수정**: 2026-09-21 · **작성자**: 유재현
+**버전**: 1.26.0 · **최종 수정**: 2026-09-22 · **작성자**: 유재현
 
 ---
 
@@ -111,6 +111,9 @@
 | D-56 | ③ 은 MMR 로 다양성을 확보 | MMR 앞에서 **같은 요리의 판본을 하나로 줄입니다**(`engine/dish.py`, `policy.max_per_dish` 1). 기준은 제목 동일 · 요리 이름 동일 · 재료 전체 동일(넷 이상). 서비스가 점수와 재정렬 사이에서 줄이고 추적의 `dropped.same_dish` 에 셉니다 | 백엔드에 판본을 묶는 대표 번호가 없습니다(09-21 회신). MMR 은 깎을 뿐 막지 못해 한 목록에 감자조림이 여섯 건 들었습니다(F-126·F-128). 재정렬 안이 아니라 서비스에서 줄이는 것은 재정렬과 탐색 규격(`exploration_spec`)이 같은 목록을 봐야 추적의 부족분이 실제와 맞기 때문입니다. "필수 재료가 같다" 는 기준에서 뺐습니다(F-127) |
 | D-57 | 냉장고 · 알레르기는 DB 에서 읽음 (`PUT /v1/users/{user_id}/pantry` · 온보딩) | **추천 요청에 동봉하고 둘 다 필수**입니다(`RecommendRequest.pantry` · `allergies`). "없음" 은 `[]` 이고 빠지면 400 입니다. 냉장고 항목은 `ingredient_id` · `purchased_at` · `expires_at` 셋 — 수량과 단위는 받지 않습니다 | 백엔드 제안입니다(09-21). 기본값을 두면 백엔드의 버그로 필드가 빠져도 200 이 나가고 알레르기 재료가 섞입니다. 수량은 백엔드가 관리하지 않고 엔진도 쓰지 않습니다. 목업은 받은 값을 추적과 로그에 남기기만 합니다 — 거르는 것은 M-01 에서입니다 |
 | D-58 | 유형은 `cuisine_family` 코드와 한글 라벨만 받음 (D-47) | 백엔드의 `ETC` 를 `asian_other` 로 읽습니다(`enums._CUISINE_ALIASES`). 대소문자는 원래 가리지 않았습니다 | 백엔드는 `KOREAN · WESTERN · JAPANESE · CHINESE · ETC` 로 저장하고 그 화면의 다섯째가 아시안입니다(09-21 회신). 추측이 아니라 합의한 대응이라 D-47 의 "모르는 값은 거부" 는 그대로입니다 |
+| D-59 | 후보는 DB 함수 `retrieve_for_user()` 로 뽑고 코퍼스 통계는 배치가 DB 에 적어 둔 것을 읽음 (M-02 · M-04) | 백엔드의 두 API 에서 레시피와 재료를 하루 한 번 받아 **메모리의 사전**에 두고 거기서 뽑습니다(`backend_client.py` · `engine/catalog.py` · `engine/retrieval.py`). 규칙은 같습니다 | 레시피와 재료의 정본이 백엔드이고 우리는 백엔드 DB 에 붙지 않습니다(09-21 합의). 우리 DB 의 `recipe` 표는 번호가 백엔드와 달라 그대로 서빙하면 없는 레시피를 가리킵니다 | 레시피가 메모리에 두기 어려울 만큼 늘거나(지금 2만 건), 레플리카가 늘어 동기화 호출이 백엔드에 부담이 될 때 |
+| D-60 | 실서빙 전환은 라우터를 목업에서 서비스로 바꾸는 한 번의 교체 (M-01) | **백엔드 주소(`BACKEND_BASE_URL`)가 있으면 실서빙, 없으면 목업**입니다. 스위치를 따로 두지 않았습니다. 사전을 아직 못 받았으면 `/v1/recommend` 는 **503** 입니다 | 스위치와 주소가 어긋나는 조합을 만들 수 없게 했습니다. 목업의 레시피 번호는 백엔드 DB 에 없어 200 으로 나가면 백엔드가 없는 레시피를 그리려 합니다. 503 이면 백엔드가 자기 인기순으로 대신합니다. 목업은 대시보드와 프론트의 개발용으로 남깁니다 | 백엔드가 503 을 인기순으로 대신하지 않기로 하면 빈 목록 200 을 다시 논의합니다 |
+| D-61 | 서빙 개통과 로그 적재는 한 묶음 (DB 전환 4절) | **로그 적재(M-05)를 떼고 열었습니다.** 대신 추천마다 한 줄을 파일에 남깁니다(`serving.RecommendationSink`, `RECO_LOG_DIR`, JSONL) | `recommendation_log.user_id` 가 `app_user(id)` 를 참조하는데 사용자의 정본이 백엔드에 있어 그 표가 비어 있습니다. 지금 이으면 전건이 외래키로 실패합니다(F-130). DSN 에 `connect_timeout` 도 없어 요청 경로에 넣으면 DB 가 닿지 않을 때 추천이 함께 멈춥니다(G-29) | 외래키를 어떻게 할지 데이터 파트와 정하고(G-35) 적재를 요청 경로 밖에 두면 잇습니다. 파일의 기록은 그때 DB 로 옮길 수 있습니다 |
 | D-44 | (시뮬 시드) `app_user.id` = 기획 번호(1~1600), 적재 뒤 시퀀스를 max(id) 로 올림 | **id = 1,000,000 + 기획 번호**(`SIM_ID_BASE`), 시퀀스는 건드리지 않음. 합성 값의 해시 키는 id 가 아니라 기획 번호(`hkey`) | `make smoke --keep` 의 합성 유저 8명이 id 1~8 을 차지해 `01_app_user.sql` 이 PK 충돌로 멈췄습니다(F-79) — 안내서가 권한 경로에서 그대로 생기는 결함입니다. 해시 키를 id 로 두면 id 를 옮기는 순간 알러지 90 → 89, 냉장고 4,442 → 4,474 로 내용까지 바뀝니다(F-81) | 낮은 id 를 시뮬 몫으로 비워 두기로 A 와 정하면 오프셋을 0 으로 |
 
 ### 3.3 검증 출력 (2026-09-18, 세션 9.23 종료 시점)
@@ -281,6 +284,7 @@ uv run ruff check . && uv run python -m mypy src
 | E-16 | Docker Desktop 29.7.2(WSL2 백엔드)·`pgvector/pgvector:pg16` 은 유재현이 관리자 권한으로 설치(2026-09-14 저녁). 이 PC 에 `make` 와 `psql` 은 없습니다 | Makefile 이 부르는 명령을 직접 실행(compose up · `migrate.py` · `test_smoke.py --keep`), 적재는 컨테이너의 psql 을 stdin 으로(`PSQL_VIA_COMPOSE=1`). `deploy/.env` 는 템플릿 복사(값 비어 있어 compose 기본값, `.gitignore` 대상). E-15 의 DB 부재 항목은 해소 |
 | E-17 | Docker Desktop 데몬이 꺼져 있으면 `docker ps` 가 `npipe:////./pipe/dockerDesktopLinuxEngine` 접속 실패로 끝납니다(9.23). 앱을 띄운 뒤 다시 돌려야 하며, 그 세션에서는 로더의 실 DB 대조(19.2절)를 미실행으로 남겼습니다 |
 | E-18 | mypy 를 돌릴 수 없습니다(2026-09-21). `uv run mypy` 는 예전부터 앱 제어 정책에 막혔고(E-01) 우회로였던 `uv run python -m mypy src` 도 `ImportError: DLL load failed while importing internal` 로 실패합니다. `.venv/Scripts/python.exe -m mypy` 도 같습니다. 같은 세션에서 `pytest` 실행 파일도 막혀 `python -m pytest` 로 돌렸습니다. 타입 검사는 정책이 풀릴 때까지 못 돌립니다 |
+| E-19 | **mypy 2.3.1 이 이 PC 에서 돌았습니다**(2026-09-22, `uv run --no-sync python -m mypy src`, 77 files, 종료코드 0). E-18 의 차단이 왜 풀렸는지는 모릅니다 — 설정을 바꾼 것이 없습니다. 다시 막히면 E-18 의 우회로로 돌아갑니다. 같은 날 `tests/unit/sim/test_sim_seed.py::test_engine_scenario_passes_without_a_db` 가 `PYTHONUTF8=1` 없이는 실패했습니다 — 자식 프로세스의 출력이 cp949 인데 검사가 utf-8 로 읽습니다. 코드의 회귀가 아니고, 그 변수를 주면 599건이 통과합니다 | `PYTHONUTF8=1 uv run --no-sync python -m pytest tests/unit` |
 
 ---
 
@@ -560,6 +564,28 @@ uv run ruff check . && uv run python -m mypy src
 | 문서 | 안내서 1.2.0(make·psql 없는 PC 절차, id 범위, DB 실행 결과, G-29 보충) · `deploy/seed/sim/README.md` 매핑 · 패키지 사본 동기화(zip 제외) |
 | 검증 | 적재 종료코드 0 · `99_verify` 건수·분포가 기대값과 일치 · `scenario_run.py` PASS(`/health` db true 0.11초, [5] 변동 0 = 전환 전 정상) · `scenario_engine.py` PASS · ruff·format(151)·mypy(62) 0 · `pytest tests/unit` 298 passed / 90.64% |
 | 넘긴 것 | N-16(커밋 범위 — 이제 유재현과 정함) · G-29(DB 없을 때의 대기. DB 있으면 0.11초) |
+
+### 9.33 2026-09-22 - 실서빙 개통 (API 명세대로 도는 코드)
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 — "main 에 push 된 코드는 클라우드의 CI/CD 가 곧장 배포한다. 더 이상 테스트가 아니라 API 명세에 따라 운용될 수 있는 코드가 필요하다. 지금 누락된 것들은 백엔드에서 준비해 준다." |
+| 앞 세션의 결과 | 9.32 의 커밋은 **PR #16 으로 main 에 병합됐습니다**(`90126c2`). 그 뒤 파트 C(평가 · 모니터링)를 맡아 `feat/recommend-monitoring` 에 지표 · 진단 · 관리자 페이지 · Prometheus · Grafana 를 만들었습니다(커밋 다섯, PR 없음. 기록은 `recommend_monitoring.md`). 이번 브랜치 `feat/recommend-live-serving` 은 그 위에서 갈라졌습니다 |
+| 백엔드 읽기 | `backend_client.py` — 명세 3절의 두 API 를 커서로 끝까지 읽습니다. 내부 키 헤더 · `limit` · `cursor`. 응답은 모르는 필드를 무시하고(우리가 받는 요청과 반대), 깨진 항목은 버리고 세며, 5% 를 넘으면 계약이 갈라진 것으로 보고 통째로 거부합니다. 래퍼가 씌워진 응답도 거부합니다. 검사 14건 |
+| 사전 (D-59) | `engine/catalog.py` — 비공개와 필수 재료 없는 레시피는 뺍니다. 맛은 재료에서 다시 계산합니다(데이터 파트의 `ingest/flavor.py` 그대로). 인기는 신호별 백분위의 평균이고 **전부 같은 값이면 0.5 로 메우지 않고 없음**입니다. 별점은 3건부터. 상비와 알레르기 군은 백엔드가 주면 그것이 정본이고 안 주면 시드입니다. 재료 하나에 알레르기 군 여럿을 받습니다(`allergy.resolve`). 검사 15건 |
+| 조회 (D-59) | `engine/retrieval.py` — 부족 허용 사다리 · 조리시간 상한 · 알레르기 하드컷(재료와 제목). 자르는 자리의 동점은 레시피 번호가 아니라 인기와 사용자별 순서로 가릅니다(F-132). 알레르기 검사는 순서를 정한 뒤 앞에서부터 상한이 찰 때까지만 합니다(F-131) |
+| 흐름 (D-60) | `serving.py` — 동기화 스레드(하루 한 번, 실패하면 60초 뒤 재시도, **실패하면 앞의 사전을 그대로 둠**) · 요청의 냉장고와 알레르기를 문맥으로 · ① → ② → ③ · 응답과 로그. 임박 재료는 받은 날짜가 우선이고 없으면 구매일 + 재료별 일수. 온보딩과 이벤트는 `PersonaService` 로 갑니다. 저장소에 못 쓰면 500 이고 `persona_store_error` 를 셉니다. 검사 24건 |
+| 로그 (D-61) | 메모리에 최근 5,000건(조회용)과 파일에 전량(보존용). DB 적재는 열지 않았습니다 |
+| 라우터 · 앱 | `router.py` 가 실서빙이 있으면 그쪽을, 없으면 목업을 부릅니다. 검색 · 냉장고 조회 경로는 목업 그대로입니다(백엔드 계약 밖, 대시보드용). `main.py` 는 앱 상태에 실서빙을 두고 수명주기에서 스레드를 띄우고 멈춥니다. 기동 로그에 `recommend=live` 또는 `mock` |
+| 관측 | 지표 넷(`reco_serving_live` · `reco_catalog_ready` · `reco_catalog_recipes` · `reco_catalog_age_seconds`), 진단 규칙 하나(사전 없음 critical · 이틀 넘게 묵음 warning), 경보 둘, 대시보드 패널 넷 |
+| 설정 | `config.py` 에 아홉(`BACKEND_BASE_URL` · 경로 둘 · 제한 시간 · 쪽 크기 · 동기화 간격 · 재시도 간격 · `PROFILE_STORE_DIR` · `RECO_LOG_DIR`). 호출 키는 새로 만들지 않고 `INTERNAL_API_KEY` 를 씁니다 |
+| 컨테이너 | `Dockerfile` 이 `/app/var` 를 앱 사용자 소유로 만듭니다(F-129). `.gitignore` · `.dockerignore` 에 `var/`. **이미지를 다시 지어 보지는 못했습니다** |
+| DB 전환 점검표 | M-01 · M-06 · M-15 완료, M-02 · M-04 대체됨, M-05 대기(사유 기록). 못은 완료 조건을 재는 검사로 바꿨습니다(`test_db_cutover.py`) |
+| 문서 | `backend_api_spec.md` **2.3.0**(503 · 호출 파라미터 · 9절) · `env_variables.md` 1.2.0(3.4 신설, 4절의 백엔드 연동 변수 확정) · `container_handover.md` 1.3.0(13절) · `recommend_monitoring.md` 1.2.0 · 점검표 1.9.0. **Notion 사본은 아직 2.2.0 입니다** |
+| 검증 | ruff · format(198) · mypy 2.3.1(77 files, **이 PC 에서 처음으로 돌았습니다** E-18) · pytest 599 passed / 94.08% · contract 99 · 실데이터 종단 35건 · 실제 HTTP 종단 20건 — 전부 종료코드 0. pytest 는 `PYTHONUTF8=1` 을 줘야 합니다(E-19) |
+| 확인하지 못한 것 | 실제 백엔드와 붙여 보지 못했습니다(두 API 가 아직 없습니다). 이미지 빌드. 워커 둘 이상. 실 트래픽의 지연 |
+| 남의 파일 | `config.py` · `main.py` · `Dockerfile` · `.gitignore` · `.dockerignore` · `.env.example`(main) — 전부 추가뿐입니다 |
+| 밖에 알릴 것 | 클라우드 — 배포 설정 넷(`container_handover.md` 13절, N-21). 백엔드 — 명세 2.3.0 의 503 과 호출 파라미터. 데이터 파트 — 로그 표의 외래키(G-35) |
 
 ### 9.32 2026-09-21 - 백엔드 팀장 회신 다섯 건
 

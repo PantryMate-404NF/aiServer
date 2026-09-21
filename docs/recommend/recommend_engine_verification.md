@@ -4,7 +4,7 @@
 
 **적용 대상**: 수정 여부를 결정하는 유재현과 수정을 반영할 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 11.11.0 · **최종 수정**: 2026-09-21 · **작성자**: 유재현
+**버전**: 11.12.0 · **최종 수정**: 2026-09-22 · **작성자**: 유재현
 
 ---
 
@@ -1270,3 +1270,55 @@ mypy 1.11.0 순수 파이썬 (우회로)               → 1 (69 files, 2건 —
 ```
 
 mypy 의 2건은 앞과 같은 줄이고 이번에 더한 파일에서는 0건입니다. 잠금 파일의 판(2.3.1)은 이 PC 에서 돌리지 못했습니다(E-18).
+
+### 21.17 실서빙 개통 (2026-09-22 추가)
+
+9.33 세션. 21.16 끝의 "받기만 하고 거르지는 못합니다" 가 풀렸습니다. 백엔드의 두 API 가 아직 없어 **백엔드는 전부 대역**입니다 — 단위 검사는 `httpx.MockTransport`, 종단 검사 하나는 21절의 실증 덤프를 명세의 모양으로 내주는 대역, 다른 하나는 실제 HTTP 서버로 띄운 대역입니다.
+
+| ID | 발견 | 실험 근거 | 처리 |
+|---|---|---|---|
+| F-129 | 컨테이너에서 취향을 저장할 수 없음 | `Dockerfile` 의 `WORKDIR /app` 은 root 소유이고 앱은 uid 10001 로 돕니다. 기본 경로 `var/profiles` 는 `/app/var/profiles` 라 폴더를 만들지 못합니다. **읽어서 확인한 것이고 이미지를 띄워 확인하지는 못했습니다** | `Dockerfile` 이 `/app/var` 를 앱 사용자 소유로 만듭니다. 쓰기 실패는 500 과 `persona_store_error`(관리자 페이지 critical)로 드러납니다 |
+| F-130 | 로그 적재를 이으면 전건 실패 | `deploy/init/02_schema.sql` 의 `recommendation_log.user_id` 가 `app_user(id)` 를 참조합니다. 사용자의 정본이 백엔드에 있어 운영 DB 의 그 표는 비어 있습니다. 묘비 행(`_tombstone`)도 같은 외래키에 걸립니다. **DDL 을 읽어 확인한 것이고 실행해 보지는 않았습니다** | D-61. M-05 를 떼고 파일에 남깁니다. G-35 |
+| F-131 | 알레르기 검사가 조회 지연을 지배 | 표본 21,491건에서 후보 수천 건 전부에 제목까지 보는 검사를 하니 추천 한 건이 p50 135ms. 순서를 정한 뒤 앞에서부터 상한(500)이 찰 때까지만 보니 119ms, 순서의 열쇠를 함수 호출 없이 만드니 83ms(p95 105ms) | 상한 밖의 후보는 서빙되지 않으므로 검사하지 않아도 새지 않습니다. 추적의 `allergy_cut` 은 "본 것 중에 걸러진 수" 가 됩니다 |
+| F-132 | 자르는 자리의 동점을 번호로 가르면 같은 레시피만 후보가 됨 | 충족률이 같은 후보가 상한보다 많을 때 번호가 낮은 레시피만 영원히 후보가 됩니다(F-119 와 같은 모양이 ① 에 있었습니다) | 인기 점수 다음에 사용자별 순서로 가릅니다. 난수도 `hash()` 도 쓰지 않아 실행마다 같습니다(`test_the_cut_is_not_decided_by_the_recipe_number`) |
+| F-133 | 인기가 전부 같으면 0.5 로 메워져 꺼진 신호가 켜진 것처럼 보임 | 서비스 초기에는 스크랩이 전부 0 입니다. 백분위를 그대로 내면 전건 0.5 가 되어 `f_popularity` 가 살아 있는 것으로 집계됩니다 | 값이 갈리지 않는 신호는 빼고, 남는 신호가 없으면 없음입니다(`test_popularity_without_any_variation_is_missing_not_a_half`) |
+
+실증 덤프 종단(스크래치패드 하네스, 같은 날 두 번 돌렸습니다):
+
+```text
+                               첫 번째        두 번째
+사전 동기화 (21,491건, 22쪽)    약 8초         2.3초
+추천 한 건 p50 · p95            83 · 105 ms    28 · 42 ms
+검사                            35건 통과      35건 통과
+```
+
+두 번의 차이는 그때 PC 의 부하입니다. 일곱 가지 냉장고 · 알레르기 조합에서 걸러야 할 레시피가 목록에 한 건도 없었고(우유 · 땅콩에서 887건, 대두에서 1,587건을 걸렀습니다), 같은 요리의 판본이 겹치지 않았고, 빈 냉장고는 인기순으로 갔습니다.
+
+실제 HTTP 종단(대역 백엔드를 포트로 띄우고 앱을 `BACKEND_BASE_URL` 로 기동):
+
+```text
+기동 로그                 recommend=live · catalog synced version=backend-... recipes=250
+백엔드 호출               4회 전부 내부 키 실림 · limit=100 → cursor=100 → cursor=200
+POST /v1/recommend        200 · model_version reco-b-linear-v0 · 새우 알레르기 0건 누출 · include_trace=false 면 추적 없음
+  키 없이                 401
+  allergies 없이          400 validation_failed
+GET  /v1/recommendations  200 · allergy_snapshot [2]
+POST /v1/onboarding/7     200 · 파일 저장 · 다음 추천의 persona_source picks
+POST /v1/events           200 accepted 1
+GET  /metrics             reco_serving_live 1 · reco_catalog_ready 1 · reco_catalog_recipes 250 · engine="real"
+파일 로그                 추천 3건 → 3줄
+서버 로그                 내부 키 없음
+```
+
+```text
+uv run ruff check . · format --check .            → 0 (198 files)
+uv run python -m mypy src                         → 0 (mypy 2.3.1, 77 files — 이 PC 에서 처음 돌았습니다, E-19)
+PYTHONUTF8=1 uv run python -m pytest tests/unit   → 0 (599 passed, coverage 94.08%)
+  같은 명령을 PYTHONUTF8 없이                      → 1 (1 failed — 자식 프로세스 출력의 cp949, E-19)
+python tests/unit/recommend/test_contract.py      → 0 (99건)
+uv lock --check                                   → 0
+실데이터 종단 (스크래치패드 하네스)                → 0 (검사 35건)
+실제 HTTP 종단 (스크래치패드 하네스)               → 0 (검사 20건)
+```
+
+**확인하지 못한 것.** 실제 백엔드와의 연동(두 API 가 아직 없습니다) · 이미지 빌드 · 워커 둘 이상 · 실 트래픽의 지연 · 백엔드가 503 을 인기순으로 대신하는지.
