@@ -35,6 +35,7 @@ from features import receipt
 from features.receipt.router import router as receipt_router
 from features.receipt.schema import ReceiptErrorDetail, ReceiptErrorResponse
 from features.recommend import service as recommend_service
+from features.recommend import serving
 from features.recommend.enums import CONTRACT_VERSION
 from features.recommend.evaluation import monitor
 from features.recommend.evaluation.router import page_router as monitoring_page_router
@@ -64,11 +65,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     gemini.get_client()
     warmup = asyncio.create_task(receipt.start_pool())
     warmup.add_done_callback(_log_warmup_result)
+    # 레시피 사전은 뒤에서 받습니다. 기다리지 않습니다 — 백엔드가 늦게 떠도 앱은 떠야 하고,
+    # 그동안 추천은 503 으로 답해 백엔드가 자기 인기순으로 대신하게 합니다.
+    live = getattr(app.state, "live_serving", None)
+    if isinstance(live, serving.LiveServing):
+        live.start()
     try:
         yield
     finally:
         warmup.cancel()
         receipt.shutdown_pool()
+        if isinstance(live, serving.LiveServing):
+            live.stop()
 
 
 async def handle_missing_field(request: Request, exc: Exception) -> Response:
@@ -123,6 +131,9 @@ def create_app() -> FastAPI:
     add_request_metrics(app)
     # 서비스가 세어 온 내부 카운터(삼킨 예외)를 지표로 내보냅니다 (DB 전환 M-07).
     monitor.watch_counters(recommend_service.counters)
+    # 백엔드 주소가 있으면 실서빙, 없으면 목업입니다(`serving.build`).
+    app.state.live_serving = serving.build(settings)
+    monitor.watch_catalog(app.state.live_serving)
     app.add_exception_handler(ReceiptError, handle_receipt_error)
     app.add_exception_handler(RequestValidationError, handle_missing_field)
 
@@ -151,7 +162,12 @@ def create_app() -> FastAPI:
     # 페이지는 빈 껍데기라 열어 둡니다. 숫자는 위의 요약에서만 나오고 그쪽은 키가 필요합니다.
     app.include_router(monitoring_page_router)
 
-    logger.info("aiServer started (contract=%s · db=%s)", CONTRACT_VERSION, settings.db_name)
+    logger.info(
+        "aiServer started (contract=%s · db=%s · recommend=%s)",
+        CONTRACT_VERSION,
+        settings.db_name,
+        "live" if app.state.live_serving is not None else "mock",
+    )
     return app
 
 
