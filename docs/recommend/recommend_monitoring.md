@@ -4,7 +4,7 @@
 
 **적용 대상**: 추천 엔진을 운영하거나 개선하는 사람(트랙 C). 백엔드와 클라우드 팀은 5절의 띄우는 법과 6절의 보안만 보면 됩니다
 
-**버전**: 1.0.0 · **최종 수정**: 2026-09-22 · **작성자**: 유재현
+**버전**: 1.1.0 · **최종 수정**: 2026-09-22 · **작성자**: 유재현
 
 ---
 
@@ -125,15 +125,21 @@ make up-obs        # grafana · mlflow · prometheus
 make up-app        # 앱을 컨테이너로 띄울 때만
 ```
 
+`make` 가 없는 PC(Windows)에서는 같은 일을 하는 명령을 직접 부릅니다. 모니터링에 필요한 둘만 띄우면 MLflow 이미지를 빌드하지 않아 빠릅니다.
+
+```bash
+docker compose -f deploy/docker-compose.yml --env-file deploy/.env --profile obs up -d prometheus grafana
+```
+
 | 주소 | 무엇 |
 |---|---|
 | `http://localhost:9090/targets` | 수집 대상이 UP 인지 |
 | `http://localhost:9090/alerts` | 경보 규칙 7개의 상태 |
 | `http://localhost:3000` | Grafana. `추천시스템` 폴더의 "추천 엔진 — 평가와 모니터링" |
 
-앱을 호스트에서 `uvicorn` 으로 띄웠다면 `deploy/prometheus/targets/reco-api.yml` 의 대상을 `host.docker.internal:8000` 으로 바꿉니다. 30초 안에 반영되고 재시작은 필요 없습니다. 두 대상을 함께 적지 않습니다 — 꺼진 쪽이 계속 down 으로 떠 경보가 울립니다.
+수집 대상의 기본값은 `host.docker.internal:8000`, 곧 호스트의 8000 번입니다. 호스트에서 `uvicorn` 으로 띄운 개발 서버와 `make up-app` 의 앱 컨테이너(8000 번을 호스트에 내놓습니다)를 둘 다 덮습니다. 바꾸려면 `deploy/prometheus/targets/reco-api.yml` 을 고칩니다. 30초 안에 반영되고 재시작은 필요 없습니다. 두 대상을 함께 적지 않습니다 — 닿지 않는 쪽이 계속 down 으로 떠 경보가 울립니다.
 
-`deploy/.env` 의 `INTERNAL_API_KEY` 가 앱과 같은 값이어야 합니다. 다르면 대상이 401 로 DOWN 이 됩니다. 포트와 보관 기간은 `PROMETHEUS_PORT`(기본 9090) · `PROMETHEUS_RETENTION`(기본 90d)으로 바꿉니다.
+`deploy/.env` 에 `INTERNAL_API_KEY` 를 적고 앱과 같은 값으로 둡니다. 다르거나 비어 있으면 대상이 401 로 DOWN 이 됩니다. 값을 바꿨으면 `prometheus` 컨테이너를 다시 만듭니다(위 명령을 한 번 더). 포트와 보관 기간은 `PROMETHEUS_PORT`(기본 9090) · `PROMETHEUS_RETENTION`(기본 90d)으로 바꿉니다.
 
 ---
 
@@ -155,7 +161,7 @@ make up-app        # 앱을 컨테이너로 띄울 때만
 
 **관리자 페이지는 지금 상태만 봅니다.** 서버가 뜬 뒤의 누적이라 재시작하면 0 입니다. 지난주와 비교하는 일은 Grafana 에서 합니다.
 
-**이 PC 에서 Prometheus 와 Grafana 를 띄워 보지 못했습니다.** 2026-09-22 에 Docker 데몬이 꺼져 있었습니다. 확인한 것은 compose 문법(`docker compose config`), YAML 과 JSON 의 파싱, 그리고 대시보드와 경보 규칙이 묻는 지표 이름이 등록부에 실제로 있는지입니다(`tests/unit/test_monitoring_assets.py`). PromQL 의 문법과 패널의 모양은 띄워서 봐야 합니다.
+**패널의 모양은 사람이 눈으로 보지 않았습니다.** 2026-09-22 에 실제로 띄워 API 로 확인한 것은 이렇습니다 — 수집 대상 UP(시크릿 파일의 Bearer 키로 `/metrics` 통과) · 경보 규칙 7개 전부 health ok 이고 `RecoUnknownAllergyLabel` 이 의도대로 firing · 대시보드의 식 36개를 Prometheus 에 전부 물어 문법 오류 0 · Grafana 가 데이터소스 둘과 대시보드(패널 29)를 읽었고 Grafana 를 거친 질의가 값을 돌려줌. 그 과정에서 하나를 고쳤습니다. 비율 통계 넷이 분자의 시계열이 아직 없을 때 0 이 아니라 "값 없음" 으로 나와 `or vector(0)` 를 붙였습니다. 색 · 단위 · 범례가 보기 좋은지는 열어서 봐야 합니다.
 
 **워커가 하나일 때만 맞습니다.** 등록부가 프로세스마다 따로라, uvicorn 워커를 늘리면 수집 때마다 다른 워커가 답해 수치가 널뜁니다. 늘릴 때는 `prometheus_client` 의 다중 프로세스 모드로 바꿔야 합니다.
 
@@ -167,7 +173,7 @@ make up-app        # 앱을 컨테이너로 띄울 때만
 
 | 순서 | 일 | 조건 |
 |---|---|---|
-| 1 | Docker 를 켜고 `make up-obs` 로 대시보드와 경보를 눈으로 확인 | 없음 |
+| 1 | Grafana 에서 대시보드를 열어 패널의 모양(색 · 단위 · 범례)을 눈으로 확인 | 없음 |
 | 2 | 실엔진 연결 뒤 "꺼진 신호" 와 칸별 클릭률을 기준선으로 기록 | DB 전환 M-01 |
 | 3 | 임계값을 실제 분포로 다시 정함 | 운영 트래픽 2주 |
 | 4 | 가중치 재유도의 입력으로 칸별 · 순위별 반응을 내보냄 | 클릭 이벤트 누적 |
