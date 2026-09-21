@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>추천 엔진 모니터링</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --line: #e3e6ea; --text: #1d232b; --muted: #6b7684;
+    --critical: #c62828; --warning: #b26a00; --info: #1565c0; --ok: #2e7d32; --bar: #90a4ae;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14171b; --card: #1d2228; --line: #2c333b; --text: #e6e9ed; --muted: #97a1ad; --bar: #546e7a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 0 16px 48px; background: var(--bg); color: var(--text);
+         font: 14px/1.5 system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif; }
+  main { max-width: 1120px; margin: 0 auto; }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 20px 0 12px; }
+  h1 { font-size: 20px; margin: 0; }
+  h2 { font-size: 15px; margin: 28px 0 10px; }
+  .badge { padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #fff; background: var(--muted); }
+  .badge.mock, .badge.mixed { background: var(--warning); }
+  .badge.real { background: var(--ok); }
+  .spacer { flex: 1; }
+  input, button { font: inherit; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px;
+                  background: var(--card); color: var(--text); }
+  button { cursor: pointer; }
+  .muted { color: var(--muted); }
+  .note { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .card .label { font-size: 12px; color: var(--muted); }
+  .card .value { font-size: 22px; font-weight: 650; margin-top: 2px; }
+  .finding { border-left: 4px solid var(--info); margin-bottom: 8px; }
+  .finding.critical { border-left-color: var(--critical); }
+  .finding.warning { border-left-color: var(--warning); }
+  .finding .title { font-weight: 650; }
+  .finding .evidence { margin: 2px 0; }
+  .finding .action { color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line);
+          border-radius: 8px; overflow: hidden; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .bar { height: 8px; border-radius: 4px; background: var(--line); min-width: 120px; }
+  .bar > i { display: block; height: 100%; border-radius: 4px; background: var(--bar); }
+  .bar.dead > i { background: var(--critical); }
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  #status { min-height: 20px; }
+  code { font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>추천 엔진 모니터링</h1>
+    <span id="engine" class="badge">-</span>
+    <span class="spacer"></span>
+    <input id="key" type="password" placeholder="내부 API 키" autocomplete="off" size="22">
+    <button id="load">불러오기</button>
+    <label class="muted"><input id="auto" type="checkbox" checked> 15초마다</label>
+  </header>
+  <p class="note">
+    서버가 뜬 뒤 쌓인 수치입니다. 재시작하면 0 부터 다시 셉니다. 긴 기간의 추이는
+    <a id="grafana" href="http://localhost:3000" target="_blank" rel="noopener">Grafana</a> 에서 봅니다
+    (<a href="#" id="grafana-edit">주소 바꾸기</a>).
+  </p>
+  <div id="status" class="muted">키를 넣고 불러오기를 누르십시오. 키는 이 탭에만 남고 닫으면 사라집니다.</div>
+
+  <h2>지금 할 일</h2>
+  <div id="findings"></div>
+
+  <h2>요약</h2>
+  <div id="kpis" class="grid"></div>
+
+  <h2>신호별 상태 <span class="muted">— 가중치가 있는데 값이 없는 신호가 품질을 조용히 깎습니다</span></h2>
+  <table>
+    <thead><tr><th>신호</th><th class="num">가중치</th><th class="num">관측</th><th>값이 없던 비율</th><th class="num">평균</th><th>비고</th></tr></thead>
+    <tbody id="features"></tbody>
+  </table>
+
+  <h2>세부</h2>
+  <div class="cols">
+    <div><table><thead><tr><th>칸</th><th class="num">노출</th></tr></thead><tbody id="slots"></tbody></table></div>
+    <div><table><thead><tr><th>이벤트</th><th class="num">건수</th></tr></thead><tbody id="events"></tbody></table></div>
+    <div><table><thead><tr><th>400 의 사유</th><th class="num">건수</th></tr></thead><tbody id="codes"></tbody></table></div>
+    <div><table><thead><tr><th>내부 카운터</th><th class="num">값</th></tr></thead><tbody id="internal"></tbody></table></div>
+  </div>
+</main>
+<script>
+"use strict";
+const KPI = [
+  ["requests", "추천 요청", "int"], ["latency_p95", "엔진 지연 p95", "ms"], ["http_latency_p95", "HTTP 지연 p95", "ms"],
+  ["degraded_ratio", "후보 부족 비율", "pct"], ["validation_failure_ratio", "400 비율", "pct"],
+  ["dead_weight", "꺼진 가중치", "num"], ["exploration_share", "탐색 칸 비율", "pct"],
+  ["list_length_mean", "목록 길이 평균", "num"], ["same_dish_per_request", "판본으로 걸러짐/요청", "num"],
+  ["explore_shortfall", "탐색 부족분", "int"], ["unknown_allergy_labels", "모르는 알레르기 라벨", "int"],
+  ["empty_pantry_ratio", "빈 냉장고 요청", "pct"], ["impressions", "노출", "int"], ["events", "이벤트", "int"],
+  ["ctr", "클릭률", "pct2"], ["save_rate", "저장률", "pct2"], ["cook_rate", "조리율", "pct2"],
+  ["ctr_personal", "클릭률 · 개인화 칸", "pct2"], ["ctr_exploration", "클릭률 · 탐색 칸", "pct2"],
+  ["unlinked_event_ratio", "추천과 안 이어진 이벤트", "pct"],
+];
+const ENGINE = { mock: "목업이 답하는 중", real: "실엔진", mixed: "목업과 실엔진이 섞임", none: "요청 없음" };
+const $ = (id) => document.getElementById(id);
+
+function fmt(value, kind) {
+  if (value === null || value === undefined) return "–";
+  if (kind === "int") return Math.round(value).toLocaleString("ko-KR");
+  if (kind === "ms") return (value * 1000).toFixed(0) + " ms";
+  if (kind === "pct") return (value * 100).toFixed(1) + "%";
+  if (kind === "pct2") return (value * 100).toFixed(2) + "%";
+  return Number(value).toFixed(2);
+}
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+function rows(target, data, kind) {
+  const body = $(target);
+  body.replaceChildren();
+  const entries = Object.entries(data).sort((a, b) => b[1] - a[1]);
+  if (!entries.length) {
+    const row = el("tr"); const cell = el("td", "muted", "없음"); cell.colSpan = 2; row.append(cell); body.append(row);
+    return;
+  }
+  for (const [name, value] of entries) {
+    const row = el("tr"); row.append(el("td", "", name), el("td", "num", fmt(value, kind))); body.append(row);
+  }
+}
+function render(summary) {
+  $("engine").textContent = ENGINE[summary.engine] || summary.engine;
+  $("engine").className = "badge " + summary.engine;
+  const findings = $("findings");
+  findings.replaceChildren();
+  if (!summary.findings.length) findings.append(el("div", "card muted", "규칙에 걸린 것이 없습니다."));
+  for (const item of summary.findings) {
+    const card = el("div", "card finding " + item.severity);
+    card.append(el("div", "title", item.title), el("div", "evidence", item.evidence), el("div", "action", item.action));
+    findings.append(card);
+  }
+  const kpis = $("kpis");
+  kpis.replaceChildren();
+  for (const [key, label, kind] of KPI) {
+    const card = el("div", "card");
+    card.append(el("div", "label", label), el("div", "value", fmt(summary.kpis[key], kind)));
+    kpis.append(card);
+  }
+  const features = $("features");
+  features.replaceChildren();
+  for (const item of summary.features) {
+    const row = el("tr");
+    const ratio = item.none_ratio;
+    const bar = el("div", "bar" + (ratio !== null && ratio >= 0.95 && item.weight > 0 ? " dead" : ""));
+    const fill = el("i"); fill.style.width = ((ratio || 0) * 100).toFixed(0) + "%"; bar.append(fill);
+    const barCell = el("td"); barCell.append(bar); barCell.title = fmt(ratio, "pct");
+    row.append(el("td", "", item.feature), el("td", "num", item.weight.toFixed(2)),
+               el("td", "num", item.observed.toLocaleString("ko-KR")), barCell,
+               el("td", "num", fmt(item.mean, "num")), el("td", "muted", item.note));
+    features.append(row);
+  }
+  rows("slots", summary.slots, "int");
+  rows("events", summary.events, "int");
+  rows("codes", summary.validation_codes, "int");
+  rows("internal", summary.internal, "int");
+  $("status").textContent = "갱신 " + new Date(summary.generated_at).toLocaleTimeString("ko-KR");
+}
+async function load() {
+  const key = $("key").value.trim();
+  if (!key) { $("status").textContent = "내부 API 키를 넣으십시오."; return; }
+  sessionStorage.setItem("reco-admin-key", key);
+  try {
+    const response = await fetch("/v1/admin/monitoring/summary", { headers: { "X-Internal-Api-Key": key } });
+    if (response.status === 401) { $("status").textContent = "키가 맞지 않습니다 (401)."; return; }
+    if (!response.ok) { $("status").textContent = "요약을 읽지 못했습니다 (" + response.status + ")."; return; }
+    render(await response.json());
+  } catch (error) {
+    $("status").textContent = "서버에 닿지 못했습니다: " + error.message;
+  }
+}
+$("load").addEventListener("click", load);
+$("key").addEventListener("keydown", (event) => { if (event.key === "Enter") load(); });
+$("grafana-edit").addEventListener("click", (event) => {
+  event.preventDefault();
+  const next = prompt("Grafana 주소", $("grafana").href);
+  if (next) { localStorage.setItem("reco-admin-grafana", next); $("grafana").href = next; }
+});
+$("grafana").href = localStorage.getItem("reco-admin-grafana") || $("grafana").href;
+$("key").value = sessionStorage.getItem("reco-admin-key") || "";
+if ($("key").value) load();
+setInterval(() => { if ($("auto").checked && $("key").value) load(); }, 15000);
+</script>
+</body>
+</html>

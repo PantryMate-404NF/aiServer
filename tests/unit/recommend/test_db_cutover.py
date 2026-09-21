@@ -115,18 +115,16 @@ def test_settings_and_policy_hold_the_same_numbers() -> None:
         )
 
 
-def test_the_failure_counters_are_not_exposed_yet() -> None:
-    """M-07. 로그 쓰기 실패 카운터를 읽는 곳이 없습니다.
+def test_the_failure_counters_leave_the_process() -> None:
+    """M-07 (2026-09-22 처리). 로그 쓰기 실패 카운터가 `/metrics` 로 나갑니다.
 
-    `write_recommendation` 은 모든 예외를 삼키고 카운터만 올립니다. 그 카운터가
-    어디로도 나가지 않으므로, DB 를 붙인 뒤 적재가 전부 실패해도 API 는 200 을
-    돌려주고 아무도 모릅니다.
+    `write_recommendation` 은 모든 예외를 삼키고 카운터만 올립니다. 그 카운터를 읽는 곳이
+    없어서, DB 를 붙인 뒤 적재가 전부 실패해도 API 는 200 이고 아무도 몰랐습니다. 이제 앱이
+    뜰 때 `service.counters` 를 지표 수집기에 등록합니다 — 이 줄이 빠지면 다시 아무도 모릅니다.
     """
-    from features.recommend.schema import HealthOut
+    main_module = importlib.import_module("main")
 
-    assert "log_counters" not in HealthOut.model_fields, HOWTO.format(item="M-07")
-    router_module = importlib.import_module("features.recommend.router")
-    assert "counters" not in inspect.getsource(router_module), HOWTO.format(item="M-07")
+    assert "watch_counters(recommend_service.counters)" in inspect.getsource(main_module)
 
 
 def test_persona_originals_still_live_in_the_json_store() -> None:

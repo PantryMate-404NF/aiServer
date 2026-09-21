@@ -13,11 +13,14 @@
 
 from __future__ import annotations
 
+import logging
+from collections.abc import Callable
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
 
 from features.recommend.engine import mock
+from features.recommend.evaluation import monitor
 from features.recommend.profile_store import load_presented_menu
 from features.recommend.schema import (
     EventAck,
@@ -39,7 +42,24 @@ from features.recommend.schema import (
 )
 from infra import db
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
+
+
+def _observe(record: Callable[[], None]) -> None:
+    """관측을 남깁니다. **실패해도 응답은 그대로 나갑니다** — 지표가 틀리는 것과 추천이 안
+    나가는 것은 무게가 다릅니다. 실패는 삼키지 않고 로그에 남깁니다.
+    """
+    try:
+        record()
+    except (ValueError, TypeError, KeyError, AttributeError):
+        logger.exception("monitoring failed")
+
+
+def _slot_of(request_id: object, recipe_id: int | None) -> str:
+    log = mock.read_log(request_id) if isinstance(request_id, UUID) else None
+    return monitor.slot_in_log(log, recipe_id)
 
 
 @router.get("/health", response_model=HealthOut, tags=["health"])
@@ -50,7 +70,11 @@ def health() -> HealthOut:
 
 @router.post("/v1/recommend", response_model=RecommendResponse, tags=["recommend"])
 def recommend(req: RecommendRequest) -> RecommendResponse:
-    return mock.build_recommendation(req)
+    response = mock.build_recommendation(req)
+    # 운영 호출은 추적을 빼고 받습니다(include_trace=false). 추적은 로그에 남아 있어 함께 넘깁니다.
+    log = mock.read_log(response.request_id)
+    _observe(lambda: monitor.observe_recommendation(req, response, log))
+    return response
 
 
 @router.get(
@@ -74,7 +98,9 @@ def events(batch: EventBatchIn) -> EventAck:
     자동 기록합니다 (설계 3-2). 클라이언트에 맡기면 새로고침·세션 만료로 누락되고,
     랭킹 학습의 negative 샘플이 사라집니다.
     """
-    return mock.ack_events(batch)
+    ack = mock.ack_events(batch)
+    _observe(lambda: monitor.observe_events(batch, ack, _slot_of))
+    return ack
 
 
 @router.get("/v1/ingredients/search", response_model=IngredientSearchOut, tags=["search"])
@@ -124,4 +150,6 @@ def get_taste_axes() -> TasteAxesOut:
 @router.post("/v1/onboarding/{user_id}", response_model=OnboardingOut, tags=["onboarding"])
 def put_onboarding(user_id: int, body: OnboardingIn) -> OnboardingOut:
     """온보딩 5문항 저장. 가입 직후 1회."""
-    return mock.save_onboarding(user_id, body)
+    saved = mock.save_onboarding(user_id, body)
+    _observe(lambda: monitor.observe_onboarding(saved))
+    return saved

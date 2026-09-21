@@ -30,16 +30,21 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 
 from config import get_settings
-from deps import verify_internal_api_key
+from deps import verify_internal_api_key, verify_scraper_key
 from features import receipt
 from features.receipt.router import router as receipt_router
 from features.receipt.schema import ReceiptErrorDetail, ReceiptErrorResponse
+from features.recommend import service as recommend_service
 from features.recommend.enums import CONTRACT_VERSION
+from features.recommend.evaluation import monitor
+from features.recommend.evaluation.router import page_router as monitoring_page_router
+from features.recommend.evaluation.router import router as monitoring_router
 from features.recommend.router import router as recommend_router
 from features.recommend.schema import validation_error_body
 from infra import gemini
 from utils.errors import ReceiptError
 from utils.logging import add_request_logging, configure_logging
+from utils.metrics import add_request_metrics, observe_validation_failure, render
 
 logger = logging.getLogger(__name__)
 
@@ -77,9 +82,12 @@ async def handle_missing_field(request: Request, exc: Exception) -> Response:
     원인을 알 길이 없습니다. 보낸 값을 통째로 되돌려주지는 않습니다(`validation_error_body`).
     """
     logger.warning("request is missing required fields: %s", exc)
+    errors = cast(RequestValidationError, exc).errors()
+    # 본문이 빈 영수증 경로도 사유를 셉니다. 응답에 못 싣는 만큼 지표에서라도 보여야 합니다.
+    observe_validation_failure(request, [str(error.get("type", "invalid")) for error in errors])
     if request.url.path.startswith(receipt_router.prefix):
         return Response(status_code=status.HTTP_400_BAD_REQUEST)
-    body = validation_error_body(cast(RequestValidationError, exc).errors())
+    body = validation_error_body(errors)
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST, content=body.model_dump(mode="json")
     )
@@ -112,6 +120,9 @@ def create_app() -> FastAPI:
 
     app = FastAPI(title="aiServer", version=CONTRACT_VERSION, lifespan=lifespan)
     add_request_logging(app)
+    add_request_metrics(app)
+    # 서비스가 세어 온 내부 카운터(삼킨 예외)를 지표로 내보냅니다 (DB 전환 M-07).
+    monitor.watch_counters(recommend_service.counters)
     app.add_exception_handler(ReceiptError, handle_receipt_error)
     app.add_exception_handler(RequestValidationError, handle_missing_field)
 
@@ -127,9 +138,18 @@ def create_app() -> FastAPI:
             return JSONResponse(status_code=NOT_READY_STATUS, content={"status": "loading"})
         return JSONResponse(content={"status": "ok"})
 
+    @app.get("/metrics", include_in_schema=False, dependencies=[Depends(verify_scraper_key)])
+    def metrics() -> Response:
+        """Prometheus 가 긁어 가는 자리. 요청 지표와 추천 엔진 지표가 함께 나갑니다."""
+        body, content_type = render()
+        return Response(content=body, media_type=content_type)
+
     internal_only = [Depends(verify_internal_api_key)]
     app.include_router(receipt_router, dependencies=internal_only)
     app.include_router(recommend_router, dependencies=internal_only)
+    app.include_router(monitoring_router, dependencies=internal_only)
+    # 페이지는 빈 껍데기라 열어 둡니다. 숫자는 위의 요약에서만 나오고 그쪽은 키가 필요합니다.
+    app.include_router(monitoring_page_router)
 
     logger.info("aiServer started (contract=%s · db=%s)", CONTRACT_VERSION, settings.db_name)
     return app
