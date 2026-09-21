@@ -4,7 +4,7 @@
 
 **적용 대상**: 수정 여부를 결정하는 유재현과 수정을 반영할 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 11.12.0 · **최종 수정**: 2026-09-22 · **작성자**: 유재현
+**버전**: 11.13.0 · **최종 수정**: 2026-09-22 · **작성자**: 유재현
 
 ---
 
@@ -1322,3 +1322,34 @@ uv lock --check                                   → 0
 ```
 
 **확인하지 못한 것.** 실제 백엔드와의 연동(두 API 가 아직 없습니다) · 이미지 빌드 · 워커 둘 이상 · 실 트래픽의 지연 · 백엔드가 503 을 인기순으로 대신하는지.
+
+### 21.18 전달 문서와 코드의 대조 (2026-09-22 추가)
+
+9.34 세션. 백엔드와 클라우드에 전달한 네 문서를 코드와 한 줄씩 대조했습니다. 문서를 고치려고 시작했는데 코드 쪽 결함이 셋 나왔습니다.
+
+| ID | 발견 | 실험 근거 | 처리 |
+|---|---|---|---|
+| F-134 | 실서빙이 요청의 `max_missing` 을 읽지 않음 | `serving.recommend` 가 정책의 기본값(2)으로만 사다리를 시작했습니다. 명세 4.4 는 그 필드를 받는다고 적고 있고 목업은 실제로 그 값으로 거릅니다. `max_missing: 0` 을 보내도 200 에 부족 재료가 있는 목록이 나갑니다 | D-62. 요청의 값이 사다리의 첫 칸입니다. `test_the_requests_max_missing_is_where_the_search_starts` |
+| F-135 | `/health` 가 실서빙에서도 목업의 모델 이름을 답함 | 라우터가 `mock.health_payload` 를 그대로 돌려줘 `model_version` 이 `mock-linear-v0` 이었습니다. 9.33 에서 명세에 "운영에서 `mock-` 이 보이면 배포 설정이 빠진 것" 이라 적었으므로, 제대로 배포한 서버가 잘못 배포한 것으로 읽힙니다 | 실서빙이면 `POLICY_ID` 를 답합니다. 라우트 검사 둘에 단언을 더했습니다 |
+| F-136 | 동기화 스레드가 예상 못 한 예외에 죽음 | `_run` 이 `ExternalServiceError` · `CatalogNotReadyError` 만 받았습니다. 그 밖의 예외가 오르면 스레드가 끝나고 사전은 다시 갱신되지 않습니다(처음이면 추천이 영영 503). 에러는 기본 예외 훅이 stderr 에 한 번 찍는 것이 전부입니다. 빌더에 이상값 여덟 가지(모르는 유형 코드 · 모르는 난이도 · 음수 조리시간 · 빈 유형 · 빈 제목 · 사전에 없는 재료 번호 · 겹친 재료 행 · 터무니없이 큰 수)를 넣어 봤고 죽는 것은 없었습니다 — 지금 터지는 결함이 아니라 터졌을 때 보이지 않는 구조입니다 | `_attempt` 가 전부 받아 로그(`catalog sync crashed`)와 카운터에 남기고 60초 뒤 다시 합니다. `test_the_sync_loop_survives_a_failure_it_did_not_expect` |
+| F-137 | 인수인계 문서가 "쓰기 경로 없음" 이라 적고 있었음 | `container_handover.md` 5절 — "읽기 전용 파일시스템으로 띄워도 됩니다". 9.33 에서 13절을 덧붙이면서 앞 절을 고치지 않았습니다. 앞에서부터 읽는 사람은 5절대로 배포합니다 | 5절 · 2절의 실행 예 · 6절 · 7절 · 9절 · 11절을 고쳤습니다. 덧붙이기만 하면 같은 문서 안에서 앞뒤가 어긋난다는 것이 이번 교훈입니다 |
+
+문서에 새로 적은 사실은 적기 전에 확인했습니다.
+
+```text
+"추천은 DB 없이 나간다"        DB 포트를 닫고(59999) 실제 HTTP 종단 → 검사 20건 통과, 종료코드 0
+"경보 규칙 9개"                떠 있는 Prometheus 에 SIGHUP → /api/v1/rules 9개 전부 health ok
+"is_staple 은 하나라도 오면 백엔드가 정본"   engine/catalog.py 의 _staples 와 test_staples_come_from_the_backend_once_it_sends_them
+"5% 넘게 깨지면 통째로 버림"    backend_client.MAX_INVALID_RATIO 와 test_many_broken_items_mean_the_contract_split_not_one_bad_row
+"같은 커서가 두 번 오면 멈춤"   test_a_cursor_that_repeats_does_not_loop_forever
+```
+
+```text
+uv run ruff check . · format --check .            → 0 (198 files)
+uv run python -m mypy src                         → 0 (77 files)
+PYTHONUTF8=1 uv run python -m pytest tests/unit   → 0 (601 passed, coverage 94.26%)
+python tests/unit/recommend/test_contract.py      → 0 (99건)
+실제 HTTP 종단 — DB 있음 · DB 없음                → 0 · 0 (각 20건)
+```
+
+**확인하지 못한 것**은 21.17 과 같습니다. Notion 사본은 이 기록을 쓰는 시점에 2.2.0 입니다.
