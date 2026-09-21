@@ -6,15 +6,19 @@
 1. **재료 → 알레르기 군.** 백엔드 재료 사전에는 그 칸이 없습니다. 우리 시드
    (`seeds/ingredient.csv` 의 `allergen_group`)를 이름으로 이어 씁니다. 이름이 다른 것은
    `BACKEND_NAME_ALIASES` 가 잇습니다.
-2. **라벨 → 규칙.** 라벨마다 군 · 이름 조각 · 정확한 이름을 둡니다(`LABEL_RULES`).
+2. **라벨 → 규칙.** 라벨 → 군 의 정본은 `enums.ALLERGEN_LABELS`(계약 어휘)이고, 여기는
+   그 위에 동의어와 이름·제목 규칙만 얹습니다(`LABEL_RULES`).
 3. **모르는 것을 숨기지 않습니다.** 풀지 못한 라벨과 시드에 없는 재료를 결과에 함께
    돌려줍니다. 조용히 버리면 그 사용자는 보호받지 못하는데 응답은 200 입니다.
 
 ## 넓게 막습니다
 
-라벨이 시드의 군과 닿으면 **군 전체**를 막습니다. "새우" 를 고르면 조개류까지 막히고
-"땅콩" 을 고르면 호두까지 막힙니다. 덜 막아서 생기는 일(알레르기 반응)과 더 막아서 생기는
-일(추천이 조금 줄어듦)의 무게가 다르기 때문입니다. 정밀하게 하려면 재료마다 알레르기를
+라벨이 시드의 군과 닿으면 **군 전체**를 막습니다. "새우" 를 고르면 조개류와 김치(젓갈)까지
+막히고 "땅콩" 을 고르면 호두까지 막힙니다. 다만 군의 경계는 넘지 않습니다 — 오징어·낙지는
+`mollusk` 로 갑각류·조개류(`shellfish`)와 다른 알레르기입니다(09-20 파트 A).
+
+넓게 막는 이유는 덜 막아서 생기는 일(알레르기 반응)과 더 막아서 생기는 일(추천이 조금
+줄어듦)의 무게가 다르기 때문입니다. 정밀하게 하려면 재료마다 알레르기를
 여러 개 달 수 있어야 하고, 그것은 백엔드 재료 사전의 몫입니다(API 명세 5.3).
 
 ## 재료 목록만 믿지 않습니다
@@ -41,7 +45,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from features.recommend.enums import ALLERGEN_GROUPS
+from features.recommend.enums import ALLERGEN_GROUPS, ALLERGEN_LABELS
 
 #: 백엔드 재료 이름 → 시드 이름. 백엔드가 더 일반적인 이름을 씁니다(치즈 → 체다치즈).
 #:
@@ -85,100 +89,83 @@ class AllergenRule:
     title_extra: tuple[str, ...] = ()
 
 
-_EGG = AllergenRule(groups=("egg",), title_extra=("계란", "에그", "오믈렛", "스크램블"))
-_DAIRY = AllergenRule(groups=("dairy",), title_extra=("크림", "라떼", "밀크", "치즈"))
-#: 주의: "잣" 을 제목에서 찾지 않습니다. 실데이터에서 걸린 2건이 전부 「감잣국」 이었습니다.
-#:    한 글자 조각은 다른 낱말 속에 들어갑니다. 잣은 재료 id 쪽(견과 군)에서 막힙니다.
-_NUT = AllergenRule(groups=("nut",), title_extra=("피넛", "캐슈", "피칸", "피스타치오", "잣죽"))
-_SOY = AllergenRule(groups=("soy",))
-_GLUTEN = AllergenRule(groups=("gluten",))
-_FISH = AllergenRule(groups=("fish",))
-_SESAME = AllergenRule(groups=("sesame",))
-#: 갑각류·조개류·연체류를 한 군으로 막습니다. 시드가 그렇게 묶어 두었습니다.
-_SHELLFISH = AllergenRule(
-    groups=("shellfish",),
-    keywords=("새우", "오징어"),
-    names=("진미채", "오징어채"),
-    title_extra=(
-        "쉬림프",
-        "감바스",
-        "꽃게",
-        "대게",
-        "게장",
-        "조개",
-        "홍합",
-        "전복",
-        "쭈꾸미",
-        "낙지",
-        "문어",
-    ),
-)
+#: 라벨 끝에 붙어 오는 말. "우유 알레르기" 를 "우유" 로 읽습니다.
+_LABEL_SUFFIXES = ("알레르기", "알러지")
 
-#: 라벨 → 규칙. 식약처 표시 대상과 흔한 다른 말, 그리고 엔진의 영문 군 코드를 받습니다.
+
+def normalize_label(label: str) -> str:
+    """공백과 "알레르기" 꼬리를 떼고, 영문 코드는 소문자로. 표의 키도 같은 함수를 지납니다."""
+    text = "".join(label.split())
+    for suffix in _LABEL_SUFFIXES:
+        if text.endswith(suffix) and len(text) > len(suffix):
+            text = text[: -len(suffix)]
+    return text.lower() if text.isascii() else text
+
+
+#: `enums.ALLERGEN_LABELS` 에 **없는** 다른 말. 같은 군으로 가는 동의어뿐입니다.
 #:
-#: 주의: 여기 없는 라벨은 `resolve()` 가 `unknown_labels` 로 돌려줍니다. 새 라벨을
-#:    조용히 무시하면 그 사용자는 보호받지 못합니다.
-LABEL_RULES: Mapping[str, AllergenRule] = {
-    # 알류
-    "알류": _EGG,
-    "난류": _EGG,
-    "달걀": _EGG,
-    "계란": _EGG,
-    "메추리알": _EGG,
-    # 우유
-    "우유": _DAIRY,
-    "유제품": _DAIRY,
-    "치즈": _DAIRY,
-    "버터": _DAIRY,
-    # 견과 — 땅콩과 나무 견과는 다른 알레르기지만 군 전체를 막습니다 (위 "넓게 막습니다")
-    "땅콩": _NUT,
-    "호두": _NUT,
-    "잣": _NUT,
-    "아몬드": _NUT,
-    "견과류": _NUT,
-    "견과": _NUT,
-    # 대두 · 밀 · 메밀 · 참깨 · 복숭아
-    "대두": _SOY,
-    "콩": _SOY,
-    "두부": _SOY,
-    "밀": _GLUTEN,
-    "밀가루": _GLUTEN,
-    "글루텐": _GLUTEN,
-    "메밀": AllergenRule(groups=("buckwheat",)),
-    "참깨": _SESAME,
-    "깨": _SESAME,
-    "들깨": _SESAME,
-    "복숭아": AllergenRule(groups=("peach",)),
-    # 생선
-    "고등어": _FISH,
-    "생선": _FISH,
-    "어류": _FISH,
-    # 갑각류 · 조개류 · 연체류
-    "새우": _SHELLFISH,
-    "게": _SHELLFISH,
-    "갑각류": _SHELLFISH,
-    "조개류": _SHELLFISH,
-    "조개": _SHELLFISH,
-    "굴": _SHELLFISH,
-    "전복": _SHELLFISH,
-    "홍합": _SHELLFISH,
-    "오징어": _SHELLFISH,
-    "해산물": AllergenRule(
-        groups=("fish", "shellfish"),
-        keywords=("새우", "오징어"),
-        names=("진미채", "오징어채"),
-        title_extra=(
-            *_SHELLFISH.title_extra,
-            "생선",
-            "연어",
-            "갈치",
-            "조기",
-            "동태",
-            "명태",
-            "황태",
-        ),
-    ),
-    # 시드에 군이 없는 것 — 이름으로만 막습니다
+#: 주의: 라벨 → 군 의 정본은 `enums.ALLERGEN_LABELS` 입니다(계약 어휘, 파트 A). 여기서 그
+#:    표를 다시 적지 않습니다. 09-21 에 같은 표를 여기 따로 들고 있다가 셋이 어긋났습니다 —
+#:    식약처 표기 `알류(가금류)` · `조개류(굴,전복,홍합 포함)` 를 이 모듈은 **모르는 라벨로
+#:    돌려보냈고**, `오징어` 는 서로 다른 군으로 보냈습니다. 표가 둘이면 한쪽만 고쳐져도
+#:    에러가 나지 않습니다(D-27). 아래 `_build_rules()` 에서 정본이 언제나 이깁니다.
+_SYNONYMS: Mapping[str, tuple[str, ...]] = {
+    "난류": ("egg",),
+    "달걀": ("egg",),
+    "계란": ("egg",),
+    "메추리알": ("egg",),
+    "유제품": ("dairy",),
+    "치즈": ("dairy",),
+    "버터": ("dairy",),
+    "아몬드": ("nut",),
+    "견과": ("nut",),
+    "콩": ("soy",),
+    "두부": ("soy",),
+    "밀가루": ("gluten",),
+    "글루텐": ("gluten",),
+    "깨": ("sesame",),
+    "들깨": ("sesame",),
+    "생선": ("fish",),
+    "어류": ("fish",),
+    "갑각류": ("shellfish",),
+    "조개": ("shellfish",),
+    "굴": ("shellfish",),
+    "전복": ("shellfish",),
+    "홍합": ("shellfish",),
+    # 두족류는 갑각류·조개류와 다른 알레르기입니다(`enums` 의 mollusk 주석). 섞지 않습니다.
+    "낙지": ("mollusk",),
+    "문어": ("mollusk",),
+    "주꾸미": ("mollusk",),
+    "쭈꾸미": ("mollusk",),
+    "연체류": ("mollusk",),
+    "두족류": ("mollusk",),
+    "해산물": ("fish", "shellfish", "mollusk"),
+}
+
+#: 군마다 **제목에서** 찾는 말. 재료 사전에 없는 다른 말과 외래어입니다.
+#:
+#: 주의: "잣" 을 넣지 않습니다. 실데이터에서 걸린 2건이 전부 「감잣국」 이었습니다. 한 글자
+#:    조각은 다른 낱말 속에 들어갑니다. 잣은 재료 id 쪽(견과 군)에서 막힙니다.
+_TITLE_WORDS: Mapping[str, tuple[str, ...]] = {
+    "egg": ("계란", "에그", "오믈렛", "스크램블"),
+    "dairy": ("크림", "라떼", "밀크", "치즈"),
+    "nut": ("피넛", "캐슈", "피칸", "피스타치오", "잣죽"),
+    "fish": ("생선", "연어", "갈치", "조기", "동태", "명태", "황태"),
+    "shellfish": ("쉬림프", "감바스", "꽃게", "대게", "게장", "조개", "홍합", "전복"),
+    "mollusk": ("쭈꾸미", "주꾸미", "낙지", "문어"),
+}
+
+#: 군마다 **재료 이름에서** 찾는 조각. 시드가 모르는 새 재료(칵테일새우)를 위한 안전판입니다.
+_NAME_KEYWORDS: Mapping[str, tuple[str, ...]] = {
+    "shellfish": ("새우",),
+    "mollusk": ("오징어", "낙지", "문어"),
+}
+
+#: 군이 없어 **이름으로만** 막는 라벨. `enums.ALLERGEN_UNSUPPORTED` 가 "그룹으로는 못 막는다"
+#: 고 적은 것들입니다. 온보딩 응답(`unmapped_allergens`)은 이 라벨을 못 막았다고 돌려주지만,
+#: 추천 요청의 하드컷은 재료 이름으로 막습니다 — 약속보다 더 막는 쪽이라 안전한 방향입니다.
+#: `아황산류` 는 재료 사전에 표제어가 없어 여기서도 못 막고 모르는 라벨로 돌려줍니다.
+_NAME_ONLY: Mapping[str, AllergenRule] = {
     "토마토": AllergenRule(keywords=("토마토",), names=("케첩",)),
     "돼지고기": AllergenRule(
         keywords=("돼지",),
@@ -188,12 +175,32 @@ LABEL_RULES: Mapping[str, AllergenRule] = {
     "쇠고기": AllergenRule(keywords=("소고기", "쇠고기"), names=("다시다", "차돌박이")),
     "소고기": AllergenRule(keywords=("소고기", "쇠고기"), names=("다시다", "차돌박이")),
     "닭고기": AllergenRule(keywords=("닭",), title_extra=("치킨",)),
-    # 엔진의 영문 군 코드 (`OnboardingIn.allergy_groups`). 두 어휘를 한 함수가 받습니다.
-    **{code: AllergenRule(groups=(code,)) for code in ALLERGEN_GROUPS},
 }
 
-#: 라벨 끝에 붙어 오는 말. "우유 알레르기" 를 "우유" 로 읽습니다.
-_LABEL_SUFFIXES = ("알레르기", "알러지")
+
+def _group_rule(groups: tuple[str, ...]) -> AllergenRule:
+    return AllergenRule(
+        groups=groups,
+        keywords=tuple(word for group in groups for word in _NAME_KEYWORDS.get(group, ())),
+        title_extra=tuple(word for group in groups for word in _TITLE_WORDS.get(group, ())),
+    )
+
+
+def _build_rules() -> dict[str, AllergenRule]:
+    """동의어 → 계약 어휘 → 영문 코드 순으로 덮어씁니다. **뒤가 이기므로 정본이 이깁니다.**"""
+    by_label: dict[str, tuple[str, ...]] = dict(_SYNONYMS)
+    by_label.update({label: (code,) for label, code in ALLERGEN_LABELS.items()})
+    by_label.update({code: (code,) for code in ALLERGEN_GROUPS})
+    rules = {normalize_label(label): _group_rule(groups) for label, groups in by_label.items()}
+    rules.update({normalize_label(label): rule for label, rule in _NAME_ONLY.items()})
+    return rules
+
+
+#: 라벨 → 규칙. 키는 `normalize_label()` 을 지난 모양입니다.
+#:
+#: 주의: 여기 없는 라벨은 `resolve()` 가 `unknown_labels` 로 돌려줍니다. 새 라벨을
+#:    조용히 무시하면 그 사용자는 보호받지 못합니다.
+LABEL_RULES: Mapping[str, AllergenRule] = _build_rules()
 
 
 @dataclass(frozen=True)
@@ -236,15 +243,6 @@ def ingredient_groups(
             continue
         groups[ingredient_id] = seed_groups[seed_name]
     return groups, tuple(sorted(unmapped))
-
-
-def normalize_label(label: str) -> str:
-    """앞뒤 공백과 "알레르기" 꼬리를 떼고, 영문 코드는 소문자로."""
-    text = "".join(label.split())
-    for suffix in _LABEL_SUFFIXES:
-        if text.endswith(suffix) and len(text) > len(suffix):
-            text = text[: -len(suffix)]
-    return text.lower() if text.isascii() else text
 
 
 def resolve(

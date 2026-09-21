@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from features.recommend.engine import allergy
-from features.recommend.enums import ALLERGEN_GROUPS
+from features.recommend.enums import ALLERGEN_GROUPS, ALLERGEN_LABELS, ALLERGEN_UNSUPPORTED
 
 ROOT = Path(__file__).resolve().parents[3]
 SEED = ROOT / "seeds" / "ingredient.csv"
@@ -82,6 +82,63 @@ def test_a_label_blocks_its_whole_group_on_purpose(
     assert {"호두", "아몬드"} <= _blocked(["땅콩"], names, groups)
     assert {"바지락", "굴", "김치"} <= _blocked(["새우"], names, groups), "김치는 젓갈 때문"
     assert {"오징어", "진미채"} <= _blocked(["오징어"], names, groups)
+
+
+def test_the_group_boundary_is_not_crossed(names: dict[int, str], groups: dict[int, str]) -> None:
+    """두족류는 갑각류·조개류와 다른 알레르기입니다 (09-20 파트 A 의 `mollusk` 군).
+
+    넓게 막되 군의 경계는 넘지 않습니다. 새우를 고른 사람에게서 오징어까지 빼지 않고,
+    오징어를 고른 사람의 새우도 그대로 둡니다.
+    """
+    assert "오징어" not in _blocked(["새우"], names, groups)
+    assert "새우" not in _blocked(["오징어"], names, groups)
+    assert {"오징어", "새우", "고등어"} <= _blocked(["해산물"], names, groups)
+
+
+# ── 표는 하나입니다 ──────────────────────────────────────────────────────────
+
+
+def test_the_contract_vocabulary_always_wins() -> None:
+    """라벨 → 군 의 정본은 `enums.ALLERGEN_LABELS` 입니다. 이 모듈이 다르게 풀면 안 됩니다.
+
+    09-21 에 같은 표를 여기 따로 들고 있다가 셋이 어긋났습니다. 식약처 표기 둘
+    (`알류(가금류)` · `조개류(굴,전복,홍합 포함)`)을 **모르는 라벨로 돌려보냈고** 오징어는
+    다른 군으로 보냈습니다. 표가 둘이면 한쪽만 고쳐져도 에러가 나지 않습니다.
+    """
+    for label, code in ALLERGEN_LABELS.items():
+        rule = allergy.LABEL_RULES.get(allergy.normalize_label(label))
+        assert rule is not None, f"계약 어휘의 라벨을 모릅니다: {label}"
+        assert rule.groups == (code,), f"{label}: 계약은 {code}, 여기는 {rule.groups}"
+
+
+def test_a_synonym_never_contradicts_the_contract() -> None:
+    """동의어 표에 계약 어휘와 같은 라벨이 있어도 정본이 이깁니다. 있으면 지워야 합니다."""
+    shadowed = [label for label in allergy._SYNONYMS if label in ALLERGEN_LABELS]
+    assert shadowed == [], "동의어 표에는 계약 어휘에 없는 말만 둡니다"
+    unknown = {g for gs in allergy._SYNONYMS.values() for g in gs} - set(ALLERGEN_GROUPS)
+    assert unknown == set(), "동의어가 가리키는 군은 전부 ALLERGEN_GROUPS 안에 있어야 합니다"
+
+
+def test_the_official_labels_with_brackets_are_read(
+    names: dict[int, str], groups: dict[int, str]
+) -> None:
+    """식약처 표기는 괄호와 공백을 담고 옵니다. 그대로 보내도 막혀야 합니다."""
+    assert "달걀" in _blocked(["알류(가금류)"], names, groups)
+    assert {"굴", "바지락"} <= _blocked(["조개류(굴,전복,홍합 포함)"], names, groups)
+
+
+def test_labels_the_contract_cannot_group_are_blocked_by_name_here(
+    names: dict[int, str], groups: dict[int, str]
+) -> None:
+    """`ALLERGEN_UNSUPPORTED` 는 군이 없어 온보딩이 "못 막았다" 고 돌려주는 라벨입니다.
+
+    추천 요청의 하드컷은 그 가운데 고기와 토마토를 재료 이름으로 막습니다 — 약속보다
+    더 막는 쪽입니다. `아황산류` 는 재료 사전에 표제어가 없어 여기서도 모르는 라벨입니다.
+    """
+    for label in ("돼지고기", "닭고기", "쇠고기", "토마토"):
+        assert label in ALLERGEN_UNSUPPORTED
+        assert _blocked([label], names, groups), label
+    assert allergy.resolve(["아황산류"], names, groups).unknown_labels == ("아황산류",)
 
 
 def test_processed_meats_follow_the_meat(names: dict[int, str], groups: dict[int, str]) -> None:
