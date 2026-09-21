@@ -246,6 +246,11 @@ class TasteAxesOut(_Base):
     max: int = CLIENT_SCALE_MAX
 
 
+def _at(positions: Sequence[int]) -> str:
+    """틀린 자리를 `picks[3], picks[7]` 로 적습니다. 보낸 값은 적지 않습니다."""
+    return ", ".join(f"picks[{i}]" for i in positions)
+
+
 class OnboardingIn(_Base):
     """온보딩 6문항 응답 (S0 ② 확정 문항 + 09-15 음식 유형).
 
@@ -342,12 +347,17 @@ class OnboardingIn(_Base):
         응답은 200 입니다. `preferred_cuisines`·`allergy_groups` 와 같은 방어입니다.
         """
         names = load_presented_names()
-        unknown = [p for p in v if isinstance(p, str) and p not in names]
+        # 보낸 값이 아니라 자리를 말한다. 이 문구는 그대로 400 응답 본문이 되는데
+        # (`main.handle_missing_field` -> `validation_error_body`), 값을 넣으면 위
+        # `FieldErrorOut` 이 `input` 을 버려 막아 둔 것이 이 문구로 새어 나간다.
+        # 값은 서버 로그에 pydantic 의 `input` 으로 그대로 남으므로 잃는 것이 없고,
+        # 부르는 쪽은 자기가 보낸 배열의 그 자리를 보면 된다.
+        unknown = [i for i, p in enumerate(v) if isinstance(p, str) and p not in names]
         if unknown:
-            raise ValueError(f"제시 목록에 없는 음식이다: {unknown}")
-        bad = [p for p in v if isinstance(p, int) and not 0 <= p < len(names)]
+            raise ValueError(f"제시 목록에 없는 음식이다: {_at(unknown)}")
+        bad = [i for i, p in enumerate(v) if isinstance(p, int) and not 0 <= p < len(names)]
         if bad:
-            raise ValueError(f"제시 목록 밖의 인덱스다: {bad}")
+            raise ValueError(f"제시 목록 밖의 인덱스다: {_at(bad)}")
         return v
 
     @model_validator(mode="after")
@@ -582,7 +592,7 @@ class FieldErrorOut(_Base):
 
     주의: **pydantic 의 `input` 을 싣지 않는다.** 보낸 값 그대로라, 돌려주면 요청 본문이 응답과
        호출 쪽 로그로 복사된다. 어느 칸이 왜 틀렸는지만 말한다. 검증기가 문구에 직접 적은 값
-       (제시 목록에 없는 음식 이름)은 `message` 에 실린다 — 그 값이 곧 사유다.
+       우리 검증기도 같은 규칙을 따른다 — `picks` 는 틀린 **자리**만 말하고 이름을 싣지 않는다.
     """
 
     location: str  # body · query · path · header
