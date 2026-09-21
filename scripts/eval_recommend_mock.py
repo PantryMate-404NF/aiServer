@@ -38,6 +38,7 @@ from features.recommend.engine.context import (
 )
 from features.recommend.engine.persona import Persona, TasteEvent, TasteProfile
 from features.recommend.enums import DEFAULT_WEIGHTS, FEATURE_KEYS, UNAVAILABLE_FEATURES, EventType
+from features.recommend.evaluation.metrics import intra_list_distance
 from features.recommend.policy import RankingPolicy
 from features.recommend.profile_store import load_presented_flavors
 from features.recommend.stage import Candidate, RankedItem
@@ -236,16 +237,6 @@ def cuisines_of(raw: object) -> list[str]:
     if isinstance(raw, list):
         return [str(x).strip() for x in raw if x]
     return []
-
-
-def jaccard(left: frozenset[int], right: frozenset[int]) -> float:
-    union = left | right
-    return len(left & right) / len(union) if union else 0.0
-
-
-def intra_list_distance(items: Sequence[frozenset[int]]) -> float:
-    pairs = [1.0 - jaccard(a, b) for i, a in enumerate(items) for b in items[i + 1 :]]
-    return statistics.fmean(pairs) if pairs else 0.0
 
 
 def measured_features(items: Sequence[RankedItem]) -> list[str]:

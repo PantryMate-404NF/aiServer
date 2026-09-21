@@ -1,0 +1,549 @@
+# 추천 평가 시스템 설계 명세 (Track C)
+
+**정하는 것**: 추천 로그를 평가용 기록으로 바꾸고, 순위 지표·정책 비교·오프폴리시 추정·품질 스냅샷을 내는 평가 관측 파이프라인의 데이터 계약, 단계, 모듈 배치, 지표 정의, 판정 규칙, 검증 계획, 개인정보 처리. 화면 4종은 입력 계약까지만 정합니다
+
+**적용 대상**: 파트 C(관측·평가) 구현자와 AI 코딩 에이전트. 파트 A·B 와 백엔드는 2절, 3.4, 13절의 접점만 봅니다
+
+**버전**: 1.2.0 · **최종 수정**: 2026-09-18 · **작성자**: 김민경
+
+---
+
+## 1. 목적과 경계
+
+### 1.1 한 문장 정의
+
+평가 관측 파이프라인은 `recommendation_log` 와 `event_log` 를 **요청 1건 = JSONL 1줄**로 바꾼 뒤, 단계마다 파일만 주고받으며 순위 지표, 정책 비교, 오프폴리시 추정, 품질 스냅샷을 내는 순수 파이썬 계층입니다. 관측 화면은 마지막 산출 파일만 읽고 계산을 하지 않습니다. 엔진이 무엇을 기록하고 왜 남기는지는 `../recommend_engine_how_it_works.md` 7절과 11절에 있습니다.
+
+### 1.2 경계
+
+| 구분 | 이 명세가 정하는 것 | 정하지 않는 것 |
+|---|---|---|
+| 숫자를 만드는 쪽 | 평가 라이브러리, 로그 변환, 합성 로그, 품질 스냅샷 기록기 | 엔진의 점수 산식과 가중치(파트 B) |
+| 숫자를 보여주는 쪽 | 화면 4종이 읽을 입력 계약(13절) | 화면 구현. 별도 브랜치 |
+| 데이터 | JSONL 형식, 불변식, 제외 규칙, 가명화 | DB 테이블 구조. 변경은 3인 합의 |
+
+이 명세는 트랙 C 작업 분해의 C-2, C-3, C-4, C-5, C-11, C-12 에 해당합니다. C-1, C-6, C-7, C-8, C-9, C-10, C-13, C-14 는 13절의 입력 계약 위에서 다음 브랜치가 맡습니다.
+
+### 1.3 설계 원칙
+
+1. **정답과 계약은 코드가 정합니다.** 라벨 가중치는 `enums.LABEL_WEIGHT`, 노출 항목은 `stage.RankedItem`, 다양성은 엔진의 IDF 가중 유사도를 그대로 씁니다. 평가 계층이 같은 것을 다시 정의하지 않습니다.
+2. **이 로그로 잴 수 있는 것은 순서의 품질입니다.** 정답은 노출된 항목의 반응에서만 오므로 노출되지 않은 후보의 품질은 오프라인으로 알 수 없습니다. 리포트 첫 줄에 이 한계를 적습니다.
+3. **통계 단위는 유저입니다.** 한 유저의 요청들은 독립이 아니므로 신뢰구간과 대응 비교는 유저 단위로 리샘플합니다.
+4. **판정은 사전 등록 지표 하나로만 합니다.** 세그먼트와 지표를 전부 보고하되 통과·보류·실패는 6.3 의 지표 하나로 정합니다.
+5. **쓸 수 없는 결과는 예외가 아니라 결과입니다.** 오프폴리시 추정은 지원 진단을 추정치와 분리할 수 없게 돌려주고, 표본 부족은 "보류"로 냅니다.
+6. **조용히 건너뛰지 않습니다.** 불변식 위반 줄은 즉시 실패하고, 제외 규칙에 걸린 줄은 세어서 보고하며, 모든 리포트에 버전 스탬프를 찍습니다.
+7. **평가 데이터도 개인정보입니다.** 평가 코드는 원본 `user_id` 와 냉장고 내용을 보지 않습니다(14절).
+
+### 1.4 1.0.0 에서 바뀐 것
+
+| 항목 | 1.0.0 | 1.1.0 | 이유 |
+|---|---|---|---|
+| Recall | @20 주지표 | @5·@10 만. @20 은 정의상 1.0 이라 계산하지 않음. 유저 단위 Recall 을 별도 계열로 추가 | 정답이 노출분에서만 오므로 K = top_k 에서 퇴화 |
+| baseline | 후보 풀 재정렬 | 노출 목록의 순열 3종(popularity, random, coverage 단독) | 후보 풀 재정렬은 라벨 부재를 검정하는 게이트가 됨 |
+| 정책 비교 | 오프라인만 | Team-Draft Interleaving 승률 추가. 정책 채택의 유일한 근거 | 계약에 `team`·`policies` 가 있고 소표본에서 유일하게 검출력이 있음 |
+| 그룹 키 | `user_mode` | `model_version` 필수, `user_mode` 는 하위 세그먼트 | 정책 혼합 방지 |
+| 위치 편향 | 없음 | 위치별 CTR 곡선 필수, examination 보정 옵션 | 측정이 있어야 보정 근거가 생김 |
+| ILD | `all_ids` Jaccard | 엔진의 IDF 가중 Jaccard | 최적화 대상과 측정 대상 일치 |
+| 불변식 | 통합 테스트만 | 줄 단위 검증기 | 조용한 실패 차단 |
+| 목표 정책 | Stage 2 재채점만 | MMR 까지 포함 | 서빙 결과의 가치를 추정 |
+| 개인정보 | 없음 | 가명화, 필드 제거, 보존 기간 | 평가 파일의 개인정보 |
+| 판정 | 통과·실패 | 통과·보류·실패 | 표본 부족을 통과로 읽지 않게 |
+| 파이프라인 | 없음 | 3절 | 단계·계기·소유를 명시 |
+| 음식 유형 칸 | 없음 | 불변식, 슬롯 변형, 목록 지표, 스냅샷에 `is_cuisine_slot` 반영 | 2026-09-17 `main` 병합으로 들어온 계약(`../../decisions/2026-09-15_cuisine_choice_as_slots_not_weight.md`) |
+
+### 1.5 1.1.0 에서 바뀐 것
+
+구현하면서 코드가 정한 것을 명세에 되돌려 적었습니다. 근거는 작업 기록의 D-19~D-35 입니다.
+
+| 항목 | 1.1.0 | 1.2.0 | 이유 |
+|---|---|---|---|
+| 모듈 | 평가 폴더 8개, 합성·리포트는 스크립트 안 | `synth.py`, `report.py`, `export.py` 추가. SQL 은 `repository_eval.py` | 단위 테스트가 subprocess 없이 돌아야 하고 SQL 은 repository 밖으로 나가지 않습니다(03 의 5절) |
+| 의존성 | `numpy` | 표준 라이브러리만. `scikit-learn` 은 외부 대조 검사에서만 | `numpy` 가 `ml` extra 라 기본 설치의 단위 테스트가 깨집니다 |
+| 제외 규칙 | 3종 | `no_items` 추가. `include_simulated` 는 규칙의 인자 | `candidates` 를 저장하지 않는 서빙 모드의 행이 분모에 섞였습니다 |
+| 기록 필드 | 없음 | `cuisine_unmet` | 8절의 비율을 기록만으로 재기 위해 |
+| random baseline | 시드 고정 | 시드와 `request_id` 로 기록마다 다른 순열 | 시드 하나면 모든 기록이 같은 순열을 받습니다 |
+| Interleaving | 유저 단위 승률 | 요청별 승패를 유저별 다수결로. 정확 양측 이항 검정 | "유저 단위" 의 구체화 |
+| 검출력 | 관측 표준편차 | 판정에 쓴 대응 부트스트랩의 산포 | 판정과 같은 통계량이어야 합니다 |
+| 고아 `request_id` | 모든 이벤트 | 목록 이벤트 5종, 최근 1일 | cook 은 목록 밖에서도 일어나 `request_id` 가 없는 것이 정상입니다 |
+| E-07 | Recall@10 이 정답률의 CI 안 | 전체 양성 비율과 위치별 CTR 이 심은 확률 안 | K = top_k 의 Recall 은 정의상 1.0 입니다 |
+| E-10 | pytest 통합 테스트 | `make eval-smoke` | 루트 conftest 가 통합 검사에도 가짜 DB 환경을 세웁니다 |
+| 가명화 salt | `REVIEW_SALT` 와 같은 방식 | 평가 전용 `EVAL_SALT` | 후기 작성자 가명과 유저 가명이 같은 키로 묶이지 않게 |
+| 취향 출처 세그먼트 | 있으면 냄 | 내지 않음 | 기록에 그 필드가 없습니다. 실기록에서 출처를 확인한 뒤 더합니다 |
+
+---
+
+## 2. 데이터 계약
+
+### 2.1 평가 기록 `EvalRecord`
+
+JSONL 한 줄이 추천 요청 1건입니다. 기존 계약 타입을 그대로 담아 새 스키마를 최소화합니다.
+
+| 필드 | 타입 | 출처 |
+|---|---|---|
+| `request_id`, `model_version`, `config_hash`, `warm_alpha`, `stats_version`, `created_at` | `schema.RecommendationLogOut` 과 같은 타입 | `recommendation_log` |
+| `user_hash` | `str` | `user_id` 의 HMAC 가명(14절). 원본 `user_id` 는 싣지 않습니다 |
+| `session_prefix` | `"c" \| "g" \| "d" \| None` | `session_id` 의 접두어만 |
+| `user_mode`, `degraded`, `total_latency_ms` | `stage.UserMode`, `bool`, `int` | 같은 행의 `stage_trace.totals` |
+| `items` | `list[stage.RankedItem]` | `candidates` JSONB 중 노출분. `final_rank` 오름차순 |
+| `candidates` | `list[stage.ScoredCandidate] \| None` | `export --with-candidates` 일 때만. 오프폴리시 목표 정책의 입력 |
+| `policies` | `list[dict] \| None` | Interleaving 시 `[{team, model_version}]`. 단일 정책이면 None |
+| `ingredients` | `dict[int, list[int]]` | 노출 레시피의 `recipe_feature.all_ids`. ILD 의 입력. `--with-candidates` 면 미노출 후보의 재료도 싣습니다. 없으면 목표 정책의 MMR 이 그 후보를 최대 다양성으로 봅니다 |
+| `ingredient_idf` | `dict[int, float]` | `feature_stats` 또는 코퍼스의 IDF. 파일 첫 줄의 헤더 레코드에 한 번만 |
+| `events` | `list[EvalEvent]` | `event_log` 를 `request_id` 로 조인. 2.3 의 창 안 |
+| `user_events` | `list[EvalEvent]` | 같은 유저의 `cook` 이벤트 전부(`request_id` 무관). 유저 단위 Recall 전용 |
+| `is_simulated` | `bool` | `app_user.is_simulated` |
+| `cuisine_unmet` | `bool` | `stage_trace` 의 단계 params 에 `cuisine_unmet` 키가 있는가. 기본값 False |
+| `excluded_reason` | `str \| None` | 2.2 의 제외 규칙 |
+
+`EvalEvent` 는 `recipe_id`, `event_type`(`enums.EventType`), `value`(`float | None`), `position`(`int | None`), `created_at` 입니다.
+
+파일 첫 줄은 헤더 레코드이며 `label_version`, `metric_version`, `catalog_size`, `ingredient_idf`, `exported_at`, `source`(`db` 또는 `synth`)를 담습니다.
+
+### 2.2 불변식과 제외 규칙
+
+`record.py` 의 검증기가 줄마다 확인합니다. 위반은 줄 번호와 필드를 담아 즉시 실패하고, 제외는 `excluded_reason` 을 채우고 건수를 셉니다.
+
+| 규칙 | 종류 | 처리 |
+|---|---|---|
+| `items` 의 `recipe_id` 가 `candidates` 에 포함(후보가 있을 때) | 불변식 | 즉시 실패 |
+| `final_rank` 가 1 부터 연속 | 불변식 | 즉시 실패 |
+| `is_exploration=True` 이면 `0 < propensity < 1`, 아니면 `propensity = 1.0` | 불변식 | 즉시 실패 |
+| `is_cuisine_slot=True` 이면 `is_exploration=False` 이고 `propensity = 1.0`. 유형 칸은 결정적 슬롯입니다 | 불변식 | 즉시 실패 |
+| `events.position` 이 있으면 같은 `recipe_id` 의 `final_rank` 와 일치 | 불변식 | 즉시 실패 |
+| 헤더의 `label_version`, `metric_version` 이 코드의 상수와 일치 | 불변식 | 즉시 실패. 다른 버전의 파일을 같은 지표로 재지 않습니다 |
+| (export) `candidates` 의 노출분 순서가 `served` 와 일치 | 불변식 | 즉시 실패. 노출분이 하나도 없으면 아래 `no_items` 제외 |
+| `session_prefix = "d"` | 제외 | `excluded_reason = d-session` |
+| `is_simulated = True` | 제외 | `excluded_reason = simulated_user`. `run --include-simulated` 면 포함하고 리포트 상단에 표기 |
+| `config_hash`, `warm_alpha`, `stats_version` 중 결측 | 제외 | `excluded_reason = not_reproducible` |
+| `items` 가 비어 있음 | 제외 | `excluded_reason = no_items`. `candidates` 를 저장하지 않는 서빙 모드(`load_test`)의 행입니다 |
+
+표의 순서가 우선순위이며 `record.exclusion_reason` 이 유일한 정의입니다. 리포트와 스냅샷은 `record.apply_exclusions` 로만 다시 판정합니다. 제외된 줄은 파일에서 지우지 않습니다. 제외 비율 자체가 품질 지표입니다.
+
+### 2.3 정답 라벨
+
+`labels.py` 가 `events` 를 `{recipe_id: gain}` 으로 바꿉니다.
+
+| 규칙 | 내용 |
+|---|---|
+| 가중치 | `enums.LABEL_WEIGHT`. `rating` 은 `enums.rating_to_label(value)` |
+| 합성 | 같은 레시피에 이벤트가 여럿이면 최댓값 |
+| 절단 | 음수(`dismiss`, `unsave`)는 0 으로 절단합니다 |
+| 창 | 추천 `created_at` 이후 14일 이내. 엔진의 최근 조리 감점 창과 같은 값 |
+| 조인 | `request_id` 가 일치하는 이벤트만. `request_id` 가 없는 이벤트의 비율은 품질 지표로 보고 |
+| impression | gain 0. 정답이 아니라 노출 사실 |
+| 버전 | 이 표가 바뀌면 `label_version` 을 올립니다. 다른 `label_version` 의 리포트는 비교하지 않습니다 |
+
+유저 단위 Recall(5.2)만 `user_events` 를 씁니다. 두 계열의 라벨을 합산하지 않습니다.
+
+---
+
+## 3. 파이프라인
+
+### 3.1 흐름
+
+```text
+[엔진이 남긴 기록]                     [실데이터가 없을 때]
+ recommendation_log, event_log          synth (합성 기록 생성기)
+        │                                       │
+        ▼                                       │
+ ① export ── 가명화·필드 제거 ──▶  data/eval/<날짜>.jsonl  ◀──┘
+                                                │
+                                                ▼
+                                         ② validate   불변식 위반이 있으면 여기서 멈춤
+                                                │
+                                                ▼
+                                         ③ label      events → {recipe_id: gain}
+                                                │
+                              ┌─────────────────┼─────────────────┐
+                              ▼                 ▼                 ▼
+                         ④ score           ⑤ compare         ⑥ estimate
+                              └─────────────────┼─────────────────┘
+                                                ▼
+                                         ⑦ report ──▶ data/eval/report_<날짜>.json
+
+ [매일 따로]  data/eval/*.jsonl + /v1/health + (DB 선택)
+                  ──▶ ⑧ quality ──▶ data/quality/<날짜>.jsonl
+
+ [다음 브랜치의 화면]  report_*.json 과 quality/*.jsonl 만 읽음
+```
+
+단계 사이에는 파일만 오갑니다. 앞 단계가 실패하면 뒤 단계는 돌지 않습니다.
+
+### 3.2 단계
+
+| 단계 | 입력 | 출력 | 멈추는 조건 | 코드 |
+|---|---|---|---|---|
+| ① export | DB 4개 표 | 2.1 형식 JSONL | DB 접속 실패, 조인 결과 0건, `EVAL_SALT` 없음. `--since` 는 필수이며 라우터·엔진 연결일 이후로 줍니다(그 전 로그는 시험용 응답) | `repository_eval.py`(SQL), `evaluation/export.py`(순수 변환), `scripts/reco_eval.py export` |
+| ① 대안 synth | 유저 수, 요청 수, 정답률, 위치 감쇠 계수, 시드 | 같은 형식 JSONL. `source = synth` | 없음 | `evaluation/synth.py`, `scripts/reco_eval.py synth` |
+| ② validate | JSONL | 검증된 기록, 제외 건수표 | 2.2 의 불변식 위반 | `evaluation/record.py` |
+| ③ label | 검증된 기록 | 기록별 gain, 정답 없는 기록 수 | 없음 | `evaluation/labels.py` |
+| ④ score | 기록, gain | 5절 지표 | 없음 | `evaluation/metrics.py` |
+| ⑤ compare | 기록, gain, ④ | 6절 비교와 판정 | 유저 수 부족이면 판정을 "보류"로 고정 | `evaluation/stats.py` |
+| ⑥ estimate | 기록, gain, 목표 정책 | 7절 추정과 진단 | 없음. `usable=False` 는 결과 | `evaluation/estimator.py` |
+| ⑦ report | ④⑤⑥ | JSON 과 표준출력 요약 | 없음 | `evaluation/report.py`, `scripts/reco_eval.py run` |
+| ⑧ quality | 최근 JSONL, `/v1/health`, DB(선택) | 스냅샷 1행 | `/v1/health` 실패는 `null` 로 남기고 계속 | `evaluation/quality.py`, DB 항목은 `repository_eval.py` |
+
+### 3.3 계기
+
+| 계기 | 도는 것 | 목적 |
+|---|---|---|
+| PR 의 단위 테스트 | synth → ② ~ ⑦ | 코드 정합. DB 없음 |
+| `make eval` | 지정 JSONL → ② ~ ⑦ | 현재 정책의 상태 |
+| 매일 1회 | ⑧ | 기록 유실 감시. 추이가 쌓여야 이상이 보임 |
+| DB 전환일 `make eval-smoke SINCE=<연결일>` | ① 1건 이상 → 식별자·냉장고 필드 부재 확인 → ② ~ ⑦ | 실기록이 끝까지 통과하는가(E-10) |
+| 가중치·정책 변경 전 | ⑥ 목표 정책 지정 | 배포 전 추정. 대개 `usable=False` |
+| 정책 채택 | 요청에 `interleave_with` → 누적 → ⑤ | 채택 판정의 유일한 근거 |
+
+### 3.4 소유
+
+| 경계 | 책임 | 파트 C 가 확인할 것 |
+|---|---|---|
+| 기록이 쌓이는 것 | 파트 B | `make eval-smoke` 통과 |
+| 이벤트에 `request_id`·`position` 이 붙는 것 | 백엔드 | ⑧ 의 고아 이벤트 비율 0 |
+| `all_ids`, `recipe_ingredient` 빈도, `is_simulated` 조인 | 파트 A 와 합의 | 작업 기록 G-02 |
+| 엔진의 `feature.jaccard_idf`, `score.weighted_score`, `rerank.mmr_select` 서명 | 파트 B | E-06, E-13 이 서명 변경을 잡습니다 |
+| ① ~ ⑧ | 파트 C | 단계별 테스트 |
+
+---
+
+## 4. 모듈 배치와 책임
+
+```text
+src/features/recommend/
+├── repository_eval.py  평가 파트의 SQL. 읽기만 합니다. 행을 그대로 돌려주고 모양은 바꾸지 않습니다
+└── evaluation/
+    ├── __init__.py     re-export 하지 않습니다 (02 의 7.3)
+    ├── threshold.py    임계값 캘리브레이션. 인수하고 검사를 붙였습니다
+    ├── record.py       EvalRecord · EvalEvent · 헤더 모델, JSONL 읽기·쓰기, 불변식과 제외 규칙
+    ├── labels.py       events → gain. 유저 단위 라벨은 별도 함수
+    ├── metrics.py      ndcg_at_k · recall_at_k · recall_user_level · ild · catalog_coverage · position_ctr · latency_percentiles · exploration_positions · nearest_rank
+    ├── synth.py        합성 기록 생성기. 뒤 단계 검사의 픽스처
+    ├── stats.py        순열 baseline, 유저 단위 부트스트랩, 대응 비교, Interleaving 승률, 검출력, 판정
+    ├── estimator.py    SNIPS 추정, 지원 진단, 가중치 교체 목표 정책
+    ├── report.py       리포트 조립(9.2)과 표준출력 요약
+    ├── quality.py      품질 스냅샷 계산과 기록, `/v1/health` 수집
+    └── export.py       DB 행 → 평가 기록. 가명화와 필드 화이트리스트. 순수 함수
+scripts/reco_eval.py    서브커맨드 export · synth · run · quality. 인자를 받아 넘기기만 합니다
+```
+
+| 모듈 | 의존 | 의존하지 않는 것 |
+|---|---|---|
+| `record`, `labels`, `metrics`, `synth`, `stats`, `estimator`, `report` | `enums`, `stage`, 엔진의 순수 함수(`feature.jaccard_idf`, `score.weighted_score`, `rerank.mmr_select`), 표준 라이브러리 | DB, HTTP, `repository`, `service`, `numpy` |
+| `quality` | 위와 같음, `httpx`(`/v1/health` 수집만), `repository_eval` 의 키 이름 | DB 호출. DB 항목은 호출자가 넘깁니다 |
+| `export` | `repository_eval.EvalRows` 타입 | DB 호출 |
+| `repository_eval.py` | `infra/db.py` | 평가 모듈 |
+| `scripts/reco_eval.py` | 위 전부, `config.get_settings`(`EVAL_SALT`) | |
+
+평가가 엔진의 순수 함수를 그대로 쓰는 것은 02 의 2.2 가 허용합니다(뒤 축은 앞 축의 순수 함수와 계약 타입을 import 할 수 있음). 같은 계산이 두 벌이면 한쪽이 조용히 어긋납니다. `scripts/eval_recommend_mock.py` 의 `intra_list_distance` 도 `metrics.py` 에서 가져옵니다.
+
+평가 폴더의 파일 수는 11개로 02 의 5.1 검토 문턱(8, 예시값)을 넘습니다. 단계 하나가 파일 하나라 하위 폴더로 나누면 단계 이름이 흩어지므로 그대로 두며, 화면 브랜치가 리포트 모양을 바꾸자고 할 때 다시 봅니다.
+
+---
+
+## 5. 지표 정의
+
+### 5.1 순위 지표
+
+K 는 인자이며 top_k 보다 작아야 합니다. 주지표는 nDCG@10 입니다.
+
+$$
+\text{DCG@K} = \sum_{i=1}^{K} \frac{g_i}{\log_2(i+1)}, \qquad
+\text{nDCG@K} = \frac{\text{DCG@K}}{\text{IDCG@K}}
+$$
+
+$g_i$ 는 `final_rank` $i$ 번째 노출 레시피의 gain 이고 IDCG 는 gain 을 내림차순으로 놓았을 때의 DCG 입니다. 양성이 없는 요청은 분모에서 빼고 건수를 보고합니다.
+
+$$
+\text{Recall@K} = \frac{|\{i \le K : g_i > 0\}|}{|\{i \le \text{top\_k} : g_i > 0\}|}
+$$
+
+K 는 5 와 10 입니다. K = top_k 이면 정의상 1.0 이므로 계산하지 않고 리포트에 "측정 불가" 로 표기합니다.
+
+### 5.2 유저 단위 Recall
+
+$$
+\text{Recall}_{\text{user}}@K = \frac{|\{r \in \text{served}_K : r \in \text{Cooked}_{14}\}|}{|\text{Cooked}_{14}|}
+$$
+
+$\text{Cooked}_{14}$ 는 `user_events` 에서 추천 후 14일 안에 그 유저가 조리한 레시피 전체입니다. `request_id` 없이 잇기 때문에 위치 정보가 없고 5.1 과 합산하지 않습니다. "만들 만한 요리를 후보에 넣었는가"에 대한 유일한 오프라인 근사이며 편향을 리포트에 명시합니다.
+
+### 5.3 탐색 슬롯 변형
+
+| 변형 | 정의 | 용도 |
+|---|---|---|
+| 전체 목록 (주지표) | 노출 목록 그대로. 탐색 항목 반응도 정답 | 사용자가 실제로 본 목록의 품질 |
+| 탐색 제외 (보조) | 탐색 항목을 빼고 남은 항목의 순위를 1 부터 다시 매김 | 개인화 엔진의 회귀 감시 |
+| 유형 칸 | `is_cuisine_slot` 항목은 결정적이므로 두 변형 모두에 남깁니다. 건수와 위치는 5.5 에서 따로 봅니다 | 온보딩 유형 반영 확인 |
+
+### 5.4 위치 편향
+
+| 항목 | 정의 |
+|---|---|
+| 위치별 CTR | 위치 $i$ 의 (gain > 0 인 노출 수) / (노출 수). 리포트 필수 |
+| examination 보정 (옵션) | $\theta_i$ = 위치별 CTR 을 1위로 정규화. 보정 gain $g_i / \theta_i$ 로 nDCG 를 다시 계산. `run --position-correct` |
+
+impression 의 `source` 가 `served` 인 동안 하위 순위는 실제 열람이 아닐 수 있으므로 보정은 근사입니다. `viewport` 로 바뀌면 두 시대를 나눠 보고합니다.
+
+### 5.5 목록 지표
+
+| 지표 | 정의 |
+|---|---|
+| ILD | 노출 목록의 모든 쌍에 대해 $1 - \text{Jaccard}_{\text{IDF}}(A_r, A_s)$ 의 평균. 엔진의 MMR 과 같은 함수 |
+| 카탈로그 커버리지 | 기간 내 노출된 고유 `recipe_id` 수 / `catalog_size`. 기간, 요청 수, 유저 수를 병기 |
+| 탐색 위치 분포 | `is_exploration` 항목의 `final_rank` 히스토그램 |
+| 유형 칸 | `is_cuisine_slot` 항목 수와 `final_rank` 분포. `stage_trace` 의 `cuisine_unmet` 이 있는 요청 비율 |
+| degraded 비율 | `degraded=True` 요청의 비율 |
+| 지연시간 | `total_latency_ms` 의 p50, p95 |
+
+### 5.6 그룹과 세그먼트
+
+`model_version` 이 필수 그룹 키입니다. 한 그룹 안에 `config_hash` 가 둘 이상이면 경고를 내고 가장 많은 쪽만 집계합니다. 그 아래를 `user_mode` 3종과 전체로 나눕니다. `run --model-version` 으로 한 그룹만 볼 수 있습니다. 경고는 리포트의 그룹 `warnings` 와 표준출력 요약에 실립니다. 취향 출처(고른 음식·척도·없음) 보조 세그먼트는 `EvalRecord` 에 그 필드가 없어 아직 내지 않습니다. 실기록의 `stage_trace` 에서 출처를 확인한 뒤 필드와 함께 더합니다. 취향 없는 사용자는 탐색 비율이 달라 따로 봐야 합니다.
+
+---
+
+## 6. 정책 비교와 판정
+
+### 6.1 순열 baseline
+
+노출된 목록을 순서만 바꿔 같은 라벨로 지표를 냅니다. 모든 항목에 라벨이 있으므로 "같은 집합 안에서의 순서 품질"을 공정하게 비교합니다.
+
+| baseline | 정렬 |
+|---|---|
+| popularity | `features["f_popularity"]` 내림차순. None 은 뒤 |
+| random | 시드와 `request_id` 로 정한 무작위. 기록마다 순열이 다르고 시드가 같으면 재현됩니다 |
+| coverage | `features["f_coverage"]` 내림차순. 재료 매칭 외의 피처가 무엇을 더하는지 가르는 기준 |
+
+### 6.2 Interleaving
+
+`policies` 가 있는 요청에서 gain > 0 인 항목 수를 `team` 별로 세어 요청의 승패를 매기고, 유저마다 이긴 요청이 많은 쪽에 한 표를 줍니다. 동점 요청과 동점 유저는 뺍니다. 승률은 A 에 표를 준 유저의 비율이고 검정은 p = 0.5 의 정확 양측 이항 검정(5%)입니다. 정책 채택은 이 결과로만 하고, 오프라인 통과는 회귀 없음의 증거로 씁니다.
+
+### 6.3 사전 등록 지표와 판정
+
+사전 등록 지표는 전체 세그먼트 nDCG@10 의 "서빙 − coverage baseline" 차이입니다.
+
+| 판정 | 조건 |
+|---|---|
+| 통과 | 불변식 위반 0건, 유저 수 20명 이상(예시값, 실제 데이터로 대체 필요), 대응 부트스트랩 95% CI 하한 > 0 |
+| 보류 | 유저 수 미달, CI 가 0 을 포함, 또는 양성 라벨이 없어 비교할 유저가 없음 |
+| 실패 | CI 상한 < 0 이거나 8절의 `feature_none_ratio` 패턴 위반 |
+
+세그먼트별·지표별 CI 는 전부 보고하되 판정에 쓰지 않습니다.
+
+### 6.4 통계
+
+| 항목 | 정의 |
+|---|---|
+| 리샘플 단위 | 유저. 유저를 복원 추출하고 그 유저의 요청 전부를 가져옵니다 |
+| 리샘플 횟수 | 1,000회 (예시값, 실제 데이터로 대체 필요). 시드는 인자 |
+| 신뢰구간 | 백분위 95%. 최근접 순위(`metrics.nearest_rank`) |
+| 대응 비교 | 같은 유저 집합에서 두 순서의 지표 차이를 리샘플 |
+| 검출력 | 판정에 쓴 대응 부트스트랩의 표준오차에 √(유저 수)를 곱한 유저 단위 표준편차와 목표 효과 크기(기본 0.02, 예시값, 실제 데이터로 대체 필요)로 유저 수를 역산 |
+
+---
+
+## 7. 오프폴리시 추정
+
+### 7.1 가정과 추정기
+
+item-position IPS 가정을 둡니다. 보상은 항목별로 더해지고, `propensity` 는 그 항목이 그 슬롯에 노출될 주변 확률입니다. 탐색 항목이 다른 항목의 반응을 빼앗는 슬레이트 효과는 이 추정기가 보지 못하며 리포트에 적습니다.
+
+$$
+\hat{V}_{\text{SNIPS}}(\pi) = \frac{\sum_{n} \sum_{r \in \pi_K^{(n)}} \frac{\mathbb{1}[r \in \text{served}^{(n)}]}{p_r^{(n)}} \, g_r^{(n)}}{\sum_{n} \sum_{r \in \pi_K^{(n)}} \frac{\mathbb{1}[r \in \text{served}^{(n)}]}{p_r^{(n)}}}
+$$
+
+### 7.2 지원 진단
+
+| 진단 | 정의 | `usable=False` 조건 |
+|---|---|---|
+| 확률 1 미만 비율 | 노출 항목 중 `propensity < 1.0` 인 비율 | 정보용 |
+| 유효 표본 수 ESS | $(\sum w)^2 / \sum w^2$, $w = 1/p$ | 유저 수의 10% 미만 (예시값, 실제 데이터로 대체 필요) |
+| 미지원 비율 | 목표 정책 상위 K 중 로그에서 노출되지 않은 항목의 비율 | 0 보다 크면 |
+| 필요 탐색 노출 수 | ESS 기준에서 현재 ESS 를 뺀 값의 올림. 노출 1건이 ESS 를 최대 1 올린다는 상한을 쓴 하한 추정 | 정보용 |
+| 평가할 기록 | 제외 뒤 남은 기록의 유저 수 | 0 이면 |
+| 경로별 분리 | `explore_source`(`uniform`, `thompson`)별 ESS 와 추정치 | 정보용. Thompson 확률 귀속 문제(파트 B 안건 G-28)가 반영되기 전에는 `thompson` 경로의 추정치를 인용하지 않습니다 |
+
+### 7.3 목표 정책
+
+`Callable[[EvalRecord], list[int]]` 입니다. 기본 제공은 가중치 교체 정책 하나이며 `candidates` 의 저장된 17개 특성값에 새 가중치를 곱해 `engine/score.py` 의 `weighted_score` 로 다시 매기고, 로그의 `penalty` 를 곱한 뒤 `engine/rerank.py` 의 `mmr_select` 까지 태웁니다. 탐색 슬롯은 넣지 않습니다. MMR 의 재료는 기록의 `ingredients` 에서 오므로 `export --with-candidates` 로 만든 파일이어야 미노출 후보의 재료가 있습니다. 디버거의 가중치 시뮬레이션(C-7)이 같은 함수를 씁니다.
+
+---
+
+## 8. 품질 스냅샷
+
+`quality.py` 가 스냅샷 1행을 계산하고 `data/quality/YYYY-MM-DD.jsonl` 에 추가합니다. 테이블 승격은 작업 기록 G-03 뒤에 합니다.
+
+| 항목 | 정의 | 경보 조건 |
+|---|---|---|
+| `orphan_request_ratio` | 최근 1일의 목록 이벤트(`impression`, `click`, `save`, `dismiss`, `rating`) 가운데 `request_id` 가 없는 비율. `cook`, `search`, `unsave` 는 목록 밖에서도 일어나 세지 않습니다 | 0 보다 크면 백엔드 연동 결함 |
+| `orphan_position_ratio` | `position` 이 없는 이벤트 비율 | 0 보다 크면 백엔드 연동 결함 |
+| `feature_none_ratio` | 17개 특성별 None 비율 | 측정 불가 6개(`f_cuisine`, `f_dish_type`, `f_quality`, `f_content`, `f_ing_cf`, `f_group_pref`)는 100% 가 정상. 즉시 가능 5개(`f_coverage`, `f_missing`, `f_popularity`, `f_time_fit`, `f_skill_fit`)는 0% 가 정상 |
+| `flavor_all_zero_ratio` | 맛 6축이 전부 0 인 레시피 비율 | 배치 미처리와 무미를 구분하지 못하는 신호 |
+| `match_method_violation` | `recipe_ingredient.match_method` 가 `fuzzy` 또는 `embed` 인 행 수 | 0 보다 크면 규약 위반 |
+| `health_counters` | `/v1/health` 카운터 원값과 수집 시각 | 누적하지 않습니다. 재시작으로 0 이 되는 것이 보여야 유실이 보입니다 |
+| `degraded_ratio` | 기간 내 `degraded=True` 비율 | 추이 상승 |
+| `excluded_counts` | `d-session`, `simulated_user`, `not_reproducible`, `no_items` 건수 | 정보용 |
+| `exploration_positions` | 5.5 의 히스토그램 | 하위권 고정 |
+| `cuisine_unmet_ratio` | `EvalRecord.cuisine_unmet` 이 참인 요청 비율 | 추이 상승. 유형별 레시피 부족 신호. 1.2.0 이전에 내보낸 파일은 필드가 없어 0 으로 읽힙니다 |
+
+DB 를 읽는 항목(`orphan_request_ratio`, `flavor_all_zero_ratio`, `match_method_violation`)은 `quality --db` 가 있을 때만 `repository_eval.quality_items` 로 계산하고 없으면 `null` 입니다. `null` 과 0 을 구분합니다.
+
+---
+
+## 9. 실행 인터페이스
+
+### 9.1 서브커맨드
+
+| 명령 | 주요 인자 | 출력 |
+|---|---|---|
+| `reco_eval.py export` | `--since --until --out --with-candidates` | 2.1 형식 JSONL. 14절의 가명화와 필드 제거 적용. 시각은 ISO 8601 이며 시간대가 없으면 UTC 입니다 |
+| `reco_eval.py synth` | `--users --requests --hit-rate --position-decay --seed --out` | 같은 형식. `position-decay` 로 위치 감쇠 클릭을 심습니다 |
+| `reco_eval.py run` | `--records --k 5 10 --catalog-size --model-version --include-simulated --position-correct --target-weights --seed --resamples --out` | 리포트 JSON, 표준출력 요약 |
+| `reco_eval.py quality` | `--records --health-url --db --out` | 스냅샷 1행 추가 |
+
+`Makefile` 에는 `eval`(synth 뒤 run)과 `eval-smoke SINCE=<날짜>`(export, 식별자·냉장고 필드 부재 확인, run) 두 대상만 있습니다.
+
+### 9.2 리포트 JSON
+
+```text
+{
+  "stamp": {"generated_at", "label_version", "metric_version", "seed", "input_sha256",
+            "catalog_size", "catalog_size_source": "arg|header", "include_simulated", "source"},
+  "records": {"total", "excluded": {...}, "evaluated", "no_positive"},
+  "limits": ["정답은 노출분에서만 옵니다", "impression 은 served 기준입니다", "유저 수가 적으면 대부분 보류"],
+  "groups": {
+    "<model_version>": {
+      "config_hash": {"dominant", "others"},
+      "warnings": ["config_hash 가 여럿이면 여기에"],
+      "segments": {
+        "all" | "onboarding" | "blended" | "behavior": {
+          "ndcg@10": {"full": {"mean", "ci95", "n_users", "se"} | null, "no_exploration": {...},
+                      "position_corrected": {...} | "not_measurable"},
+          "ndcg@5", "recall@5", "recall@10": {...} | "not_measurable", "recall_user@10", "ild", "coverage",
+          "latency_ms": {"p50", "p95"}, "degraded_ratio", "position_ctr": [...],
+          "baseline": {"popularity", "random", "coverage"},
+          "power": {"min_detectable", "users_needed_for": {"0.02": n}}
+        }
+      },
+      "interleaving": {"pairs", "win_rate", "p_value"} | null,
+      "verdict": {"metric": "ndcg@10 vs coverage", "diff": {"mean", "ci95", "n_users", "se"} | null,
+                  "status": "pass|hold|fail", "reason"}
+    }
+  },
+  "off_policy": {"target", "snips", "ess", "n_users", "unsupported_ratio", "propensity_below_one_ratio",
+                 "exposures_needed", "by_source", "usable", "reasons"} | null,
+  "reference_targets": {"ndcg@10": 0.85, "ild": 0.95, "coverage": 0.15, "latency_p95_ms": 58}
+}
+```
+
+---
+
+## 10. 검증 계획
+
+| ID | 대상 | 통과 기준 | 명령 |
+|---|---|---|---|
+| E-01 | nDCG·Recall 골든 | 손으로 계산한 케이스 6건 이상 일치. 빈 라벨, 동점 gain, K 가 목록보다 큼, 탐색 제외 시 순위 재부여 포함 | `uv run pytest tests/unit/recommend/test_eval_metrics.py` |
+| E-02 | 외부 대조 | 무작위 100케이스에서 `sklearn.metrics.ndcg_score` 와 1e-9 이내 일치 | 같은 파일 |
+| E-03 | 성질 | 정답을 위로 옮기면 nDCG 비감소. 무관 항목의 순열에 불변. 라벨을 섞으면 지표가 바뀜 | 같은 파일 |
+| E-04 | 라벨 | 최댓값 합성, 음수 절단, 14일 창, 노출되지 않은 레시피의 이벤트 무시, 유저 단위 라벨 분리. `request_id` 불일치 제외는 export 의 조인이 맡습니다 | `test_eval_labels.py` |
+| E-05 | 통계 | 같은 순서 둘을 비교하면 CI 가 0 을 포함. 시드 고정 시 재현. 유저 20명 미만이거나 유저가 없으면 보류. random baseline 이 기록마다 다른 순열 | `test_eval_stats.py` |
+| E-06 | 추정기 | 로그 정책 자신을 목표로 주면 관측 평균과 일치. 미지원 항목이 있으면 `usable=False` | `test_eval_estimator.py` |
+| E-07 | 왕복 | 합성 기록이 검증 왕복을 통과. 위치 감쇠가 없으면 전체 양성 비율이 정답률의 ±0.03 안. 위치 감쇠를 주면 위치별 CTR 이 심은 확률(단조 감소)의 ±0.04 안. 뒤 단계가 쓰는 픽스처 항목(탐색 슬롯, 유형 칸, Interleaving, 미노출 후보, 유저 모드, 제외 대상, 유저 조리, `cuisine_unmet`)이 전부 심어짐 | `test_eval_synth.py` |
+| E-08 | 품질 | 기대 None 패턴과 어긋나면 `alerts`. DB 없으면 해당 항목 `null` | `test_eval_quality.py` |
+| E-09 | threshold 인수 | `calibrate` 의 목표 정밀도 미달 시 `None`, Wilson 하한이 관측보다 작음 | `test_eval_threshold.py` |
+| E-10 | export | 순수 변환은 단위 검사(가명화, 필드 화이트리스트, 항목 정렬, `no_items`, `served` 불일치). 실 DB 왕복과 파일의 식별자·냉장고 필드 부재는 `make eval-smoke` | `test_eval_export.py`, `make eval-smoke SINCE=<연결일>` |
+| E-11 | 불변식 | 2.2 의 불변식 각각을 깨뜨린 줄이 줄 번호와 필드를 담아 즉시 실패. 제외 4종이 건수로 보고됨 | `test_eval_record.py` |
+| E-12 | Interleaving | `team` 이 섞인 합성 기록에서 승률과 p 값이 손 계산과 일치 | `test_eval_stats.py` |
+| E-13 | ILD 정합 | `metrics.ild` 의 유사도가 `rerank.mmr_select` 의 인라인 계산과 같음 | `test_eval_metrics.py` |
+
+단위 테스트는 DB·네트워크·유료 API 를 쓰지 않습니다(03 의 6절). 실 DB 가 필요한 것은 E-10 의 `make eval-smoke` 와 `quality --db` 뿐이며, 이 저장소의 다른 DB 검사처럼 `make` 가 돌립니다.
+
+---
+
+## 11. 오류 처리 원칙
+
+| 상황 | 처리 |
+|---|---|
+| JSONL 줄이 검증에 실패 | 즉시 실패. 줄 번호와 필드를 예외에 담습니다 |
+| 제외 규칙에 해당 | `excluded_reason` 을 채우고 지표에서 빼며 건수를 보고합니다 |
+| 양성이 없는 요청 | nDCG·Recall 분모에서 빼고 건수를 보고합니다 |
+| 유저 수 부족 | CI 를 내지 않고 판정을 "보류" 로 둡니다 |
+| 오프폴리시 지원 부족 | `usable=False` 와 진단 수치를 돌려줍니다 |
+| `/v1/health` 수집 실패 | `health_counters` 를 `null` 로 두고 `alerts` 에 사유를 적습니다 |
+| 한 파일에 `model_version` 이 여럿 | 그룹별로 나눠 보고합니다. 한 그룹에 `config_hash` 가 여럿이면 경고 |
+
+---
+
+## 12. 단계와 PR 분할
+
+가운데부터 만듭니다. ②③④가 나머지 단계의 입력 형식을 정하고 DB 없이 검증이 끝나기 때문입니다. 2026-09-18 기준 6단계의 코드가 모두 있고 6번의 실 DB 실행만 남았습니다.
+
+| 순서 | 내용 | 검증 | 선행 |
+|---|---|---|---|
+| 1 | `record.py`(불변식 포함), `labels.py`, `metrics.py`, `synth.py`, mock 스크립트의 함수 이관 | E-01~E-04, E-07, E-11, E-13 | 없음 |
+| 2 | `stats.py`: 순열 baseline, 부트스트랩, Interleaving, 판정 | E-05, E-12 | 1 |
+| 3 | `estimator.py` | E-06 | 1 |
+| 4 | `report.py`, `run` 서브커맨드, `make eval` | 리포트 스키마 검사 | 2, 3 |
+| 5 | `quality.py`, `quality` 서브커맨드, `threshold.py` 검사 | E-08, E-09 | 4 |
+| 6 | `repository_eval.py`, `export.py`, `export` 서브커맨드, `make eval-smoke` | E-10 | 코드는 선행 없음. 실행은 파트 B 의 DB 전환, G-02, G-12 |
+
+---
+
+## 13. 화면 4종의 입력 계약
+
+| 화면 | 입력 | 이 명세의 산출물 |
+|---|---|---|
+| 홈 | `GET /v1/health`, `data/quality/` 최신 행 | 8절 |
+| 추천 디버거 | `GET /v1/recommendations/{request_id}`, 7.3 의 목표 정책 | 7.3 |
+| 검수 큐 | `normalization_queue` 테이블 | 없음. 파트 A 의 테이블 |
+| 데이터 품질 | `data/quality/*.jsonl`, `data/eval/report_*.json` | 8절, 9.2 |
+
+화면은 계산하지 않습니다.
+
+---
+
+## 14. 개인정보와 보존
+
+| 항목 | 처리 |
+|---|---|
+| `user_id` | HMAC-SHA256 앞 16hex 로 가명화. salt 는 평가 전용 `EVAL_SALT`(`config.eval_salt`)이며 없으면 export 가 멈춥니다. 후기 salt 를 재사용하지 않습니다 |
+| `pantry_snapshot`, `pantry_detail`, `allergy_snapshot` | 평가에 불필요. `repository_eval` 이 조회하지 않고 `export.build_record` 가 화이트리스트 필드만 옮깁니다 |
+| `session_id` | 접두어만 남깁니다 |
+| 파일 위치 | `data/eval/`, `data/quality/`. `.gitignore` 의 `data/*` 에 해당하며 커밋하지 않습니다 |
+| 보존 | export JSONL 은 30일 뒤 삭제(예시값, 실제 데이터로 대체 필요). 리포트 JSON 과 스냅샷만 보관 |
+| 검증 | 단위 검사와 `make eval-smoke` 의 파일 검색이 원본 `user_id` 와 냉장고 필드가 없음을 확인합니다 |
+
+---
+
+## 15. 결정과 되돌릴 조건
+
+| ID | 결정 | 되돌릴 조건 |
+|---|---|---|
+| D-01 | 정답은 `LABEL_WEIGHT` 등급형, 음수 절단, 14일 창, `request_id` 엄격 조인. 유저 단위 Recall 만 별도 조인 | 라벨 정의를 바꾸면 `label_version` 을 올리고 결정 문서를 씁니다 |
+| D-02 | 탐색 슬롯은 전체 목록이 주지표, 탐색 제외가 보조지표 | 두 값의 추이가 3회 연속 같은 방향이면 보조를 뺄 수 있습니다 |
+| D-03 | 판정은 사전 등록 지표(nDCG@10 vs coverage baseline) 하나. 절대 목표치는 참고값 | 라벨이 검출력 목표에 도달하면 절대 목표치를 다시 논의합니다 |
+| D-04 | 입력 계약은 JSONL, DB 는 `export` 만. `candidates` 는 선택 | 파일이 실행마다 1GB 를 넘으면 컬럼 저장 형식을 검토합니다 (예시값, 실제 데이터로 대체 필요) |
+| D-05 | 오프폴리시는 item-position SNIPS 와 가중치 교체 정책 1종(MMR 포함) | `usable=True` 가 나오기 시작하면 목표 정책을 늘립니다 |
+| D-06 | 품질 스냅샷은 JSONL 파일, 테이블은 합의 뒤 | 테이블이 생기면 쓰기 대상만 바꿉니다 |
+| D-07 | 화면은 별도 브랜치, 이 명세는 입력 계약까지 | 없음 |
+| D-11 | Recall 은 K < top_k 만. K = top_k 는 계산하지 않음 | top_k 보다 큰 후보 라벨이 생기면(예: 노출 외 조사 라벨) 재검토 |
+| D-12 | baseline 은 노출 목록의 순열. coverage 단독이 판정 기준 | 후보 풀 전체에 라벨이 생기면 후보 재정렬 baseline 을 추가합니다 |
+| D-13 | 정책 채택은 Interleaving 승률로만 | 유저 수가 A/B 검출력을 넘으면 A/B 를 병행합니다 |
+| D-14 | `model_version` 필수 그룹 키 | 없음 |
+| D-15 | 위치별 CTR 필수, examination 보정은 옵션 | impression 이 `viewport` 로 바뀌면 보정을 기본으로 검토합니다 |
+| D-16 | `user_id` 가명화와 냉장고 필드 제거는 export 단계에서 | 없음 |
+
+D-08~D-10 과 D-17~D-35 는 작업 기록의 실행 결정이며, 1.2.0 은 그 가운데 계약에 닿는 것을 1.5 의 표대로 반영했습니다.
+
+---
+
+## 16. 한계
+
+이 설계로도 못 하는 것입니다. 노출되지 않은 후보의 품질은 오프라인으로 잴 수 없습니다. impression 이 `served` 인 동안 실제 열람 여부를 모르며 위치 보정은 근사입니다. 유저 수가 두 자릿수인 동안 오프라인 판정은 대부분 보류입니다. 리포트가 매번 이 셋을 적습니다.
+
+---
+
+## 구성 근거
+
+1절에서 "숫자를 만드는 쪽"과 "보여주는 쪽"으로 경계를 긋고 3절에서 단계 사이에 파일만 오가게 한 이유는, 화면이 계산을 갖거나 단계가 DB 를 직접 읽기 시작하면 어느 숫자가 맞는지 알 수 없게 되고 단위 테스트가 막히기 때문입니다.
+
+1.1.0 의 변경은 전부 "숫자가 나오지만 뜻이 없는" 자리를 지운 것입니다. Recall@20 은 라벨 구조상 항상 1.0 이었고, 후보 풀 baseline 은 라벨 부재를 검정했으며, 유저 100명에서 검출력이 있는 유일한 비교인 Interleaving 이 빠져 있었습니다. 판정을 세 값으로 나누고 사전 등록 지표를 하나로 고정한 것은, 세그먼트와 지표가 많을수록 우연히 0 을 벗어나는 CI 가 생기기 때문입니다. 버린 대안은 후보 풀 재정렬 baseline 과 절대 목표치 게이트이며, 둘 다 통과가 품질을 뜻하지 않았습니다.
