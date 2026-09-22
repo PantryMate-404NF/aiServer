@@ -31,7 +31,7 @@ from uuid import UUID, uuid4
 from config import Settings
 from features.recommend import service
 from features.recommend.backend_client import BackendClient
-from features.recommend.engine import allergy, catalog, rerank, retrieval
+from features.recommend.engine import allergy, catalog, history, rerank, retrieval
 from features.recommend.engine import candidate as plans
 from features.recommend.engine.context import UserContext, build_context
 from features.recommend.engine.taste import FlavorVector
@@ -244,6 +244,7 @@ class LiveServing:
             )
         ctx = self._context(request, current, now)
         ratio = rerank.exploration_ratio(ctx, self._policy)
+        past = ctx.history
         # 요청의 `max_missing` 이 사다리의 첫 칸입니다. 후보가 모자라면 거기서부터 풉니다.
         # 점수와 재정렬의 정책은 그대로입니다 — 바뀌는 것은 ① 의 부족 허용뿐입니다.
         ladder = replace(
@@ -287,6 +288,11 @@ class LiveServing:
                         "allergy_labels": ", ".join(request.allergies),
                         "allergy_labels_unknown": ", ".join(resolution.unknown_labels),
                         "allergy_blocked_ingredients": len(resolution.blocked_ids),
+                        # 이력이 어디까지 닿았는가. 두 신호(f_ing_pref · f_cooccur)가 꺼진 이유를
+                        # 관리자 페이지가 아니라 추적에서 바로 볼 수 있게 남깁니다.
+                        "history_cooked": len(past.cooked_recipe_ids),
+                        "history_liked": len(past.liked_ingredient_ids),
+                        "history_recent": len(past.recent_recipe_ids),
                     },
                 ),
                 *ranked.stages,
@@ -333,14 +339,39 @@ class LiveServing:
         if len(own) < len(request.pantry):
             # 사전에 없는 재료 번호입니다. 백엔드와 사전이 어긋났다는 뜻이라 세어 둡니다.
             service.bump("pantry_ingredient_unknown", len(request.pantry) - len(own))
+        # 취향 원본을 한 번 읽어 페르소나(맛)와 이력(조리 · 선호 재료) 둘 다에 씁니다.
+        profile = self._personas.profile_for(request.user_id)
+        events = () if profile is None else profile.events
         return build_context(
             user_id=request.user_id,
-            persona=self._personas.persona_for(request.user_id, now),
+            persona=self._personas.persona_from(profile, now),
             pantry_ids=sorted(set(own) | current.staple_ids),
             own_pantry_ids=sorted(set(own)),
             expiring_ids=expiring_ingredients(request.pantry, current.shelf_life_days, now.date()),
             max_cook_minutes=request.max_minutes,
+            history=history.build_history(
+                events,
+                current.recipes,
+                current.staple_ids,
+                now,
+                self._policy,
+                recent_served=self._recently_served(request.user_id, now),
+            ),
         )
+
+    def _recently_served(self, user_id: int, now: datetime) -> set[int]:
+        """최근 7일 안에 이 사용자에게 보여 준 레시피. 메모리의 로그에서 찾습니다.
+
+        로그가 메모리에만 있어 재시작하면 비고, 상한(`LOG_CAPACITY`) 밖으로 밀린 것도 잊습니다.
+        그때는 같은 레시피가 다시 보일 뿐입니다 — 틀린 추천이 아니라 덜 새로운 추천입니다.
+        """
+        limit = history.RECENT_WINDOW_DAYS * 86_400.0
+        served: set[int] = set()
+        with self._logs_lock:
+            for log in self._logs.values():
+                if log.user_id == user_id and (now - log.created_at).total_seconds() <= limit:
+                    served.update(log.served)
+        return served
 
     # ── 온보딩 · 이벤트 · 로그 ────────────────────────────────────
     def save_onboarding(self, user_id: int, body: OnboardingIn) -> OnboardingOut:

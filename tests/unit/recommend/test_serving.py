@@ -389,6 +389,43 @@ def test_events_reach_the_taste_profile(tmp_path: Path) -> None:
     assert profile is not None and len(profile.events) == 1
 
 
+def test_a_cook_switches_on_the_two_history_signals_for_the_next_recommendation(
+    tmp_path: Path,
+) -> None:
+    """M-03 의 완료 조건 — 이력이 붙으면 f_ing_pref · f_cooccur 가 None 이 아닙니다."""
+    engine = live(FakeBackend(), tmp_path)
+    engine.sync_once()
+    cold = engine.recommend(request(user_id=45))
+    assert cold.trace is not None
+    assert cold.trace.stages[0].params["history_cooked"] == 0
+    assert all(item.features["f_cooccur"] is None for item in cold.items)
+    cooked = cold.items[0].recipe_id
+
+    engine.record_events(
+        EventBatchIn(
+            events=[
+                EventIn(
+                    user_id=45,
+                    event_type=EventType.COOK,
+                    recipe_id=cooked,
+                    request_id=cold.request_id,
+                )
+            ]
+        ),
+        EventAck(accepted=1, rejected=0, errors=[]),
+    )
+    warm = engine.recommend(request(user_id=45))
+
+    assert warm.trace is not None
+    received = warm.trace.stages[0].params
+    assert received["history_cooked"] == 1 and received["history_liked"] >= 1
+    # 앞 요청에서 보여 준 목록이 최근 노출로 잡혀 감점 대상이 됩니다.
+    assert received["history_recent"] == len(cold.items)
+    assert all(item.features["f_cooccur"] is not None for item in warm.items)
+    assert all(item.features["f_ing_pref"] is not None for item in warm.items)
+    assert cooked not in [item.recipe_id for item in warm.items]  # 조리한 것은 감점(0.5)
+
+
 def test_events_are_also_written_to_a_file_so_they_can_be_joined_later(tmp_path: Path) -> None:
     """취향 저장소는 맛이 있는 이벤트만 상한까지 듭니다. 평가는 전량과 request_id 가 필요합니다."""
     folder = tmp_path / "logs"
