@@ -132,12 +132,20 @@ def test_contract_violations_are_reported_with_their_codes() -> None:
                 5,
             ),
             ("http_validation_failures_total", {"route": "/v1/recommend", "code": "missing"}, 5),
+            # 온보딩의 400 은 추천의 계약 위반이 아닙니다(제시 목록에 없는 음식 이름).
+            (
+                "http_validation_failures_total",
+                {"route": "/v1/onboarding/{user_id}", "code": "value_error"},
+                16,
+            ),
         )
     )
 
     assert summary.kpis["validation_failure_ratio"] == pytest.approx(0.05)
     finding = next(f for f in summary.findings if "계약 위반" in f.title)
     assert "missing 5" in finding.evidence
+    assert "value_error" not in finding.evidence
+    assert summary.validation_codes == {"missing": 5.0}
 
 
 def test_events_that_cannot_be_joined_are_reported() -> None:

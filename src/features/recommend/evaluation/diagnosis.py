@@ -211,7 +211,11 @@ def summarize(data: Snapshot, now: datetime | None = None) -> MonitoringSummary:
         features=features,
         slots=items,
         events=events,
-        validation_codes=by_label(data, "http_validation_failures_total", "code"),
+        # 추천 경로의 사유만 셉니다. 온보딩의 400(제시 목록에 없는 음식)이 섞이면 추천 계약이
+        # 어긋난 것처럼 읽힙니다 — 2026-09-22 실트래픽에서 그렇게 보였습니다.
+        validation_codes=by_label(
+            data, "http_validation_failures_total", "code", route="/v1/recommend"
+        ),
         internal=by_label(data, "reco_internal_events_total", "key"),
         findings=[],
     )
