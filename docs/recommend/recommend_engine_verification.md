@@ -4,7 +4,7 @@
 
 **적용 대상**: 수정 여부를 결정하는 유재현과 수정을 반영할 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 11.15.0 · **최종 수정**: 2026-09-22 · **작성자**: 유재현
+**버전**: 11.16.0 · **최종 수정**: 2026-09-23 · **작성자**: 유재현
 
 ---
 
@@ -1390,4 +1390,30 @@ PYTHONUTF8=1 uv run python -m pytest tests/unit   → 0 (602 passed, coverage 94
 python tests/unit/recommend/test_contract.py      → 0 (99건)
 uv run python scripts/sim/scenario_engine.py      → 0 (RESULT: PASS)
 uv run python scripts/eval_recommend_mock.py      → 0 (latency p95 79.9ms, 목업 3,000건)
+```
+
+### 21.20 이력 신호와 오프라인 평가 (2026-09-23 추가)
+
+9.38 세션. 결함은 없었고 실측만 있습니다.
+
+```text
+실증 덤프 21,491건 · 냉장고 6종 · top_k 20 · 같은 요청 30회 (스크래치 하네스)
+                              p50     p95     max
+cold (이력 없음)              55ms    66ms    71ms
+warm (조리 20 · 선호 6)       90ms   108ms   115ms     f_cooccur 20/20 · f_ing_pref 20/20 · 사유 6/20
+
+어제의 실엔진 로그(추천 335 · 이벤트 208)에 scripts/eval_recommend_logs.py:
+  이어짐 188 · request_id 없음 20 · 고아 0
+  개인화 5,171 노출 클릭률 1.53% · 탐색 1,524 노출 1.71% (IPS 1.90%, 평균 노출확률 0.033) · 유형 칸 5
+  꺼진 신호 가중치 0.26 (f_ing_pref · f_cooccur · f_time_fit · f_season) — 이력 연결 전의 로그
+  후보 부족 17.0% · 사다리 none 278 / popularity 57 · 판본 탈락 165.8/요청 · 지연 p50 88 p95 220ms
+```
+
+warm 의 +35ms 는 조리 20건 x 후보 500건의 IDF 자카드입니다. `MAX_COOKED` 로 상한을 두었고 예산(3초)에는 멀지만, 목업 시절 목표(58ms)는 이미 넘습니다 — 목표를 실데이터로 다시 정하는 일(W-13)의 근거가 하나 더 쌓였습니다. 반응은 난수라 클릭률의 값은 뜻이 없습니다.
+
+```text
+uv run ruff check . · format --check .            → 0 (205 files)
+uv run python -m mypy src                         → 0 (79 files)
+PYTHONUTF8=1 uv run python -m pytest tests/unit   → 0 (621 passed, coverage 94.3%)
+실데이터 종단 (스크래치패드 하네스)                → 0 (검사 35건)
 ```
