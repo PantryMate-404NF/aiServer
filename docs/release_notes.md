@@ -22,9 +22,9 @@
 
 | 항목 | 값 |
 |---|---|
-| 병합 시각 | 병합 뒤 후속 커밋으로 채웁니다 |
+| 병합 시각 | 2026-09-22 18:11 (KST) |
 | PR | [#17](https://github.com/PantryMate-404NF/aiServer/pull/17) |
-| merge commit | 병합 뒤 후속 커밋으로 채웁니다. head 는 `9f8acc8` 뒤의 릴리스 노트 커밋 |
+| merge commit | `c8dcaf21bc34b667165bd37dff0edf1f41233484` (짧게 `c8dcaf2`, head `d4dd3ad`) |
 | 직전 릴리스 | 2026-09-22 00:00 PR #16 `90126c2` (3.1) |
 | 브랜치 | `feat/recommend-live-serving`(`feat/recommend-monitoring` 위에서 분기) → `main` |
 | 규모 | 22 커밋 · 55 파일 · 약 +7,300 / −110 (대시보드 JSON 생성물 포함) |
@@ -57,14 +57,14 @@
 DDL 이 바뀌지 않아 데이터 되돌리기는 필요 없습니다. 코드만 되돌리면 됩니다.
 
 ```bash
-git revert -m 1 <merge commit>     # merge commit 이라 -m 1 (main 쪽을 남깁니다)
+git revert -m 1 c8dcaf2     # merge commit 이라 -m 1 (main 쪽을 남깁니다)
 ```
 
 되돌리면 `main` 은 PR #16(`90126c2`) 시점 동작(목업 서빙)으로 돌아갑니다. `/app/var` 의 파일은 남지만 되돌린 코드는 읽지 않습니다. 부분 롤백은 커밋 단위로 — 실서빙 `df053ef`, 모니터링 `6246a0d` · `ec72025`, 이벤트 파일 `2cb48e3`.
 
 ### 2.5 파트 A (데이터) 에게
 
-> 병합: **2026-09-22 · PR #17**
+> 병합: **2026-09-22 18:11 KST · PR #17 · merge commit `c8dcaf2`**
 
 1. **서빙이 우리 DB 를 더 이상 읽지 않습니다.** 레시피 · 재료의 정본이 백엔드 API 로 가면서 후보 조회가 `retrieve_for_user()` 에서 메모리 사전(`engine/catalog.py` · `engine/retrieval.py`)으로 옮겨졌습니다. 규칙은 같고 맛 6축은 `ingest/flavor.py` 를 그대로 씁니다. DB 함수와 배치는 그대로 있습니다(점검표 M-02 · M-04 "대체됨").
 2. **곧 정해 주십시오 — 추천 로그 표의 사용자 외래키(G-35).** `recommendation_log.user_id` · `event_log.user_id` 가 비어 있는 `app_user` 를 가리켜 지금 적재를 이으면 전건 실패합니다. 그동안 로그는 AI 서버의 파일(JSONL)입니다. 제안은 외래키를 떼는 것입니다.
@@ -72,7 +72,7 @@ git revert -m 1 <merge commit>     # merge commit 이라 -m 1 (main 쪽을 남�
 
 ### 2.6 백엔드에게
 
-> 병합: **2026-09-22 · PR #17**
+> 병합: **2026-09-22 18:11 KST · PR #17 · merge commit `c8dcaf2`**
 
 1. **명세 2.4.0 대로 실제 엔진이 답합니다** — 두 API(`GET /internal/ai/ingredients` · `GET /internal/ai/recipes`)를 여시고 내부 키를 받아 주시면, 클라우드가 AI 서버에 주소를 넣는 순간부터입니다.
 2. **추천이 503 일 수 있습니다.** AI 가 레시피를 아직 못 받은 동안입니다. 백엔드의 인기순으로 대신해 주십시오.
@@ -81,7 +81,7 @@ git revert -m 1 <merge commit>     # merge commit 이라 -m 1 (main 쪽을 남�
 
 ### 2.7 클라우드 팀에게
 
-> 병합: **2026-09-22 · PR #17**
+> 병합: **2026-09-22 18:11 KST · PR #17 · merge commit `c8dcaf2`**
 
 1. **배포 설정 넷이 필요합니다** — `BACKEND_BASE_URL` · AI → 백엔드 방향의 네트워크 · `/app/var` 지속 볼륨(uid 10001) · `/metrics` 와 `/admin/monitoring` 의 내부망 제한. 없으면 각각 목업 응답(200) · 전부 503 · 재배포마다 취향과 로그 소실 · 관리자 페이지 노출입니다. 전부 에러 없이 생깁니다.
 2. **인수인계 문서 1.3.0 까지의 "쓰기 경로 없음" 이 바뀌었습니다.** 1.6.0 을 다시 받아 주십시오. 컨테이너 메모리는 사전을 올린 상태로 약 600MiB 였습니다(상한 1Gi 는 넉넉하지 않습니다).
