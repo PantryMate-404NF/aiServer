@@ -45,6 +45,7 @@ from features.recommend.profile_store import (
 from features.recommend.schema import (
     EventAck,
     EventBatchIn,
+    EventIn,
     OnboardingIn,
     OnboardingOut,
     RecommendationLogOut,
@@ -81,11 +82,14 @@ class SyncState:
 
 
 class RecommendationSink:
-    """추천 한 건을 파일에 한 줄로 남깁니다(JSONL, 날짜별 파일).
+    """추천 한 건과 행동 이벤트 한 건을 파일에 한 줄씩 남깁니다(JSONL, 날짜별 파일).
 
     메모리의 로그는 재배포 때 사라지는데 노출 기록은 나중에 복원할 수 없습니다(DB 전환 점검표
-    4절). DB 적재(M-05)가 열릴 때까지 평가가 읽을 원본입니다. 쓰기가 실패해도 추천은 나갑니다 —
-    실패는 세어서 지표로 내보냅니다(`reco_log_write_failed`).
+    4절). DB 적재(M-05)가 열릴 때까지 평가가 읽을 원본입니다. 이벤트도 함께 남깁니다 — 취향
+    저장소는 맛이 있는 이벤트만 정책 상한까지 들고 있어 노출과 반응을 잇는 원본이 못 됩니다.
+    `request_id` 로 두 파일을 이으면 칸별 · 순위별 반응과 노출확률 보정을 나중에 계산할 수
+    있습니다. 쓰기가 실패해도 응답은 나갑니다 — 실패는 세어서 지표로 내보냅니다
+    (`reco_log_write_failed`).
     """
 
     def __init__(self, root: Path) -> None:
@@ -97,16 +101,29 @@ class RecommendationSink:
             "log": log.model_dump(mode="json"),
             "items": [item.model_dump(mode="json") for item in items],
         }
-        line = json.dumps(record, ensure_ascii=False) + "\n"
-        target = self._root / f"recommendations-{log.created_at:%Y%m%d}.jsonl"
+        self._append("recommendations", log.created_at, [record], str(log.request_id))
+
+    def write_events(self, events: Sequence[EventIn], received_at: datetime) -> None:
+        """배치의 이벤트를 한 줄씩. 받은 시각도 적어 `occurred_at` 이 없어도 순서가 남습니다."""
+        records = [
+            {**event.model_dump(mode="json"), "received_at": received_at.isoformat()}
+            for event in events
+        ]
+        self._append("events", received_at, records, f"{len(events)} events")
+
+    def _append(
+        self, kind: str, day: datetime, records: Sequence[Mapping[str, object]], what: str
+    ) -> None:
+        lines = "".join(json.dumps(record, ensure_ascii=False) + "\n" for record in records)
+        target = self._root / f"{kind}-{day:%Y%m%d}.jsonl"
         try:
             with self._lock:
                 target.parent.mkdir(parents=True, exist_ok=True)
                 with target.open("a", encoding="utf-8") as handle:
-                    handle.write(line)
+                    handle.write(lines)
         except OSError:
             service.bump("reco_log_write_failed")
-            logger.exception("recommendation log not written request_id=%s", log.request_id)
+            logger.exception("%s log not written: %s", kind, what)
 
 
 class LiveServing:
@@ -351,8 +368,11 @@ class LiveServing:
 
     def record_events(self, batch: EventBatchIn, ack: EventAck) -> EventAck:
         """취향에 반영합니다. 받았다는 답(`ack`)은 계약대로 그대로 돌려줍니다."""
+        now = self._clock()
+        if self._sink is not None:
+            self._sink.write_events(batch.events, now)
         try:
-            self._personas.record_events(batch.events, self._flavor_of, self._clock())
+            self._personas.record_events(batch.events, self._flavor_of, now)
         except OSError:
             service.bump("persona_store_error")
             raise

@@ -389,6 +389,36 @@ def test_events_reach_the_taste_profile(tmp_path: Path) -> None:
     assert profile is not None and len(profile.events) == 1
 
 
+def test_events_are_also_written_to_a_file_so_they_can_be_joined_later(tmp_path: Path) -> None:
+    """취향 저장소는 맛이 있는 이벤트만 상한까지 듭니다. 평가는 전량과 request_id 가 필요합니다."""
+    folder = tmp_path / "logs"
+    engine = live(FakeBackend(), tmp_path, serving.RecommendationSink(folder))
+    engine.sync_once()
+    served = engine.recommend(request(user_id=44))
+    batch = EventBatchIn(
+        events=[
+            EventIn(user_id=44, event_type=EventType.CLICK, recipe_id=served.items[0].recipe_id),
+            EventIn(
+                user_id=44,
+                event_type=EventType.DISMISS,
+                recipe_id=served.items[1].recipe_id,
+                request_id=served.request_id,
+                position=2,
+            ),
+        ]
+    )
+
+    engine.record_events(batch, EventAck(accepted=1, rejected=1, errors=[]))
+
+    lines = (folder / "events-20260922.jsonl").read_text(encoding="utf-8").splitlines()
+    records = [json.loads(line) for line in lines]
+    # 무시(dismiss)처럼 취향에 안 실리는 것과 request_id 없는 것도 전부 남습니다.
+    assert [r["event_type"] for r in records] == ["click", "dismiss"]
+    assert records[1]["request_id"] == str(served.request_id)
+    assert records[0]["request_id"] is None
+    assert all(r["received_at"] == NOW.isoformat() for r in records)
+
+
 def test_without_a_backend_address_the_mock_answers(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("BACKEND_BASE_URL", raising=False)
 
