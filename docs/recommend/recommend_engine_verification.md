@@ -4,7 +4,7 @@
 
 **적용 대상**: 수정 여부를 결정하는 유재현과 수정을 반영할 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 11.11.0 · **최종 수정**: 2026-09-21 · **작성자**: 유재현
+**버전**: 11.14.0 · **최종 수정**: 2026-09-22 · **작성자**: 유재현
 
 ---
 
@@ -1270,3 +1270,123 @@ mypy 1.11.0 순수 파이썬 (우회로)               → 1 (69 files, 2건 —
 ```
 
 mypy 의 2건은 앞과 같은 줄이고 이번에 더한 파일에서는 0건입니다. 잠금 파일의 판(2.3.1)은 이 PC 에서 돌리지 못했습니다(E-18).
+
+### 21.17 실서빙 개통 (2026-09-22 추가)
+
+9.33 세션. 21.16 끝의 "받기만 하고 거르지는 못합니다" 가 풀렸습니다. 백엔드의 두 API 가 아직 없어 **백엔드는 전부 대역**입니다 — 단위 검사는 `httpx.MockTransport`, 종단 검사 하나는 21절의 실증 덤프를 명세의 모양으로 내주는 대역, 다른 하나는 실제 HTTP 서버로 띄운 대역입니다.
+
+| ID | 발견 | 실험 근거 | 처리 |
+|---|---|---|---|
+| F-129 | 컨테이너에서 취향을 저장할 수 없음 | `Dockerfile` 의 `WORKDIR /app` 은 root 소유이고 앱은 uid 10001 로 돕니다. 기본 경로 `var/profiles` 는 `/app/var/profiles` 라 폴더를 만들지 못합니다. **읽어서 확인한 것이고 이미지를 띄워 확인하지는 못했습니다** | `Dockerfile` 이 `/app/var` 를 앱 사용자 소유로 만듭니다. 쓰기 실패는 500 과 `persona_store_error`(관리자 페이지 critical)로 드러납니다 |
+| F-130 | 로그 적재를 이으면 전건 실패 | `deploy/init/02_schema.sql` 의 `recommendation_log.user_id` 가 `app_user(id)` 를 참조합니다. 사용자의 정본이 백엔드에 있어 운영 DB 의 그 표는 비어 있습니다. 묘비 행(`_tombstone`)도 같은 외래키에 걸립니다. **DDL 을 읽어 확인한 것이고 실행해 보지는 않았습니다** | D-61. M-05 를 떼고 파일에 남깁니다. G-35 |
+| F-131 | 알레르기 검사가 조회 지연을 지배 | 표본 21,491건에서 후보 수천 건 전부에 제목까지 보는 검사를 하니 추천 한 건이 p50 135ms. 순서를 정한 뒤 앞에서부터 상한(500)이 찰 때까지만 보니 119ms, 순서의 열쇠를 함수 호출 없이 만드니 83ms(p95 105ms) | 상한 밖의 후보는 서빙되지 않으므로 검사하지 않아도 새지 않습니다. 추적의 `allergy_cut` 은 "본 것 중에 걸러진 수" 가 됩니다 |
+| F-132 | 자르는 자리의 동점을 번호로 가르면 같은 레시피만 후보가 됨 | 충족률이 같은 후보가 상한보다 많을 때 번호가 낮은 레시피만 영원히 후보가 됩니다(F-119 와 같은 모양이 ① 에 있었습니다) | 인기 점수 다음에 사용자별 순서로 가릅니다. 난수도 `hash()` 도 쓰지 않아 실행마다 같습니다(`test_the_cut_is_not_decided_by_the_recipe_number`) |
+| F-133 | 인기가 전부 같으면 0.5 로 메워져 꺼진 신호가 켜진 것처럼 보임 | 서비스 초기에는 스크랩이 전부 0 입니다. 백분위를 그대로 내면 전건 0.5 가 되어 `f_popularity` 가 살아 있는 것으로 집계됩니다 | 값이 갈리지 않는 신호는 빼고, 남는 신호가 없으면 없음입니다(`test_popularity_without_any_variation_is_missing_not_a_half`) |
+
+실증 덤프 종단(스크래치패드 하네스, 같은 날 두 번 돌렸습니다):
+
+```text
+                               첫 번째        두 번째
+사전 동기화 (21,491건, 22쪽)    약 8초         2.3초
+추천 한 건 p50 · p95            83 · 105 ms    28 · 42 ms
+검사                            35건 통과      35건 통과
+```
+
+두 번의 차이는 그때 PC 의 부하입니다. 일곱 가지 냉장고 · 알레르기 조합에서 걸러야 할 레시피가 목록에 한 건도 없었고(우유 · 땅콩에서 887건, 대두에서 1,587건을 걸렀습니다), 같은 요리의 판본이 겹치지 않았고, 빈 냉장고는 인기순으로 갔습니다.
+
+실제 HTTP 종단(대역 백엔드를 포트로 띄우고 앱을 `BACKEND_BASE_URL` 로 기동):
+
+```text
+기동 로그                 recommend=live · catalog synced version=backend-... recipes=250
+백엔드 호출               4회 전부 내부 키 실림 · limit=100 → cursor=100 → cursor=200
+POST /v1/recommend        200 · model_version reco-b-linear-v0 · 새우 알레르기 0건 누출 · include_trace=false 면 추적 없음
+  키 없이                 401
+  allergies 없이          400 validation_failed
+GET  /v1/recommendations  200 · allergy_snapshot [2]
+POST /v1/onboarding/7     200 · 파일 저장 · 다음 추천의 persona_source picks
+POST /v1/events           200 accepted 1
+GET  /metrics             reco_serving_live 1 · reco_catalog_ready 1 · reco_catalog_recipes 250 · engine="real"
+파일 로그                 추천 3건 → 3줄
+서버 로그                 내부 키 없음
+```
+
+```text
+uv run ruff check . · format --check .            → 0 (198 files)
+uv run python -m mypy src                         → 0 (mypy 2.3.1, 77 files — 이 PC 에서 처음 돌았습니다, E-19)
+PYTHONUTF8=1 uv run python -m pytest tests/unit   → 0 (599 passed, coverage 94.08%)
+  같은 명령을 PYTHONUTF8 없이                      → 1 (1 failed — 자식 프로세스 출력의 cp949, E-19)
+python tests/unit/recommend/test_contract.py      → 0 (99건)
+uv lock --check                                   → 0
+실데이터 종단 (스크래치패드 하네스)                → 0 (검사 35건)
+실제 HTTP 종단 (스크래치패드 하네스)               → 0 (검사 20건)
+```
+
+**확인하지 못한 것.** 실제 백엔드와의 연동(두 API 가 아직 없습니다) · 이미지 빌드 · 워커 둘 이상 · 실 트래픽의 지연 · 백엔드가 503 을 인기순으로 대신하는지.
+
+### 21.18 전달 문서와 코드의 대조 (2026-09-22 추가)
+
+9.34 세션. 백엔드와 클라우드에 전달한 네 문서를 코드와 한 줄씩 대조했습니다. 문서를 고치려고 시작했는데 코드 쪽 결함이 셋 나왔습니다.
+
+| ID | 발견 | 실험 근거 | 처리 |
+|---|---|---|---|
+| F-134 | 실서빙이 요청의 `max_missing` 을 읽지 않음 | `serving.recommend` 가 정책의 기본값(2)으로만 사다리를 시작했습니다. 명세 4.4 는 그 필드를 받는다고 적고 있고 목업은 실제로 그 값으로 거릅니다. `max_missing: 0` 을 보내도 200 에 부족 재료가 있는 목록이 나갑니다 | D-62. 요청의 값이 사다리의 첫 칸입니다. `test_the_requests_max_missing_is_where_the_search_starts` |
+| F-135 | `/health` 가 실서빙에서도 목업의 모델 이름을 답함 | 라우터가 `mock.health_payload` 를 그대로 돌려줘 `model_version` 이 `mock-linear-v0` 이었습니다. 9.33 에서 명세에 "운영에서 `mock-` 이 보이면 배포 설정이 빠진 것" 이라 적었으므로, 제대로 배포한 서버가 잘못 배포한 것으로 읽힙니다 | 실서빙이면 `POLICY_ID` 를 답합니다. 라우트 검사 둘에 단언을 더했습니다 |
+| F-136 | 동기화 스레드가 예상 못 한 예외에 죽음 | `_run` 이 `ExternalServiceError` · `CatalogNotReadyError` 만 받았습니다. 그 밖의 예외가 오르면 스레드가 끝나고 사전은 다시 갱신되지 않습니다(처음이면 추천이 영영 503). 에러는 기본 예외 훅이 stderr 에 한 번 찍는 것이 전부입니다. 빌더에 이상값 여덟 가지(모르는 유형 코드 · 모르는 난이도 · 음수 조리시간 · 빈 유형 · 빈 제목 · 사전에 없는 재료 번호 · 겹친 재료 행 · 터무니없이 큰 수)를 넣어 봤고 죽는 것은 없었습니다 — 지금 터지는 결함이 아니라 터졌을 때 보이지 않는 구조입니다 | `_attempt` 가 전부 받아 로그(`catalog sync crashed`)와 카운터에 남기고 60초 뒤 다시 합니다. `test_the_sync_loop_survives_a_failure_it_did_not_expect` |
+| F-137 | 인수인계 문서가 "쓰기 경로 없음" 이라 적고 있었음 | `container_handover.md` 5절 — "읽기 전용 파일시스템으로 띄워도 됩니다". 9.33 에서 13절을 덧붙이면서 앞 절을 고치지 않았습니다. 앞에서부터 읽는 사람은 5절대로 배포합니다 | 5절 · 2절의 실행 예 · 6절 · 7절 · 9절 · 11절을 고쳤습니다. 덧붙이기만 하면 같은 문서 안에서 앞뒤가 어긋난다는 것이 이번 교훈입니다 |
+
+문서에 새로 적은 사실은 적기 전에 확인했습니다.
+
+```text
+"추천은 DB 없이 나간다"        DB 포트를 닫고(59999) 실제 HTTP 종단 → 검사 20건 통과, 종료코드 0
+"경보 규칙 9개"                떠 있는 Prometheus 에 SIGHUP → /api/v1/rules 9개 전부 health ok
+"is_staple 은 하나라도 오면 백엔드가 정본"   engine/catalog.py 의 _staples 와 test_staples_come_from_the_backend_once_it_sends_them
+"5% 넘게 깨지면 통째로 버림"    backend_client.MAX_INVALID_RATIO 와 test_many_broken_items_mean_the_contract_split_not_one_bad_row
+"같은 커서가 두 번 오면 멈춤"   test_a_cursor_that_repeats_does_not_loop_forever
+```
+
+```text
+uv run ruff check . · format --check .            → 0 (198 files)
+uv run python -m mypy src                         → 0 (77 files)
+PYTHONUTF8=1 uv run python -m pytest tests/unit   → 0 (601 passed, coverage 94.26%)
+python tests/unit/recommend/test_contract.py      → 0 (99건)
+실제 HTTP 종단 — DB 있음 · DB 없음                → 0 · 0 (각 20건)
+```
+
+**확인하지 못한 것**은 21.17 과 같습니다. Notion 사본은 같은 날 2.4.0 으로 맞췄습니다 — 댓글이 달린 블록이 있어 통째로 갈지 않고 바뀐 곳만 찾아 바꿨습니다. 댓글이 그대로 남았는지는 API 로 읽히지 않아 확인하지 못했습니다.
+
+### 21.19 실엔진 트래픽으로 본 모니터링 (2026-09-22 추가)
+
+9.35 세션. 파트 C 를 실엔진으로 끝까지 돌린 첫 기록입니다. 그 전까지의 수치는 전부 목업의 것이었습니다(모니터링 문서 7절). 대역 백엔드는 실증 덤프를 명세의 모양으로 냅니다.
+
+| ID | 발견 | 실험 근거 | 처리 |
+|---|---|---|---|
+| F-138 | 추천 계약 위반의 근거에 온보딩의 400 이 섞임 | 요약의 할 일에 "/v1/recommend 의 4.6% 가 400 — missing 7, value_error 16" 이 나왔는데 `value_error` 16 은 제시 목록에 없는 음식 이름을 보낸 온보딩의 것입니다. 비율은 추천 경로로 재면서 사유는 전 경로를 합쳐 셌습니다 | 추천 경로의 사유만 셉니다. `test_contract_violations_are_reported_with_their_codes` 에 온보딩의 400 을 섞어 못 박았습니다 |
+| F-139 | 이벤트가 파일에 남지 않음 | 추천은 `recommendations-*.jsonl` 에 남는데 이벤트는 취향 저장소(맛이 있는 종류만, 정책 상한까지)와 집계 지표(`request_id` 없음)에만 있었습니다. 쌓인 로그로 칸별 · 순위별 반응을 계산할 길이 없습니다 — C 의 목적("수치화된 데이터를 로그로 누적하고 평가")의 절반이 비어 있었습니다 | 받은 이벤트 전량을 `events-*.jsonl` 에 남깁니다. 두 파일을 이어 아래를 계산했습니다 |
+
+실엔진 트래픽(추천 350 · 온보딩 20 · 이벤트 358, 반응은 순위와 탐색 칸에 가중한 난수):
+
+```text
+관측 경로        /metrics 키 없이 401 · Bearer 200 · 요약 키 없이 401 · 관리자 페이지 200(HTML)
+Prometheus       대시보드 식 40개 — 값 있음 40 · 결과 없음 0 · 문법 오류 0
+                 경보 9개 health ok — firing 셋: 모르는 라벨(아황산류를 일부러 섞음) · 후보 부족 18%(빈 냉장고를 섞음) · 계약 위반 5%(allergies 를 일부러 뺌)
+Grafana          대시보드 reco-engine 읽힘(패널 33 + 행 6) · 데이터소스 둘 · Grafana 를 거친 질의 reco_catalog_recipes = 21491
+요약             engine=real · 요청 191 · 엔진 p50 90ms p95 184ms · HTTP p95 246ms · 노출 3,820 · 클릭률 3.0% · 꺼진 가중치 0.26
+                 꺼진 신호: f_ing_pref · f_cooccur(M-03) · f_time_fit(max_minutes 를 거의 안 보냄) · f_season(시드 없음)
+                 살아 있는 신호: f_coverage · f_missing · f_pantry_use · f_popularity(스크랩 수) · f_taste(온보딩 뒤) · f_expiring · f_cuisine
+                 내부: explore_uniform_fallback 전건(군집 없음, G-33) · cuisine_unmet 42 · persona_events_stored 208
+파일 로그 잇기   추천 335건 · 이벤트 208건 → request_id 로 이어짐 188 · 없음 20(일부러) · 고아 0
+                 칸별 클릭률 — 개인화 1.53%(노출 5,171) · 탐색 1.71%(1,524, 평균 propensity 0.033) · 유형 칸 5건
+                 순위별 클릭 1~5위 [20, 7, 5, 12, 6] · 16~20위 [6, 4, 1, 3, 1]
+크기             추천 한 건 약 19KB(목록 20건 + 추적 + 신호 17종) · 이벤트 약 300B
+```
+
+**해석에 주의할 것.** 반응은 난수라 클릭률의 값 자체는 뜻이 없고, 계산이 되는지만 본 것입니다. 후보 부족 18% 와 계약 위반 5% 는 일부러 넣은 것이라 경보가 뜬 것이 맞습니다. 엔진 p95 184ms 는 목업 시절의 목표(58ms)를 넘는데, 실데이터 2만 건 위의 값이라 목표를 다시 정할 일이지 회귀가 아닙니다(같은 PC 에서 이 세션 초에 잰 p50 28~83ms 와 같은 범위).
+
+```text
+uv run ruff check . · format --check .            → 0 (198 files)
+uv run python -m mypy src                         → 0 (77 files)
+PYTHONUTF8=1 uv run python -m pytest tests/unit   → 0 (602 passed, coverage 94.26%)
+python tests/unit/recommend/test_contract.py      → 0 (99건)
+uv run python scripts/sim/scenario_engine.py      → 0 (RESULT: PASS)
+uv run python scripts/eval_recommend_mock.py      → 0 (latency p95 79.9ms, 목업 3,000건)
+```

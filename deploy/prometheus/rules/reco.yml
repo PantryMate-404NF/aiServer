@@ -1,0 +1,84 @@
+# 추천 엔진 경보 규칙. 전부 "에러 없이 틀리는 것" 을 겨눈다 — 추천 서버는 설계상 실패하지
+# 않으므로(후보가 모자라면 인기순, 신호가 없으면 빼고 계산) 상태코드만 봐서는 모른다.
+#
+# Alertmanager 는 두지 않았다. 경보는 Prometheus 의 Alerts 화면과 Grafana 에서 본다.
+# 임계값은 src/features/recommend/evaluation/diagnosis.py 와 같은 값이다. 한쪽만 고치지 않는다.
+
+groups:
+  - name: reco-engine
+    rules:
+      - alert: RecoScrapeDown
+        expr: up{job="reco-api"} == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: 추천 서버의 지표를 긁지 못한다
+          description: 서버가 내려갔거나 /metrics 의 키가 맞지 않는다. 그동안의 수치는 비어 있다.
+
+      - alert: RecoCatalogNotReady
+        expr: reco_serving_live == 1 and reco_catalog_ready == 0
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          summary: 레시피 사전을 받지 못해 추천이 전부 503 이다
+          description: 백엔드가 자기 인기순으로 대신하므로 화면은 멀쩡해 보인다. 서버 로그의 catalog sync failed 를 본다.
+
+      - alert: RecoCatalogStale
+        expr: reco_catalog_age_seconds > 172800
+        labels: {severity: warning}
+        annotations:
+          summary: 레시피 사전이 이틀 넘게 갱신되지 않았다
+          description: 동기화가 계속 실패하고 있다. 어제의 사전으로 서빙 중이다.
+
+      - alert: RecoUnknownAllergyLabel
+        expr: sum(increase(reco_allergy_labels_total{known="no"}[15m])) > 0
+        labels: {severity: critical}
+        annotations:
+          summary: 막지 못한 알레르기 라벨이 들어왔다
+          description: 그 사용자는 그만큼 보호받지 못했고 응답은 200 이었다. 서버 로그에서 라벨을 찾아 라벨 표에 더한다.
+
+      - alert: RecoSwallowedFailures
+        # 사전 동기화의 실패는 RecoCatalogNotReady · RecoCatalogStale 가 본다. 여기서는 뺀다.
+        expr: sum(increase(reco_internal_events_total{key=~".*(fail|error).*",key!~"catalog_.*"}[15m])) > 0
+        labels: {severity: critical}
+        annotations:
+          summary: 삼킨 예외가 있다
+          description: 로그 적재나 취향 저장이 실패했는데 API 는 200 을 냈다.
+
+      - alert: RecoLatencyOverBudget
+        expr: >
+          histogram_quantile(0.95,
+            sum by (le) (rate(http_request_duration_seconds_bucket{route="/v1/recommend"}[5m]))) > 3
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          summary: 추천 응답이 시간 예산 3초를 넘는다
+          description: 백엔드는 그 전에 끊고 인기순으로 대신한다.
+
+      - alert: RecoDegradedHigh
+        expr: >
+          sum(rate(reco_requests_total{degraded="true"}[15m]))
+            / sum(rate(reco_requests_total[15m])) > 0.05
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: 후보가 모자란 요청이 5% 를 넘는다
+          description: 목록이 요청한 길이를 못 채웠다. 후보 완화 단계와 재료 사전을 본다.
+
+      - alert: RecoContractViolations
+        expr: >
+          sum(rate(http_requests_total{route="/v1/recommend",status="400"}[15m]))
+            / sum(rate(http_requests_total{route="/v1/recommend"}[15m])) > 0.01
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: 추천 요청의 1% 이상이 계약 위반(400)으로 거부된다
+          description: http_validation_failures_total 의 code 로 사유를 본다. missing 이면 pantry · allergies 가 빠진 것이다.
+
+      - alert: RecoServedByMock
+        expr: sum(rate(reco_requests_total{engine="mock"}[15m])) > 0
+        for: 15m
+        labels: {severity: info}
+        annotations:
+          summary: 추천을 목업이 답하고 있다
+          description: 품질 수치는 엔진의 것이 아니다. 라우터 실연결(DB 전환 M-01) 전까지 정상이다.

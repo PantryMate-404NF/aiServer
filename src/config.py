@@ -102,6 +102,30 @@ class Settings(BaseSettings):
     #    gemini 재시도가 1회에서 3회로 늘어 테스트가 깨져서야 드러났다.
     #    같은 뜻의 설정을 두 이름으로 두지 않는다.
 
+    # ── 백엔드 연동 (추천의 실서빙) ───────────────────────────────
+    #: 백엔드 서버의 위치. **이 값이 있으면 실서빙, 없으면 목업**입니다. 레시피와 재료의 정본이
+    #: 백엔드라 그 주소 없이는 추천할 것이 없습니다. 따로 스위치를 두지 않은 이유입니다 —
+    #: 스위치와 주소가 어긋나는 조합(실서빙인데 주소 없음)을 만들 수 없게 합니다.
+    #: 같은 클라우드 안이면 내부 IP 나 내부 도메인입니다. 예: http://backend.internal:8080
+    backend_base_url: str | None = None
+    #: 백엔드가 여는 두 API 의 경로(API 명세 3절). 백엔드가 경로를 달리 정하면 여기만 바꿉니다.
+    backend_ingredients_path: str = "/internal/ai/ingredients"
+    backend_recipes_path: str = "/internal/ai/recipes"
+    #: 동기화 호출 한 번의 제한 시간과 한 쪽의 크기(API 명세 6절: 30초 · 기본 1,000 · 최대 5,000).
+    backend_timeout_sec: float = 30.0
+    backend_page_size: int = 1000
+    #: 레시피와 재료를 다시 당겨 오는 간격(초). 하루 한 번입니다.
+    catalog_sync_interval_sec: int = 86_400
+    #: 첫 동기화가 실패했을 때 다시 해 보는 간격(초). 백엔드가 늦게 뜨는 배포 순서를 견딥니다.
+    catalog_retry_interval_sec: int = 60
+    #: 취향 원본(온보딩 · 행동 이벤트)을 두는 폴더. 컨테이너의 디스크는 재배포 때 비워지므로
+    #: 운영에서는 **지속 볼륨**을 이 경로에 붙여야 합니다. 안 붙이면 배포할 때마다 전원이
+    #: 취향 없는 사용자로 돌아가는데 에러는 나지 않습니다.
+    profile_store_dir: str = "var/profiles"
+    #: 추천 한 건을 한 줄로 남기는 폴더(JSONL, 날짜별 파일). 메모리의 로그는 재배포 때 사라지고
+    #: 노출 기록은 나중에 복원할 수 없어 파일에도 남깁니다. 위와 같은 지속 볼륨에 둡니다.
+    reco_log_dir: str = "var/reco_logs"
+
     # ── 배치 ──────────────────────────────────────────────────────
     ingest_batch: int = 2000
 

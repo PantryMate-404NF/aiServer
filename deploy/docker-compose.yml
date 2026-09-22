@@ -1,6 +1,6 @@
 # 냉장고 추천 시스템 — 로컬 개발 스택
 #   make up        핵심만  (postgres · redis)          ~440MB
-#   make up-obs    + 관측   (grafana · mlflow)          ~1.4GB
+#   make up-obs    + 관측   (grafana · mlflow · prometheus)   ~1.7GB
 #   make up-all    + 앱     (reco-api · dashboard)      산출물 D 이후
 #
 # 필요한 것만 단계적으로 올린다. 디스크와 첫 부팅 시간을 아끼는 것보다
@@ -146,6 +146,31 @@ services:
     volumes:
       - mlruns:/mlruns
 
+  prometheus:
+    profiles: ["obs"]          # 추천 엔진 관측 (트랙 C, 2026-09-22). 앱의 /metrics 를 긁어 쌓는다
+    image: prom/prometheus:v3.0.1
+    container_name: reco-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      # 서버는 재시작하면 0 부터 다시 센다. 긴 기간의 추이는 여기에만 남는다.
+      - "--storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-90d}"
+      - "--web.enable-lifecycle"
+    # 🔴 /metrics 는 내부 키를 요구한다. 키를 설정 파일에 적지 않고 시크릿 파일로 넘긴다.
+    secrets:
+      - internal_api_key
+    # 호스트에서 띄운 개발 서버(uvicorn)를 긁을 때 쓴다. 대상은 prometheus/targets/ 에서 고른다.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - prometheus:/prometheus
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - ./prometheus/targets:/etc/prometheus/targets:ro
+
   grafana:
     profiles: ["obs"]          # 대시보드 트랙 착수 시점에 활성화
     image: grafana/grafana-oss:11.3.0
@@ -173,8 +198,14 @@ services:
       - grafana:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
 
+secrets:
+  # deploy/.env 의 INTERNAL_API_KEY. 앱(reco-api)이 받는 것과 같은 값이어야 한다.
+  internal_api_key:
+    environment: INTERNAL_API_KEY
+
 volumes:
   pgdata:
   mlruns:
   grafana:
+  prometheus:
   artifacts:

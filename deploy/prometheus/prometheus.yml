@@ -1,0 +1,29 @@
+# Prometheus — 추천 AI 서버의 지표를 긁어 쌓는다 (트랙 C, 2026-09-22).
+#
+# 쌓이는 것은 두 갈래다.
+#   http_*   요청 수 · 지연 · 400 의 사유          (src/utils/metrics.py)
+#   reco_*   추천 엔진의 품질과 입력 · 사용자 반응  (src/features/recommend/evaluation/monitor.py)
+#
+# 🔴 서버의 등록부는 프로세스 하나의 것이라 **재시작하면 0 부터 다시 센다.** 그래서 패널과
+#    규칙은 전부 rate() · increase() 로 본다. 누적값을 그대로 그리면 재시작 때마다 절벽이 생긴다.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 30s
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+scrape_configs:
+  - job_name: reco-api
+    metrics_path: /metrics
+    # `/metrics` 는 내부 키를 요구한다. 키는 compose 가 환경변수에서 시크릿 파일로 넘긴다 —
+    # 이 파일에 키를 적지 않는다.
+    authorization:
+      type: Bearer
+      credentials_file: /run/secrets/internal_api_key
+    # 대상은 파일로 뺐다. 고치면 재시작 없이 반영된다.
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets/*.yml
+        refresh_interval: 30s

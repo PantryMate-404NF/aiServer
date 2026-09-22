@@ -9,6 +9,7 @@ from fastapi import Header, HTTPException, status
 from config import get_settings
 
 INTERNAL_API_KEY_HEADER = "X-Internal-Api-Key"
+BEARER_PREFIX = "Bearer "
 
 
 def verify_internal_api_key(
@@ -21,4 +22,22 @@ def verify_internal_api_key(
     """
     expected = get_settings().internal_api_key
     if not secrets.compare_digest(x_internal_api_key, expected):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+
+
+def verify_scraper_key(
+    x_internal_api_key: str = Header(default="", alias=INTERNAL_API_KEY_HEADER),
+    authorization: str = Header(default=""),
+) -> None:
+    """지표 수집기(`/metrics`)를 확인합니다. 같은 내부 키를 두 가지 헤더로 받습니다.
+
+    Prometheus 가 수집 요청에 임의의 헤더를 붙이는 설정은 판마다 다릅니다. 어느 판에나 있는
+    `authorization: Bearer` 를 함께 받아 수집기의 판에 묶이지 않게 합니다. 키는 하나입니다.
+    """
+    expected = get_settings().internal_api_key
+    # 접두어가 없으면 Bearer 가 아닙니다. 접두어만 떼고 보면 키를 아무 모양으로 보내도 통과합니다.
+    is_bearer = authorization.startswith(BEARER_PREFIX)
+    bearer = authorization.removeprefix(BEARER_PREFIX) if is_bearer else ""
+    presented = x_internal_api_key or bearer
+    if not secrets.compare_digest(presented, expected):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)

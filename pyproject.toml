@@ -24,6 +24,7 @@ dependencies = [
     "httpx>=0.28.1",
     "pillow-heif>=1.6.0",
     "python-multipart>=0.0.32",
+    "prometheus-client>=0.21", # /metrics — 추천 엔진 관측 (트랙 C). 순수 파이썬
 ]
 
 [project.optional-dependencies]
