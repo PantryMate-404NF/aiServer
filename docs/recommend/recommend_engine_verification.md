@@ -4,7 +4,7 @@
 
 **적용 대상**: 수정 여부를 결정하는 유재현과 수정을 반영할 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 11.13.0 · **최종 수정**: 2026-09-22 · **작성자**: 유재현
+**버전**: 11.14.0 · **최종 수정**: 2026-09-22 · **작성자**: 유재현
 
 ---
 
@@ -1353,3 +1353,40 @@ python tests/unit/recommend/test_contract.py      → 0 (99건)
 ```
 
 **확인하지 못한 것**은 21.17 과 같습니다. Notion 사본은 같은 날 2.4.0 으로 맞췄습니다 — 댓글이 달린 블록이 있어 통째로 갈지 않고 바뀐 곳만 찾아 바꿨습니다. 댓글이 그대로 남았는지는 API 로 읽히지 않아 확인하지 못했습니다.
+
+### 21.19 실엔진 트래픽으로 본 모니터링 (2026-09-22 추가)
+
+9.35 세션. 파트 C 를 실엔진으로 끝까지 돌린 첫 기록입니다. 그 전까지의 수치는 전부 목업의 것이었습니다(모니터링 문서 7절). 대역 백엔드는 실증 덤프를 명세의 모양으로 냅니다.
+
+| ID | 발견 | 실험 근거 | 처리 |
+|---|---|---|---|
+| F-138 | 추천 계약 위반의 근거에 온보딩의 400 이 섞임 | 요약의 할 일에 "/v1/recommend 의 4.6% 가 400 — missing 7, value_error 16" 이 나왔는데 `value_error` 16 은 제시 목록에 없는 음식 이름을 보낸 온보딩의 것입니다. 비율은 추천 경로로 재면서 사유는 전 경로를 합쳐 셌습니다 | 추천 경로의 사유만 셉니다. `test_contract_violations_are_reported_with_their_codes` 에 온보딩의 400 을 섞어 못 박았습니다 |
+| F-139 | 이벤트가 파일에 남지 않음 | 추천은 `recommendations-*.jsonl` 에 남는데 이벤트는 취향 저장소(맛이 있는 종류만, 정책 상한까지)와 집계 지표(`request_id` 없음)에만 있었습니다. 쌓인 로그로 칸별 · 순위별 반응을 계산할 길이 없습니다 — C 의 목적("수치화된 데이터를 로그로 누적하고 평가")의 절반이 비어 있었습니다 | 받은 이벤트 전량을 `events-*.jsonl` 에 남깁니다. 두 파일을 이어 아래를 계산했습니다 |
+
+실엔진 트래픽(추천 350 · 온보딩 20 · 이벤트 358, 반응은 순위와 탐색 칸에 가중한 난수):
+
+```text
+관측 경로        /metrics 키 없이 401 · Bearer 200 · 요약 키 없이 401 · 관리자 페이지 200(HTML)
+Prometheus       대시보드 식 40개 — 값 있음 40 · 결과 없음 0 · 문법 오류 0
+                 경보 9개 health ok — firing 셋: 모르는 라벨(아황산류를 일부러 섞음) · 후보 부족 18%(빈 냉장고를 섞음) · 계약 위반 5%(allergies 를 일부러 뺌)
+Grafana          대시보드 reco-engine 읽힘(패널 33 + 행 6) · 데이터소스 둘 · Grafana 를 거친 질의 reco_catalog_recipes = 21491
+요약             engine=real · 요청 191 · 엔진 p50 90ms p95 184ms · HTTP p95 246ms · 노출 3,820 · 클릭률 3.0% · 꺼진 가중치 0.26
+                 꺼진 신호: f_ing_pref · f_cooccur(M-03) · f_time_fit(max_minutes 를 거의 안 보냄) · f_season(시드 없음)
+                 살아 있는 신호: f_coverage · f_missing · f_pantry_use · f_popularity(스크랩 수) · f_taste(온보딩 뒤) · f_expiring · f_cuisine
+                 내부: explore_uniform_fallback 전건(군집 없음, G-33) · cuisine_unmet 42 · persona_events_stored 208
+파일 로그 잇기   추천 335건 · 이벤트 208건 → request_id 로 이어짐 188 · 없음 20(일부러) · 고아 0
+                 칸별 클릭률 — 개인화 1.53%(노출 5,171) · 탐색 1.71%(1,524, 평균 propensity 0.033) · 유형 칸 5건
+                 순위별 클릭 1~5위 [20, 7, 5, 12, 6] · 16~20위 [6, 4, 1, 3, 1]
+크기             추천 한 건 약 19KB(목록 20건 + 추적 + 신호 17종) · 이벤트 약 300B
+```
+
+**해석에 주의할 것.** 반응은 난수라 클릭률의 값 자체는 뜻이 없고, 계산이 되는지만 본 것입니다. 후보 부족 18% 와 계약 위반 5% 는 일부러 넣은 것이라 경보가 뜬 것이 맞습니다. 엔진 p95 184ms 는 목업 시절의 목표(58ms)를 넘는데, 실데이터 2만 건 위의 값이라 목표를 다시 정할 일이지 회귀가 아닙니다(같은 PC 에서 이 세션 초에 잰 p50 28~83ms 와 같은 범위).
+
+```text
+uv run ruff check . · format --check .            → 0 (198 files)
+uv run python -m mypy src                         → 0 (77 files)
+PYTHONUTF8=1 uv run python -m pytest tests/unit   → 0 (602 passed, coverage 94.26%)
+python tests/unit/recommend/test_contract.py      → 0 (99건)
+uv run python scripts/sim/scenario_engine.py      → 0 (RESULT: PASS)
+uv run python scripts/eval_recommend_mock.py      → 0 (latency p95 79.9ms, 목업 3,000건)
+```

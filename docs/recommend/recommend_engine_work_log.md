@@ -4,7 +4,7 @@
 
 **적용 대상**: 파트 B 추천 엔진을 이어서 작업하는 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 1.27.0 · **최종 수정**: 2026-09-22 · **작성자**: 유재현
+**버전**: 1.28.0 · **최종 수정**: 2026-09-22 · **작성자**: 유재현
 
 ---
 
@@ -286,6 +286,7 @@ uv run ruff check . && uv run python -m mypy src
 | E-17 | Docker Desktop 데몬이 꺼져 있으면 `docker ps` 가 `npipe:////./pipe/dockerDesktopLinuxEngine` 접속 실패로 끝납니다(9.23). 앱을 띄운 뒤 다시 돌려야 하며, 그 세션에서는 로더의 실 DB 대조(19.2절)를 미실행으로 남겼습니다 |
 | E-18 | mypy 를 돌릴 수 없습니다(2026-09-21). `uv run mypy` 는 예전부터 앱 제어 정책에 막혔고(E-01) 우회로였던 `uv run python -m mypy src` 도 `ImportError: DLL load failed while importing internal` 로 실패합니다. `.venv/Scripts/python.exe -m mypy` 도 같습니다. 같은 세션에서 `pytest` 실행 파일도 막혀 `python -m pytest` 로 돌렸습니다. 타입 검사는 정책이 풀릴 때까지 못 돌립니다 |
 | E-19 | **mypy 2.3.1 이 이 PC 에서 돌았습니다**(2026-09-22, `uv run --no-sync python -m mypy src`, 77 files, 종료코드 0). E-18 의 차단이 왜 풀렸는지는 모릅니다 — 설정을 바꾼 것이 없습니다. 다시 막히면 E-18 의 우회로로 돌아갑니다. 같은 날 `tests/unit/sim/test_sim_seed.py::test_engine_scenario_passes_without_a_db` 가 `PYTHONUTF8=1` 없이는 실패했습니다 — 자식 프로세스의 출력이 cp949 인데 검사가 utf-8 로 읽습니다. 코드의 회귀가 아니고, 그 변수를 주면 599건이 통과합니다 | `PYTHONUTF8=1 uv run --no-sync python -m pytest tests/unit` |
+| E-20 | Windows 에서 `http://localhost:8000` 을 부르면 요청마다 약 2초가 걸립니다(2026-09-22 실측 — `localhost` 가 IPv6 `::1` 로 먼저 풀리고 uvicorn 은 IPv4 에만 떠 있어 실패 뒤 IPv4 로 넘어갑니다). 서버 지연이 아닙니다(같은 요청이 `127.0.0.1` 로는 4ms). 부하 · 점검 스크립트는 `127.0.0.1` 로 부릅니다. 배경으로 띄운 uvicorn 을 도구로 멈추면 파이썬 자식이 남아 포트를 쥡니다 — `netstat -ano` 로 PID 를 찾아 `taskkill //PID <pid> //F` | `127.0.0.1` 사용 |
 
 ---
 
@@ -565,6 +566,20 @@ uv run ruff check . && uv run python -m mypy src
 | 문서 | 안내서 1.2.0(make·psql 없는 PC 절차, id 범위, DB 실행 결과, G-29 보충) · `deploy/seed/sim/README.md` 매핑 · 패키지 사본 동기화(zip 제외) |
 | 검증 | 적재 종료코드 0 · `99_verify` 건수·분포가 기대값과 일치 · `scenario_run.py` PASS(`/health` db true 0.11초, [5] 변동 0 = 전환 전 정상) · `scenario_engine.py` PASS · ruff·format(151)·mypy(62) 0 · `pytest tests/unit` 298 passed / 90.64% |
 | 넘긴 것 | N-16(커밋 범위 — 이제 유재현과 정함) · G-29(DB 없을 때의 대기. DB 있으면 0.11초) |
+
+### 9.35 2026-09-22 - B 완료 여부와 C 의 상태를 돌려서 점검
+
+| 항목 | 내용 |
+|---|---|
+| 입력 | 유재현 — "B 파트는 완료된 건가? C 파트의 모니터링 · 평가 툴은 지금 어떤 상태인지 둘 다 테스트하고 점검해 달라." |
+| 방법 | 옛 코드로 돌던 로컬 서버를 내리고, 실증 덤프 21,491건을 명세대로 내주는 대역 백엔드(8012)와 현재 코드의 실서빙(8000, `BACKEND_BASE_URL` 설정)을 띄웠습니다. 떠 있는 Prometheus · Grafana 가 그것을 긁게 두고 추천 350건 · 온보딩 20건 · 이벤트 358건을 보냈습니다. 단위 검사 · 계약 검사 · 시뮬 시나리오 · 목업 평가 스크립트도 돌렸습니다 |
+| B 의 판정 | **명세대로 서빙되는 코드는 완성됐고, 실제 백엔드와의 연동과 배포는 남았습니다.** 점검표 16건 중 완료 4(M-01 · 06 · 07 · 15) · 대체됨 2(M-02 · 04) · 대기 10. 대기 중 엔진 품질에 닿는 것은 M-03(조리 이력 → 두 신호, 가중치 0.21 이 꺼짐)과 M-05(DB 로그, G-35)이고 나머지는 정리 항목입니다. 결정 대기 N-18 · N-20, 전달 대기 N-21 |
+| C 의 판정 | **관측 · 진단 · 관리자 페이지 · Prometheus · Grafana 는 실엔진 트래픽으로 끝까지 돕니다.** 대시보드 식 40개 값 있음 · 경보 9개 health ok(셋 firing — 전부 일부러 섞은 것) · 요약 할 일 일곱 · Grafana 질의 값 · 관측 경로 인증. **없는 것**은 쌓인 로그를 읽는 오프라인 평가 스크립트와, 임계값의 실데이터 재조정입니다 |
+| 찾아서 고친 것 | ① 진단의 추천 계약 위반 근거에 온보딩의 400 이 섞임(F-138) ② 이벤트가 파일에 남지 않아 노출과 반응을 이을 원본이 없음(F-139) — `events-YYYYMMDD.jsonl` 추가. 두 파일을 `request_id` 로 이어 칸별 클릭률이 나오는 것을 확인 |
+| 실측 | 실서빙 HTTP 추천 평균 111ms · 엔진 p50 90ms · p95 184ms(목표 58ms 는 목업 시절 값) · 추천 로그 한 건 약 19KB · 이벤트 약 300B. 항상 균등 탐색 폴백(`explore_uniform_fallback` 전건 — 군집이 없음, G-33) |
+| 환경 | Windows 에서 `localhost` 로 부르면 요청마다 2초 지연(IPv6 먼저 시도). 부하 스크립트는 `127.0.0.1` 로 부릅니다(E-20). 배경 uvicorn 을 멈추면 자식 프로세스가 남아 포트를 쥡니다 — `netstat` 로 찾아 죽였습니다 |
+| 검증 | ruff · format(198) · mypy(77) · pytest 602 passed / 94.26% · contract 99 · 시뮬 PASS · 목업 평가 0 · 실엔진 종단(위) — 전부 종료코드 0 |
+| 문서 | `recommend_monitoring.md` 1.4.0 · `env_variables.md` 1.4.0(로그 크기 실측) · `container_handover.md` 1.5.0 · 점검표 1.10.0 |
 
 ### 9.34 2026-09-22 - 전달한 문서를 코드에 맞춤
 
