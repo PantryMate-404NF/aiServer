@@ -291,7 +291,13 @@ def _rule_unknown_allergy(s: MonitoringSummary) -> Iterable[Finding]:
 
 
 def _rule_internal_failures(s: MonitoringSummary) -> Iterable[Finding]:
-    failed = {key: value for key, value in s.internal.items() if "fail" in key or "error" in key}
+    # 사전 동기화의 실패(`catalog_sync_failed`)는 여기서 빼고 `_rule_catalog` 가 봅니다. 백엔드가
+    # 아직 안 떠 있는 첫 배포에서 이 규칙까지 울리면 "로그 적재 실패" 로 잘못 읽힙니다.
+    failed = {
+        key: value
+        for key, value in s.internal.items()
+        if ("fail" in key or "error" in key) and not key.startswith("catalog_")
+    }
     if sum(failed.values()) > 0:
         worst = ", ".join(f"{key} {value:.0f}" for key, value in sorted(failed.items()) if value)
         yield Finding(

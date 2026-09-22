@@ -38,7 +38,8 @@ groups:
           description: 그 사용자는 그만큼 보호받지 못했고 응답은 200 이었다. 서버 로그에서 라벨을 찾아 라벨 표에 더한다.
 
       - alert: RecoSwallowedFailures
-        expr: sum(increase(reco_internal_events_total{key=~".*(fail|error).*"}[15m])) > 0
+        # 사전 동기화의 실패는 RecoCatalogNotReady · RecoCatalogStale 가 본다. 여기서는 뺀다.
+        expr: sum(increase(reco_internal_events_total{key=~".*(fail|error).*",key!~"catalog_.*"}[15m])) > 0
         labels: {severity: critical}
         annotations:
           summary: 삼킨 예외가 있다

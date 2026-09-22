@@ -117,6 +117,21 @@ def test_swallowed_failures_are_critical() -> None:
     assert "failed 4" in finding.evidence and "persona_onboarded" not in finding.evidence
 
 
+def test_a_failed_catalog_sync_is_the_catalog_rules_business_not_a_swallowed_failure() -> None:
+    """백엔드가 아직 안 떠 있는 첫 배포에서 "로그 적재 실패" 로 잘못 읽히면 안 됩니다."""
+    summary = diagnosis.summarize(
+        snap(
+            requests(10),
+            ("reco_internal_events_total", {"key": "catalog_sync_failed"}, 5),
+            ("reco_serving_live", {}, 1),
+            ("reco_catalog_ready", {}, 0),
+        )
+    )
+
+    assert "삼킨 예외가 있습니다" not in titles(summary)
+    assert any("사전" in title for title in titles(summary))
+
+
 def test_contract_violations_are_reported_with_their_codes() -> None:
     summary = diagnosis.summarize(
         snap(
