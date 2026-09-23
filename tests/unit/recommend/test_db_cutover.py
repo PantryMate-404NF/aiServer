@@ -81,20 +81,16 @@ def test_the_engine_does_not_write_logs_yet() -> None:
     assert "self._sink.write(" in inspect.getsource(serving), HOWTO.format(item="M-05")
 
 
-def test_no_repository_function_fills_the_user_history() -> None:
-    """M-03. 사용자 이력을 읽어 오는 저장소 함수가 아직 없습니다.
+def test_the_user_history_comes_from_our_events_and_the_catalog() -> None:
+    """M-03 (2026-09-23 처리). 이력의 원천이 바뀌었습니다 — A 의 DB 표가 아니라 우리 취향
+    이벤트와 메모리 사전입니다(`engine/history.py`). 실서빙이 그것을 문맥에 넣습니다.
 
-    없는 동안 `f_ing_pref`·`f_cooccur` 는 전건 None 이고 가중치 0.21 이 순위에
-    관여하지 않습니다. 붙는 순간 추천 결과가 바뀌므로 그때 Mock 판정을 다시
-    재야 합니다.
+    두 신호가 실제로 켜지는 것은 `test_serving.py` 가 실호출로 잽니다. 여기서는 이어져 있는지를
+    봅니다 — 끊기면 가중치 0.21 이 다시 조용히 꺼집니다.
     """
-    repository = importlib.import_module("features.recommend.repository")
-    loaders = [
-        name
-        for name in dir(repository)
-        if not name.startswith("_") and ("history" in name.lower() or "user_pref" in name.lower())
-    ]
-    assert not loaders, HOWTO.format(item="M-03") + f" (발견: {loaders})"
+    source = inspect.getsource(importlib.import_module("features.recommend.serving"))
+    assert "history.build_history(" in source, HOWTO.format(item="M-03")
+    assert "recent_served=" in source, HOWTO.format(item="M-03")
 
 
 def test_the_logged_seed_is_the_seed_that_was_used() -> None:

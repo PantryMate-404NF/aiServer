@@ -51,8 +51,8 @@ CATALOG_STALE_SECONDS = 172_800
 FEATURE_NEEDS: Mapping[str, str] = {
     "f_popularity": "레시피 동기화에 스크랩 수(popularity.scrap_count)를 받아 점수로 만듭니다",
     "f_quality": "평점 데이터(rating)가 와야 합니다",
-    "f_ing_pref": "행동 이벤트가 쌓이고 사용자 이력 적재(DB 전환 M-03)가 연결돼야 합니다",
-    "f_cooccur": "조리 이벤트가 쌓이고 사용자 이력 적재(DB 전환 M-03)가 연결돼야 합니다",
+    "f_ing_pref": "그 사용자의 조리 · 저장 이벤트가 쌓여야 켜집니다. 이벤트가 오는지 봅니다",
+    "f_cooccur": "그 사용자의 최근 14일 조리 이벤트가 있어야 켜집니다. 조리 이벤트가 오는지 봅니다",
     "f_taste": "사용자가 온보딩에서 음식을 골라야 켜집니다. 온보딩 전에는 꺼진 것이 정상입니다",
     "f_expiring": "요청의 pantry 에 purchased_at 또는 expires_at 이 실려 와야 합니다",
     "f_cuisine": "사용자의 preferred_cuisines 와 레시피의 cuisine_type 이 둘 다 있어야 합니다",
