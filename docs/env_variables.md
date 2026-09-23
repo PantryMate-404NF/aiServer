@@ -107,17 +107,17 @@
 
 ## 4. 아직 정하지 못한 것 — 백엔드·DB 구성 논의 뒤에 확정
 
-이름과 기본값은 위 표대로 지금 확정입니다. 아래는 **값** 이 아직 없거나, 연동 방식에 따라 **변수가 새로 생기거나 없어지는** 것입니다. 각 줄의 "언제" 가 채워지면 이 절에서 지우고 2절·3절을 고칩니다. 백엔드에 보낸 질문은 `backend_schema_request.md` 에 있습니다.
+이름과 기본값은 위 표대로 지금 확정입니다. 아래는 **값** 이 아직 없거나, 연동 방식에 따라 **변수가 새로 생기거나 없어지는** 것입니다. 각 줄의 "언제" 가 채워지면 이 절에서 지우고 2절·3절을 고칩니다. **상대가 정하기 전까지 비워 두지 않도록 우리가 값을 정해 두었습니다(6.6).** 상대가 다른 값을 쓰면 6.6 과 이 절을 함께 고칩니다. 백엔드에 보낸 질문은 `backend_schema_request.md` 에 있습니다.
 
 | 무엇 | 지금 상태 | 언제 정해지는가 | 정해지면 할 일 |
 |---|---|---|---|
-| `DB_HOST` · `DB_NAME` · `DB_USER` · `DB_PASSWORD` 의 값 | RDS 인스턴스 미생성. **추천은 DB 없이도 나갑니다**(2026-09-22 부터 레시피는 백엔드에서, 취향과 로그는 파일). 다만 네 값은 기동에 필수라 RDS 전에 띄우시려면 자리 채움 값이라도 넣어야 합니다. `DB_USER` 를 `reco_app` 으로 줄지, 역할 3종을 누가 만들지 미정 | 클라우드가 RDS 를 만들고 초기화 SQL 을 적용한 뒤(G-32) | 2절의 설명을 실제 엔드포인트 규칙으로. 값은 문서에 적지 않고 시크릿 저장소에만 |
-| 백엔드 연동 방식에 따른 새 변수 | **확정했습니다**(2026-09-22). 3.4 의 아홉 개입니다. 호출 키는 새로 만들지 않고 `INTERNAL_API_KEY` 를 같이 씁니다 | `BACKEND_BASE_URL` 의 **값**은 클라우드가 백엔드를 올린 뒤 | 값을 시크릿 저장소가 아니라 일반 설정으로 넣습니다(비밀이 아닙니다). 경로가 제안과 다르면 `BACKEND_*_PATH` 둘을 함께 넣습니다 |
+| `DB_HOST` · `DB_NAME` · `DB_USER` · `DB_PASSWORD` 의 값 | RDS 인스턴스 미생성. **추천은 DB 없이도 나갑니다**(2026-09-22 부터 레시피는 백엔드에서, 취향과 로그는 파일). 다만 네 값은 기동에 필수라 RDS 전에 띄우시려면 자리 채움 값이라도 넣어야 합니다. `DB_USER` 를 `reco_app` 으로 줄지, 역할 3종을 누가 만들지 미정 | 클라우드가 RDS 를 만들고 초기화 SQL 을 적용한 뒤(G-32) | 2절의 설명을 실제 엔드포인트 규칙으로. 값은 문서에 적지 않고 시크릿 저장소에만. **우리 제안(6.6)**: `DB_NAME=recodb` · `DB_USER=reco_app` · `DB_PORT=5432`, 인스턴스 이름 `pantrymate-reco-pg16`, 클래스 `db.t4g.small` 이상 |
+| 백엔드 연동 방식에 따른 새 변수 | **확정했습니다**(2026-09-22). 3.4 의 아홉 개입니다. 호출 키는 새로 만들지 않고 `INTERNAL_API_KEY` 를 같이 씁니다 | `BACKEND_BASE_URL` 의 **값**은 클라우드가 백엔드를 올린 뒤 | 값을 시크릿 저장소가 아니라 일반 설정으로 넣습니다(비밀이 아닙니다). 경로가 제안과 다르면 `BACKEND_*_PATH` 둘을 함께 넣습니다. **우리 제안(6.6)**: `BACKEND_BASE_URL=http://backend.pantrymate.internal:8080` — 호스트 이름은 클라우드의 내부 DNS 규칙대로, 포트는 백엔드가 여는 값 |
 | 추천 로그를 어느 DB 에 남기는가 | **지금은 DB 에 남기지 않습니다**(2026-09-22). `RECO_LOG_DIR` 의 파일에 남깁니다(3.4). `recommendation_log.user_id` 가 `app_user` 를 참조하는데 사용자의 정본이 백엔드에 있어, 지금 DB 에 이으면 전건이 실패하기 때문입니다 | 데이터 파트가 그 외래키를 어떻게 할지 정하면 | 같은 DB 에 적재하면 변수는 늘지 않습니다. 분리하면 `LOG_DB_*` 네 개가 생깁니다. 그때까지 **`/app/var` 의 볼륨이 추천 로그의 유일한 보관처**입니다 |
-| `DB_SCHEMA` 를 바꿀 일이 있는가 | 전용 DB 라 `reco` 그대로 | 백엔드 DB 와 한 인스턴스를 나눠 쓰기로 하면 | 스키마 이름과 역할의 `search_path` 를 함께 정합니다 |
-| `PG_MAX_CONN` 과 레플리카 수 | RDS 인스턴스 크기 미정이라 `max_connections` 를 모릅니다 | 클라우드가 인스턴스 크기를 공유하면 | 레플리카 수 × `PG_MAX_CONN` + 배치 접속 ≤ `max_connections` 이 되게 값을 정합니다 |
-| `OCR_WORKERS` 의 메모리 상한 | 유휴 456MiB 실측과 코드 주석 2.5GB 가 다릅니다 | 부하 테스트 뒤 | 3.1 의 설명을 실측 하나로 고치고 메모리 요청·상한을 정합니다 |
-| `INTERNAL_API_KEY` 의 회전 | 발급 주체는 클라우드로 정리(2026-09-18, 임의 문자열을 만들어 이 서버와 백엔드에 같은 값). 회전 절차 미정 | 백엔드와 합의 | 두 키를 동시에 받는 기간을 둘지 결정. 지금 코드는 키 하나만 검사하므로 회전은 두 서비스를 같은 배포에서 바꿔야 합니다 |
+| `DB_SCHEMA` 를 바꿀 일이 있는가 | 전용 DB 라 `reco` 그대로 | 백엔드 DB 와 한 인스턴스를 나눠 쓰기로 하면 | 스키마 이름과 역할의 `search_path` 를 함께 정합니다. **우리 제안(6.6)**: `reco` 그대로, 변수는 넘기지 않습니다 |
+| `PG_MAX_CONN` 과 레플리카 수 | RDS 인스턴스 크기 미정이라 `max_connections` 를 모릅니다 | 클라우드가 인스턴스 크기를 공유하면 | 레플리카 수 × `PG_MAX_CONN` + 배치 접속 ≤ `max_connections` 이 되게 값을 정합니다. **우리 제안(6.6)**: 레플리카 1 · `PG_MAX_CONN=10`(기본값, 안 넘김) · 배치 5 · Grafana 2 = 17 접속. 1GiB 급 인스턴스의 기본 `max_connections`(약 110) 안입니다 |
+| `OCR_WORKERS` 의 메모리 상한 | 유휴 456MiB 실측과 코드 주석 2.5GB 가 다릅니다 | 부하 테스트 뒤 | 3.1 의 설명을 실측 하나로 고치고 메모리 요청·상한을 정합니다. **우리 제안(6.6)**: `OCR_WORKERS=1`, 컨테이너 메모리 요청 1GiB · 상한 2GiB, CPU 요청 1 · 상한 2 |
+| `INTERNAL_API_KEY` 의 회전 | 발급 주체는 클라우드로 정리(2026-09-18, 임의 문자열을 만들어 이 서버와 백엔드에 같은 값). 회전 절차 미정 | 백엔드와 합의 | 두 키를 동시에 받는 기간을 둘지 결정. 지금 코드는 키 하나만 검사하므로 회전은 두 서비스를 같은 배포에서 바꿔야 합니다. **우리 제안(6.6)**: 정기 회전은 두지 않고 유출이 의심될 때 즉시, AI 서버 · 백엔드 · Prometheus 세 곳을 같은 배포에서 |
 | `.env.example` 갱신 | `DB_SCHEMA` · `PG_*` 3종 · `CANDIDATE_LIMIT` · `EXPLORE_POOL_SIZE` · `PROPENSITY_MC` · `INGEST_BATCH` · `REVIEW_SALT` 9개가 빠져 있습니다 | 데이터 파트·`main` 소유 파일이라 알린 뒤 | 01의 1절 규칙("새 환경변수는 같은 커밋에서 갱신")대로 맞춥니다 |
 
 ---
@@ -160,6 +160,8 @@
 
 ### 6.3 다른 파트가 만들어 우리에게 주는 값
 
+아직 값이 없는 것은 우리가 먼저 정해 두었습니다(6.6). 상대가 그대로 쓰면 되고, 다르게 쓰면 6.6 과 4절을 고칩니다.
+
 | 값 | 만드는 쪽 | 어떻게 오는가 |
 |---|---|---|
 | `BACKEND_BASE_URL` | 클라우드(백엔드를 올린 뒤) | 일반 설정. 같은 클라우드 안의 내부 주소. 문서에는 적지 않고 배포 설정에만 둡니다 |
@@ -195,3 +197,68 @@ BACKEND_BASE_URL=<백엔드 로컬 주소. 컨테이너에서 호스트를 보�
 ```
 
 컨테이너는 `docker run --rm -p 8000:8000 --env-file .env -v <호스트 폴더>:/app/var reco-ai-server:local` 로 띄웁니다. 볼륨을 붙이지 않으면 컨테이너를 지울 때 취향과 로그가 함께 사라지는데 로컬에서는 그래도 됩니다. 확인은 `GET /health` 의 `model_version` 이 `reco-b-linear-v0` 인지(목업이면 `mock-` 으로 시작), `/metrics` 의 `reco_catalog_ready` 가 1 인지입니다.
+
+### 6.6 아직 정해지지 않은 값에 우리가 정한 값
+
+4절의 값들은 상대 파트가 확정하기 전까지 비어 있었습니다. 비어 있으면 저마다 다른 값을 넣게 되므로 **우리가 먼저 정해 둡니다.** 여기 값은 그대로 옮겨 적으면 되고, 상대가 다른 값을 쓰면 여기와 4절을 함께 고칩니다. 비밀 넷은 값이 아니라 **만드는 규칙과 보관 이름**만 정합니다.
+
+**운영 — AI 서버 컨테이너의 배포 설정.** 아래 열한 줄이 전부입니다. 그 밖의 변수는 넘기지 않습니다(기본값). `<시크릿: 이름>` 은 시크릿 저장소의 항목 이름이고 값은 어디에도 적지 않습니다.
+
+```text
+DB_HOST=<RDS 엔드포인트 — 인스턴스 pantrymate-reco-pg16 을 만든 뒤 생기는 값>
+DB_PORT=5432
+DB_NAME=recodb
+DB_USER=reco_app
+DB_PASSWORD=<시크릿: pantrymate/ai/db-password>
+LOG_LEVEL=INFO
+INTERNAL_API_KEY=<시크릿: pantrymate/ai/internal-api-key>
+GEMINI_API_KEY=<시크릿: pantrymate/ai/gemini-api-key>
+BACKEND_BASE_URL=http://backend.pantrymate.internal:8080
+OCR_WORKERS=1
+TZ=Asia/Seoul
+```
+
+| 정한 것 | 값 | 근거 |
+|---|---|---|
+| `DB_NAME` · `DB_USER` · `DB_PORT` · `DB_SCHEMA` | `recodb` · `reco_app` · `5432` · `reco`(안 넘김) | `01_extensions.sql` 이 `recodb` 를 부르고 `05_roles.sql` 이 `reco_app` 을 만듭니다. 배치는 `reco_batch`, Grafana 는 `reco_ro` |
+| RDS 인스턴스 | 이름 `pantrymate-reco-pg16` · PostgreSQL 16 · `db.t4g.small`(2GiB) 이상 · 로케일 `C.UTF-8` · 시간대 `Asia/Seoul` | 추천은 DB 를 읽지 않아 부하가 작지만, 파트 A 의 HNSW 인덱스 생성이 세션에서 `maintenance_work_mem = 1GB` 를 잡으므로 1GiB 급으로는 모자랍니다 |
+| `BACKEND_BASE_URL` | `http://backend.pantrymate.internal:8080` | 내부 DNS 이름은 클라우드 규칙대로 바꿔도 됩니다. 포트 8080 은 백엔드가 여는 값으로 가정한 것입니다. AI 서버 자신의 내부 이름은 `ai.pantrymate.internal:8000` 로 제안합니다 |
+| 컨테이너 자원 | CPU 요청 1 · 상한 2, 메모리 요청 1GiB · 상한 2GiB, 레플리카 1, uvicorn 워커 1 | 실측 유휴 456MiB · 사전 포함 약 600MiB · 영수증 처리 중 +80MiB. 사전을 다시 받는 동안 옛 사전을 들고 있어 잠깐 두 벌입니다 |
+| 헬스 프로브 | liveness `/health/live` 30초 간격 · 제한 3초 · 시작 유예 10초 · 3회, readiness `/health/ready` 10초 간격 | `Dockerfile` 의 `HEALTHCHECK` 값과 같습니다 |
+| 지속 볼륨 | `/app/var` · 20GiB · 로그 보존 90일 | 추천 하루 1만 건이면 190MB/일 × 90일 = 17GiB. 보존 90일은 Prometheus 보관과 같은 창입니다. 지우기는 클라우드의 주 1회 cron `find /app/var/reco_logs -name '*.jsonl' -mtime +90 -delete` — 서버 코드는 지우지 않습니다 |
+| `PG_MAX_CONN` | 10(안 넘김) | 앱 10 + 배치 5 + Grafana 2 = 17 접속 |
+| `INTERNAL_API_KEY` 회전 | 정기 회전 없음. 유출 의심 시 즉시, 세 곳 같은 배포 | 코드가 키 하나만 검사합니다 |
+| 백엔드 쪽 AI 호출 타임아웃 | 추천 3.5초(예산 3초 + 여유) → 시간 초과나 503 이면 자기 인기순, 온보딩 · 이벤트 5초, 영수증 30초 | 영수증 30초는 이미 합의된 값입니다 |
+| 시크릿 저장소 항목 이름 | `pantrymate/ai/internal-api-key` · `pantrymate/ai/db-password` · `pantrymate/ai/gemini-api-key` · `pantrymate/obs/grafana-admin` · `pantrymate/obs/grafana-db` · (`pantrymate/data/review-salt`) | AWS Secrets Manager 기준 이름입니다. 다른 저장소를 쓰면 이름만 옮깁니다. 백엔드는 `pantrymate/ai/internal-api-key` 를 자기 `AI_INTERNAL_API_KEY` 로 읽습니다 |
+
+**비밀 넷을 만드는 규칙.** 값은 만든 사람의 터미널에서 시크릿 저장소로 바로 들어가고, 그 사이 어디에도 적지 않습니다.
+
+| 변수 | 만드는 쪽 | 규칙 | 명령 |
+|---|---|---|---|
+| `INTERNAL_API_KEY` | 클라우드 | 32바이트 URL-safe(43자). 세 곳 같은 값 | `python -c "import secrets; print(secrets.token_urlsafe(32))"` |
+| `DB_PASSWORD` | 클라우드(RDS 의 `reco_app`) | 24바이트 URL-safe(32자) 이상 | `python -c "import secrets; print(secrets.token_urlsafe(24))"` |
+| `GEMINI_API_KEY` | 팀 Google Cloud 프로젝트(이름 제안 `pantrymate-ai`) | Google 발급. 개인 키 금지 | Google AI Studio 에서 발급 |
+| `REVIEW_SALT` | 데이터 파트(쓰기 시작할 때) | 32바이트 hex(64자). 한 번 정하면 영구 | `python -c "import secrets; print(secrets.token_hex(32))"` |
+
+**백엔드 쪽 설정 — 이름은 제안이고 값은 확정입니다.**
+
+```text
+AI_BASE_URL=http://ai.pantrymate.internal:8000
+AI_INTERNAL_API_KEY=<시크릿: pantrymate/ai/internal-api-key — AI 서버와 같은 항목>
+AI_RECOMMEND_TIMEOUT_MS=3500
+AI_EVENTS_TIMEOUT_MS=5000
+AI_RECEIPT_TIMEOUT_MS=30000
+```
+
+**모니터링 스택(`deploy/.env`) — 우리 obs 프로필을 그대로 쓸 때.** 수집 대상은 `deploy/prometheus/targets/reco-api.yml` 에 `ai.pantrymate.internal:8000` 으로 적습니다.
+
+```text
+INTERNAL_API_KEY=<시크릿: pantrymate/ai/internal-api-key — 앱과 같은 항목>
+PROMETHEUS_PORT=9090
+PROMETHEUS_RETENTION=90d
+GRAFANA_PORT=3000
+GRAFANA_USER=admin
+GRAFANA_PASSWORD=<시크릿: pantrymate/obs/grafana-admin>
+GRAFANA_DB_USER=reco_ro
+GRAFANA_DB_PASSWORD=<시크릿: pantrymate/obs/grafana-db>
+```
