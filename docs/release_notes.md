@@ -22,9 +22,9 @@
 
 | 항목 | 값 |
 |---|---|
-| 병합 시각 | 병합 뒤 후속 커밋으로 채웁니다 |
+| 병합 시각 | 2026-09-23 09:04 (KST) |
 | PR | [#19](https://github.com/PantryMate-404NF/aiServer/pull/19) |
-| merge commit | 병합 뒤 후속 커밋으로 채웁니다. head 는 `76befac` 뒤의 릴리스 노트 커밋 |
+| merge commit | `356be83923881684407206cabfc70452c858f668` (짧게 `356be83`, head `0383a5a`) |
 | 직전 릴리스 | 2026-09-22 18:11 PR #17 `c8dcaf2` (3.1), 후속 docs PR #18 `6bfc6a8` |
 | 브랜치 | `feat/recommend-history-features` → `main` |
 | 규모 | 5 커밋 · 22 파일 · 약 +1,100 / −50 (문서 포함) |
@@ -56,21 +56,21 @@
 DDL 도 환경변수도 바뀌지 않아 코드만 되돌리면 됩니다.
 
 ```bash
-git revert -m 1 <merge commit>     # merge commit 이라 -m 1 (main 쪽을 남깁니다)
+git revert -m 1 356be83     # merge commit 이라 -m 1 (main 쪽을 남깁니다)
 ```
 
 부분 롤백 — 이력 신호만 끄려면 `e987563` 을 되돌리거나 `RankingPolicy.penalty_recent` 를 1.0 으로 두면 새로고침 변동만 사라집니다. 오프라인 평가(`7d1b2d1`)는 서빙과 무관합니다.
 
 ### 2.5 파트 A (데이터) 에게
 
-> 병합: **2026-09-23 · PR #19**
+> 병합: **2026-09-23 09:04 KST · PR #19 · merge commit `356be83`**
 
 1. **사용자 이력의 원천이 바뀌었습니다(M-03 완료, D-63).** `user_ingredient_pref` · `event_log` · `user_cluster_stat` 을 서빙이 읽지 않습니다. 우리 취향 이벤트와 메모리 사전에서 만듭니다. `user_cluster_stat`(군집 관측)은 여전히 비어 있습니다 — G-33.
 2. 파트 A 파일에서 바꾼 것은 없습니다. 요청 목록은 `docs/recommend/recommend_remaining_work.md` 3.5 · 3.6 절과 Notion 페이지입니다.
 
 ### 2.6 백엔드에게
 
-> 병합: **2026-09-23 · PR #19**
+> 병합: **2026-09-23 09:04 KST · PR #19 · merge commit `356be83`**
 
 1. **같은 요청을 다시 보내면 목록이 조금 달라집니다.** 최근 7일에 보여 준 레시피 x0.7, 최근 14일 조리 x0.5. 새로고침마다 같은 목록이 필요하면 알려 주십시오.
 2. 조리 · 저장 이벤트(`POST /v1/events`)가 오면 다음 추천에서 두 신호가 켜지고 "지난번 만드신 X 와 비슷해요" 사유가 붙습니다. 이벤트를 보내 주셔야 켜집니다.
@@ -78,7 +78,7 @@ git revert -m 1 <merge commit>     # merge commit 이라 -m 1 (main 쪽을 남�
 
 ### 2.7 클라우드 팀에게
 
-> 병합: **2026-09-23 · PR #19**
+> 병합: **2026-09-23 09:04 KST · PR #19 · merge commit `356be83`**
 
 1. 배포 설정에 바뀐 것은 없습니다. PR #17 의 넷(`BACKEND_BASE_URL` · AI → 백엔드 네트워크 · `/app/var` 볼륨 · 내부망 제한)이 그대로 필요합니다.
 2. 이력이 붙은 사용자의 응답이 약 35ms 늘어납니다(p50 90ms). 메모리는 바뀌지 않습니다.
