@@ -35,6 +35,10 @@ class RankingPolicy:
     # ── 감점 (곱연산) ────────────────────────────────────────
     penalty_recent: float = 0.7
     penalty_cooked: float = 0.5
+    #: 이 시간(초) 안에 보여 준 목록은 "최근 노출" 로 세지 않습니다. 새로고침은 같은 세션의 같은
+    #: 요청이라 감점하면 상위 목록이 통째로 밀립니다(2026-09-29 벤치마크 99.8%). 명세 4.4 의
+    #: 세션 갱신 기준(30분 무활동)과 같은 값이며, 세션이 바뀐 뒤의 재방문부터 7일 감점이 겁니다.
+    recent_grace_sec: int = 1800
     avoid_multiplier: float = 2.0
     avoid_cap: float = 0.8
     # ── 맛 ───────────────────────────────────────────────────
@@ -114,6 +118,8 @@ class RankingPolicy:
         ):
             if getattr(self, name) < 1:
                 raise ValueError(f"{name} 은 1 이상이어야 합니다: {getattr(self, name)}")
+        if self.recent_grace_sec < 0:
+            raise ValueError(f"recent_grace_sec 는 0 이상이어야 합니다: {self.recent_grace_sec}")
         if self.cuisine_slot_max < 0:
             raise ValueError(f"cuisine_slot_max 는 0 이상이어야 합니다: {self.cuisine_slot_max}")
         if self.max_per_dish < 0:

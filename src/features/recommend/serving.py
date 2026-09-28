@@ -366,10 +366,14 @@ class LiveServing:
         그때는 같은 레시피가 다시 보일 뿐입니다 — 틀린 추천이 아니라 덜 새로운 추천입니다.
         """
         limit = history.RECENT_WINDOW_DAYS * 86_400.0
+        # 같은 세션의 재요청(새로고침)은 세지 않습니다. 세면 방금 보여 준 20건이 전부 감점되어
+        # 상위 목록이 통째로 밀리고, 명세의 "조금 달라진다" 가 거짓이 됩니다(검증 21.21).
+        grace = float(self._policy.recent_grace_sec)
         served: set[int] = set()
         with self._logs_lock:
             for log in self._logs.values():
-                if log.user_id == user_id and (now - log.created_at).total_seconds() <= limit:
+                age = (now - log.created_at).total_seconds()
+                if log.user_id == user_id and grace <= age <= limit:
                     served.update(log.served)
         return served
 

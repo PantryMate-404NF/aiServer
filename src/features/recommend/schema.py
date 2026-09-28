@@ -124,6 +124,11 @@ class RecommendRequest(_Base):
             raise ValueError(
                 f"알레르기 라벨은 {MAX_ALLERGY_LABEL_LENGTH}자 이하여야 한다: {too_long}"
             )
+        # 줄바꿈 같은 제어 문자는 라벨에 없는 글자입니다. 있으면 로그 한 줄을 여러 줄로 위조할 수
+        # 있으므로(로그 주입) 받지 않습니다.
+        control = [repr(label[:20]) for label in v if any(ch < " " or ch == "\x7f" for ch in label)]
+        if control:
+            raise ValueError(f"알레르기 라벨에 제어 문자가 있다: {control}")
         return v
 
     @field_validator("weight_override")

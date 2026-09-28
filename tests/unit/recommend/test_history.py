@@ -82,6 +82,13 @@ def test_one_cook_makes_its_ingredients_liked_but_the_staple_is_not() -> None:
     assert past.liked_ingredient_ids == frozenset({1, 2})
 
 
+def test_one_cook_a_day_old_is_still_liked() -> None:
+    """하한이 1.0 이면 조리 한 건은 요청 순간이 지나자마자(감쇠 0.9998) 선호가 아니게 됩니다."""
+    past = build(event(1, EventType.COOK, days_ago=1))
+
+    assert past.liked_ingredient_ids == frozenset({1, 2})
+
+
 def test_a_single_click_is_too_weak_but_two_saves_are_enough() -> None:
     assert build(event(2, EventType.CLICK)).liked_ingredient_ids == frozenset()
     assert build(

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -414,12 +414,14 @@ def test_a_cook_switches_on_the_two_history_signals_for_the_next_recommendation(
         ),
         EventAck(accepted=1, rejected=0, errors=[]),
     )
+    # 세션이 바뀐 뒤(유예 30분 지나서)의 재방문입니다. 같은 세션의 새로고침은 세지 않습니다.
+    engine._clock = lambda: NOW + timedelta(seconds=RankingPolicy().recent_grace_sec + 1)
     warm = engine.recommend(request(user_id=45))
 
     assert warm.trace is not None
     received = warm.trace.stages[0].params
     assert received["history_cooked"] == 1 and received["history_liked"] >= 1
-    # 앞 요청에서 보여 준 목록이 최근 노출로 잡혀 감점 대상이 됩니다.
+    # 앞 세션에서 보여 준 목록이 최근 노출로 잡혀 감점 대상이 됩니다.
     assert received["history_recent"] == len(cold.items)
     assert all(item.features["f_cooccur"] is not None for item in warm.items)
     assert all(item.features["f_ing_pref"] is not None for item in warm.items)
@@ -463,6 +465,7 @@ def test_events_are_also_written_to_a_file_so_they_can_be_joined_later(tmp_path:
         ({"weight_override": {"f_unknown": 0.5}}, "weight_override"),
         ({"weight_override": {"f_taste": 0.0}}, "weight_override"),
         ({"allergies": ["A" * 101]}, "allergies"),
+        ({"allergies": ["우유\n땅콩"]}, "allergies"),
     ],
 )
 def test_bad_weight_overrides_and_long_labels_are_400_not_500(
@@ -478,6 +481,29 @@ def test_bad_weight_overrides_and_long_labels_are_400_not_500(
     assert response.status_code == 400
     assert response.json()["error"] == "validation_failed"
     assert any(item["field"] == field for item in response.json()["fields"])
+
+
+def test_a_refresh_inside_the_grace_window_keeps_the_personal_items(tmp_path: Path) -> None:
+    """새로고침(같은 세션의 같은 요청)은 탐색 칸만 바뀝니다. 방금 보여 준 목록을 감점하지 않습니다.
+
+    2026-09-29 벤치마크에서 감점이 걸리자 상위 10 의 99.8% 가 바뀌었습니다. 명세 4.4 는 "조금
+    달라진다" 입니다. 유예(30분)를 지나 다시 오면 그때부터 최근 7일 노출로 세어 감점합니다.
+    """
+    engine = live(FakeBackend(), tmp_path)
+    engine.sync_once()
+    first = engine.recommend(request(user_id=46, top_k=20))
+    again = engine.recommend(request(user_id=46, top_k=20))
+
+    assert again.trace is not None
+    assert again.trace.stages[0].params["history_recent"] == 0
+    personal = lambda response: {i.recipe_id for i in response.items if not i.is_exploration}  # noqa: E731
+    assert personal(first) == personal(again)
+
+    engine._clock = lambda: NOW + timedelta(seconds=RankingPolicy().recent_grace_sec)
+    later = engine.recommend(request(user_id=46, top_k=20))
+    assert later.trace is not None
+    # 두 세션에서 보여 준 것의 합집합입니다(탐색 칸이 달라 20건보다 많을 수 있습니다).
+    assert later.trace.stages[0].params["history_recent"] >= len(first.items)
 
 
 def test_without_a_backend_address_the_mock_answers(monkeypatch: pytest.MonkeyPatch) -> None:
