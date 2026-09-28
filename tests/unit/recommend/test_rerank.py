@@ -220,6 +220,48 @@ def test_reason_context_skips_values_it_does_not_know(
     assert "expiring_name" not in values
 
 
+def test_reason_context_gates_full_coverage_and_preferred_cuisine(
+    make_recipe: Callable[..., RecipeFeature],
+    make_context: Callable[..., UserContext],
+    make_candidate: Callable[..., Candidate],
+    policy: RankingPolicy,
+) -> None:
+    """ "바로 만들 수 있어요" 는 부족 재료 0 일 때만, "즐겨 드시는 X" 는 선호 유형일 때만 붙습니다.
+
+    2026-09-29 벤치마크에서 부족 재료가 있는 레시피 1.9% 에 첫 문구가, 선호하지 않는 유형 2건에
+    둘째 문구가 붙었습니다. 문구가 데이터와 어긋나면 사용자가 추천 전체를 믿지 않게 됩니다.
+    """
+    from features.recommend.engine import reason
+
+    recipe = make_recipe(1, essential=[1, 2], cuisine="western")
+    ctx = make_context(pantry=[1], preferred_cuisines=frozenset({"korean"}))
+    short = score_all(
+        [make_candidate(1, missing_count=1, missing_ids=[2], coverage=0.5)],
+        {1: recipe},
+        ctx,
+        CORPUS,
+        policy,
+    )[0]
+    values = rerank.reason_context(short, recipe, ctx, CORPUS)
+    assert "coverage_full" not in values
+    assert "cuisine" not in values
+    # 문지기가 없으면 자리가 없는 템플릿은 언제나 채워집니다 — 그래서 사유에서 빠져야 합니다.
+    assert reason.build_reason(["f_coverage", "f_cuisine"], values) == (
+        "추천 목록에 포함됐어요",
+        [],
+    )
+
+    full = score_all([make_candidate(1)], {1: recipe}, make_context(pantry=[1, 2]), CORPUS, policy)[
+        0
+    ]
+    values = rerank.reason_context(full, recipe, make_context(pantry=[1, 2]), CORPUS)
+    assert values.get("coverage_full") is True
+    assert reason.build_reason(["f_coverage"], values)[0] == "가진 재료로 바로 만들 수 있어요"
+
+    liked = make_context(pantry=[1, 2], preferred_cuisines=frozenset({"western"}))
+    assert rerank.reason_context(full, recipe, liked, CORPUS)["cuisine"] == "양식"
+
+
 def test_thompson_follows_a_strong_prior(
     pool: tuple[list[ScoredCandidate], dict[int, RecipeFeature]],
     make_context: Callable[..., UserContext],

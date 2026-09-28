@@ -246,6 +246,10 @@ def reason_context(
     missing_named = _named(item.missing_ids, corpus)
     if len(item.missing_ids) == 1 and missing_named:
         values["missing_name"] = missing_named[0]
+    if item.missing_count == 0:
+        # "가진 재료로 바로 만들 수 있어요" 의 문지기. 충족률이 높은 것과 다 갖춘 것은 다릅니다 —
+        # 벤치마크에서 부족 재료가 있는 레시피 1.9% 에 이 문구가 붙었습니다(2026-09-29).
+        values["coverage_full"] = True
     used = len(recipe.all_ids & ctx.pantry_ids)
     if used:
         values["pantry_used"] = used
@@ -258,8 +262,9 @@ def reason_context(
     similar = _similar_cooked_title(recipe, ctx, corpus)
     if similar is not None:
         values["similar_title"] = similar
-    if recipe.cuisine is not None:
+    if recipe.cuisine is not None and recipe.cuisine in ctx.preferred_cuisines:
         # 코드가 아니라 사람이 읽는 이름입니다 — "즐겨 드시는 korean이에요" 를 막습니다.
+        # 즐겨 드시지 않는 유형에 이 문구가 붙지 않게 선호 안에 있을 때만 값을 둡니다.
         values["cuisine"] = cuisine_label(recipe.cuisine)
     if recipe.dish_type is not None:
         values["dish_type"] = recipe.dish_type

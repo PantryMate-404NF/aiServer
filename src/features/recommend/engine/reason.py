@@ -125,10 +125,19 @@ def _apply_josa(text: str) -> str:
     return out
 
 
+#: 채울 자리가 없는 템플릿의 문지기. 이 키가 `ctx` 에 없으면 그 이유를 쓰지 않는다.
+#: `f_coverage` 는 충족률이 두드러지기만 해도 뽑히는데, 문구는 "다 갖췄다" 고 말한다 —
+#: `rerank.reason_context` 가 부족 재료 0 일 때만 `coverage_full` 을 둔다.
+REASON_GATES: dict[str, str] = {"f_coverage": "coverage_full"}
+
+
 def _fill(key: str, ctx: dict[str, Any], connective: bool) -> str | None:
     """템플릿을 채운다. 필요한 값이 하나라도 없으면 None (그 이유는 쓸 수 없다)."""
     tpl = REASON_TEMPLATES.get(key)
     if tpl is None:
+        return None
+    gate = REASON_GATES.get(key)
+    if gate is not None and gate not in ctx:
         return None
     try:
         # 주의: 조사 마커는 템플릿에 `{{이/가}}` 로 적혀 있다. format 이 `{이/가}` 로

@@ -456,6 +456,30 @@ def test_events_are_also_written_to_a_file_so_they_can_be_joined_later(tmp_path:
     assert all(r["received_at"] == NOW.isoformat() for r in records)
 
 
+@pytest.mark.parametrize(
+    ("patch", "field"),
+    [
+        ({"weight_override": {"f_taste": -1.0}}, "weight_override"),
+        ({"weight_override": {"f_unknown": 0.5}}, "weight_override"),
+        ({"weight_override": {"f_taste": 0.0}}, "weight_override"),
+        ({"allergies": ["A" * 101]}, "allergies"),
+    ],
+)
+def test_bad_weight_overrides_and_long_labels_are_400_not_500(
+    monkeypatch: pytest.MonkeyPatch, patch: dict[str, object], field: str
+) -> None:
+    """계약 밖의 값은 400 과 사유입니다. 2026-09-29 안전성 점검에서 500 으로 새고 있었습니다."""
+    monkeypatch.delenv("BACKEND_BASE_URL", raising=False)
+    app = main.create_app()
+    body = {"user_id": 7, "pantry": [], "allergies": [], **patch}
+
+    response = TestClient(app).post("/v1/recommend", json=body, headers=HEADERS)
+
+    assert response.status_code == 400
+    assert response.json()["error"] == "validation_failed"
+    assert any(item["field"] == field for item in response.json()["fields"])
+
+
 def test_without_a_backend_address_the_mock_answers(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("BACKEND_BASE_URL", raising=False)
 

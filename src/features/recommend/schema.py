@@ -34,6 +34,7 @@ from features.recommend.engine.persona import SCALE_AXIS_COUNT
 from features.recommend.engine.taste import FLAVOR_AXES
 from features.recommend.enums import (
     CONTRACT_VERSION,
+    FEATURE_KEYS,
     ONBOARDING_CUISINES,
     EventType,
     normalize_allergen,
@@ -50,6 +51,10 @@ class _Base(BaseModel):
 # ─────────────────────────────────────────────────────────────────
 # POST /v1/recommend
 # ─────────────────────────────────────────────────────────────────
+#: 알레르기 라벨 한 개의 길이 상한. 정본 표기 가운데 가장 긴 것이 14자입니다.
+MAX_ALLERGY_LABEL_LENGTH = 100
+
+
 class RecommendPantryItem(_Base):
     """추천 요청에 실려 오는 냉장고 한 칸 (2026-09-21 백엔드 합의).
 
@@ -108,6 +113,35 @@ class RecommendRequest(_Base):
     context: dict[str, str | int | None] = Field(
         default_factory=dict, description="{hour, weekday, device, source_screen}"
     )
+
+    @field_validator("allergies")
+    @classmethod
+    def _labels_are_short(cls, v: list[str]) -> list[str]:
+        # 라벨은 백엔드 DB 의 표기라 몇 글자입니다. 긴 문자열은 라벨이 아니라 잘못 온 값이고,
+        # 그대로 두면 추적과 로그에 통째로 실립니다(2026-09-29 안전성 점검 B6).
+        too_long = [label[:20] for label in v if len(label) > MAX_ALLERGY_LABEL_LENGTH]
+        if too_long:
+            raise ValueError(
+                f"알레르기 라벨은 {MAX_ALLERGY_LABEL_LENGTH}자 이하여야 한다: {too_long}"
+            )
+        return v
+
+    @field_validator("weight_override")
+    @classmethod
+    def _weights_are_usable(cls, v: dict[str, float] | None) -> dict[str, float] | None:
+        # `service._validate_weights` 와 같은 규칙입니다. 거기서 잡히면 500 으로 나가고, 여기서
+        # 잡히면 400 과 사유로 나갑니다(2026-09-29 안전성 점검 D6 · D7).
+        if v is None:
+            return v
+        unknown = sorted(set(v) - set(FEATURE_KEYS))
+        if unknown:
+            raise ValueError(f"모르는 가중치 키다: {unknown} — 가능한 값 {list(FEATURE_KEYS)}")
+        negative = sorted(key for key, weight in v.items() if weight < 0.0)
+        if negative:
+            raise ValueError(f"음의 가중치는 쓸 수 없다: {negative}")
+        if sum(v.values()) <= 0.0:
+            raise ValueError("가중치 합이 0 이면 점수를 매길 수 없다")
+        return v
 
 
 class RecommendResponse(_Base):
