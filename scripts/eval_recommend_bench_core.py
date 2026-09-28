@@ -189,9 +189,16 @@ class Prepared:
 
 
 def prepare(
-    personas: service.PersonaService, cat: Catalog, policy: RankingPolicy, req: RecommendRequest
+    personas: service.PersonaService,
+    cat: Catalog,
+    policy: RankingPolicy,
+    req: RecommendRequest,
+    recent_served: Iterable[int] = (),
 ) -> Prepared:
-    """운영 `LiveServing.recommend` 와 같은 순서로 문맥과 후보를 만듭니다(최근 노출은 비움)."""
+    """운영 `LiveServing.recommend` 와 같은 순서로 문맥과 후보를 만듭니다.
+
+    `recent_served` 는 앞 세션에서 보여 준 목록입니다. 비우면 첫 방문, 채우면 재방문의 문맥입니다.
+    """
     resolution = allergy.resolve(req.allergies, cat.corpus.ingredient_names, cat.allergen_groups)
     own = [
         item.ingredient_id
@@ -207,7 +214,9 @@ def prepare(
         own_pantry_ids=sorted(set(own)),
         expiring_ids=serving.expiring_ingredients(req.pantry, cat.shelf_life_days, NOW.date()),
         max_cook_minutes=req.max_minutes,
-        history=history.build_history(events, cat.recipes, cat.staple_ids, NOW, policy),
+        history=history.build_history(
+            events, cat.recipes, cat.staple_ids, NOW, policy, recent_served=recent_served
+        ),
     )
     ladder = replace(policy, max_missing=req.max_missing)
     found = retrieval.retrieve(
@@ -225,6 +234,17 @@ def coverage_first(candidates: Sequence[Candidate], k: int) -> list[int]:
 def jaccard(a: frozenset[int], b: frozenset[int]) -> float:
     union = a | b
     return len(a & b) / len(union) if union else 0.0
+
+
+def replaced(before: Iterable[int], after: Iterable[int]) -> float:
+    """앞 목록의 몇 할이 뒤 목록에서 사라졌는가. 자카드 거리보다 "몇 개가 바뀌었나" 에 가깝습니다.
+
+    20건 중 4건이 바뀌면 자카드 거리는 1 - 16/24 = 0.33 이지만 이 값은 0.2 입니다.
+    """
+    first = list(before)
+    if not first:
+        return 0.0
+    return len(set(first) - set(after)) / len(first)
 
 
 def mean(values: Iterable[float]) -> float | None:

@@ -175,6 +175,8 @@ def run(out: Path) -> list[Case]:
     add("B6 라벨 5000자", "400 (라벨 길이 상한 100자)", r, r.status_code == 400)
     r = post("/v1/recommend", {**base, "allergies": ["우유"] * 51})
     add("B8 라벨 51개", "400", r, r.status_code == 400)
+    r = post("/v1/recommend", {**base, "allergies": ["우유\n2026-09-29 ERROR forged line"]})
+    add("B9 라벨에 줄바꿈(로그 위조)", "400 (제어 문자 불가)", r, r.status_code == 400)
 
     # ── C. 냉장고 경계 ───────────────────────────────────────────
     r = post("/v1/recommend", {**base, "pantry": [{"ingredient_id": 1}] * 501})

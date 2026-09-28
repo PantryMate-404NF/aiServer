@@ -47,18 +47,18 @@ from eval_recommend_bench_core import (  # noqa: E402
     Prepared,
     Tally,
     coverage_first,
-    jaccard,
     make_users,
     mean,
     measure,
     prepare,
     reason_checks,
+    replaced,
     request_of,
 )
 
 from features.recommend import service, serving  # noqa: E402
 from features.recommend.engine import allergy, dish, rerank, retrieval  # noqa: E402
-from features.recommend.enums import EventType  # noqa: E402
+from features.recommend.enums import DEFAULT_WEIGHTS, EventType  # noqa: E402
 from features.recommend.policy import RankingPolicy  # noqa: E402
 from features.recommend.profile_store import (  # noqa: E402
     PRESENTED_PATH,
@@ -69,9 +69,18 @@ from features.recommend.schema import EventAck, EventBatchIn, EventIn, Onboardin
 
 
 # ── 실행 ──────────────────────────────────────────────────────────
-def run(users_count: int, seed: int, out: Path) -> dict[str, object]:
+def run(
+    users_count: int,
+    seed: int,
+    out: Path,
+    policy_overrides: dict[str, object] | None = None,
+    weight_overrides: dict[str, float] | None = None,
+) -> dict[str, object]:
     rng = random.Random(seed)  # noqa: S311  # 가상 사용자 · 무작위 기준선용. 암호 용도가 아닙니다
-    policy = RankingPolicy()
+    # 손잡이 · 가중치 덮어쓰기는 실험용입니다. 운영 기본값과의 차이를 같은 사용자 위에서 봅니다.
+    policy = replace(RankingPolicy(), **(policy_overrides or {}))  # type: ignore[arg-type]
+    # 운영처럼 기본 가중치 위에 덮습니다. 덮어쓴 것만 넘기면 나머지 신호가 전부 0 이 됩니다.
+    merged_weights = {**DEFAULT_WEIGHTS, **weight_overrides} if weight_overrides else None
     store_dir = Path(tempfile.mkdtemp(prefix="reco-bench-profiles-"))
     personas = service.PersonaService(
         store=JsonProfileStore(store_dir),
@@ -105,6 +114,7 @@ def run(users_count: int, seed: int, out: Path) -> dict[str, object]:
             top_k=TOP_K,
             rng_seed=seed,
             max_missing_final=p.found.max_missing,
+            weights=merged_weights,
         )
         return [it.recipe_id for it in ranked.items]
 
@@ -122,6 +132,8 @@ def run(users_count: int, seed: int, out: Path) -> dict[str, object]:
     change_warm: list[float] = []
     change_control: list[float] = []
     history_effect: list[float] = []
+    next_session_change: list[float] = []
+    change_control20: list[float] = []
     signals_on: list[float] = []
     violation_examples: list[dict[str, object]] = []
     samples: list[dict[str, object]] = []
@@ -139,8 +151,11 @@ def run(users_count: int, seed: int, out: Path) -> dict[str, object]:
                 ),
             )
         req = request_of(user)
+        if weight_overrides:
+            req = req.model_copy(update={"weight_override": dict(weight_overrides)})
         first = live.recommend(req)
         before = [it.recipe_id for it in first.items[:AT_10]]
+        engine_ids_first = [it.recipe_id for it in first.items]
         # 이력 신호만의 효과를 재려고, 이벤트 전의 문맥으로 점수 순 목록을 미리 뽑아 둡니다.
         # (실서빙의 두 번째 응답은 최근 노출 감점과 탐색 무작위가 섞여 이력 효과를 가립니다.)
         before_scored = score_only(prepare(personas, cat, policy, req)) if user.warm else []
@@ -162,9 +177,11 @@ def run(users_count: int, seed: int, out: Path) -> dict[str, object]:
         response = live.recommend(req)
         latencies.append((perf_counter() - t0) * 1000)
         after = [it.recipe_id for it in response.items[:AT_10]]
-        (change_warm if user.warm else change_control).append(
-            1.0 - jaccard(frozenset(before), frozenset(after))
-        )
+        (change_warm if user.warm else change_control).append(replaced(before, after))
+        if not user.warm:
+            # 목록 전체(20건) 기준. 유예 안에서는 탐색 칸만 바뀌므로 탐색 비율에 가까워야 합니다.
+            whole = frozenset(it.recipe_id for it in response.items)
+            change_control20.append(replaced(engine_ids_first, whole))
 
         prep = prepare(personas, cat, policy, req)
         stages[prep.found.stage] += 1
@@ -173,10 +190,11 @@ def run(users_count: int, seed: int, out: Path) -> dict[str, object]:
         )
         engine_ids = [it.recipe_id for it in response.items]
         after_scored = score_only(prep)
+        # 다음 세션(유예 30분 뒤)의 재방문 — 방금 보여 준 20건이 감점된 뒤의 점수 순 목록.
+        revisit = prepare(personas, cat, policy, req, recent_served=engine_ids_first)
+        next_session_change.append(replaced(after_scored[:AT_10], score_only(revisit)[:AT_10]))
         if user.warm:
-            history_effect.append(
-                1.0 - jaccard(frozenset(before_scored[:AT_10]), frozenset(after_scored[:AT_10]))
-            )
+            history_effect.append(replaced(before_scored[:AT_10], after_scored[:AT_10]))
             signals_on.append(
                 sum(
                     1
@@ -310,7 +328,9 @@ def run(users_count: int, seed: int, out: Path) -> dict[str, object]:
             "catalog_version": cat.version,
             "sync_sec": sync_sec,
             "unmapped_ingredients": list(cat.unmapped_ingredients),
-            "policy": policy.fingerprint(None),
+            "policy": policy.fingerprint(merged_weights),
+            "policy_overrides": policy_overrides or {},
+            "weight_overrides": weight_overrides or {},
             "segments": {k: len(v.leak) for k, v in segments.items()},
         },
         "systems": {name: t.summary(catalog_size) for name, t in tallies.items()},
@@ -323,10 +343,13 @@ def run(users_count: int, seed: int, out: Path) -> dict[str, object]:
             "retrieval_stages": dict(stages),
             "candidates_mean": {k: mean(float(v) for v in vs) for k, vs in candidates_n.items()},
             # 같은 요청을 바로 다시 보냈을 때 상위 10 이 얼마나 바뀌는가(최근 노출 감점 + 탐색).
-            "refresh_change@10": mean(change_warm + change_control),
+            "refresh_change@10": mean(change_control),
+            "refresh_change@20": mean(change_control20),
             # 이력 신호만의 효과 — 이벤트 전후의 점수 순 목록 차이(감점 · 무작위 제외).
             "history_effect@10": mean(history_effect),
             "history_signals_on@10": mean(signals_on),
+            # 유예(30분)를 지나 다시 왔을 때 — 앞 세션의 20건이 감점된 뒤의 점수 순 목록 차이.
+            "next_session_change@10": mean(next_session_change),
             "reproducible_pairs": {
                 "identical": identical,
                 "total": sum(1 for u in users if u.user_id % 10 == 0),
@@ -374,6 +397,18 @@ def markdown(result: Mapping[str, object]) -> str:
     return "\n".join(lines)
 
 
+def parse_policy_overrides(pairs: list[str]) -> dict[str, object]:
+    """`key=value` 를 손잡이의 기본값과 같은 형으로 바꿉니다. 모르는 손잡이는 거부합니다."""
+    default = RankingPolicy()
+    out: dict[str, object] = {}
+    for pair in pairs:
+        key, raw = pair.split("=", 1)
+        if not hasattr(default, key):
+            raise SystemExit(f"모르는 손잡이입니다: {key}")
+        out[key] = type(getattr(default, key))(raw)
+    return out
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -381,9 +416,30 @@ def main() -> int:
     parser.add_argument("--users", type=int, default=200)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--out", type=Path, default=ROOT / "data/eval/recommend_benchmark")
+    parser.add_argument(
+        "--policy",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="RankingPolicy 손잡이 덮어쓰기 (예: --policy penalty_recent=0.9). 실험용",
+    )
+    parser.add_argument(
+        "--weight",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="가중치 덮어쓰기 (예: --weight f_pantry_use=0.15). 실험용",
+    )
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
-    result = run(args.users, args.seed, args.out)
+    result = run(
+        args.users,
+        args.seed,
+        args.out,
+        policy_overrides=parse_policy_overrides(args.policy),
+        weight_overrides={k: float(v) for k, v in (pair.split("=", 1) for pair in args.weight)}
+        or None,
+    )
     samples = result.pop("samples")
     (args.out / "summary.json").write_text(
         json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
