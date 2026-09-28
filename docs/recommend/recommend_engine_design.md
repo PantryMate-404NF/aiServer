@@ -576,6 +576,7 @@ tests/unit/recommend/               파트 B 검사 함수 151개(수집 항목 
 | 묶음 | 손잡이 | 값 | 뜻 |
 |---|---|---|---|
 | 감점 | `penalty_recent` · `penalty_cooked` | 0.7 · 0.5 | 최근 7일 노출 · 14일 조리 |
+| 감점 | `recent_grace_sec` | 1800 | 이 시간 안의 재요청(같은 세션의 새로고침)은 최근 노출로 세지 않음. 명세 4.4 의 세션 기준(30분)과 같음(2026-09-29, G-36) |
 | 감점 | `avoid_multiplier` · `avoid_cap` | 2.0 · 0.8 | 기피 재료 비율의 배수 · 상한 |
 | 맛 | `taste_min_norm` | 0.25 | 평균에서 이만큼 떨어져야 맛을 전폭 반영 |
 | ① 완화 | `max_missing` · `max_missing_relaxed` | 2 · 4 | 부족 재료 상한과 완화 상한 |
