@@ -25,6 +25,10 @@ dependencies = [
     "pillow-heif>=1.6.0",
     "python-multipart>=0.0.32",
     "prometheus-client>=0.21", # /metrics — 추천 엔진 관측 (트랙 C). 순수 파이썬
+    # ── 분산 추적 (feat/otel-tracing). 게이트웨이→백엔드→여기까지 한 트레이스로 잇습니다
+    "opentelemetry-sdk>=1.45.0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.45.0",
+    "opentelemetry-instrumentation-fastapi>=0.66b0",
 ]
 
 [project.optional-dependencies]
