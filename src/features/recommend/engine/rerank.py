@@ -246,6 +246,10 @@ def reason_context(
     missing_named = _named(item.missing_ids, corpus)
     if len(item.missing_ids) == 1 and missing_named:
         values["missing_name"] = missing_named[0]
+    if item.missing_count == 0:
+        # "가진 재료로 바로 만들 수 있어요" 의 문지기. 충족률이 높은 것과 다 갖춘 것은 다릅니다 —
+        # 벤치마크에서 부족 재료가 있는 레시피 1.9% 에 이 문구가 붙었습니다(2026-09-29).
+        values["coverage_full"] = True
     used = len(recipe.all_ids & ctx.pantry_ids)
     if used:
         values["pantry_used"] = used
@@ -258,9 +262,16 @@ def reason_context(
     similar = _similar_cooked_title(recipe, ctx, corpus)
     if similar is not None:
         values["similar_title"] = similar
-    if recipe.cuisine is not None:
+    if recipe.cuisine is not None and recipe.cuisine in ctx.preferred_cuisines:
         # 코드가 아니라 사람이 읽는 이름입니다 — "즐겨 드시는 korean이에요" 를 막습니다.
+        # 즐겨 드시지 않는 유형에 이 문구가 붙지 않게 선호 안에 있을 때만 값을 둡니다.
         values["cuisine"] = cuisine_label(recipe.cuisine)
+    if recipe.cuisine is not None:
+        # 탐색 칸의 사유("{유형} 요리를 넣어 봤어요")는 선호와 무관하게 유형을 말합니다.
+        values["cuisine_any"] = cuisine_label(recipe.cuisine)
+    axis = _explore_axis(recipe, ctx)
+    if axis is not None:
+        values["explore_axis"] = axis
     if recipe.dish_type is not None:
         values["dish_type"] = recipe.dish_type
     if recipe.cook_minutes is not None:
@@ -270,6 +281,22 @@ def reason_context(
 
 #: 임박 재료의 남은 일수. 요청이 D-3 목록을 주므로 문구에도 그 값을 씁니다.
 EXPIRING_DAYS = 3
+#: 탐색 칸의 사유에 쓸 맛 축 — 레시피가 사용자 취향보다 이만큼(6축은 0~1) 이상 강해야 "평소보다
+#: 강하다" 고 말합니다. 온보딩 한 단계(0.25)보다 작고 잡음(0.05)보다 큰 값입니다.
+EXPLORE_AXIS_MIN_GAP = 0.15
+
+
+def _explore_axis(recipe: RecipeFeature, ctx: UserContext) -> str | None:
+    """레시피가 사용자 취향보다 가장 크게 강한 맛 축. 취향이 없거나 차이가 작으면 None 입니다."""
+    best: tuple[float, str] | None = None
+    for i, axis in enumerate(taste.FLAVOR_AXES):
+        mine, theirs = ctx.taste_vec[i], recipe.flavor_vec[i]
+        if mine is None or theirs is None:
+            continue
+        gap = theirs - mine
+        if gap >= EXPLORE_AXIS_MIN_GAP and (best is None or gap > best[0]):
+            best = (gap, axis)
+    return None if best is None else best[1]
 
 
 def _named(ids: Sequence[int], corpus: CorpusStats) -> list[str]:

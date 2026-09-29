@@ -168,6 +168,9 @@ class UserContext:
     preferred_dish_types: frozenset[str] = frozenset()
     skill_level: float | None = None
     history: UserHistory = field(default_factory=UserHistory)
+    #: 사용자 간 노출 균형(X-03). 최근 요청에서 평균보다 많이 나간 레시피 → 감점 계수(0~1).
+    #: 비어 있으면 균형을 걸지 않습니다. 서빙이 채우고 검사 · 벤치마크의 기준선은 비워 둡니다.
+    exposure_factor: Mapping[int, float] = field(default_factory=dict)
     #: 취향의 출처와 상태. 랭킹은 `taste_vec` 을 보고, 탐색 정책과 로그는 이것을 봅니다.
     #: 검사가 `UserContext` 를 직접 만들 때는 None 이며, 그때는 보통 사용자로 다룹니다.
     persona: Persona | None = None
@@ -203,6 +206,7 @@ def build_context(
     preferred_cuisines: Sequence[str] = _FROM_PERSONA,
     preferred_dish_types: Sequence[str] = (),
     skill_level: float | None = None,
+    exposure_factor: Mapping[int, float] | None = None,
 ) -> UserContext:
     """페르소나와 이력을 모아 랭킹이 쓸 문맥을 만듭니다.
 
@@ -229,4 +233,5 @@ def build_context(
         skill_level=skill_level,
         history=past,
         persona=persona,
+        exposure_factor=dict(exposure_factor or {}),
     )

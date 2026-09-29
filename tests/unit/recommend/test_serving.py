@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -83,8 +83,9 @@ def live(
     backend: Callable[[httpx.Request], httpx.Response],
     tmp_path: Path,
     sink: serving.RecommendationSink | None = None,
+    policy: RankingPolicy | None = None,
 ) -> serving.LiveServing:
-    policy = RankingPolicy()
+    policy = policy or RankingPolicy()
     client = BackendClient(
         "http://backend.test",
         "k",
@@ -414,12 +415,14 @@ def test_a_cook_switches_on_the_two_history_signals_for_the_next_recommendation(
         ),
         EventAck(accepted=1, rejected=0, errors=[]),
     )
+    # 세션이 바뀐 뒤(유예 30분 지나서)의 재방문입니다. 같은 세션의 새로고침은 세지 않습니다.
+    engine._clock = lambda: NOW + timedelta(seconds=RankingPolicy().recent_grace_sec + 1)
     warm = engine.recommend(request(user_id=45))
 
     assert warm.trace is not None
     received = warm.trace.stages[0].params
     assert received["history_cooked"] == 1 and received["history_liked"] >= 1
-    # 앞 요청에서 보여 준 목록이 최근 노출로 잡혀 감점 대상이 됩니다.
+    # 앞 세션에서 보여 준 목록이 최근 노출로 잡혀 감점 대상이 됩니다.
     assert received["history_recent"] == len(cold.items)
     assert all(item.features["f_cooccur"] is not None for item in warm.items)
     assert all(item.features["f_ing_pref"] is not None for item in warm.items)
@@ -454,6 +457,131 @@ def test_events_are_also_written_to_a_file_so_they_can_be_joined_later(tmp_path:
     assert records[1]["request_id"] == str(served.request_id)
     assert records[0]["request_id"] is None
     assert all(r["received_at"] == NOW.isoformat() for r in records)
+
+
+@pytest.mark.parametrize(
+    ("patch", "field"),
+    [
+        ({"weight_override": {"f_taste": -1.0}}, "weight_override"),
+        ({"weight_override": {"f_unknown": 0.5}}, "weight_override"),
+        ({"weight_override": {"f_taste": 0.0}}, "weight_override"),
+        ({"allergies": ["A" * 101]}, "allergies"),
+        ({"allergies": ["우유\n땅콩"]}, "allergies"),
+    ],
+)
+def test_bad_weight_overrides_and_long_labels_are_400_not_500(
+    monkeypatch: pytest.MonkeyPatch, patch: dict[str, object], field: str
+) -> None:
+    """계약 밖의 값은 400 과 사유입니다. 2026-09-29 안전성 점검에서 500 으로 새고 있었습니다."""
+    monkeypatch.delenv("BACKEND_BASE_URL", raising=False)
+    app = main.create_app()
+    body = {"user_id": 7, "pantry": [], "allergies": [], **patch}
+
+    response = TestClient(app).post("/v1/recommend", json=body, headers=HEADERS)
+
+    assert response.status_code == 400
+    assert response.json()["error"] == "validation_failed"
+    assert any(item["field"] == field for item in response.json()["fields"])
+
+
+#: 보낸 값이 응답으로 돌아오는지 재기 위한 표식. 정상 요청에는 없는 문자열입니다.
+LEAK_MARKER = "do-not-echo-8f3a2b1c"
+
+
+@pytest.mark.parametrize(
+    ("patch", "at"),
+    [
+        ({"allergies": ["우유", LEAK_MARKER + "A" * 100]}, "allergies[1]"),
+        ({"allergies": ["우유", LEAK_MARKER + "\n땅콩"]}, "allergies[1]"),
+        ({"weight_override": {"f_taste": 0.5, LEAK_MARKER: 1.0}}, None),
+    ],
+)
+def test_the_rejection_names_the_place_not_the_label_or_key_that_was_sent(
+    monkeypatch: pytest.MonkeyPatch, patch: dict[str, object], at: str | None
+) -> None:
+    """검증기 문구는 그대로 400 본문이 됩니다. 보낸 값을 적으면 거기로 새어 나갑니다.
+
+    파트 A 가 09-21 에 `picks` 와 `preferred_cuisines` 에서 같은 누출을 닫았습니다
+    (`docs/decisions/2026-09-21_validation_messages_name_the_place_not_the_value.md`).
+    09-29 에 새로 붙인 검증기 셋이 그 규칙 밖에 있어 함께 닫습니다. 값은 서버 로그에
+    pydantic 의 `input` 으로 남으므로 잃는 것이 없습니다.
+
+    `weight_override` 는 dict 라 자리가 없습니다. 그래서 자리 대신 가능한 값(우리 상수)
+    만 적고 보낸 키는 적지 않습니다.
+    """
+    monkeypatch.delenv("BACKEND_BASE_URL", raising=False)
+    app = main.create_app()
+    body = {"user_id": 7, "pantry": [], "allergies": [], **patch}
+
+    response = TestClient(app).post("/v1/recommend", json=body, headers=HEADERS)
+
+    assert response.status_code == 400
+    assert LEAK_MARKER not in response.text, "보낸 값이 응답으로 돌아갑니다"
+    if at is not None:
+        assert at in response.text, "어느 자리가 틀렸는지는 알려줘야 합니다"
+
+
+def test_a_refresh_inside_the_grace_window_keeps_the_personal_items(tmp_path: Path) -> None:
+    """새로고침(같은 세션의 같은 요청)은 탐색 칸만 바뀝니다. 방금 보여 준 목록을 감점하지 않습니다.
+
+    2026-09-29 벤치마크에서 감점이 걸리자 상위 10 의 99.8% 가 바뀌었습니다. 명세 4.4 는 "조금
+    달라진다" 입니다. 유예(30분)를 지나 다시 오면 그때부터 최근 7일 노출로 세어 감점합니다.
+    """
+    engine = live(FakeBackend(), tmp_path)
+    engine.sync_once()
+    first = engine.recommend(request(user_id=46, top_k=20))
+    again = engine.recommend(request(user_id=46, top_k=20))
+
+    assert again.trace is not None
+    assert again.trace.stages[0].params["history_recent"] == 0
+    personal = lambda response: {i.recipe_id for i in response.items if not i.is_exploration}  # noqa: E731
+    assert personal(first) == personal(again)
+
+    engine._clock = lambda: NOW + timedelta(seconds=RankingPolicy().recent_grace_sec)
+    later = engine.recommend(request(user_id=46, top_k=20))
+    assert later.trace is not None
+    # 두 세션에서 보여 준 것의 합집합입니다(탐색 칸이 달라 20건보다 많을 수 있습니다).
+    assert later.trace.stages[0].params["history_recent"] >= len(first.items)
+
+
+def test_exposure_balancing_penalizes_recipes_that_went_out_too_often(tmp_path: Path) -> None:
+    """노출 균형(X-03). 여러 사용자에게 같은 레시피가 나가면 다음 사용자에게는 감점됩니다.
+
+    계수는 `ScoredCandidate.penalty` 에 실려 로그만으로 점수가 재현되고, 추적에 감점한 수가
+    남습니다. 끄면(1.0) 계수가 비고 감점도 없습니다.
+    """
+    from dataclasses import replace
+
+    # 계수 표를 요청마다 새로 만들게 해서(운영 기본은 50 요청마다) 스무 건 뒤의 효과를 바로 봅니다.
+    balanced = live(
+        FakeBackend(),
+        tmp_path,
+        policy=replace(RankingPolicy(), exposure_penalty=0.8, exposure_refresh_every=1),
+    )
+    balanced.sync_once()
+    for user_id in range(300, 320):
+        balanced.recommend(request(user_id=user_id, top_k=10))
+    # 요청이 쓰는 계수는 그 요청 직전의 노출로 정해집니다(요청 자신의 노출은 다음 요청부터).
+    factors = balanced._exposure_factors()
+    later = balanced.recommend(request(user_id=399, top_k=10))
+
+    assert later.trace is not None
+    assert later.trace.stages[0].params["exposure_penalized"] == len(factors) > 0
+    assert factors and all(0.7 <= f < 1.0 for f in factors.values())
+    penalized = [item for item in later.items if item.recipe_id in factors]
+    assert penalized and all(item.penalty == factors[item.recipe_id] for item in penalized)
+
+    plain = live(
+        FakeBackend(), tmp_path / "plain", policy=replace(RankingPolicy(), exposure_penalty=1.0)
+    )
+    plain.sync_once()
+    for user_id in range(300, 320):
+        plain.recommend(request(user_id=user_id, top_k=10))
+    control = plain.recommend(request(user_id=399, top_k=10))
+    assert control.trace is not None
+    assert control.trace.stages[0].params["exposure_penalized"] == 0
+    assert plain._exposure_factors() == {}
+    assert all(item.penalty == 1.0 for item in control.items)
 
 
 def test_without_a_backend_address_the_mock_answers(monkeypatch: pytest.MonkeyPatch) -> None:

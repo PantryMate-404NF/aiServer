@@ -34,6 +34,7 @@ from features.recommend.engine.persona import SCALE_AXIS_COUNT
 from features.recommend.engine.taste import FLAVOR_AXES
 from features.recommend.enums import (
     CONTRACT_VERSION,
+    FEATURE_KEYS,
     ONBOARDING_CUISINES,
     EventType,
     normalize_allergen,
@@ -50,6 +51,10 @@ class _Base(BaseModel):
 # ─────────────────────────────────────────────────────────────────
 # POST /v1/recommend
 # ─────────────────────────────────────────────────────────────────
+#: 알레르기 라벨 한 개의 길이 상한. 정본 표기 가운데 가장 긴 것이 14자입니다.
+MAX_ALLERGY_LABEL_LENGTH = 100
+
+
 class RecommendPantryItem(_Base):
     """추천 요청에 실려 오는 냉장고 한 칸 (2026-09-21 백엔드 합의).
 
@@ -108,6 +113,46 @@ class RecommendRequest(_Base):
     context: dict[str, str | int | None] = Field(
         default_factory=dict, description="{hour, weekday, device, source_screen}"
     )
+
+    @field_validator("allergies")
+    @classmethod
+    def _labels_are_short(cls, v: list[str]) -> list[str]:
+        # 라벨은 백엔드 DB 의 표기라 몇 글자입니다. 긴 문자열은 라벨이 아니라 잘못 온 값이고,
+        # 그대로 두면 추적과 로그에 통째로 실립니다(2026-09-29 안전성 점검 B6).
+        # 문구에는 보낸 값이 아니라 자리를 적습니다. 이 문구가 그대로 400 본문이 되기 때문입니다
+        # (`_at` 의 설명과 `docs/decisions/2026-09-21_validation_messages_...` 참조).
+        too_long = [i for i, label in enumerate(v) if len(label) > MAX_ALLERGY_LABEL_LENGTH]
+        if too_long:
+            raise ValueError(
+                f"알레르기 라벨은 {MAX_ALLERGY_LABEL_LENGTH}자 이하여야 한다: "
+                f"{_at('allergies', too_long)}"
+            )
+        # 줄바꿈 같은 제어 문자는 라벨에 없는 글자입니다. 있으면 로그 한 줄을 여러 줄로 위조할 수
+        # 있으므로(로그 주입) 받지 않습니다.
+        control = [i for i, label in enumerate(v) if any(ch < " " or ch == "\x7f" for ch in label)]
+        if control:
+            raise ValueError(f"알레르기 라벨에 제어 문자가 있다: {_at('allergies', control)}")
+        return v
+
+    @field_validator("weight_override")
+    @classmethod
+    def _weights_are_usable(cls, v: dict[str, float] | None) -> dict[str, float] | None:
+        # `service._validate_weights` 와 같은 규칙입니다. 거기서 잡히면 500 으로 나가고, 여기서
+        # 잡히면 400 과 사유로 나갑니다(2026-09-29 안전성 점검 D6 · D7).
+        if v is None:
+            return v
+        unknown = sorted(set(v) - set(FEATURE_KEYS))
+        if unknown:
+            # 보낸 키는 적지 않습니다. dict 라 자리가 없으므로, 대신 우리 상수인 가능한 값을
+            # 적어 부르는 쪽이 자기 키와 맞춰 볼 수 있게 합니다(09-21 결정 3절과 같은 처리).
+            raise ValueError(f"모르는 가중치 키가 있다 — 가능한 값 {list(FEATURE_KEYS)}")
+        negative = sorted(key for key, weight in v.items() if weight < 0.0)
+        if negative:
+            # 여기까지 왔으면 키는 전부 FEATURE_KEYS 안입니다. 우리 상수라 적어도 새지 않습니다.
+            raise ValueError(f"음의 가중치는 쓸 수 없다: {negative}")
+        if sum(v.values()) <= 0.0:
+            raise ValueError("가중치 합이 0 이면 점수를 매길 수 없다")
+        return v
 
 
 class RecommendResponse(_Base):

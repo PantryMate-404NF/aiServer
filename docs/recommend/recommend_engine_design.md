@@ -576,6 +576,8 @@ tests/unit/recommend/               파트 B 검사 함수 151개(수집 항목 
 | 묶음 | 손잡이 | 값 | 뜻 |
 |---|---|---|---|
 | 감점 | `penalty_recent` · `penalty_cooked` | 0.7 · 0.5 | 최근 7일 노출 · 14일 조리 |
+| 감점 | `recent_grace_sec` | 1800 | 이 시간 안의 재요청(같은 세션의 새로고침)은 최근 노출로 세지 않음. 명세 4.4 의 세션 기준(30분)과 같음(2026-09-29, G-36) |
+| 감점 | `exposure_penalty` · `exposure_floor` · `exposure_refresh_every` | 0.9 · 0.7 · 50 | 노출 균형(X-03). 최근 요청(메모리 로그 5,000건)에서 평균의 r 배 나간 레시피에 `exposure_penalty` 의 log2(r) 제곱을 곱하고 `exposure_floor` 아래로는 내리지 않음. 계수 표는 50 요청마다 갱신(요청마다면 새로고침이 흔들림). 1.0 이면 끔. 레플리카 하나 전제 |
 | 감점 | `avoid_multiplier` · `avoid_cap` | 2.0 · 0.8 | 기피 재료 비율의 배수 · 상한 |
 | 맛 | `taste_min_norm` | 0.25 | 평균에서 이만큼 떨어져야 맛을 전폭 반영 |
 | ① 완화 | `max_missing` · `max_missing_relaxed` | 2 · 4 | 부족 재료 상한과 완화 상한 |

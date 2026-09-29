@@ -73,10 +73,15 @@ def weighted_score(features: Mapping[str, float | None], weights: Mapping[str, f
 def penalty_factor(
     recipe_id: int, recipe: RecipeFeature, ctx: UserContext, policy: RankingPolicy
 ) -> float:
-    """최근 노출·조리·기피 재료 세 계수의 곱. 0~1 입니다."""
+    """최근 노출·조리·기피 재료·노출 균형 네 계수의 곱. 0~1 입니다.
+
+    노출 균형(`ctx.exposure_factor`)은 서빙이 최근 요청 전체에서 평균보다 많이 나간 레시피에
+    매긴 계수입니다(X-03). 비어 있으면 1.0 — 검사와 벤치마크의 기준선은 그렇게 잽니다.
+    """
     recent = policy.penalty_recent if recipe_id in ctx.history.recent_recipe_ids else 1.0
     cooked = policy.penalty_cooked if recipe_id in ctx.history.cooked_recipe_ids else 1.0
-    return _clamp(recent * cooked * (1.0 - avoid_penalty(recipe, ctx, policy)))
+    crowd = ctx.exposure_factor.get(recipe_id, 1.0)
+    return _clamp(recent * cooked * crowd * (1.0 - avoid_penalty(recipe, ctx, policy)))
 
 
 def avoid_penalty(recipe: RecipeFeature, ctx: UserContext, policy: RankingPolicy) -> float:

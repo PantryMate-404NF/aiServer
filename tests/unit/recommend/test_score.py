@@ -179,6 +179,23 @@ def test_scored_candidate_carries_every_feature(
     assert 0.0 <= scored.penalty <= 1.0
 
 
+def test_exposure_factor_multiplies_into_the_penalty(
+    make_recipe: Callable[..., RecipeFeature],
+    make_context: Callable[..., UserContext],
+    policy: RankingPolicy,
+) -> None:
+    """노출 균형 계수(X-03)는 최근 노출 · 조리 · 기피와 같은 자리에서 곱해져 로그에 남습니다."""
+    from features.recommend.engine import score as scoring
+
+    recipe = make_recipe(1, essential=[1])
+    crowded = make_context(pantry=[1], exposure_factor={1: 0.8})
+    quiet = make_context(pantry=[1])
+
+    assert scoring.penalty_factor(1, recipe, crowded, policy) == pytest.approx(0.8)
+    assert scoring.penalty_factor(1, recipe, quiet, policy) == pytest.approx(1.0)
+    assert scoring.penalty_factor(2, recipe, crowded, policy) == pytest.approx(1.0)
+
+
 def test_penalty_is_recorded_so_the_raw_score_can_be_recovered(
     make_recipe: Callable[..., RecipeFeature],
     make_context: Callable[..., UserContext],
