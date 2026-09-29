@@ -46,6 +46,7 @@ from infra import gemini
 from utils.errors import ReceiptError
 from utils.logging import add_request_logging, configure_logging
 from utils.metrics import add_request_metrics, observe_validation_failure, render
+from utils.tracing import add_request_tracing
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +130,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title="aiServer", version=CONTRACT_VERSION, lifespan=lifespan)
     add_request_logging(app)
     add_request_metrics(app)
+    add_request_tracing(app)
     # 서비스가 세어 온 내부 카운터(삼킨 예외)를 지표로 내보냅니다 (DB 전환 M-07).
     monitor.watch_counters(recommend_service.counters)
     # 백엔드 주소가 있으면 실서빙, 없으면 목업입니다(`serving.build`).
