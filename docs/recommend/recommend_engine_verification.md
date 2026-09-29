@@ -4,7 +4,7 @@
 
 **적용 대상**: 수정 여부를 결정하는 유재현과 수정을 반영할 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 11.19.0 · **최종 수정**: 2026-09-29 · **작성자**: 유재현
+**버전**: 11.20.0 · **최종 수정**: 2026-09-29 · **작성자**: 유재현
 
 ---
 
@@ -1197,11 +1197,15 @@ GET /health (키 없이)            → 401
 POST /v1/recommend   pantry · allergies 동봉       → 400  fields: pantry extra_forbidden · allergies extra_forbidden
 POST /v1/recommend   user_id 없음 · top_k 500      → 400  fields: user_id missing · top_k less_than_equal
 POST /v1/events      시간대 없는 occurred_at       → 400  fields: events.0.occurred_at value_error
-POST /v1/onboarding  목록에 없는 음식              → 400  fields: picks value_error (문구에 그 이름)
+POST /v1/onboarding  목록에 없는 음식              → 400  fields: picks value_error (문구에 picks[0])
 POST /v1/ocr/receipt receipt_id 없음               → 400  본문 없음 (영수증 계약 그대로)
 ```
 
-본문에는 pydantic 오류의 `input`(보낸 값 그대로)을 싣지 않습니다. 보낸 문자열이 응답에 없다는 것을 검사로 박았습니다(`test_the_400_body_does_not_echo_what_was_sent`). 검증기가 문구에 직접 적은 값(목록에 없는 음식 이름)은 실립니다 — 그 값이 곧 사유입니다.
+본문에는 pydantic 오류의 `input`(보낸 값 그대로)을 싣지 않습니다. 보낸 문자열이 응답에 없다는 것을 검사로 박았습니다(`test_the_400_body_does_not_echo_what_was_sent`).
+
+한동안 예외가 하나 있었습니다 — 제시 목록에 없는 음식 이름은 "그 값이 곧 사유" 라서 문구에 적어 두었습니다. **그 예외가 원칙을 무효로 만들어 09-21 에 닫았습니다**(파트 A, `docs/decisions/2026-09-21_validation_messages_name_the_place_not_the_value.md`). `input` 을 버려도 검증기가 문구에 값을 적으면 같은 것이 그대로 나갑니다. 지금은 값이 아니라 자리를 적습니다(`picks[1]`). 왜 뒀다가 왜 닫았는지를 남기는 것은 같은 예외가 다시 생기지 않게 하려는 것입니다.
+
+09-29 에 붙인 검증기 셋(알레르기 라벨 길이 · 제어 문자 · 모르는 가중치 키)이 그 규칙 밖에 있어 함께 닫았습니다. 표식을 넣어 실제 400 본문으로 쟀고, 고치기 전에는 셋 다 표식이 그대로 돌아왔습니다(`test_the_rejection_names_the_place_not_the_label_or_key_that_was_sent`).
 
 ```text
 uv run ruff check . · format --check .        → 0 (179 files)
@@ -1570,3 +1574,33 @@ python -m tests.unit.recommend.test_contract      → 0 (99건)
 scripts/eval_recommend_benchmark.py               → 0 (기본값 단독 + 스윕 4종)
 scripts/eval_recommend_safety.py                  → 0 (43 사례 · 실패 0)
 ```
+
+### 21.24 main 병합 전 대조 (2026-09-29 추가)
+
+병합 지시를 받고 **먼저 main 과 대조했습니다.** 우리 브랜치를 딴 뒤 main 이 16커밋 움직여 있었습니다 — 파트 A 의 검증 문구 수정(09-21) · `threshold.py` 를 `ingest/` 로 이동 · OTel 추적(PR #25, 새 의존성 12개).
+
+**git 기준 충돌은 0건입니다.** 세 브랜치를 순서대로 병합해도 충돌이 없고, 겹치는 파일은 `schema.py` 하나뿐이며 그것도 자동 병합됩니다. 그래서 파일 단위로만 보면 그대로 넣어도 되는 것처럼 보입니다.
+
+**그런데 의미상으로는 충돌이었습니다(F-148).** 파트 A 가 09-21 에 "검증 문구에 보낸 값을 적지 않는다" 를 정하고 `picks` · `preferred_cuisines` 에서 누출을 닫았는데, 우리가 09-29 에 붙인 검증기 셋이 그 규칙 밖에 있었습니다. 같은 파일의 다른 줄이라 git 은 충돌로 보지 않습니다.
+
+| 검증기 | 문구에 있던 것 | 고친 뒤 |
+|---|---|---|
+| 알레르기 라벨 길이 | 보낸 라벨 앞 20자 | `allergies[1]` |
+| 알레르기 제어 문자 | 보낸 라벨의 `repr` | `allergies[1]` |
+| 모르는 가중치 키 | 보낸 키 | 가능한 값 목록만(dict 라 자리가 없음) |
+
+`weight_override` 만 처리가 다른 이유는 배열이 아니라서입니다. 자리를 셀 수 없으므로, 보낸 키 대신 **우리 상수인 가능한 값**을 적어 부르는 쪽이 자기 키와 맞춰 보게 합니다. 09-21 결정 문서 3절이 가능한 값 목록을 남겨 둔 것과 같은 취지입니다.
+
+**표식으로 실제 400 본문을 재는 검사 3건**을 붙였습니다(`test_the_rejection_names_the_place_not_the_label_or_key_that_was_sent`). 예외 문자열이 아니라 `TestClient` 로 받은 응답 본문으로 잽니다. 고치기 전 상태로 되돌려 셋 다 실패하는 것을 확인했습니다 — 검사에 이가 있다는 뜻입니다.
+
+파트 A 가 09-21 결정 문서 4절에서 파트 B 에 맡긴 **문서 세 줄도 함께 고쳤습니다.** 명세 8절의 마지막 문장, 검증 캡처 한 줄(`문구에 그 이름` → `문구에 picks[0]`), 그 아래 설명 한 문단입니다. 설명은 지우지 않고 **예외를 왜 뒀다가 왜 닫았는지**를 남겼습니다. 안 남기면 같은 예외가 다시 생깁니다.
+
+```text
+uv run ruff check . · format --check .            → 0 (215 files)
+uv run python -m mypy src                         → 0 (80 files)
+PYTHONUTF8=1 uv run python -m pytest tests/unit   → 0 (643 passed, coverage 96.07%)
+python -m tests.unit.recommend.test_contract      → 0 (99건)
+scripts/eval_recommend_safety.py                  → 0 (43 사례 · 실패 0)
+```
+
+계약 검증은 처음에 2건 실패했는데 루트 `.env` 의 빈 값(21개) 때문이었습니다. 안전성 스크립트가 쓰는 기본값을 채우니 99건 전부 통과합니다. 코드 문제가 아니라 로컬 환경 문제입니다.
