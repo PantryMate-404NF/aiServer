@@ -17,7 +17,7 @@ make bootstrap
 ```
   psql        make psql
   MLflow UI   make mlflow-ui     ← 컨테이너 불필요
-  관측 도구   make up-obs        ← Grafana 가 필요해질 때
+  관측 도구   make up-obs        ← Grafana · Prometheus (추천 엔진 모니터링)
 ```
 
 ## 컨테이너를 단계적으로 올린다
@@ -27,7 +27,7 @@ make bootstrap
 | 단계 | 명령 | 올라오는 것 | 크기 | 시점 |
 |---|---|---|---|---|
 | 1 | `make up` | postgres · redis | ~440MB | **지금** |
-| 2 | `make up-obs` | + grafana · mlflow | ~1.4GB | 대시보드 트랙 착수 |
+| 2 | `make up-obs` | + grafana · mlflow · prometheus | ~1.7GB | 추천 엔진 모니터링(`docs/recommend/recommend_monitoring.md`) |
 | 3 | `make up-app` | + reco-api | — | 산출물 D 이후 |
 
 **1단계만으로 스키마 · 시드 · Retrieval · 성능이 전부 검증된다.**
@@ -76,7 +76,7 @@ make mlflow-ui
 ```
 make help          명령 목록
 make up            핵심 기동 (postgres redis)
-make up-obs        + 관측 도구 (grafana mlflow)
+make up-obs        + 관측 도구 (grafana mlflow prometheus)
 make up-app        + 애플리케이션 (reco-api)
 make mlflow-ui     MLflow UI 로컬 실행 (컨테이너 불필요)
 make down          정지 (데이터 보존)
@@ -111,7 +111,8 @@ db/
 │   └── post/post_index.sql    HNSW (수동 실행)
 ├── apply_schema.sh          원격 DB 에 스키마 적용 (일회용 컨테이너)
 ├── mlflow/Dockerfile        공식 이미지 + psycopg2
-├── grafana/provisioning/    PostgreSQL 데이터소스 자동 등록
+├── grafana/provisioning/    PostgreSQL · Prometheus 데이터소스와 대시보드 자동 등록
+├── prometheus/              수집 설정 · 대상(targets/) · 경보 규칙(rules/)
 ├── migrate.py               seeds/ → DB
 (스모크 검증은 tests/integration/test_smoke.py 로 옮겼습니다)
 ```

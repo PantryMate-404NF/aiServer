@@ -41,7 +41,7 @@
 from __future__ import annotations
 
 import csv
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -246,11 +246,15 @@ def ingredient_groups(
 
 
 def resolve(
-    labels: Iterable[str], names: Mapping[int, str], groups: Mapping[int, str]
+    labels: Iterable[str],
+    names: Mapping[int, str],
+    groups: Mapping[int, str | Sequence[str]],
 ) -> AllergyResolution:
     """알레르기 라벨 → 막을 재료 id. 모르는 라벨은 버리지 않고 돌려줍니다.
 
-    `names` 는 백엔드 재료 id → 이름, `groups` 는 `ingredient_groups()` 의 결과입니다.
+    `names` 는 백엔드 재료 id → 이름, `groups` 는 재료 id → 알레르기 군입니다. 군은 하나일
+    수도(`ingredient_groups()` 의 결과, AI 쪽 시드) 여럿일 수도(백엔드의 `allergens` 배열)
+    있습니다 — 간장은 대두이면서 밀입니다. 여럿이면 하나만 걸려도 막습니다.
     이름 규칙(조각·정확)은 시드에 닿지 못한 재료에도 걸립니다 — 군을 몰라도 이름은 압니다.
     """
     blocked: set[int] = set()
@@ -268,7 +272,7 @@ def resolve(
         hit = frozenset(
             ingredient_id
             for ingredient_id, name in names.items()
-            if groups.get(ingredient_id, "") in rule.groups
+            if any(group in rule.groups for group in _as_groups(groups.get(ingredient_id)))
             or name in rule.names
             or any(keyword in name for keyword in rule.keywords)
         )
@@ -282,6 +286,12 @@ def resolve(
         by_label=by_label,
         title_keywords=tuple(sorted(word for word in in_title if word)),
     )
+
+
+def _as_groups(value: str | Sequence[str] | None) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    return (value,) if isinstance(value, str) else tuple(value)
 
 
 def blocks(resolution: AllergyResolution, ingredient_ids: frozenset[int], title: str) -> bool:

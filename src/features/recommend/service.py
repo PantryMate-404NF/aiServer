@@ -278,26 +278,35 @@ class PersonaService:
         bump("persona_events_stored", stored)
         return stored
 
-    def persona_for(self, user_id: int, now: datetime) -> Persona:
-        """저장된 원본에서 페르소나를 만듭니다. 원본이 없으면 취향 없는 사용자입니다.
+    def profile_for(self, user_id: int) -> TasteProfile | None:
+        """저장된 원본. 없거나 읽을 수 없으면 None 이고 원인을 **셉니다.**
 
         원본 파일이 깨져 있거나(ValueError) 저장소를 읽을 수 없으면(OSError) 추천을
-        실패시키지 않고 취향 없는 사용자로 다루되 **셉니다.** 저장소는 예외를 올리고(조용한
-        빈 취향 금지), 서빙은 여기서 받습니다. 둘은 이름을 달리 세어 원인을 가릅니다.
+        실패시키지 않고 취향 없는 사용자로 다룹니다. 저장소는 예외를 올리고(조용한 빈 취향
+        금지), 서빙은 여기서 받습니다. 둘은 이름을 달리 세어 원인을 가릅니다.
         """
         try:
             with _PROFILE_LOCK:
                 profile = self.store.load(user_id)
         except ValueError:
             bump("persona_profile_unreadable")
-            return persona_engine.cold_persona()
+            return None
         except OSError:
             bump("persona_store_error")
-            return persona_engine.cold_persona()
+            return None
         if profile is None:
             bump("persona_missing")
+        return profile
+
+    def persona_from(self, profile: TasteProfile | None, now: datetime) -> Persona:
+        """원본에서 페르소나를. 원본이 없으면 취향 없는 사용자입니다."""
+        if profile is None:
             return persona_engine.cold_persona()
         return persona_engine.derive_persona(profile, now, self.policy)
+
+    def persona_for(self, user_id: int, now: datetime) -> Persona:
+        """저장된 원본에서 페르소나를 만듭니다. 원본이 없으면 취향 없는 사용자입니다."""
+        return self.persona_from(self.profile_for(user_id), now)
 
 
 def _carries_taste(kind: EventType) -> bool:

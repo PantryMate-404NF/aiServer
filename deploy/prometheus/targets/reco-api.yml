@@ -1,0 +1,13 @@
+# 긁어 갈 대상. 고치면 30초 안에 반영된다 (재시작 불필요).
+#
+#   host.docker.internal:8000   호스트의 8000 번. 아래 두 경우를 모두 덮는다.
+#                                 · 호스트에서 `uv run uvicorn ...` 으로 띄운 개발 서버
+#                                 · compose 의 앱 컨테이너(`make up-app`) — 8000 번을 호스트에 내놓는다
+#   reco-api:8000               앱 컨테이너를 이름으로 직접. 포트를 호스트에 내놓지 않는 구성에서만 쓴다
+#
+# 둘을 함께 적지 않는다. 닿지 않는 쪽이 계속 down 으로 떠서 경보(RecoScrapeDown)가 울린다.
+# 앱의 포트를 바꿨으면(RECO_API_PORT) 여기도 같이 바꾼다.
+- targets:
+    - host.docker.internal:8000
+  labels:
+    service: reco-api

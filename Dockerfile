@@ -111,6 +111,11 @@ ENV PATH="/app/.venv/bin:$PATH" \
     # 메모리를 넉넉히 준 노드에서만 올립니다.
     OCR_WORKERS=1
 
+# 추천의 취향 원본과 로그가 놓이는 자리입니다(`PROFILE_STORE_DIR` · `RECO_LOG_DIR` 의 기본값).
+# `/app` 은 root 소유라 만들어 두지 않으면 앱 사용자가 폴더를 만들지 못합니다. 컨테이너의
+# 디스크는 재배포 때 비워지므로 운영에서는 **지속 볼륨을 `/app/var` 에 붙입니다.**
+RUN mkdir -p /app/var && chown app:app /app/var
+
 USER app
 EXPOSE 8000
 

@@ -29,7 +29,7 @@ from pathlib import Path
 import pytest
 
 from config import get_settings
-from features.recommend import service
+from features.recommend import service, serving
 from features.recommend.engine import rerank
 from features.recommend.engine.context import build_context
 from features.recommend.policy import RankingPolicy
@@ -50,15 +50,19 @@ def test_the_checklist_lists_every_item() -> None:
     assert not missing, f"점검표에 없는 항목: {missing}"
 
 
-def test_router_still_serves_the_mock() -> None:
-    """M-01. 라우터가 아직 `engine/mock.py` 를 부릅니다.
+def test_the_router_hands_over_to_the_real_engine() -> None:
+    """M-01 (2026-09-22 처리). 백엔드 주소가 있으면 라우터가 `serving.LiveServing` 을 부릅니다.
 
-    실엔진에 연결하면 이 검사가 깨집니다. 그때 함께 처리해야 하는 것이
-    M-02(후보 조회) · M-05(로그 적재) · M-06(난수 시드)입니다. 셋 중 하나라도
-    빠지면 응답은 200 인데 로그가 비거나 재현이 안 됩니다.
+    완료 조건(응답의 `model_version` 이 `POLICY_ID`, 추적의 단계가 셋)은 `test_serving.py` 가
+    실호출로 잽니다. 여기서는 두 갈래가 다 남아 있는지를 봅니다. 실서빙 갈래를 떼면 운영이
+    조용히 목업으로 돌아가고(200 에 백엔드 DB 에 없는 레시피 번호), 503 을 떼면 사전이 없을 때
+    백엔드가 인기순으로 대신하지 못합니다. 목업 갈래는 주소가 없는 개발 서버의 것입니다.
     """
-    router_module = importlib.import_module("features.recommend.router")
-    assert "mock." in inspect.getsource(router_module), HOWTO.format(item="M-01")
+    source = inspect.getsource(importlib.import_module("features.recommend.router"))
+    assert "live.recommend(" in source, HOWTO.format(item="M-01")
+    assert "CatalogNotReadyError" in source, HOWTO.format(item="M-01")
+    assert "HTTP_503_SERVICE_UNAVAILABLE" in source, HOWTO.format(item="M-01")
+    assert "mock.build_recommendation(" in source, HOWTO.format(item="M-01")
 
 
 def test_the_engine_does_not_write_logs_yet() -> None:
@@ -67,24 +71,26 @@ def test_the_engine_does_not_write_logs_yet() -> None:
     부르기 시작하면 `config_hash`·`warm_alpha`·`stats_version` 을 함께 넘겨야
     합니다. 안 넘겨도 행은 저장되고 `not_reproducible` 플래그만 붙습니다 —
     에러가 나지 않으므로 그 요청의 점수는 영영 재현되지 않습니다.
+
+    2026-09-22 에 서빙이 이것 없이 먼저 열렸습니다(`recommendation_log.user_id` 의 외래키 때문에
+    지금 이으면 전건이 실패합니다). DB 적재가 열릴 때까지는 파일 저장부가 노출 기록의 유일한
+    원본입니다 — 적재를 잇기 전에 저장부를 떼면 그 구간의 노출은 복원되지 않습니다.
     """
-    assert "write_recommendation" not in inspect.getsource(service), HOWTO.format(item="M-05")
+    for module in (service, serving):
+        assert "write_recommendation" not in inspect.getsource(module), HOWTO.format(item="M-05")
+    assert "self._sink.write(" in inspect.getsource(serving), HOWTO.format(item="M-05")
 
 
-def test_no_repository_function_fills_the_user_history() -> None:
-    """M-03. 사용자 이력을 읽어 오는 저장소 함수가 아직 없습니다.
+def test_the_user_history_comes_from_our_events_and_the_catalog() -> None:
+    """M-03 (2026-09-23 처리). 이력의 원천이 바뀌었습니다 — A 의 DB 표가 아니라 우리 취향
+    이벤트와 메모리 사전입니다(`engine/history.py`). 실서빙이 그것을 문맥에 넣습니다.
 
-    없는 동안 `f_ing_pref`·`f_cooccur` 는 전건 None 이고 가중치 0.21 이 순위에
-    관여하지 않습니다. 붙는 순간 추천 결과가 바뀌므로 그때 Mock 판정을 다시
-    재야 합니다.
+    두 신호가 실제로 켜지는 것은 `test_serving.py` 가 실호출로 잽니다. 여기서는 이어져 있는지를
+    봅니다 — 끊기면 가중치 0.21 이 다시 조용히 꺼집니다.
     """
-    repository = importlib.import_module("features.recommend.repository")
-    loaders = [
-        name
-        for name in dir(repository)
-        if not name.startswith("_") and ("history" in name.lower() or "user_pref" in name.lower())
-    ]
-    assert not loaders, HOWTO.format(item="M-03") + f" (발견: {loaders})"
+    source = inspect.getsource(importlib.import_module("features.recommend.serving"))
+    assert "history.build_history(" in source, HOWTO.format(item="M-03")
+    assert "recent_served=" in source, HOWTO.format(item="M-03")
 
 
 def test_the_logged_seed_is_the_seed_that_was_used() -> None:
@@ -115,18 +121,16 @@ def test_settings_and_policy_hold_the_same_numbers() -> None:
         )
 
 
-def test_the_failure_counters_are_not_exposed_yet() -> None:
-    """M-07. 로그 쓰기 실패 카운터를 읽는 곳이 없습니다.
+def test_the_failure_counters_leave_the_process() -> None:
+    """M-07 (2026-09-22 처리). 로그 쓰기 실패 카운터가 `/metrics` 로 나갑니다.
 
-    `write_recommendation` 은 모든 예외를 삼키고 카운터만 올립니다. 그 카운터가
-    어디로도 나가지 않으므로, DB 를 붙인 뒤 적재가 전부 실패해도 API 는 200 을
-    돌려주고 아무도 모릅니다.
+    `write_recommendation` 은 모든 예외를 삼키고 카운터만 올립니다. 그 카운터를 읽는 곳이
+    없어서, DB 를 붙인 뒤 적재가 전부 실패해도 API 는 200 이고 아무도 몰랐습니다. 이제 앱이
+    뜰 때 `service.counters` 를 지표 수집기에 등록합니다 — 이 줄이 빠지면 다시 아무도 모릅니다.
     """
-    from features.recommend.schema import HealthOut
+    main_module = importlib.import_module("main")
 
-    assert "log_counters" not in HealthOut.model_fields, HOWTO.format(item="M-07")
-    router_module = importlib.import_module("features.recommend.router")
-    assert "counters" not in inspect.getsource(router_module), HOWTO.format(item="M-07")
+    assert "watch_counters(recommend_service.counters)" in inspect.getsource(main_module)
 
 
 def test_persona_originals_still_live_in_the_json_store() -> None:
@@ -163,14 +167,18 @@ def test_the_chosen_cuisines_still_come_from_the_json_store() -> None:
     )
 
 
-def test_onboarding_and_events_routes_still_serve_the_mock() -> None:
-    """M-15. 온보딩과 이벤트 라우트가 아직 `PersonaService` 를 부르지 않습니다.
+def test_onboarding_and_events_reach_the_taste_profile() -> None:
+    """M-15 (2026-09-22 처리). 실서빙의 온보딩과 이벤트가 `PersonaService` 로 갑니다.
 
-    연결하면 `save_onboarding` 의 인덱스 검증과 `record_events` 의 카운터가 실서빙에
-    들어갑니다. 라우터 실연결(M-01)과 같은 변경에서 처리합니다.
+    저장까지 가는 것은 `test_serving.py` 가 실호출로 잽니다. 여기서는 라우터와 실서빙이
+    이어져 있는지를 봅니다 — 끊기면 200 은 나가는데 취향이 한 건도 쌓이지 않습니다.
     """
-    router_module = importlib.import_module("features.recommend.router")
-    assert "PersonaService" not in inspect.getsource(router_module), HOWTO.format(item="M-15")
+    router_source = inspect.getsource(importlib.import_module("features.recommend.router"))
+    serving_source = inspect.getsource(importlib.import_module("features.recommend.serving"))
+    assert "live.save_onboarding(" in router_source, HOWTO.format(item="M-15")
+    assert "live.record_events(" in router_source, HOWTO.format(item="M-15")
+    assert "self._personas.save_onboarding(" in serving_source, HOWTO.format(item="M-15")
+    assert "self._personas.record_events(" in serving_source, HOWTO.format(item="M-15")
 
 
 @pytest.mark.parametrize("name", ["f_ing_pref", "f_cooccur", "f_season"])
