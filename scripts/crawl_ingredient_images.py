@@ -457,6 +457,73 @@ def annotate(results: list[Found]) -> None:
         time.sleep(0.1)
 
 
+def write_preview(results: list[Found], out: Path) -> None:
+    """눈으로 확인하는 페이지. 표의 주소만으로는 "이 사진이 정말 양파인가" 를 알 수 없습니다.
+
+    브라우저로 열면 148칸이 한눈에 보이고, 이름과 다른 문서에서 온 것은 표시가 붙습니다.
+    """
+    cards = []
+    for found in sorted(results, key=lambda f: f.ingredient_id):
+        review = found.title != found.name
+        mark = f'<span class="tag">{esc(found.matched_by)}</span>' if review else ""
+        img = (
+            f'<img loading="lazy" src="{esc(found.image_url)}" alt="{esc(found.name)}">'
+            if found.image_url
+            else '<div class="none">이미지 없음</div>'
+        )
+        cards.append(
+            f'<figure class="card{" review" if review else ""}" data-review="{int(review)}">'
+            f"{img}<figcaption><b>{esc(found.name)}</b>"
+            f'<span class="cat">{esc(found.category)}</span>{mark}'
+            f'<span class="src">{esc(found.title)}</span>'
+            f'<span class="lic">{esc(found.license_name)}</span></figcaption></figure>'
+        )
+    review_count = sum(1 for f in results if f.title != f.name)
+    style = (
+        "body{font:14px system-ui,sans-serif;margin:0;padding:24px;background:#fafafa;color:#222}"
+        "h1{font-size:20px;margin:0 0 4px}p{margin:0 0 16px;color:#666}"
+        ".grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}"
+        ".card{margin:0;background:#fff;border:1px solid #e3e3e3;border-radius:8px;overflow:hidden}"
+        ".card.review{border-color:#e0a030;box-shadow:inset 0 2px 0 #e0a030}"
+        ".card img{width:100%;height:120px;object-fit:cover;display:block;background:#f0f0f0}"
+        ".none{height:120px;display:flex;align-items:center;justify-content:center;color:#999;background:#f0f0f0}"
+        "figcaption{padding:8px;display:flex;flex-direction:column;gap:2px}"
+        "b{font-size:14px}.cat,.src,.lic{font-size:11px;color:#777}"
+        ".src{color:#555}.lic{color:#999}"
+        ".tag{font-size:10px;color:#a06010;background:#fdf3e0;padding:1px 5px;"
+        "border-radius:3px;align-self:flex-start}"
+        "button{font:inherit;padding:6px 12px;margin-right:6px;border:1px solid #ccc;"
+        "background:#fff;border-radius:6px;cursor:pointer}button.on{background:#222;color:#fff;border-color:#222}"
+    )
+    script = (
+        "function show(v){document.querySelectorAll('.card').forEach(c=>"
+        "{c.hidden=v&&c.dataset.review!=='1'});"
+        "document.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v==String(v)))}"
+        "show(false)"
+    )
+    html = (
+        f"<!doctype html><meta charset=utf-8><title>재료 이미지 확인</title><style>{style}</style>"
+        f"<h1>재료 이미지 확인 — {len(results)}건</h1>"
+        f"<p>테두리가 있는 칸은 재료명과 다른 문서에서 가져온 것입니다({review_count}건). "
+        f"사진이 그 재료가 맞는지 봐 주십시오.</p>"
+        f'<p><button data-v="false" onclick="show(false)">전체</button>'
+        f'<button data-v="true" onclick="show(true)">확인 필요만</button></p>'
+        f'<div class="grid">{"".join(cards)}</div><script>{script}</script>'
+    )
+    (out / "preview.html").write_text(html, encoding="utf-8")
+
+
+def esc(text: str) -> str:
+    """HTML 특수문자. 재료명과 저작자가 데이터에서 오므로 그대로 넣지 않습니다."""
+    return (
+        str(text)
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
+
+
 def write(results: list[Found], rows: list[dict[str, str]], fields: list[str], out: Path) -> None:
     """산출물 셋 — 채워진 CSV · 라이선스 표 · 사람이 읽는 보고서."""
     out.mkdir(parents=True, exist_ok=True)
@@ -495,6 +562,8 @@ def write(results: list[Found], rows: list[dict[str, str]], fields: list[str], o
                         found.title,
                     ]
                 )
+
+    write_preview(results, out)
 
     filled = [f for f in results if f.image_url]
     missing = [f for f in results if not f.image_url]
