@@ -39,6 +39,16 @@ class RankingPolicy:
     #: 요청이라 감점하면 상위 목록이 통째로 밀립니다(2026-09-29 벤치마크 99.8%). 명세 4.4 의
     #: 세션 갱신 기준(30분 무활동)과 같은 값이며, 세션이 바뀐 뒤의 재방문부터 7일 감점이 겁니다.
     recent_grace_sec: int = 1800
+    #: 노출 균형(X-03). 최근 요청 전체에서 평균의 2배 나간 레시피는 이 계수, 4배면 제곱, 8배면
+    #: 세제곱 … 을 곱합니다(`exposure_floor` 아래로는 내려가지 않음). 1.0 이면 끕니다.
+    #: 사용자 간 상태(서빙 프로세스의 최근 요청 5,000건)에 기대므로 레플리카 하나를 전제합니다.
+    #: 0.9 는 스윕(성능 기록 6.2)에서 상위 1% 노출 35 → 19%, Gini 0.933 → 0.905 를 얻고 충족률@10
+    #: -0.8%p · 맛 정합 -0.004 · ILD -0.018 을 내준 값입니다. 0.95 는 그 2/3 의 효과에 절반의 비용.
+    exposure_penalty: float = 0.9
+    exposure_floor: float = 0.7
+    #: 노출 균형의 계수 표를 이 요청 수마다 다시 만듭니다. 요청마다 만들면 방금 보여 준 목록이
+    #: 곧바로 "많이 나간 레시피" 가 되어 같은 세션의 새로고침이 다시 흔들립니다(스윕 25% → 40%).
+    exposure_refresh_every: int = 50
     avoid_multiplier: float = 2.0
     avoid_cap: float = 0.8
     # ── 맛 ───────────────────────────────────────────────────
@@ -118,6 +128,16 @@ class RankingPolicy:
         ):
             if getattr(self, name) < 1:
                 raise ValueError(f"{name} 은 1 이상이어야 합니다: {getattr(self, name)}")
+        if not 0.0 < self.exposure_penalty <= 1.0:
+            raise ValueError(
+                f"exposure_penalty 는 0 초과 1 이하여야 합니다: {self.exposure_penalty}"
+            )
+        if not 0.0 <= self.exposure_floor <= 1.0:
+            raise ValueError(f"exposure_floor 는 0~1 이어야 합니다: {self.exposure_floor}")
+        if self.exposure_refresh_every < 1:
+            raise ValueError(
+                f"exposure_refresh_every 는 1 이상이어야 합니다: {self.exposure_refresh_every}"
+            )
         if self.recent_grace_sec < 0:
             raise ValueError(f"recent_grace_sec 는 0 이상이어야 합니다: {self.recent_grace_sec}")
         if self.cuisine_slot_max < 0:

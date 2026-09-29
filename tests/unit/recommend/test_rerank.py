@@ -262,6 +262,36 @@ def test_reason_context_gates_full_coverage_and_preferred_cuisine(
     assert rerank.reason_context(full, recipe, liked, CORPUS)["cuisine"] == "양식"
 
 
+def test_exploration_reasons_say_why_the_dish_differs(
+    make_recipe: Callable[..., RecipeFeature],
+    make_context: Callable[..., UserContext],
+    make_candidate: Callable[..., Candidate],
+    policy: RankingPolicy,
+) -> None:
+    """탐색 칸의 사유 — 취향보다 강한 맛 축이 있으면 그것을, 없으면 유형을, 둘 다 없으면 옛 문구."""
+    from features.recommend.engine import reason
+
+    spicy = make_recipe(1, essential=[1], flavor=[0.9, 0.3, 0.3, 0.3, 0.3, 0.3], cuisine="western")
+    mild = make_context(pantry=[1], taste_vec=[0.2, 0.3, 0.3, 0.3, 0.3, 0.3])
+    scored = score_all([make_candidate(1)], {1: spicy}, mild, CORPUS, policy)[0]
+
+    values = rerank.reason_context(scored, spicy, mild, CORPUS)
+    assert values["explore_axis"] == "매움" and values["cuisine_any"] == "양식"
+    text, used = reason.build_reason([], values, is_exploration=True)
+    assert text == "새로운 시도예요 — 평소보다 매움이 강한 맛이에요" and used == []
+
+    # 차이가 작으면 축 문구를 쓰지 않고 유형으로, 유형도 없으면 옛 문구로 갑니다.
+    near = make_context(pantry=[1], taste_vec=[0.8, 0.3, 0.3, 0.3, 0.3, 0.3])
+    values = rerank.reason_context(scored, spicy, near, CORPUS)
+    assert "explore_axis" not in values
+    assert (
+        reason.build_reason([], values, is_exploration=True)[0]
+        == "새로운 시도예요 — 양식 요리를 넣어 봤어요"
+    )
+    assert reason.build_reason([], {}, is_exploration=True)[0] == "새로운 시도는 어떠세요"
+    assert reason.check_templates() == []
+
+
 def test_thompson_follows_a_strong_prior(
     pool: tuple[list[ScoredCandidate], dict[int, RecipeFeature]],
     make_context: Callable[..., UserContext],

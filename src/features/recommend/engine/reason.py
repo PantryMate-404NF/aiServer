@@ -65,6 +65,13 @@ REASON_TEMPLATES: dict[str, tuple[str, str]] = {
 }
 
 _EXPLORATION = "새로운 시도는 어떠세요"
+#: 탐색 칸의 사유. 위에서부터 값이 있는 첫 템플릿을 씁니다. 하나도 못 채우면 `_EXPLORATION`.
+#: 탐색 칸은 점수로 뽑힌 것이 아니라 피처 사유가 맞지 않습니다 — "왜 평소와 다른가" 를 적습니다
+#: (2026-09-29, X-05: 문구 없는 칸이 목록의 24.5% 였습니다).
+EXPLORATION_TEMPLATES: tuple[str, ...] = (
+    "새로운 시도예요 — 평소보다 {explore_axis}{{이/가}} 강한 맛이에요",
+    "새로운 시도예요 — {cuisine_any} 요리를 넣어 봤어요",
+)
 _FALLBACK = "추천 목록에 포함됐어요"
 
 _JOSA = re.compile(r"\{([가-힣]+)/([가-힣]+)\}")
@@ -160,6 +167,11 @@ def build_reason(
     깨진 문장을 내보내는 것이 아무 이유도 안 다는 것보다 나쁘다.
     """
     if is_exploration:
+        for template in EXPLORATION_TEMPLATES:
+            try:
+                return _apply_josa(template.format(**ctx)), []
+            except (KeyError, IndexError):
+                continue
         return _EXPLORATION, []
 
     usable = [k for k in feature_keys if _fill(k, ctx, False)][:max_parts]
@@ -177,6 +189,10 @@ def build_reason(
 def check_templates() -> list[str]:
     """종결형·연결형이 짝을 이루는지, 마커가 유효한지 검사한다 (계약 테스트용)."""
     errs = []
+    for template in EXPLORATION_TEMPLATES:
+        plain = _JOSA.sub(lambda m: m.group(1), template.replace("{{", "{").replace("}}", "}"))
+        if not plain.endswith(("요", "다")):
+            errs.append(f"탐색 사유가 종결어미로 끝나지 않는다 — {plain!r}")
     for k, v in REASON_TEMPLATES.items():
         if not isinstance(v, tuple) or len(v) != 2:
             errs.append(f"{k}: (종결형, 연결형) 튜플이 아니다")

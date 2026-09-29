@@ -83,8 +83,9 @@ def live(
     backend: Callable[[httpx.Request], httpx.Response],
     tmp_path: Path,
     sink: serving.RecommendationSink | None = None,
+    policy: RankingPolicy | None = None,
 ) -> serving.LiveServing:
-    policy = RankingPolicy()
+    policy = policy or RankingPolicy()
     client = BackendClient(
         "http://backend.test",
         "k",
@@ -504,6 +505,46 @@ def test_a_refresh_inside_the_grace_window_keeps_the_personal_items(tmp_path: Pa
     assert later.trace is not None
     # 두 세션에서 보여 준 것의 합집합입니다(탐색 칸이 달라 20건보다 많을 수 있습니다).
     assert later.trace.stages[0].params["history_recent"] >= len(first.items)
+
+
+def test_exposure_balancing_penalizes_recipes_that_went_out_too_often(tmp_path: Path) -> None:
+    """노출 균형(X-03). 여러 사용자에게 같은 레시피가 나가면 다음 사용자에게는 감점됩니다.
+
+    계수는 `ScoredCandidate.penalty` 에 실려 로그만으로 점수가 재현되고, 추적에 감점한 수가
+    남습니다. 끄면(1.0) 계수가 비고 감점도 없습니다.
+    """
+    from dataclasses import replace
+
+    # 계수 표를 요청마다 새로 만들게 해서(운영 기본은 50 요청마다) 스무 건 뒤의 효과를 바로 봅니다.
+    balanced = live(
+        FakeBackend(),
+        tmp_path,
+        policy=replace(RankingPolicy(), exposure_penalty=0.8, exposure_refresh_every=1),
+    )
+    balanced.sync_once()
+    for user_id in range(300, 320):
+        balanced.recommend(request(user_id=user_id, top_k=10))
+    # 요청이 쓰는 계수는 그 요청 직전의 노출로 정해집니다(요청 자신의 노출은 다음 요청부터).
+    factors = balanced._exposure_factors()
+    later = balanced.recommend(request(user_id=399, top_k=10))
+
+    assert later.trace is not None
+    assert later.trace.stages[0].params["exposure_penalized"] == len(factors) > 0
+    assert factors and all(0.7 <= f < 1.0 for f in factors.values())
+    penalized = [item for item in later.items if item.recipe_id in factors]
+    assert penalized and all(item.penalty == factors[item.recipe_id] for item in penalized)
+
+    plain = live(
+        FakeBackend(), tmp_path / "plain", policy=replace(RankingPolicy(), exposure_penalty=1.0)
+    )
+    plain.sync_once()
+    for user_id in range(300, 320):
+        plain.recommend(request(user_id=user_id, top_k=10))
+    control = plain.recommend(request(user_id=399, top_k=10))
+    assert control.trace is not None
+    assert control.trace.stages[0].params["exposure_penalized"] == 0
+    assert plain._exposure_factors() == {}
+    assert all(item.penalty == 1.0 for item in control.items)
 
 
 def test_without_a_backend_address_the_mock_answers(monkeypatch: pytest.MonkeyPatch) -> None:

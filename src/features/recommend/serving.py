@@ -19,9 +19,10 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import threading
 import time
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
@@ -152,6 +153,13 @@ class LiveServing:
         self._last_error: str | None = None
         self._logs: OrderedDict[UUID, RecommendationLogOut] = OrderedDict()
         self._logs_lock = threading.Lock()
+        # 최근 요청(메모리 로그 상한 `LOG_CAPACITY` 건)의 레시피별 노출 수. 노출 균형의 원천.
+        self._exposure: Counter[int] = Counter()
+        self._exposure_total = 0
+        # 계수 표는 `exposure_refresh_every` 요청마다 다시 만듭니다(요청마다면 새로고침이 흔들림).
+        self._exposure_requests = 0
+        self._exposure_snapshot: dict[int, float] = {}
+        self._exposure_snapshot_at = -1
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
 
@@ -293,6 +301,8 @@ class LiveServing:
                         "history_cooked": len(past.cooked_recipe_ids),
                         "history_liked": len(past.liked_ingredient_ids),
                         "history_recent": len(past.recent_recipe_ids),
+                        # 노출 균형이 감점한 레시피 수(X-03). 0 이면 꺼져 있거나 몰림 없음.
+                        "exposure_penalized": len(ctx.exposure_factor),
                     },
                 ),
                 *ranked.stages,
@@ -357,6 +367,7 @@ class LiveServing:
                 self._policy,
                 recent_served=self._recently_served(request.user_id, now),
             ),
+            exposure_factor=self._exposure_factors(),
         )
 
     def _recently_served(self, user_id: int, now: datetime) -> set[int]:
@@ -422,11 +433,53 @@ class LiveServing:
         recipe = None if current is None else current.recipes.get(recipe_id)
         return None if recipe is None else recipe.flavor_vec
 
+    def _exposure_factors(self) -> dict[int, float]:
+        """노출 균형(X-03) — 최근 요청 전체에서 평균보다 많이 나간 레시피의 감점 계수.
+
+        평균은 "노출된 레시피 하나당 노출 수" 입니다. 평균의 r 배 나간 레시피에 `exposure_penalty`
+        의 log2(r) 제곱을 곱하고 `exposure_floor` 아래로는 내리지 않습니다. 끄면(1.0) 빈 사전입니다.
+        계수는 `ScoredCandidate.penalty` 에 함께 실려 로그만으로 점수가 재현됩니다.
+        """
+        strength = self._policy.exposure_penalty
+        if strength >= 1.0:
+            return {}
+        with self._logs_lock:
+            if not self._exposure:
+                return {}
+            # 같은 묶음(`exposure_refresh_every` 요청) 안에서는 같은 표를 씁니다. 요청마다 새로
+            # 만들면 방금 보여 준 목록이 곧바로 감점 대상이 되어 같은 세션의 새로고침이 흔들립니다.
+            bucket = self._exposure_requests // self._policy.exposure_refresh_every
+            if bucket == self._exposure_snapshot_at:
+                return dict(self._exposure_snapshot)
+            mean = self._exposure_total / len(self._exposure)
+            counts = dict(self._exposure)
+        out: dict[int, float] = {}
+        for recipe_id, count in counts.items():
+            ratio = count / mean
+            if ratio <= 1.0:
+                continue
+            factor = max(self._policy.exposure_floor, strength ** math.log2(ratio))
+            if factor < 1.0:
+                out[recipe_id] = round(factor, 6)
+        with self._logs_lock:
+            self._exposure_snapshot = out
+            self._exposure_snapshot_at = bucket
+        return dict(out)
+
     def _remember(self, log: RecommendationLogOut) -> None:
         with self._logs_lock:
             self._logs[log.request_id] = log
+            self._exposure.update(log.served)
+            self._exposure_total += len(log.served)
+            self._exposure_requests += 1
             while len(self._logs) > LOG_CAPACITY:
-                self._logs.popitem(last=False)
+                _, gone = self._logs.popitem(last=False)
+                # 창 밖으로 밀린 요청의 노출은 빼서, 계수가 최근 요청만 보게 합니다.
+                self._exposure.subtract(gone.served)
+                self._exposure_total -= len(gone.served)
+                for recipe_id in gone.served:
+                    if self._exposure[recipe_id] <= 0:
+                        del self._exposure[recipe_id]
 
 
 def expiring_ingredients(
