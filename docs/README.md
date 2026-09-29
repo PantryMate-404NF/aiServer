@@ -4,7 +4,7 @@
 
 **적용 대상**: 이 저장소에 기여하는 모든 인원 및 AI 코딩 에이전트
 
-**버전**: 1.22.0 · **최종 수정**: 2026-09-22 · **작성자**: 김민경
+**버전**: 1.23.0 · **최종 수정**: 2026-09-23 · **작성자**: 김민경
 
 ---
 
@@ -40,7 +40,7 @@
 | `docs/` | [backend_api_spec.md](backend_api_spec.md) | 백엔드와 주고받는 API 명세(2.4.0, 실서빙 구현 뒤 문서 전체를 코드와 대조). 백엔드가 열 API 둘과 AI 가 여는 여섯의 요청·응답, 항목마다 "없으면 무엇이 꺼지는가", 알레르기 라벨 표, 그리고 지금 코드에 있는 것과 합의 뒤 만드는 것의 구분. 운영 데이터는 API 로만 받는다는 전제입니다. Notion 에 전달용 사본이 있습니다 |
 | `docs/` | [release_notes.md](release_notes.md) | `main` 에 무엇이 언제 들어갔는지, 영향 범위와 롤백 방법, 파트별 전달 사항. 병합할 때마다 맨 위에 항목을 더합니다 |
 | `docs/` | [container_handover.md](container_handover.md) | 이 저장소를 이미지로 만들어 배포할 때 필요한 것. 클라우드 팀에 전달하는 인수인계 문서이며 빌드·런타임 계약·외부 의존·실측치를 담습니다 |
-| `docs/` | [env_variables.md](env_variables.md) | 서비스가 읽는 환경변수 전부(이름·기본값·비밀 여부, 정본은 `src/config.py`)와 백엔드·DB 구성 논의 뒤 바뀌는 것(4절 TODO). 클라우드 팀 전달용 |
+| `docs/` | [env_variables.md](env_variables.md) | 서비스가 읽는 환경변수 전부(이름·기본값·비밀 여부, 정본은 `src/config.py`)와 백엔드·DB 구성 논의 뒤 바뀌는 것(4절 TODO), 누가 어떤 값을 만들어 누구에게 주고 어느 값은 어디에도 적지 않는지(6절). 클라우드 팀 전달용 |
 | `recommend/human/` | [recommend_engine_work_log.md](recommend/human/recommend_engine_work_log.md) · [recommend_engine_verification.md](recommend/human/recommend_engine_verification.md) · [recommend_engine_meeting_agenda.md](recommend/human/recommend_engine_meeting_agenda.md) · [recommend_engine_db_cutover.md](recommend/human/recommend_engine_db_cutover.md) · [recommend_remaining_work.md](recommend/human/recommend_remaining_work.md) | 위 다섯 기록의 사람용 서술본 |
 
 ### 1.1 추천 파트의 계약은 코드와 DDL 이 정합니다
