@@ -24,7 +24,7 @@
 | 핵심어 일치 + 한쪽에만 수식어 | **하위어** — 애호박 ⊂ 호박. 별도 처리 |
 
 퍼지 매칭은 오탈자(`얘호박`)에만 남기고, 임계값은 캘리브레이션으로 정한다
-(`features.recommend.evaluation.threshold`).
+(`features.recommend.ingest.threshold`).
 """
 
 from __future__ import annotations

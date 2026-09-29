@@ -3,13 +3,21 @@
 
 SHELL   := /bin/bash
 COMPOSE := docker compose -f deploy/docker-compose.yml --env-file deploy/.env
-PY      := .venv/bin/python
+
+# 검사 스크립트가 통과 표시(U+2713)를 찍는데 Windows 기본 콘솔이 cp949 라 그 순간
+# UnicodeEncodeError 로 죽습니다. 검사가 틀린 게 아니라 출력이 막힌 것인데 종료 코드가
+# 1 이 되어, 통과한 검사가 실패로 보입니다 (회의 안건 G-14 · 검증 E-11).
+export PYTHONIOENCODING := utf-8
+
+# Windows 가상환경은 .venv/Scripts/python.exe 라 위 경로가 없습니다 (검증 F-70).
+PY      := $(if $(wildcard .venv/bin/python),.venv/bin/python,.venv/Scripts/python.exe)
 PSQL    := $(COMPOSE) exec -T postgres psql -U reco -d recodb
 
 .DEFAULT_GOAL := help
 .PHONY: help env up up-app down down-v ps logs psql wait \
         install \
-        validate dry-run seed seed-reset verify smoke ddl-test review-sheet review-apply unmatched post-index bootstrap clean
+        validate dry-run seed seed-reset verify smoke ddl-test review-sheet review-apply unmatched post-index bootstrap clean \
+        zero-match-sheet
 
 # 주의: 폭이 14 였는데 normalize-batch·popularity-build 처럼 긴 이름이
 #    설명과 붙어 버렸다. 가장 긴 이름이 16자라 18 로 둔다.
@@ -18,12 +26,12 @@ help:  ## 명령 목록
 	  | awk -F':.*?## ' '{printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
 # EXTRA= 로 묶음을 하나 더 얹는다 (예: make install TRACK=B EXTRA=rank-v1).
-# 🔴 EXTRA 는 트랙 묶음에 **더하는** 것이다. 다음번에 빼먹으면 uv sync 가 도로 지운다 —
+# 주의: EXTRA 는 트랙 묶음에 더하는 것이다. 다음번에 빼먹으면 uv sync 가 도로 지운다 —
 #    한 번 얹었으면 계속 붙여야 한다.
 EXTRA_ARG := $(if $(EXTRA),--extra $(EXTRA),)
 
 install:  ## 트랙별 의존성 설치 (make install TRACK=A|B|C)
-# 🔴 TRACK 없이 실행해도 **아무것도 설치하지 않는다.**
+# 주의: TRACK 없이 실행해도 아무것도 설치하지 않는다.
 #    `uv sync` 는 락에 없는 패키지를 지운다 — 실수로 치면 남의 환경이 날아간다.
 #    실제로 09-02 에 fastapi·numpy 가 사라져 mock 서버가 죽었다.
 	@case "$(TRACK)" in \
@@ -106,7 +114,7 @@ verify:  ## 적재 결과 확인
 contract:  ## 스테이지·API 계약 검증 (DB 불필요)
 	$(PY) -m tests.unit.recommend.test_contract
 
-# 🔴 아래 세 타깃은 docs/reco/ 를 읽습니다. 그 문서는 저장소에 올리지 않으므로
+# 주의: 아래 세 타깃은 docs/reco/ 를 읽습니다. 그 문서는 저장소에 올리지 않으므로
 #    (09-08, .gitignore 참조) 클론한 사람에게는 폴더가 없습니다. 없으면 조용히
 #    건너뜁니다 — 문서가 없다고 검증이 통째로 빨개지면 아무도 안 돌립니다.
 DOCS_RECO := $(wildcard docs/reco)
@@ -192,6 +200,9 @@ opt={r.is_optional_hint} amb={r.is_ambiguous_qty} subs={r.substitutes}') \
 # ── 크롤링 데이터 ───────────────────────────────────────────────
 review-sheet:  ## 검수 시트 생성 — 스프레드시트로 판단 (make review-sheet TOP=300)
 	$(PY) scripts/reco/bench/review_sheet.py --top $(or $(TOP),300)
+
+zero-match-sheet:  ## 재료가 하나도 안 붙은 레시피의 검수 시트 (레시피를 통째로 죽이는 표현)
+	$(PY) scripts/reco/bench/zero_match_sheet.py
 
 review-csv:  ## 검수 시트를 구글 스프레드시트용 CSV 로 내보낸다
 	$(PY) scripts/reco/bench/review_export.py

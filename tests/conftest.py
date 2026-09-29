@@ -47,6 +47,9 @@ ENV = {
     "LOG_LEVEL": "DEBUG",
     "INTERNAL_API_KEY": "test-internal-key",
     "GEMINI_API_KEY": "test-gemini-key",
+    # 컬렉터 주소가 코드에 박혀 있어 create_app 마다 클러스터 DNS 로 스팬을 보내려 합니다.
+    # SDK 표준 스위치로 끕니다. test_tracing 만 이 값을 지우고 돕니다.
+    "OTEL_SDK_DISABLED": "true",
 }
 
 
