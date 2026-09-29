@@ -119,16 +119,19 @@ class RecommendRequest(_Base):
     def _labels_are_short(cls, v: list[str]) -> list[str]:
         # 라벨은 백엔드 DB 의 표기라 몇 글자입니다. 긴 문자열은 라벨이 아니라 잘못 온 값이고,
         # 그대로 두면 추적과 로그에 통째로 실립니다(2026-09-29 안전성 점검 B6).
-        too_long = [label[:20] for label in v if len(label) > MAX_ALLERGY_LABEL_LENGTH]
+        # 문구에는 보낸 값이 아니라 자리를 적습니다. 이 문구가 그대로 400 본문이 되기 때문입니다
+        # (`_at` 의 설명과 `docs/decisions/2026-09-21_validation_messages_...` 참조).
+        too_long = [i for i, label in enumerate(v) if len(label) > MAX_ALLERGY_LABEL_LENGTH]
         if too_long:
             raise ValueError(
-                f"알레르기 라벨은 {MAX_ALLERGY_LABEL_LENGTH}자 이하여야 한다: {too_long}"
+                f"알레르기 라벨은 {MAX_ALLERGY_LABEL_LENGTH}자 이하여야 한다: "
+                f"{_at('allergies', too_long)}"
             )
         # 줄바꿈 같은 제어 문자는 라벨에 없는 글자입니다. 있으면 로그 한 줄을 여러 줄로 위조할 수
         # 있으므로(로그 주입) 받지 않습니다.
-        control = [repr(label[:20]) for label in v if any(ch < " " or ch == "\x7f" for ch in label)]
+        control = [i for i, label in enumerate(v) if any(ch < " " or ch == "\x7f" for ch in label)]
         if control:
-            raise ValueError(f"알레르기 라벨에 제어 문자가 있다: {control}")
+            raise ValueError(f"알레르기 라벨에 제어 문자가 있다: {_at('allergies', control)}")
         return v
 
     @field_validator("weight_override")
@@ -140,9 +143,12 @@ class RecommendRequest(_Base):
             return v
         unknown = sorted(set(v) - set(FEATURE_KEYS))
         if unknown:
-            raise ValueError(f"모르는 가중치 키다: {unknown} — 가능한 값 {list(FEATURE_KEYS)}")
+            # 보낸 키는 적지 않습니다. dict 라 자리가 없으므로, 대신 우리 상수인 가능한 값을
+            # 적어 부르는 쪽이 자기 키와 맞춰 볼 수 있게 합니다(09-21 결정 3절과 같은 처리).
+            raise ValueError(f"모르는 가중치 키가 있다 — 가능한 값 {list(FEATURE_KEYS)}")
         negative = sorted(key for key, weight in v.items() if weight < 0.0)
         if negative:
+            # 여기까지 왔으면 키는 전부 FEATURE_KEYS 안입니다. 우리 상수라 적어도 새지 않습니다.
             raise ValueError(f"음의 가중치는 쓸 수 없다: {negative}")
         if sum(v.values()) <= 0.0:
             raise ValueError("가중치 합이 0 이면 점수를 매길 수 없다")

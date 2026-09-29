@@ -484,6 +484,43 @@ def test_bad_weight_overrides_and_long_labels_are_400_not_500(
     assert any(item["field"] == field for item in response.json()["fields"])
 
 
+#: 보낸 값이 응답으로 돌아오는지 재기 위한 표식. 정상 요청에는 없는 문자열입니다.
+LEAK_MARKER = "do-not-echo-8f3a2b1c"
+
+
+@pytest.mark.parametrize(
+    ("patch", "at"),
+    [
+        ({"allergies": ["우유", LEAK_MARKER + "A" * 100]}, "allergies[1]"),
+        ({"allergies": ["우유", LEAK_MARKER + "\n땅콩"]}, "allergies[1]"),
+        ({"weight_override": {"f_taste": 0.5, LEAK_MARKER: 1.0}}, None),
+    ],
+)
+def test_the_rejection_names_the_place_not_the_label_or_key_that_was_sent(
+    monkeypatch: pytest.MonkeyPatch, patch: dict[str, object], at: str | None
+) -> None:
+    """검증기 문구는 그대로 400 본문이 됩니다. 보낸 값을 적으면 거기로 새어 나갑니다.
+
+    파트 A 가 09-21 에 `picks` 와 `preferred_cuisines` 에서 같은 누출을 닫았습니다
+    (`docs/decisions/2026-09-21_validation_messages_name_the_place_not_the_value.md`).
+    09-29 에 새로 붙인 검증기 셋이 그 규칙 밖에 있어 함께 닫습니다. 값은 서버 로그에
+    pydantic 의 `input` 으로 남으므로 잃는 것이 없습니다.
+
+    `weight_override` 는 dict 라 자리가 없습니다. 그래서 자리 대신 가능한 값(우리 상수)
+    만 적고 보낸 키는 적지 않습니다.
+    """
+    monkeypatch.delenv("BACKEND_BASE_URL", raising=False)
+    app = main.create_app()
+    body = {"user_id": 7, "pantry": [], "allergies": [], **patch}
+
+    response = TestClient(app).post("/v1/recommend", json=body, headers=HEADERS)
+
+    assert response.status_code == 400
+    assert LEAK_MARKER not in response.text, "보낸 값이 응답으로 돌아갑니다"
+    if at is not None:
+        assert at in response.text, "어느 자리가 틀렸는지는 알려줘야 합니다"
+
+
 def test_a_refresh_inside_the_grace_window_keeps_the_personal_items(tmp_path: Path) -> None:
     """새로고침(같은 세션의 같은 요청)은 탐색 칸만 바뀝니다. 방금 보여 준 목록을 감점하지 않습니다.
 
