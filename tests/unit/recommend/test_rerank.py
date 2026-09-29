@@ -220,6 +220,78 @@ def test_reason_context_skips_values_it_does_not_know(
     assert "expiring_name" not in values
 
 
+def test_reason_context_gates_full_coverage_and_preferred_cuisine(
+    make_recipe: Callable[..., RecipeFeature],
+    make_context: Callable[..., UserContext],
+    make_candidate: Callable[..., Candidate],
+    policy: RankingPolicy,
+) -> None:
+    """ "바로 만들 수 있어요" 는 부족 재료 0 일 때만, "즐겨 드시는 X" 는 선호 유형일 때만 붙습니다.
+
+    2026-09-29 벤치마크에서 부족 재료가 있는 레시피 1.9% 에 첫 문구가, 선호하지 않는 유형 2건에
+    둘째 문구가 붙었습니다. 문구가 데이터와 어긋나면 사용자가 추천 전체를 믿지 않게 됩니다.
+    """
+    from features.recommend.engine import reason
+
+    recipe = make_recipe(1, essential=[1, 2], cuisine="western")
+    ctx = make_context(pantry=[1], preferred_cuisines=frozenset({"korean"}))
+    short = score_all(
+        [make_candidate(1, missing_count=1, missing_ids=[2], coverage=0.5)],
+        {1: recipe},
+        ctx,
+        CORPUS,
+        policy,
+    )[0]
+    values = rerank.reason_context(short, recipe, ctx, CORPUS)
+    assert "coverage_full" not in values
+    assert "cuisine" not in values
+    # 문지기가 없으면 자리가 없는 템플릿은 언제나 채워집니다 — 그래서 사유에서 빠져야 합니다.
+    assert reason.build_reason(["f_coverage", "f_cuisine"], values) == (
+        "추천 목록에 포함됐어요",
+        [],
+    )
+
+    full = score_all([make_candidate(1)], {1: recipe}, make_context(pantry=[1, 2]), CORPUS, policy)[
+        0
+    ]
+    values = rerank.reason_context(full, recipe, make_context(pantry=[1, 2]), CORPUS)
+    assert values.get("coverage_full") is True
+    assert reason.build_reason(["f_coverage"], values)[0] == "가진 재료로 바로 만들 수 있어요"
+
+    liked = make_context(pantry=[1, 2], preferred_cuisines=frozenset({"western"}))
+    assert rerank.reason_context(full, recipe, liked, CORPUS)["cuisine"] == "양식"
+
+
+def test_exploration_reasons_say_why_the_dish_differs(
+    make_recipe: Callable[..., RecipeFeature],
+    make_context: Callable[..., UserContext],
+    make_candidate: Callable[..., Candidate],
+    policy: RankingPolicy,
+) -> None:
+    """탐색 칸의 사유 — 취향보다 강한 맛 축이 있으면 그것을, 없으면 유형을, 둘 다 없으면 옛 문구."""
+    from features.recommend.engine import reason
+
+    spicy = make_recipe(1, essential=[1], flavor=[0.9, 0.3, 0.3, 0.3, 0.3, 0.3], cuisine="western")
+    mild = make_context(pantry=[1], taste_vec=[0.2, 0.3, 0.3, 0.3, 0.3, 0.3])
+    scored = score_all([make_candidate(1)], {1: spicy}, mild, CORPUS, policy)[0]
+
+    values = rerank.reason_context(scored, spicy, mild, CORPUS)
+    assert values["explore_axis"] == "매움" and values["cuisine_any"] == "양식"
+    text, used = reason.build_reason([], values, is_exploration=True)
+    assert text == "새로운 시도예요 — 평소보다 매움이 강한 맛이에요" and used == []
+
+    # 차이가 작으면 축 문구를 쓰지 않고 유형으로, 유형도 없으면 옛 문구로 갑니다.
+    near = make_context(pantry=[1], taste_vec=[0.8, 0.3, 0.3, 0.3, 0.3, 0.3])
+    values = rerank.reason_context(scored, spicy, near, CORPUS)
+    assert "explore_axis" not in values
+    assert (
+        reason.build_reason([], values, is_exploration=True)[0]
+        == "새로운 시도예요 — 양식 요리를 넣어 봤어요"
+    )
+    assert reason.build_reason([], {}, is_exploration=True)[0] == "새로운 시도는 어떠세요"
+    assert reason.check_templates() == []
+
+
 def test_thompson_follows_a_strong_prior(
     pool: tuple[list[ScoredCandidate], dict[int, RecipeFeature]],
     make_context: Callable[..., UserContext],
