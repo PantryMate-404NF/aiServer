@@ -381,7 +381,20 @@ def reason_checks(item: RankedItem, prep: Prepared, cat: Catalog) -> list[tuple[
     ctx, names, text = prep.ctx, cat.corpus.ingredient_names, item.reason
     out: list[tuple[str, bool]] = []
     if item.is_exploration:
-        return [("exploration", text == "새로운 시도는 어떠세요")]
+        # 탐색 칸의 사유 셋 — 축 문구는 레시피가 취향보다 그만큼 강한지, 유형 문구는 유형이 맞는지.
+        if text == "새로운 시도는 어떠세요":
+            return [("exploration_generic", True)]
+        if "강한 맛이에요" in text:
+            found = [
+                (recipe.flavor_vec[i] or 0.0) - (ctx.taste_vec[i] or 0.0)
+                for i, axis in enumerate(taste.FLAVOR_AXES)
+                if axis in text
+                and ctx.taste_vec[i] is not None
+                and recipe.flavor_vec[i] is not None
+            ]
+            return [("exploration_axis", bool(found) and found[0] >= rerank.EXPLORE_AXIS_MIN_GAP)]
+        label = cuisine_label(recipe.cuisine) or "\0"
+        return [("exploration_cuisine", label in text)]
     if not item.reason_features:
         return [("fallback", text == "추천 목록에 포함됐어요")]
     for key in item.reason_features:
