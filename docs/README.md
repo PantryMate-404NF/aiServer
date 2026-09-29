@@ -4,7 +4,7 @@
 
 **적용 대상**: 이 저장소에 기여하는 모든 인원 및 AI 코딩 에이전트
 
-**버전**: 1.24.0 · **최종 수정**: 2026-09-29 · **작성자**: 김민경
+**버전**: 1.25.0 · **최종 수정**: 2026-09-29 · **작성자**: 김민경
 
 ---
 
@@ -38,6 +38,7 @@
 | `recommend/` | [recommend_performance_log.md](recommend/recommend_performance_log.md) | 추천 엔진 성능 기록 — 잣대 · 재는 법 · 수정과 측정의 이력(R0~) · 지금 값 · 스윕 · 다음 시도 후보(X-). 평가 산출물의 수치 원천 |
 | `recommend/` | [recommend_remaining_work.md](recommend/recommend_remaining_work.md) | 2026-09-22 실서빙 개통 뒤 남은 일 전부. 우리가 할 것(W)과 백엔드(B) · 클라우드(C) · 데이터 파트(A)에 요청할 것을 갈라 적고 순서를 그림. 파트별 Notion 전달본의 정본 |
 | `docs/` | [backend_schema_request.md](backend_schema_request.md) | 백엔드에 **전체 스키마**를 요청하는 문서. 함께 정할 것(연동 방식·식별자·갱신·규모·개인정보)과 추천 응답·로그의 경계 제안을 담습니다 |
+| `docs/` | [ingredient_images_handover.md](ingredient_images_handover.md) | 백엔드가 못 채운 `ingredient.image_url` 148건을 **받은 덤프 원본에 직접 채워** 돌려주는 건 — 고친 자리 둘 · 출처(위키미디어) · 라이선스 표시 의무 · 검수 목록. 만드는 것은 `scripts/crawl_ingredient_images.py` 와 `scripts/apply_ingredient_images_to_dump.py` |
 | `docs/` | [backend_api_spec.md](backend_api_spec.md) | 백엔드와 주고받는 API 명세(2.4.0, 실서빙 구현 뒤 문서 전체를 코드와 대조). 백엔드가 열 API 둘과 AI 가 여는 여섯의 요청·응답, 항목마다 "없으면 무엇이 꺼지는가", 알레르기 라벨 표, 그리고 지금 코드에 있는 것과 합의 뒤 만드는 것의 구분. 운영 데이터는 API 로만 받는다는 전제입니다. Notion 에 전달용 사본이 있습니다 |
 | `docs/` | [release_notes.md](release_notes.md) | `main` 에 무엇이 언제 들어갔는지, 영향 범위와 롤백 방법, 파트별 전달 사항. 병합할 때마다 맨 위에 항목을 더합니다 |
 | `docs/` | [container_handover.md](container_handover.md) | 이 저장소를 이미지로 만들어 배포할 때 필요한 것. 클라우드 팀에 전달하는 인수인계 문서이며 빌드·런타임 계약·외부 의존·실측치를 담습니다 |
