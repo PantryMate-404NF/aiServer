@@ -4,7 +4,7 @@
 
 **적용 대상**: 수정 여부를 결정하는 유재현과 수정을 반영할 AI 코딩 에이전트. 사람은 `human/` 의 서술본을 읽습니다
 
-**버전**: 11.18.0 · **최종 수정**: 2026-09-29 · **작성자**: 유재현
+**버전**: 11.19.0 · **최종 수정**: 2026-09-29 · **작성자**: 유재현
 
 ---
 
@@ -1553,3 +1553,20 @@ scripts/eval_recommend_safety.py                  → 0 (43 사례 · 실패 0)
 ```
 
 지연은 스윕을 셋씩 동시에 돌려 재지 않았습니다. 단독 실행의 값은 p50 84.9ms · p95 187.6ms(로그 쓰기 포함) — 로그 없이 같은 요청 30건은 p50 59ms · p95 69ms(단계 조회 22 · 점수 25 · 재정렬 13ms) 입니다.
+
+### 21.23 X-05 · X-07 · X-03 (2026-09-29 추가)
+
+9.42 세션. 유재현이 성능 기록의 후보 가운데 셋을 골랐습니다(파트 A 소유인 가중치는 건드리지 않음). 결과는 `recommend_performance_log.md` R4~R6 · 5절 · 6.2 에 있고, 여기는 검증과 발견만 적습니다.
+
+- **X-07** 후보 상한 1,000 — 스윕만. 충족률@10 -2.2%p · 지연 +50% 에 커버리지 +0.4%p · 상위 1% -1.6%p. 유지(500).
+- **X-05** 탐색 칸 사유 — `reason.EXPLORATION_TEMPLATES` 둘(맛 축 · 유형) + 옛 문구. `rerank._explore_axis` 는 취향보다 0.15 이상 강한 축. 벤치마크의 충실도 검사에 세 갈래(축 문구는 실제 차이, 유형 문구는 실제 유형)를 넣어 980건 위반 0. `test_rerank.py` 1건, `check_templates()` 가 새 템플릿의 종결어미도 봄.
+- **X-03** 노출 균형 — `UserContext.exposure_factor` · `score.penalty_factor` 의 넷째 계수 · `serving._exposure_factors()`(메모리 로그 5,000건의 노출 수, 평균의 r 배 → `exposure_penalty`^log2(r), 하한 0.7). **발견(F-147)**: 첫 판은 요청마다 계수를 만들어 방금 보여 준 목록이 곧바로 감점되고 새로고침 변동@20 이 25.5 → 39.7% 로 되돌아갔음 → 계수 표를 `exposure_refresh_every`(50) 요청마다 갱신 → 25.2%. 계수는 `penalty` 에 실려 로그만으로 재현되고 추적에 `exposure_penalized` 가 남음. `test_score.py` 1건 · `test_serving.py` 1건. 기준선 넷(`prepare()`)은 계수 없이 재므로 비교표의 기준선은 그대로.
+
+```text
+uv run ruff check . · format --check .            → 0
+uv run python -m mypy src                         → 0 (79 files)
+PYTHONUTF8=1 uv run python -m pytest tests/unit   → 0 (632 passed, coverage 94.66%)
+python -m tests.unit.recommend.test_contract      → 0 (99건)
+scripts/eval_recommend_benchmark.py               → 0 (기본값 단독 + 스윕 4종)
+scripts/eval_recommend_safety.py                  → 0 (43 사례 · 실패 0)
+```
