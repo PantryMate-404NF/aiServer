@@ -25,6 +25,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pydantic
 import pytest
 
 from features.recommend.profile_store import (
@@ -34,6 +35,7 @@ from features.recommend.profile_store import (
     load_presented_flavors,
     load_presented_names,
 )
+from features.recommend.schema import OnboardingIn, validation_error_body
 from features.recommend.service import onboarding_profile
 
 NOW = datetime(2026, 9, 20, tzinfo=UTC)
@@ -153,3 +155,28 @@ def test_an_older_file_with_an_impossible_index_is_rejected(tmp_path: Path) -> N
 
     with pytest.raises(ValueError, match="이름으로 옮길 수 없습니다"):
         store.load(11)
+
+
+def test_the_rejection_names_the_place_not_what_was_sent() -> None:
+    """이 문구는 그대로 400 응답 본문이 됩니다.
+
+    `FieldErrorOut` 이 pydantic 의 `input` 을 버려 보낸 값이 응답으로 돌아가지 않게
+    막아 두었는데, 검증기 문구에 값을 적으면 그 막음이 무의미해집니다. 값은 서버
+    로그에 그대로 남으므로 자리만 알려도 부르는 쪽이 찾을 수 있습니다.
+    """
+    sent = "do-not-echo-8f3a2b1c"
+    with pytest.raises(pydantic.ValidationError) as caught:
+        OnboardingIn(picks=["불고기", sent])
+
+    # 예외 자체에는 pydantic 의 `input` 이 붙어 있습니다. 그것은 응답으로 나가지
+    # 않으므로, 실제로 나가는 본문을 만드는 함수로 재야 합니다.
+    body = validation_error_body(caught.value.errors()).model_dump_json()
+    assert sent not in body, "보낸 값이 응답으로 돌아갑니다"
+    assert "picks[1]" in body, "어느 자리가 틀렸는지는 알려줘야 합니다"
+
+
+def test_an_out_of_range_index_also_names_the_place() -> None:
+    with pytest.raises(pydantic.ValidationError) as caught:
+        OnboardingIn(picks=[0, 999])
+
+    assert "picks[1]" in validation_error_body(caught.value.errors()).model_dump_json()
