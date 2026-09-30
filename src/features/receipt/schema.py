@@ -22,14 +22,25 @@ MAX_ITEM_NAME_LENGTH = 20
 ROW_NUMBER_PREFIX = re.compile(
     r"^(?:\(\w{1,2}\)|[0-9OB]{1,3}\s*\*|0[0-9OB]{1,2}P?|[0-9OB]{1,3}P|P(?=[가-힣])|\*)\s*"
 )
-# 줄 묶기가 셀 사이에 넣는 구분자입니다. 전자영수증에서 이름이 두 줄로 꺾이면 LLM 이
-# 다음 칸을 이어 붙이면서 구분자를 그대로 두는 경우가 있습니다. 프롬프트가 지우라고
-# 해도 지켜지지 않아 여기서 확정합니다. 꺾인 자리는 단어 중간이라 공백 없이 잇습니다.
+# 줄 묶기(s3)가 같은 줄의 셀 사이에 넣고, 마스킹(s4)이 셀을 나눌 때 다시 쓰는 구분자입니다.
+# 세 단계가 같은 값을 봐야 하므로 여기 한 곳에만 둡니다.
+CELL_SEPARATOR = " | "
+# 전자영수증에서 이름이 두 줄로 꺾이면 LLM 이 다음 칸을 이어 붙이면서 구분자를 그대로
+# 두는 경우가 있습니다. 프롬프트가 지우라고 해도 지켜지지 않아 여기서 확정합니다.
+# 꺾인 자리는 단어 중간이라 공백 없이 잇습니다.
 # 예: "카스텔크림레몬캔디(50 | g)" -> "카스텔크림레몬캔디(50g)"
-CELL_SEPARATOR_IN_NAME = re.compile(r"\s*\|\s*")
+CELL_SEPARATOR_IN_NAME = re.compile(rf"\s*{re.escape(CELL_SEPARATOR.strip())}\s*")
 # 품목명이라면 한글이나 영문이 한 글자는 있어야 합니다. 저해상도 사진에서 LLM 이
 # "10", "()" 같은 조각을 품목으로 내보내는데, 등록 폼에 넣을 수 있는 이름이 아닙니다.
 HAS_LETTER = re.compile(r"[가-힣A-Za-z]")
+# 인식 모델이 감열지에서 일관되게 틀리는 글자입니다. LLM 의 교정은 금지했지만(짐작이라
+# 되돌릴 수 없음) 이 표는 평가셋에서 확인한 오독만 담아 규칙으로 되돌립니다. 항목마다
+# 평가셋의 영수증 번호를 적어 근거 없는 추가를 막습니다.
+# ponytail: 표가 열 줄을 넘으면 백엔드 사전 매칭이 맡을 일입니다. 여기서 사전을 키우지 않습니다.
+KNOWN_MISREADS = {
+    "챗잎": "깻잎",  # r01: ㄲ 을 ㅊ 으로
+    "깨잎": "깻잎",  # r03·r17·r19: 받침 ㅅ 탈락. "깨잎" 은 상품명으로 쓰이지 않습니다
+}
 
 
 class OcrCell(NamedTuple):
@@ -63,9 +74,21 @@ class ParsedItem(BaseModel):
     @field_validator("name")
     @classmethod
     def _clean_up(cls, value: str) -> str:
-        """구분자와 행 번호처럼 이름이 아닌 것을 떼고 폼 상한에 맞춥니다. 글자는 바꾸지 않습니다."""
+        """구분자와 행 번호처럼 이름이 아닌 것을 떼고 폼 상한에 맞춥니다.
+
+        글자는 KNOWN_MISREADS 에 적힌 오독만 되돌리고 그 밖에는 바꾸지 않습니다.
+        """
         joined = CELL_SEPARATOR_IN_NAME.sub("", value.strip())
-        return _fit_to_the_form(_strip_row_number(joined))
+        return _fit_to_the_form(_fix_known_misreads(_strip_row_number(joined)))
+
+
+def _fix_known_misreads(name: str) -> str:
+    """평가셋에서 확인한 오독만 되돌립니다. 표에 없는 글자는 원문 그대로입니다."""
+    for wrong, right in KNOWN_MISREADS.items():
+        if wrong in name:
+            logger.info("known misread %s -> %s", wrong, right)
+            name = name.replace(wrong, right)
+    return name
 
 
 def _strip_row_number(name: str) -> str:
@@ -137,6 +160,10 @@ class ReceiptResponse(BaseModel):
     receipt_id: str
     purchased_at: date | None = None
     items: list[ReceiptItem]
+    # 영수증 단위 평균 인식 점수(0~1). 앱이 낮은 값에서 직접 선택 화면을 먼저 보일 수
+    # 있게 싣습니다. 어디부터 낮은 값인지는 서버가 정하지 않습니다. 임계치는 평가셋의
+    # 종단간 곡선(런북 5.4)이 나와야 정할 수 있어 호출자 몫으로 둡니다.
+    confidence: float | None = None
 
 
 class ReceiptErrorDetail(BaseModel):
@@ -156,4 +183,5 @@ class ReceiptErrorResponse(BaseModel):
     receipt_id: str
     purchased_at: date | None = None
     items: list[ReceiptItem] = []
+    confidence: float | None = None
     error: ReceiptErrorDetail
