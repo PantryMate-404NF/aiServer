@@ -11,7 +11,7 @@ import config
 import main
 from features.receipt import router as receipt_router
 from features.receipt.schema import ReceiptItem, ReceiptResponse
-from utils.errors import LlmUnavailableError, OcrEmptyError
+from utils.errors import LlmUnavailableError, OcrEmptyError, OcrUnavailableError
 
 RECEIPT_ID = "01K4A7Q3ZV8XG2M5W9R1DTF6HJ"
 PATH = "/v1/ocr/receipt"
@@ -22,6 +22,7 @@ SUCCESS = ReceiptResponse(
     receipt_id=RECEIPT_ID,
     purchased_at=date(2026, 1, 30),
     items=[ReceiptItem(name="깐마늘"), ReceiptItem(name="야채듬뿍사각어묵")],
+    confidence=0.912,
 )
 
 
@@ -49,6 +50,7 @@ def test_success_body_matches_the_contract(monkeypatch: pytest.MonkeyPatch) -> N
             {"name": "깐마늘", "ingredient_id": None},
             {"name": "야채듬뿍사각어묵", "ingredient_id": None},
         ],
+        "confidence": 0.912,
     }
 
 
@@ -90,6 +92,17 @@ def test_llm_failure_uses_its_own_code(monkeypatch: pytest.MonkeyPatch) -> None:
     assert response.json()["error"]["code"] == "LLM_UNAVAILABLE"
 
 
+def test_pool_trouble_uses_its_own_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    """워커 풀 사정은 이미지·LLM 문제가 아니라 재시도 안내가 다릅니다. 계약 본문은 같습니다."""
+    client = _client(monkeypatch, OcrUnavailableError(RECEIPT_ID))
+
+    response = client.post(PATH, headers=HEADERS, data={"receipt_id": RECEIPT_ID}, files=FILE)
+
+    assert response.status_code == 500
+    assert response.json()["error"]["code"] == "OCR_UNAVAILABLE"
+    assert response.json()["receipt_id"] == RECEIPT_ID
+
+
 def test_failure_body_has_the_same_shape_as_success(monkeypatch: pytest.MonkeyPatch) -> None:
     """호출부가 성공과 실패에서 다른 모양을 다루지 않아도 되게 합니다."""
     client = _client(monkeypatch, OcrEmptyError(RECEIPT_ID))
@@ -98,7 +111,8 @@ def test_failure_body_has_the_same_shape_as_success(monkeypatch: pytest.MonkeyPa
 
     assert failure["purchased_at"] is None
     assert failure["items"] == []
-    assert set(failure) == {"receipt_id", "purchased_at", "items", "error"}
+    assert failure["confidence"] is None
+    assert set(failure) == {"receipt_id", "purchased_at", "items", "confidence", "error"}
 
 
 def test_success_body_has_no_error_key(monkeypatch: pytest.MonkeyPatch) -> None:

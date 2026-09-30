@@ -31,6 +31,10 @@ class OcrPoolNotReadyError(AppError):
     """OCR 워커 풀이 아직 모델을 올리지 않았거나 이미 내려갔습니다."""
 
 
+class OcrBusyError(AppError):
+    """OCR 처리 자리가 제한 시간 안에 나지 않았습니다. 워커는 살아 있고 요청만 몰린 상태입니다."""
+
+
 class ReceiptError(AppError):
     """영수증 1장의 처리가 실패했습니다.
 
@@ -50,7 +54,8 @@ class OcrEmptyError(ReceiptError):
     """이미지를 디코딩하지 못했거나 인식된 텍스트가 없습니다."""
 
     code = "OCR_EMPTY"
-    user_message = "영수증을 인식하지 못했습니다. 다시 촬영해 주세요."
+    # 재촬영만 안내하지 않습니다. 오래된 감열지는 다시 찍어도 글자가 돌아오지 않습니다.
+    user_message = "영수증을 인식하지 못했습니다. 다시 촬영하거나 품목을 직접 입력해 주세요."
 
 
 class LlmUnavailableError(ReceiptError):
@@ -58,3 +63,14 @@ class LlmUnavailableError(ReceiptError):
 
     code = "LLM_UNAVAILABLE"
     user_message = "영수증 분석에 실패했습니다. 잠시 후 다시 시도해 주세요."
+
+
+class OcrUnavailableError(ReceiptError):
+    """OCR 워커 풀이 준비되지 않았거나 깨졌거나 자리가 나지 않았습니다.
+
+    이미지나 LLM 의 문제가 아니라 서버 쪽 사정이라 다른 두 코드와 구분합니다. 같은
+    500 이지만 사용자에게는 잠시 후 재시도를 안내합니다.
+    """
+
+    code = "OCR_UNAVAILABLE"
+    user_message = "영수증 인식 서비스가 혼잡합니다. 잠시 후 다시 시도해 주세요."

@@ -12,7 +12,7 @@ import pytest
 from numpy.typing import NDArray
 
 from features.receipt.pipeline import s2_ocr as ocr
-from utils.errors import OcrPoolNotReadyError
+from utils.errors import OcrBusyError, OcrPoolNotReadyError
 
 
 class _FakeEngine:
@@ -70,6 +70,27 @@ def test_missing_scores_default_to_zero(monkeypatch: pytest.MonkeyPatch) -> None
     assert cell.score == 0.0
     # 10x10 짜리 짧은 상자는 각도를 재지 않습니다. 검출 오차가 각도를 그대로 흔듭니다.
     assert cell.slope is None
+
+
+def test_slot_wait_has_a_ceiling(monkeypatch: pytest.MonkeyPatch) -> None:
+    """상한 없이 기다리면 뒤쪽 요청이 백엔드 타임아웃을 넘긴 뒤에야 워커를 잡습니다.
+
+    자리가 하나뿐이고 이미 찼을 때, 두 번째 요청은 제한 시간 뒤 실패하고 첫 번째가
+    자리를 놓으면 다시 잡힙니다.
+    """
+    monkeypatch.setenv("OCR_QUEUE_TIMEOUT_SEC", "0.05")
+
+    async def scenario() -> None:
+        monkeypatch.setattr(ocr, "_slots", asyncio.Semaphore(1))
+        async with ocr.slot():
+            with pytest.raises(OcrBusyError):
+                async with ocr.slot():
+                    pass
+        # 첫 요청이 자리를 놓았으므로 다시 잡힙니다. 실패한 대기가 자리를 새지 않습니다.
+        async with ocr.slot():
+            pass
+
+    asyncio.run(scenario())
 
 
 def test_broken_pool_turns_readiness_off(monkeypatch: pytest.MonkeyPatch) -> None:

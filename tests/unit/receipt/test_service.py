@@ -12,7 +12,16 @@ import pytest
 
 from features.receipt import service
 from features.receipt.schema import OcrCell, ParsedItem, ParsedReceipt, ReceiptResponse
-from utils.errors import ExternalServiceError, ImageDecodeError, LlmUnavailableError, OcrEmptyError
+from utils.errors import (
+    ExternalServiceError,
+    ImageDecodeError,
+    LlmUnavailableError,
+    OcrBusyError,
+    OcrEmptyError,
+    OcrPoolNotReadyError,
+    OcrUnavailableError,
+)
+from utils.metrics import REGISTRY
 
 RECEIPT_ID = "01K4A7Q3ZV8XG2M5W9R1DTF6HJ"
 IMAGE_BYTES = b"pretend this is a jpeg"
@@ -132,10 +141,75 @@ def test_timings_are_logged_not_returned(
     with caplog.at_level(logging.INFO):
         response = _run()
 
-    assert "ocr_ms=" in caplog.text
-    assert "llm_ms=" in caplog.text
+    assert "ocr_s=" in caplog.text
+    assert "llm_s=" in caplog.text
     assert RECEIPT_ID in caplog.text
     assert "meta" not in response.model_dump()
+
+
+def test_confidence_is_the_mean_cell_score(monkeypatch: pytest.MonkeyPatch) -> None:
+    """앱이 낮은 값에서 직접 선택 화면을 먼저 보일 수 있게 싣습니다. 임계치는 서버 몫이 아닙니다."""
+    _wire(monkeypatch)
+
+    assert _run().confidence == pytest.approx((0.9 + 0.8) / 2, abs=1e-3)
+
+
+def test_empty_ocr_log_carries_the_cell_count(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """런북은 인식 품질 하락 때 검출 조각 수가 줄었는지부터 봅니다. 실패 경로에도 있어야 합니다."""
+    _wire(monkeypatch, cells=[OcrCell(text="  ", x_left=0, y_center=0, height=10, score=0.1)])
+
+    with caplog.at_level(logging.WARNING), pytest.raises(OcrEmptyError):
+        _run()
+
+    assert "cells=1" in caplog.text
+
+
+@pytest.mark.parametrize("cause", [OcrPoolNotReadyError("loading"), OcrBusyError("full")])
+def test_pool_trouble_becomes_ocr_unavailable(
+    cause: Exception, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """워커 풀 사정은 계약 밖 예외로 새면 본문 없는 500 이 됩니다. 세 번째 코드로 감쌉니다."""
+    _wire(monkeypatch)
+
+    @asynccontextmanager
+    async def _no_slot() -> AsyncIterator[None]:
+        raise cause
+        yield
+
+    monkeypatch.setattr(service.s2_ocr, "slot", _no_slot)
+
+    with pytest.raises(OcrUnavailableError) as error:
+        _run()
+    assert error.value.receipt_id == RECEIPT_ID
+    assert error.value.__cause__ is cause
+
+
+def test_outcomes_and_stages_are_counted(monkeypatch: pytest.MonkeyPatch) -> None:
+    """런북 8.1 의 영수증 경보는 전부 이 지표를 봅니다. 성공과 실패 코드를 따로 셉니다."""
+    _wire(monkeypatch)
+    ok_before = REGISTRY.get_sample_value("receipt_requests_total", {"code": "ok"}) or 0.0
+    empty_before = REGISTRY.get_sample_value("receipt_requests_total", {"code": "OCR_EMPTY"}) or 0.0
+    total_before = (
+        REGISTRY.get_sample_value("receipt_stage_seconds_count", {"stage": "total"}) or 0.0
+    )
+
+    _run()
+    _wire(monkeypatch, cells=[])
+    with pytest.raises(OcrEmptyError):
+        _run()
+
+    assert REGISTRY.get_sample_value("receipt_requests_total", {"code": "ok"}) == ok_before + 1
+    assert (
+        REGISTRY.get_sample_value("receipt_requests_total", {"code": "OCR_EMPTY"})
+        == empty_before + 1
+    )
+    assert (
+        REGISTRY.get_sample_value("receipt_stage_seconds_count", {"stage": "total"})
+        == total_before + 2
+    )
+    assert REGISTRY.get_sample_value("receipt_confidence_count") >= 1
 
 
 def test_decoding_happens_inside_the_capacity_slot(monkeypatch: pytest.MonkeyPatch) -> None:

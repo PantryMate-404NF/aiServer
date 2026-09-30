@@ -203,13 +203,39 @@ def test_row_number_prefix_is_stripped(
 
 @pytest.mark.parametrize(
     "name",
-    ["가농 1등급란 24개입", "100% 오렌지주스", "2%우유", "500ml 생수", "양파", "챗잎"],
+    ["가농 1등급란 24개입", "100% 오렌지주스", "2%우유", "500ml 생수", "양파", "브로커리"],
 )
 def test_ordinary_names_survive_the_prefix_rule(name: str, monkeypatch: pytest.MonkeyPatch) -> None:
-    """숫자로 시작하는 멀쩡한 이름을 잘라 먹으면 안 됩니다. 오탐이 미탐보다 나쁩니다."""
+    """숫자로 시작하는 멀쩡한 이름을 잘라 먹으면 안 됩니다. 오탐이 미탐보다 나쁩니다.
+
+    "브로커리" 는 오타로 보여도 그대로입니다. 되돌리는 것은 KNOWN_MISREADS 에 적힌
+    오독뿐이고, 그 밖의 짐작 교정은 여전히 하지 않습니다.
+    """
     fake = _FakeGemini({"purchased_at": None, "items": [{"name": name, "is_food": True}]})
 
     assert _run(fake, monkeypatch).items[0].name == name
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("004P챗잎", "깻잎"),  # r01
+        ("(990)깨잎(봉)", "(990)깻잎(봉)"),  # r03
+        ("소소한하루깨잎", "소소한하루깻잎"),  # r19
+        ("들깨 300g", "들깨 300g"),  # 오독 표에 없는 글자는 손대지 않습니다
+    ],
+)
+def test_known_misreads_are_restored(
+    raw: str, expected: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """감열지에서 인식 모델이 일관되게 틀리는 글자를 규칙으로 되돌립니다.
+
+    LLM 의 교정은 여전히 금지입니다. 이 표는 평가셋에서 확인한 오독만 담고, 항목마다
+    근거 영수증 번호가 있습니다.
+    """
+    fake = _FakeGemini({"purchased_at": None, "items": [{"name": raw, "is_food": True}]})
+
+    assert _run(fake, monkeypatch).items[0].name == expected
 
 
 def test_cell_separator_inside_a_name_is_joined(monkeypatch: pytest.MonkeyPatch) -> None:

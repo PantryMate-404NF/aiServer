@@ -8,9 +8,7 @@ from __future__ import annotations
 from statistics import median
 
 from config import get_settings
-from features.receipt.schema import OcrCell
-
-CELL_SEPARATOR = " | "
+from features.receipt.schema import CELL_SEPARATOR, OcrCell
 
 # 기울기를 재려면 각도를 들고 온 긴 상자가 이만큼은 있어야 합니다. 적으면 수평으로 봅니다.
 MIN_CELLS_FOR_SLOPE = 4

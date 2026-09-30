@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import re
 
+from features.receipt.schema import CELL_SEPARATOR
+
 # 이 레이블이 붙은 셀은 통째로 지웁니다. 사람이나 결제수단을 식별할 수 있는 값들입니다.
 PII_LABELS = re.compile(
     r"([가-힣]{2}카드|카드번호|카드\s*:|카드밴사"  # 하나카드·국민카드·신용카드
@@ -73,8 +75,6 @@ NAME_ALLOWLIST = frozenset({"구매일", "주문일", "부가세", "정상가", 
 # 하나를 놓치는 편이 낫습니다.
 ITEM_HEADER = re.compile(r"상\s*품\s*명|품\s*명|상품\(코드\)|단\s*가|수\s*량")
 ITEM_FOOTER = re.compile(r"합\s*계|총\s*액|결\s*제|판매총액|받을금액|받으실|과세|면세")
-
-CELL_SEPARATOR = " | "
 
 
 def mask(text: str) -> str:
