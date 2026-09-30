@@ -24,7 +24,7 @@ from typing import Any
 from config import get_settings
 from features.receipt.pipeline.s1_preprocess import Image
 from features.receipt.schema import OcrCell
-from utils.errors import OcrPoolNotReadyError
+from utils.errors import OcrBusyError, OcrPoolNotReadyError
 
 logger = logging.getLogger(__name__)
 
@@ -95,11 +95,22 @@ async def slot() -> AsyncIterator[None]:
 
     호출부는 이 안에서 전처리까지 함께 합니다. 전처리를 밖에 두면 대기 중인 요청이
     이미 디코딩한 이미지를 들고 있게 되어 자리를 제한한 의미가 사라집니다.
+
+    대기에는 상한이 있습니다. 상한 없이 기다리면 요청이 몰릴 때 뒤쪽 요청이 백엔드
+    타임아웃 30초를 넘긴 뒤에야 처리를 시작해, 워커를 쓰고도 아무에게도 닿지 않습니다.
     """
     if _slots is None:
         raise OcrPoolNotReadyError("OCR 워커 풀이 아직 준비되지 않았습니다.")
-    async with _slots:
+    timeout = get_settings().ocr_queue_timeout_sec
+    try:
+        await asyncio.wait_for(_slots.acquire(), timeout)
+    except TimeoutError as error:
+        logger.warning("ocr slot not acquired within %.1fs", timeout)
+        raise OcrBusyError(f"OCR 처리 자리가 {timeout:.0f}초 안에 나지 않았습니다.") from error
+    try:
         yield
+    finally:
+        _slots.release()
 
 
 async def read(image: Image) -> list[OcrCell]:
@@ -155,6 +166,11 @@ def _load_engine() -> None:
         use_doc_orientation_classify=False,
         use_doc_unwarping=False,
         use_textline_orientation=False,
+        # 리눅스 컨테이너에서 PaddleOCR 이 기본으로 켜는 oneDNN 백엔드가 Paddle 3.3.1
+        # 실행기와 충돌해 첫 인식에서 `ConvertPirAttribute2RuntimeAttribute not support`
+        # 로 죽습니다(인수인계 10절). 끄면 정상이고 속도 차이는 없었습니다(2026-09-30
+        # 실측, 4장). PaddleOCR 3.7 은 이 옵션을 kwargs 로 받습니다.
+        enable_mkldnn=False,
     )
 
 
