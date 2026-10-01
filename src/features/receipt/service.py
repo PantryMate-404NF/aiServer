@@ -11,11 +11,13 @@ from features.receipt.schema import OcrCell, ReceiptItem, ReceiptResponse
 from utils.errors import (
     ExternalServiceError,
     ImageDecodeError,
+    LlmQuotaExceededError,
     LlmUnavailableError,
     OcrBusyError,
     OcrEmptyError,
     OcrPoolNotReadyError,
     OcrUnavailableError,
+    QuotaExceededError,
     ReceiptError,
 )
 
@@ -68,7 +70,12 @@ async def _parse(receipt_id: str, data: bytes, started: float) -> ReceiptRespons
     llm_started = perf_counter()
     try:
         parsed = await s5_normalize.parse_receipt(text)
+    except QuotaExceededError as error:
+        logger.warning("llm quota exceeded receipt_id=%s: %s", receipt_id, error)
+        raise LlmQuotaExceededError(receipt_id) from error
     except ExternalServiceError as error:
+        # 응답 코드는 하나라, 원인(시간 초과인지 형식 오류인지)은 이 로그로 가립니다.
+        logger.warning("llm failed receipt_id=%s: %s", receipt_id, error)
         raise LlmUnavailableError(receipt_id) from error
     llm_s = perf_counter() - llm_started
 

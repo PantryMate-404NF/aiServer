@@ -15,11 +15,13 @@ from features.receipt.schema import OcrCell, ParsedItem, ParsedReceipt, ReceiptR
 from utils.errors import (
     ExternalServiceError,
     ImageDecodeError,
+    LlmQuotaExceededError,
     LlmUnavailableError,
     OcrBusyError,
     OcrEmptyError,
     OcrPoolNotReadyError,
     OcrUnavailableError,
+    QuotaExceededError,
 )
 from utils.metrics import REGISTRY
 
@@ -130,6 +132,32 @@ def test_llm_failure_becomes_llm_unavailable(monkeypatch: pytest.MonkeyPatch) ->
     with pytest.raises(LlmUnavailableError) as error:
         _run()
     assert error.value.receipt_id == RECEIPT_ID
+
+
+def test_quota_and_response_trouble_share_a_code_but_not_a_message(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """호출부의 분기는 그대로 두고, 한도 초과인지 응답 문제인지는 메시지와 로그로 가립니다."""
+    _wire(monkeypatch)
+    raised: list[LlmUnavailableError] = []
+
+    for cause in (QuotaExceededError("code=429"), ExternalServiceError("code=504")):
+
+        async def _fail(text: str, cause: Exception = cause) -> ParsedReceipt:
+            raise cause
+
+        monkeypatch.setattr(service.s5_normalize, "parse_receipt", _fail)
+        with caplog.at_level(logging.WARNING), pytest.raises(LlmUnavailableError) as error:
+            _run()
+        raised.append(error.value)
+
+    quota, response = raised
+    assert isinstance(quota, LlmQuotaExceededError)
+    assert not isinstance(response, LlmQuotaExceededError)
+    assert quota.code == response.code == "LLM_UNAVAILABLE"
+    assert quota.user_message != response.user_message
+    assert "code=429" in caplog.text
+    assert "code=504" in caplog.text
 
 
 def test_timings_are_logged_not_returned(
