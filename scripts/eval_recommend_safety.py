@@ -51,7 +51,7 @@ os.environ.update(
         "OCR_CLAHE_TILE_GRID": "8",
         "OCR_SAME_LINE_HEIGHT_RATIO": "0.6",
         "OCR_WARMUP_HOLD_SEC": "0.3",
-        "LLM_TIMEOUT_SEC": "10",
+        "LLM_TIMEOUT_SEC": "20",
         "LLM_MAX_RETRIES": "1",
         "LLM_BACKOFF_BASE_SEC": "0.5",
         "RECEIPT_PROMPT_VERSION": "5",
