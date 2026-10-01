@@ -73,9 +73,7 @@ class Settings(BaseSettings):
     # 후처리 LLM
     gemini_api_key: str
     gemini_model: str = "gemini-3.5-flash-lite"
-    # Gemini API 가 10초 미만의 데드라인을 400 으로 거부합니다. 이 값이 하한입니다.
-    # 백엔드 타임아웃 30초 = OCR 최악 10초 + LLM 최악 11초 + 여유입니다.
-    llm_timeout_sec: int = 10
+    llm_timeout_sec: int = 20
     llm_max_retries: int = 1
     llm_backoff_base_sec: float = 0.5
     # v2 는 v1 에서 주류를 비식재료로 옮긴 것이고, v3 은 이름 교정을 금지해 OCR 원문을

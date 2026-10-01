@@ -59,7 +59,7 @@
 | `OCR_WARMUP_HOLD_SEC` | 0.3 | 기동 예열 때 워커 하나가 작업을 붙잡는 시간. 0 이면 워커 하나가 예열을 전부 가져가 나머지가 뜨지 않습니다 |
 | `OCR_QUEUE_TIMEOUT_SEC` | 15.0 | 처리 자리를 기다리는 상한(초). 넘기면 `OCR_UNAVAILABLE` 로 즉시 실패합니다. OCR 한 장 8~11초 뒤에 처리를 시작해도 백엔드 타임아웃 30초 안에 들도록 잡은 값입니다 |
 | `GEMINI_MODEL` | gemini-3.5-flash-lite | 후처리 LLM 모델명 |
-| `LLM_TIMEOUT_SEC` | 10 | LLM 요청 타임아웃(초). Gemini 가 10초 미만을 거부하므로 10 이 하한입니다. 백엔드 타임아웃 30초 = OCR 최악 10 + LLM 최악 11 + 여유 |
+| `LLM_TIMEOUT_SEC` | 20 | LLM 요청 타임아웃(초). Gemini 가 10초 미만을 거부하므로 10 이 하한입니다. 10 에서는 Gemini 가 느린 날 504 로 실패해 20 으로 올렸습니다. 백엔드 타임아웃 30초에서 OCR 8~12초를 뺀 나머지의 최대치이고, 더 올리려면 백엔드 타임아웃을 함께 올려야 합니다 |
 | `LLM_MAX_RETRIES` | 1 | LLM 재시도 횟수 |
 | `LLM_BACKOFF_BASE_SEC` | 0.5 | 재시도 간격의 밑값(초) |
 | `RECEIPT_PROMPT_VERSION` | 5 | 후처리 프롬프트 판. 출력 스키마는 판이 달라도 같습니다 |
