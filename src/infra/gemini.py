@@ -18,7 +18,7 @@ from google.genai import types
 from google.genai.errors import APIError
 
 from config import get_settings
-from utils.errors import ExternalServiceError
+from utils.errors import ExternalServiceError, QuotaExceededError
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,7 @@ JSON_MIME_TYPE = "application/json"
 # 504 는 뺐습니다. 데드라인을 다 쓰고 돌아오는 코드라 다시 보내면 응답 예산을 두 배로
 # 쓰고 백엔드 타임아웃 30초를 넘깁니다. 나머지는 1초 안에 돌아옵니다.
 RETRYABLE_STATUS = frozenset({429, 500, 502, 503})
+QUOTA_STATUS = 429
 MILLISECONDS_PER_SECOND = 1000
 
 
@@ -66,6 +67,9 @@ async def complete_json(prompt: str, response_schema: dict[str, Any]) -> dict[st
         except APIError as error:
             if error.code not in RETRYABLE_STATUS or attempt == settings.llm_max_retries:
                 message = f"Gemini 호출이 실패했습니다 (code={error.code})"
+                if error.code == QUOTA_STATUS:
+                    # 한도 초과는 응답 문제와 처방이 다릅니다. 호출부가 가릴 수 있게 나눕니다.
+                    raise QuotaExceededError(message) from error
                 raise ExternalServiceError(message) from error
             delay = settings.llm_backoff_base_sec * (2**attempt)
             logger.warning("gemini retry in %.1fs (code=%s attempt=%d)", delay, error.code, attempt)

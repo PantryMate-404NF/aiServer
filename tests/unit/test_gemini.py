@@ -11,7 +11,7 @@ from google.genai.errors import APIError
 
 import config
 from infra import gemini
-from utils.errors import ExternalServiceError
+from utils.errors import ExternalServiceError, QuotaExceededError
 
 SCHEMA: dict[str, Any] = {"type": "object"}
 
@@ -70,6 +70,15 @@ def test_rate_limit_is_retried(monkeypatch: pytest.MonkeyPatch) -> None:
     assert models.calls == 2
 
 
+def test_rate_limit_that_outlasts_the_retries_is_named(monkeypatch: pytest.MonkeyPatch) -> None:
+    """한도 초과는 응답 문제와 처방이 다릅니다. 호출부가 가릴 수 있게 다른 예외로 올립니다."""
+    models = _install(monkeypatch, [_error(429), _error(429)])
+
+    with pytest.raises(QuotaExceededError):
+        asyncio.run(gemini.complete_json("prompt", SCHEMA))
+    assert models.calls == 2
+
+
 def test_client_error_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
     """400 이나 인증 실패는 다시 보내도 같습니다. 재시도는 응답만 늦춥니다."""
     models = _install(monkeypatch, [_error(400)])
@@ -83,9 +92,11 @@ def test_retries_are_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
     """재시도가 끝없이 늘면 백엔드 타임아웃 30초를 넘깁니다."""
     models = _install(monkeypatch, [_error(503), _error(503)])
 
-    with pytest.raises(ExternalServiceError):
+    with pytest.raises(ExternalServiceError) as error:
         asyncio.run(gemini.complete_json("prompt", SCHEMA))
     assert models.calls == 2
+    # 서버 오류는 한도 초과가 아닙니다. 한도 메시지가 잘못 나가면 사용자가 헛되이 기다립니다.
+    assert not isinstance(error.value, QuotaExceededError)
 
 
 def test_empty_response_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:

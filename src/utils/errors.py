@@ -23,6 +23,10 @@ class ResponseValidationError(ExternalServiceError):
     """외부 서비스 응답이 기대한 스키마와 다릅니다."""
 
 
+class QuotaExceededError(ExternalServiceError):
+    """외부 서비스가 호출 한도 초과(429)로 거절했고, 재시도 뒤에도 같았습니다."""
+
+
 class ImageDecodeError(AppError):
     """업로드된 바이트를 이미지로 열지 못했습니다."""
 
@@ -59,10 +63,25 @@ class OcrEmptyError(ReceiptError):
 
 
 class LlmUnavailableError(ReceiptError):
-    """후처리 LLM 호출이 재시도 후에도 실패했습니다."""
+    """후처리 LLM 에서 쓸 수 있는 응답을 받지 못했습니다.
+
+    시간 초과, 연결 실패, 빈 응답, 형식이 어긋난 응답이 여기에 듭니다. 호출 한도
+    초과는 아래 하위 클래스가 같은 코드에 다른 메시지로 내보냅니다.
+    """
 
     code = "LLM_UNAVAILABLE"
-    user_message = "영수증 분석에 실패했습니다. 잠시 후 다시 시도해 주세요."
+    user_message = "영수증 분석 응답을 받지 못했습니다. 잠시 후 다시 시도해 주세요."
+
+
+class LlmQuotaExceededError(LlmUnavailableError):
+    """LLM API 호출 한도를 넘겼습니다. 코드는 같고 메시지만 다릅니다.
+
+    코드를 늘리지 않는 이유는 호출부의 분기가 그대로여야 하기 때문입니다. 원인은
+    메시지와 서버 로그로 가립니다. 한도는 기다리면 풀리지만 응답 문제는 그렇지 않을 수
+    있어 안내가 다릅니다.
+    """
+
+    user_message = "영수증 분석 요청 한도를 초과했습니다. 1분 뒤 다시 시도해 주세요."
 
 
 class OcrUnavailableError(ReceiptError):
